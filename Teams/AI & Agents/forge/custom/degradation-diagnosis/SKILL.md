@@ -1,0 +1,51 @@
+---
+name: degradation-diagnosis
+type: custom
+status: built from scratch
+fulfills_catalog_entry: none — the receiving end of the catalog's dangling "degradation → forge" pointer (redesign plan §1.1)
+assigned_agent: forge (AI & Agents / AI Methods & Benchmarking)
+portable: true
+date_added: 2026-07-10
+---
+
+# Degradation Diagnosis
+
+## Introduction
+When gauge routes a degradation case here, this skill answers WHY: model drift, technique misfit, skill-text gap, config rot, or environment change — and routes the fix to its owner. The diagnosis step between detection (gauge) and repair (anneal/operator).
+
+## Purpose
+Fixing the wrong layer wastes a cycle and hides the real cause. One skill owns differential diagnosis so cases don't ping-pong.
+
+## When to Use
+- gauge's degradation-routing delivers a case (operational or behavioral class).
+- A fix was applied but re-measurement failed (case reopened — diagnosis was wrong or partial).
+
+## Structure / Protocol
+RECEIVE (evidence bundle — no bundle, send it back) → TIMELINE (what changed near onset: proposal IDs, version events, tool changes from relay's registry, golden-set edits) → HYPOTHESIZE (ranked differential across the five layers below) → TEST (cheapest discriminating test first — often a golden-set re-run pinned to the prior version, or a benchmark comparison) → VERDICT (layer + evidence) → ROUTE.
+
+## Instructions
+1. The five layers, in the order changes usually explain them:
+   - **Version event** (provider changed the model) → verdict to registry + rec (pin/rollback/adapt) as Rail 3 proposal.
+   - **Config rot** (thresholds, prompts, routing drifted vs registry) → operator/platform config fix rec.
+   - **Skill-text gap** (the method itself fails the case) → anneal (self-annealing intake, the case IS the baseline failure).
+   - **Technique misfit** (task type outgrew the technique) → technique-adoption (candidate search) + registry.
+   - **Environment change** (tool/API behavior shifted) → relay (contract drift path) + ops if infra.
+2. Discriminating tests are minimal and recorded: the goal is to eliminate layers cheaply, not to run a full benchmark by reflex.
+3. Verdicts carry evidence and a confidence flag (rule 0.6); `accepted degradation` (deliberate trade, cites its proposal ID) is a legitimate verdict — it goes back to gauge to become the new baseline.
+4. Reopened cases escalate honestly: second miss on the same case → diagnosis review with meta (is the diagnostic method itself the gap? → anneal, this skill's own text).
+5. Diagnosis never fixes: every verdict routes to an owner. forge holds no write access to anything it diagnoses.
+
+## Output Format
+Diagnosis memo: case ID, timeline, differential table (layer / evidence for / against), discriminating tests run, verdict + confidence, route.
+
+## Principles
+- Timeline first: most degradations are a change wearing a disguise.
+- Cheapest discriminating test first; benchmarks are a scalpel, not a reflex.
+- Two misses on one case means the method is the patient.
+
+## Fallback
+Bundle inconclusive and no discriminating test can separate the top hypotheses? Verdict `undetermined` with the named missing evidence, case parked with a re-check date and gauge instrumenting the gap — never a coin-flip verdict.
+
+## Boundaries with Other Skills
+- Upstream: gauge's degradation-routing (sole intake). Downstream: anneal, relay, ops, operator, technique-adoption, model-technique-registry.
+- Security-smelling evidence discovered mid-diagnosis → quinn + aegis immediately (same skip-the-queue rule as gauge).

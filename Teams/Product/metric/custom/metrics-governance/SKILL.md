@@ -1,0 +1,48 @@
+---
+name: metrics-governance
+type: custom
+status: built from scratch
+fulfills_catalog_entry: none — new; the change-control + sync-interface discipline the catalog left implicit (redesign §3)
+assigned_agent: metric (Product / Product Analytics)
+portable: true
+date_added: 2026-07-10
+---
+
+# Metrics Governance
+
+## Introduction
+The change control for metric definitions: a definition never changes silently. Every change is a versioned proposal with an impact statement (what historical trends break, who's citing the old version), and the sync interface to the data layer and kai's dashboards is a stated export, not a scramble.
+
+## Purpose
+A silently-redefined "activation" makes every dashboard, PRD, and past decision quietly wrong — and nobody notices until two numbers that should match don't. Governance makes definition changes visible, versioned, and impact-assessed, and keeps every downstream consumer reading from one export.
+
+## When to Use
+- A definition needs changing (product-metrics-spec routes all changes here).
+- A new consumer (dashboard, dept, the future Data & Analytics layer) needs the definition export.
+- An audit: are all live citations pinned to versions that still exist?
+
+## Structure / Protocol
+PROPOSE (the change: old `vN` → new `vN+1`, the exact definition diff, the reason) → IMPACT (what trends break at the changeover, which PRDs/experiments/dashboards cite `vN`, whether a backfill is possible) → VERSION (new version added; old version stays readable — never edited away, so historical numbers stay interpretable) → SYNC INTERFACE (definitions export in the stated format; the data layer / river binding is deferred to that dept, the interface stable regardless) → FLEET NOTE (a definition change is a skill-adjacent change to shared truth — material changes route through anneal → board per Fleet Charter Rail 3; routine version bumps are logged, not board-gated).
+
+## Instructions
+1. No silent changes — every definition edit is a proposal with a version bump and an impact statement; applying a change without one is a truth incident (the metric-side analogue of silent repricing).
+2. Old versions are immortal: superseded definitions stay readable so a two-year-old number can be understood in its own terms (append-only, precedent's discipline).
+3. Impact names names: the proposal lists every current citation of the old version (PRDs, experiments, dashboards) so consumers re-pin deliberately.
+4. One export, many readers: kai's dashboards, spec's PRDs, and the future data layer all read the same exported definitions — divergent copies are the bug this prevents.
+5. Material vs routine: a changed NSM or activation definition (decisions hang on it) routes anneal → board; a clarifying non-semantic tweak is logged. When unsure, route up (Fleet Charter most-restrictive default).
+
+## Output Format
+Change proposal: diff · impact (broken trends, cited-by list, backfill?) · new version · export stanza · board-route flag (material) or log entry (routine).
+
+## Principles
+- Versioned, impact-assessed, never silent — the three rules of a definition change.
+- Old versions are immortal; trends stay interpretable.
+- One export, one truth, many readers.
+
+## Fallback
+No data layer to sync to yet? The export is a versioned file consumers read directly (the deferred-binding pattern) — governance works without the pipeline, the pipeline binds later.
+
+## Boundaries with Other Skills
+- product-metrics-spec holds the definitions; this owns their change; funnel/experiment instrumentation consume the current versions.
+- kai (Brand Studio): shared dashboards read this export; metric owns in-product definitions, kai owns marketing ones — neither redefines the other's silently.
+- anneal/board (Fleet Charter Rail 3): material definition changes route through the fleet's change path; the future Data & Analytics dept binds the export interface.

@@ -1,0 +1,87 @@
+---
+name: social-content-calendar
+type: custom
+status: built from scratch — pulse is the NEW agent added in Brand Studio v3 (2026-07-07) to fill the catalog's organic-social gap, per the operator's stated priority
+fulfills_catalog_entry: none — new; the catalog had paid social (rio) and growth (nate) but no organic social management
+assigned_agent: pulse (Brand Studio / Social Media)
+portable: true — platforms, cadences, and playbooks are per-business; connected platforms come from config
+includes: assets/platform-playbook-template.md (the refreshable per-platform layer), assets/hooks-register-template.md (the learning loop)
+date_added: 2026-07-07
+---
+
+## Introduction
+
+social-content-calendar is pulse's planning spine: a per-platform content calendar that serializes weave's story chapters into platform-native posts, in lena's voice, on a deliberate cadence. It implements the three-layer hook design agreed 2026-07-07: **durable psychology** lives in the sibling `hook-writing` skill (static); **volatile platform knowledge** lives in dated, refreshable playbooks (one per platform, reviewed on cadence); and **ground truth** lives in the hooks register — what actually worked for *this* brand's audience, fed by kai's numbers. Generic patterns propose; the brand's own data disposes.
+
+## Purpose
+
+Organic social fails two ways: posting randomly (no cadence, no arc — the account is noise) or posting mechanically (same content cross-posted everywhere — native to nowhere). The calendar fixes both: every slot knows its platform, its format (from the playbook), its chapter (from weave's arc, or labeled non-chapter), and its job. For a small business this is the difference between "we should post more" guilt and a system that ships.
+
+## When to Use
+
+Triggers: "content calendar," "what should we post," "plan this week's/month's social," "serialize this campaign," or on the configured planning cadence.
+
+## Structure / Protocol
+
+```
+Load: connected platforms (config) + each platform's playbook + brand voice guide +
+      weave's current act/chapters + muse's content-mode ideas + hooks register
+  -> Plan the period: slots per platform per cadence
+       each slot = platform · format (playbook) · chapter ref (or labeled non-chapter)
+                   · hook approach (register-first, then patterns) · CTA/job
+    -> Draft per slot: hook-writing psychology + playbook format + lena's voice
+       + humanic-writing pass (always)
+      -> spark's gate (every post — batch-gated as a series where applicable)
+        -> Publish per connector (or hand ready-to-post package to operator)
+          -> Outcomes → kai → hooks register + playbook refresh notes
+```
+
+## Instructions
+
+### Phase 1 — Plan the Period
+
+For each connected platform (config's `connected_platforms` — never assume a platform the business isn't on): pull the playbook's current cadence norms and formats, weave's current act (which chapters need telling), muse's validated content ideas, and the hooks register's what-works. Build the calendar: one row per slot. **Chapter mapping is explicit** — a healthy mix carries the arc forward while functional posts (offers, announcements) are labeled non-chapter; spark tracks that ratio.
+
+### Phase 2 — Draft Platform-Native
+
+Per slot: hook first (register's proven approaches for this audience get first shot; the 15 patterns fill gaps — always adapted to the platform per its playbook, since a YouTube cold-open and a LinkedIn first-line behave differently), then the body in the platform's format, in lena's voice, through humanic-writing. **Cross-posting is adaptation, not copy-paste**: the same chapter becomes a thread on X, a carousel on Instagram, a 40-second script on TikTok — one story, native executions.
+
+### Phase 3 — Gate and Publish
+
+Every post gates at spark (series batch-gate where the calendar defines a series). Publishing per the platform connector where write access exists; otherwise the ready-to-post package (final copy + pixel's assets + posting notes) goes to the operator. Scheduled slots that miss get rescheduled visibly, not silently dropped.
+
+### Phase 4 — Learn
+
+When kai's numbers land: each post's hook approach and format get an outcome line in the hooks register; patterns that decay get flagged; playbook refresh notes accumulate for the cadence review. This is self-annealing applied to social — the calendar's next period plans from evidence.
+
+## Output Format
+
+```
+## Calendar: [period] — [brand]
+
+| Slot | Platform | Date | Format (playbook) | Chapter / non-chapter | Hook approach | Job/CTA | Status |
+
+Chapter ratio: [n chapter / m non-chapter] · Gate: [batch refs] · Publish: [connector/manual]
+```
+
+## Principles
+
+- **Native to each platform or not on it.** Adaptation per playbook, never copy-paste distribution.
+- **The register outranks the pattern list.** This brand's evidence beats generic psychology; generic patterns are flagged as craft heuristics (rule 0.6).
+- **Playbooks are dated and reviewed.** Undated platform advice is stale advice hiding.
+- **Chapters explicit, non-chapter labeled.** The account tells the brand's story or admits when it isn't.
+- **Missed slots reschedule visibly.**
+- **Real engagement bait only** — no manufactured controversy, no fake urgency; lena's honesty rules apply at social speed.
+
+## Fallback
+
+- No playbook for a platform → start from the template's durable defaults, labeled provisional, and date everything.
+- No connected platforms configured → plan for the platforms the operator names per-run; flag the config gap.
+- Empty hooks register (new brand) → patterns carry the load; the register starts with the first period's outcomes.
+- No arc yet → all content is labeled pre-arc (weave's rule); calendar still runs.
+
+## Boundaries with Other Skills
+
+- `hook-writing` (sibling) = the psychology; the playbooks = the platform layer; the register = the evidence. This skill orchestrates all three.
+- `community-engagement` (sibling) owns what happens after posting.
+- **weave** owns chapters (a calendar series maps to chapters; the ledger tracks chapters, this calendar tracks posts). **lena** owns voice + humanic pass. **pixel** produces the visuals per slot. **muse** feeds validated ideas. **spark** gates. **kai** measures — pulse never grades its own homework. **rio** owns paid amplification of organic winners (handoff: register's proven posts are rio's best creative candidates).

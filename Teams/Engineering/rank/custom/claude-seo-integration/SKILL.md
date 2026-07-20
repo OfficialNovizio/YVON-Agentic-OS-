@@ -1,0 +1,82 @@
+---
+name: claude-seo-integration
+type: custom (wraps a plugin)
+status: built 2026-07-09 (Fable build)
+based_on_catalog_entry: none — new; plan §3/§5 "wraps claude-seo plugin (runtime install, 25 sub-skills) P"
+marketplace_search: 2026-07-09 — claude-seo FOUND (github.com/AgriciDaniel/claude-seo, MIT, v1.9.9): 24 sub-skills + 18 sub-agents covering technical SEO, E-E-A-T, schema, GEO/AEO, local, i18n, backlinks, Core Web Vitals (INP). This skill WRAPS the plugin (runtime install, proposed connector §5) rather than reimplementing it; the plugin is the machinery, this is how rank drives it within the department
+plugin_source: github.com/AgriciDaniel/claude-seo (MIT) — installed at runtime, not vendored
+assigned_agent: rank (Engineering / Technical SEO)
+portable: true — the plugin is business-agnostic; the site + credentials come from config
+includes: (no asset — wraps the external plugin)
+date_added: 2026-07-09
+---
+
+## Introduction
+
+claude-seo-integration is how rank drives the **claude-seo plugin** (AgriciDaniel, MIT) — a 24-sub-skill, 18-sub-agent SEO toolkit (`/seo audit`, `/seo technical`, `/seo schema`, `/seo geo`, `/seo sitemap`, and more). rank installs it at runtime (a proposed connector, plan §5) and orchestrates it for the business's site. The plugin is the machinery; this skill is the department-aware wrapper: it applies the plugin within rank's boundary (technical execution, not strategy — that's kai) and under the charter.
+
+## Purpose
+
+Reimplementing a mature 25-skill SEO toolkit would be wasteful and worse — the plugin is actively maintained and covers GEO, schema, local, i18n, backlinks, and Core Web Vitals with current thresholds (INP, not FID; the FAQ/HowTo schema deprecations). rank wraps it so the department gets that depth immediately, bounded by rank's role and the department's rules.
+
+## When to Use
+
+Triggers: "SEO audit," "run the SEO tools," "technical SEO scan," "schema check," "GEO / AI Overviews," "sitemap analysis," and any task the plugin's commands cover — filtered through rank's boundary (execution, not strategy).
+
+## Structure / Protocol
+
+```
+An SEO task
+  -> Is it rank's (technical execution) or kai's (strategy + measurement)? (seo-ownership-boundary)
+     kai's → hand back to kai with a technical brief
+  -> rank's → INSTALL/confirm claude-seo (runtime; proposed connector §5)
+    -> Invoke the right command: /seo technical · /seo schema · /seo sitemap · /seo geo ·
+       /seo page · /seo hreflang · /seo images · etc.
+      -> Apply results within the department: findings → dev review / mia (implementation) / raj (server)
+        -> Charter: plugin runs plan-locked (Rail 1), sandboxed (Rail 2); no site changes it "just makes" —
+           technical fixes go through the normal build+gate, not the plugin's hand
+```
+
+## Instructions
+
+1. **Boundary first.** Before invoking anything, confirm the task is rank's (technical execution) not kai's (strategy, keyword targets, content decisions, measurement) — seo-ownership-boundary governs. Strategy requests get a technical brief and go back to kai; rank doesn't set SEO strategy.
+2. **Install at runtime, don't vendor.** The plugin is installed as a connector at deployment (plan §5), not copied into the department — so it stays current (it updates often; v1.9.9 at build). Confirm it's available; if not, surface the connector to the operator.
+3. **Invoke the right command.** Map the task to the plugin's commands — `/seo technical` for the 9-category technical audit, `/seo schema` for structured data, `/seo geo` for AI-search readiness, `/seo sitemap`, `/seo hreflang`, `/seo page`. Use its sub-agent orchestration for full audits.
+4. **Results are recommendations, not auto-changes.** The plugin analyzes and generates; it does not get to silently change the live site. Technical fixes it recommends go through the normal path — mia implements frontend changes, raj server-side, dev reviews, quinn gates. rank never lets a tool edit production directly (charter + dev's review integrity).
+5. **Respect the plugin's own current-fact rules.** It encodes live SEO facts rank should honor: Core Web Vitals use INP (not the retired FID); HowTo schema is deprecated (Sept 2023); FAQ rich results are restricted to gov/health (Aug 2023). These are dated facts — treat the plugin as a dated playbook (ops's volatility split); verify against current Google guidance when stakes are high.
+6. **Handle the plugin's community footer.** The plugin appends a community-promo footer to major deliverables; in a business context, rank strips or suppresses it from operator-facing output unless the operator wants it (it's the tool author's promo, not the business's content).
+
+## Output Format
+
+```
+## SEO (via claude-seo): [task]
+Boundary: [rank technical execution ✓ / kai strategy → handed back]
+Plugin: [installed ✓ / connector needed] · Command(s): [/seo …]
+Findings: [technical issues, by plugin priority: Critical/High/Medium/Low]
+Implementation path: [mia / raj / dev review — NOT auto-applied]
+Charter: [plan-locked, sandboxed; no direct site edits by the tool]
+Footer: [community promo suppressed for operator output]
+```
+
+## Principles
+
+- **Boundary first** — rank executes; kai strategizes and measures.
+- **Install at runtime; keep it current** — the plugin updates; don't vendor a stale copy.
+- **The plugin recommends; the department implements** — no tool edits production directly.
+- **Honor its dated facts, verify high-stakes ones** — INP not FID, HowTo/FAQ deprecations; treat as a dated playbook.
+- **Suppress the tool's community footer** in operator-facing business output.
+- **Charter-bound** — plan-locked, sandboxed; findings route through review and the gate.
+
+## Fallback
+
+- Plugin not installed → surface it as a connector to the operator (plan §5); meanwhile rank does technical SEO method-only (technical-seo-execution), labeled reduced-depth.
+- Plugin command fails / URL unreachable → report partial results (the plugin's own error handling), don't guess site content.
+- Task is actually kai's → hand back with a technical brief; don't stretch the plugin into strategy rank doesn't own.
+
+## Boundaries with Other Skills
+
+- **kai (Brand Studio)**: owns SEO strategy + measurement (its scorecard §6); rank owns technical execution — seo-ownership-boundary is the clean split.
+- **technical-seo-execution / structured-data-geo** (siblings): rank's own method; the plugin deepens them, and degrades to them if absent.
+- **mia**: implements frontend SEO fixes (Core Web Vitals shared signal); **raj**: server-side (redirects, headers, SSR).
+- **dev/quinn**: SEO fixes pass review and the gate like any change; the plugin never auto-edits.
+- **ops/platform-playbooks**: the plugin is treated as a dated tool (its SEO facts have dates).

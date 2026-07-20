@@ -1,0 +1,7 @@
+{
+  "_comment": "Tier → fragment composition (v2). preamble renders under '## Preamble (run first)', postamble under '## Completion (run last)'. .sh.frag files concatenate into one bash block; .md.frag render as prose after it.",
+  "1": { "preamble": ["scope.sh.frag"], "postamble": ["completion.sh.frag"] },
+  "2": { "preamble": ["scope.sh.frag", "rules.md.frag"], "postamble": ["completion.sh.frag"] },
+  "3": { "preamble": ["scope.sh.frag", "config.sh.frag", "rules.md.frag"], "postamble": ["completion.sh.frag"] },
+  "4": { "preamble": ["scope.sh.frag", "config.sh.frag", "retrieval.sh.frag", "rules.md.frag"], "postamble": ["completion.sh.frag"] }
+}

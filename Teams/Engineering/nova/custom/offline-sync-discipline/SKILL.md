@@ -1,0 +1,82 @@
+---
+name: offline-sync-discipline
+type: custom
+status: built 2026-07-09 (Fable build) — DORMANT until mobile_active
+based_on_catalog_entry: none — new; the mobile-distinct data concern (offline-first, local persistence, sync/conflict) — the 4th skill
+marketplace_search: 2026-07-09 skillsmp.com / mcpmarket.com — offline/sync skills found are library-specific; the discipline is kept custom, bound to raj's API, dana's model, and the charter
+assigned_agent: nova (Engineering / Mobile)
+portable: true — the discipline is framework-agnostic; local-store tooling comes from the dated playbook
+includes: (no asset — method skill)
+date_added: 2026-07-09
+---
+
+## Introduction
+
+offline-sync-discipline is how nova handles the reality web mostly ignores: mobile devices lose connectivity constantly (tunnels, elevators, planes), so a good app works offline and reconciles when the network returns. That means local persistence, a sync strategy, and — the hard part — conflict resolution when the same data changed in two places. Done wrong, it's the source of the worst class of mobile bug: silent data loss.
+
+## Purpose
+
+An app that only works online is broken on a subway; an app that syncs naively corrupts data when two devices edit offline. This discipline makes offline a first-class state (not an error), and makes sync conflicts a designed-for case (not a data-loss accident). It also intersects the charter: sync must never let the client become a path to destructive server writes (Rail 3 still holds).
+
+## When to Use
+
+Triggers (only when `mobile_active`): "offline support," "local storage/cache," "sync," "what happens with no network," "conflict resolution," "the data disappeared/duplicated," and any mobile feature holding user data.
+
+## Structure / Protocol
+
+```
+[GATE: mobile_active?] A feature that holds/edits data on device
+  -> LOCAL PERSISTENCE: what's stored on device (per dated playbook's store); secure storage for sensitive (aegis)
+  -> OFFLINE AS A STATE: the UI works offline — reads from local, queues writes; offline is not an error screen
+  -> SYNC STRATEGY: when connectivity returns, reconcile local ↔ server (raj's API)
+  -> CONFLICT RESOLUTION: the SAME record changed both places → an explicit, designed rule
+     (last-write-wins / merge / user-prompt — chosen deliberately, never silent-drop)
+    -> Server-side writes still follow the charter: the app calls raj's API; destructive server data
+       changes remain dana's migrations / operator-run — the client is never a Rail 3 bypass
+      -> Verified offline→online transitions (mobile-verification): no loss, no duplication
+```
+
+## Instructions
+
+1. **Check the switch.** `mobile_active` false → dormant.
+2. **Offline is a state, not an error.** The app reads from local persistence and queues writes when offline — a blank error screen on a subway is a design failure. Decide explicitly what's available offline and what genuinely requires connectivity.
+3. **Persist deliberately; secure the sensitive.** Choose what's cached locally and where (per the dated playbook's local store); sensitive data uses secure storage (Keychain/Keystore), never plain preferences (aegis's concern — a stolen phone shouldn't leak tokens).
+4. **Sync with a real strategy.** When the network returns, reconcile queued local changes with the server through raj's API — with ordering, retries (idempotency, service-patterns), and partial-failure handling. A fire-and-forget sync loses data.
+5. **Conflict resolution is designed, never silent.** When the same record changed on device and server, apply an explicit rule — last-write-wins, field-merge, or prompt the user — chosen per the data's meaning. Silently dropping one side is the data-loss bug that erodes all trust. Some data (a bank balance) must never last-write-wins.
+6. **The charter holds through sync.** The client syncing does not make it a path around Rail 3: the app calls raj's API (which validates and authorizes), and destructive server-side data changes remain dana's operator-run migrations. A sync endpoint that lets a client mass-mutate server data is a charter breach (aegis/cypher target).
+7. **Verify the transitions.** Offline→online and online→offline are verified on real devices (mobile-verification): no data lost, none duplicated, conflicts resolved as designed. These transitions are where the bugs are.
+
+## Output Format
+
+```
+## Offline/Sync: [feature] — [mobile_active ✓]
+Local persistence: [what's stored · secure storage for sensitive ✓]
+Offline behavior: [works offline — reads local, queues writes / requires-connectivity, stated]
+Sync strategy: [reconcile via raj API · ordering · idempotency · partial-failure]
+Conflict resolution: [last-write-wins / merge / user-prompt — explicit rule, never silent-drop]
+Charter: [client calls raj API ✓ · no client→destructive-server-write path (Rail 3) ✓]
+Verified transitions: [offline↔online — no loss/duplication ✓]
+```
+
+## Principles
+
+- **Offline is a state, not an error** — reads from local, queues writes.
+- **Persist deliberately; secure the sensitive** — Keychain/Keystore, never plain prefs.
+- **Sync with a real strategy** — ordering, idempotency, partial-failure; fire-and-forget loses data.
+- **Conflicts are designed, never silent-dropped** — the rule fits the data's meaning; some data can't last-write-wins.
+- **The charter holds through sync** — the client is never a Rail 3 bypass.
+- **Verify the transitions** — offline↔online is where data loss/duplication hides.
+
+## Fallback
+
+- `mobile_active` false → dormant.
+- Conflict rule genuinely hard (concurrent edits to structured data) → prompt the user rather than guess; a wrong silent merge is worse than asking.
+- No offline requirement for a feature → state "requires connectivity" explicitly and fail gracefully (clear message, retry) — don't half-build offline that silently loses data.
+
+## Boundaries with Other Skills
+
+- **raj**: sync goes through raj's API (contracts, auth, idempotency); the API validates every synced write.
+- **dana**: the server data model sync reconciles against; destructive server changes stay dana's operator-run migrations (Rail 3).
+- **mobile-verification** (sibling): offline↔online transitions are a core verification target.
+- **mobile-app-architecture** (sibling): local persistence + lifecycle (state surviving background/kill).
+- **aegis/cypher**: local secure storage, and sync endpoints as a server-write attack surface.

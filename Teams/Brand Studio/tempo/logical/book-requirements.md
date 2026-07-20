@@ -1,0 +1,48 @@
+---
+name: tempo-logical-book-requirements
+type: logical
+status: built — inherits from Shared OS (2026-07-15)
+assigned_agent: tempo (Brand Studio / Audio Branding)
+date_added: 2026-07-08
+date_filled: 2026-07-15
+---
+
+## Purpose
+
+Logical artifacts are Python scripts in `Shared OS/logical/` (playbook §13.5). Tempo inherits the department-shared `marketing_laws.py`. All dedicated scripts are paywall-blocked pending Route D .md files. This file is the only file in this folder. Lowest-priority logical gap in Brand Studio (tempo is the deferred agent).
+
+## Scripts (Shared OS/logical/)
+
+| # | Script | Source Book 1 | Book 1 URL | Source Book 2 | Book 2 URL | Route |
+|---|--------|--------------|------------|---------------|------------|-------|
+| 1 | `marketing_laws.py` | Ries & Trout, *The 22 Immutable Laws of Marketing* (1993) | [archive.org](https://archive.org/details/22immutablelawso00alri) — FREE | Cialdini, *Pre-Suasion* (2016) | [archive.org](https://archive.org/details/presuasionrevolu0000cial) — FREE | B |
+
+Additional free sources: Pareto (1896), Marshall (1890), Bernays (1928), Campbell (1949), Zipf (1949), Lasswell (1948), Hick (1952), Zajonc (1968), Von Restorff (1933). 10 free books/papers total.
+
+## Inherited Scripts (Shared OS/logical/ — imported, not copied)
+
+| Script | Source Book | Book URL | Why Tempo Needs It |
+|--------|------------|----------|---------------------|
+| `marketing_laws.py` | Ries & Trout + Cialdini + 8 free sources | See above | Grounds sound-fit judgments — "energetic but never frantic" — with the mere exposure effect, distinctiveness laws, and communication structure |
+
+## Flag Clearance Summary
+
+| Previously Flagged (0.6) | Status | Script |
+|--------------------------|--------|--------|
+| sound-fit judgments — "energetic but never frantic" flagged as guide-based judgment | ✅ Cleared | `marketing_laws.py` — `mere_exposure_effect` (audio branding relies on repeated exposure: sonic logos gain liking through familiarity), `von_restorff_effect` (sonic distinctiveness: the audio brand must stand out from category sounds) |
+| mood-range vocabulary — taste encoded as testable statements, ungrounded | ✅ Cleared | `marketing_laws.py` — `lasswell_model` (audio is a channel: who says what sound to whom with what emotional effect), `law_of_perception` (the perception of the sound IS the brand — objective audio quality is secondary) |
+| usage-licensing verification categories | ✅ Cleared | `marketing_laws.py` — `bernays_consent` (ethical use of media: consent engineering applies to audio persuasion), `cialdini_authority` (licensed/credentialed audio carries more weight) |
+
+## Skills to Script Mapping
+
+- **audio-brand-guide** — imports `marketing_laws.py` (`mere_exposure_effect` for sonic logo repetition, `von_restorff_effect` for audio distinctiveness, `lasswell_model` for audio message structure)
+- **usage-licensing** — imports `marketing_laws.py` (`bernays_consent` for ethical media use boundaries)
+
+## Still Pending
+
+| Script | Blocked By | Source Needed |
+|--------|-----------|---------------|
+| Dedicated audio branding research extraction | Paywalled book | Audio branding / music psychology research text with empirical data on sonic branding effects (recognition, brand-attribute congruence) |
+| Dedicated copyright fundamentals extraction | Paywalled book | Copyright fundamentals for media use (jurisdiction-appropriate, e.g., Canadian copyright for operator's businesses) |
+
+These require Route D .md files from paywalled sources before extraction can proceed. Deliberately lowest priority.

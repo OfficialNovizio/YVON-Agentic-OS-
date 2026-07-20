@@ -1,0 +1,65 @@
+---
+name: stack-profile
+type: custom
+status: built 2026-07-08; Fable audit pass 2026-07-09 — content unchanged, provenance completed
+marketplace_search: 2026-07-09 skillsmp.com / mcpmarket.com — searched "tech stack profile"; nothing fit (the skill is a department-specific genericization mechanism, not a generic capability), kept custom
+based_on_catalog_entries: replaces the hardcoded stack assumptions scattered across the catalog's Engineering skills (Supabase, React/Vercel, Postgres) — per rule 0.4b these become ONE operator-supplied stack-profile document that every Engineering agent reads
+assigned_agent: dev (Engineering / Lead Developer)
+portable: true — the profile's whole point; any stack, one document
+includes: assets/stack-profile-template.md
+date_added: 2026-07-08
+---
+
+## Introduction
+
+stack-profile is the single per-business document describing *what this business is built with* — languages, frameworks, hosting, datastores, mobile stack, CI/CD, the connectors bound at deployment (react+vercel, aws, flutter, HelixDB, whatever the business actually runs). Every Engineering agent reads it before acting, so skills stay stack-agnostic and the stack lives in config, not baked into method. It is the constitution pattern applied to technology choices.
+
+## Purpose
+
+Hardcoding a stack into skills makes the team serve one company. The stack-profile makes the same 11 agents serve a Next.js+Vercel SaaS, a Flutter+Firebase mobile app, or a Rails+Postgres shop — the methods don't change, the profile does. It also gives every agent one source of truth for "how we do things here," so raj's API conventions and mia's framework patterns don't drift apart.
+
+## When to Use
+
+Triggers: "stack profile," "what are we built with," "set up our tech document," "what framework/host/db do we use," and as the load step of essentially every Engineering skill.
+
+## Structure / Protocol
+
+```
+Load the stack-profile (config path)
+  -> If none: BUILD with the operator (template; real current stack, not aspirational)
+    -> Agents read it before acting: raj reads API/backend, mia reads frontend, dana reads data,
+       nova reads mobile, ops reads hosting/CI, aegis reads the security-relevant surface
+      -> Stack CHANGES are ADRs (dev's architecture-decisions) — the profile is updated on adoption, versioned
+        -> Drift (code using a stack choice not in the profile) is a finding
+```
+
+## Instructions
+
+1. **Build from reality.** Fill the template with what the business *actually* runs today — languages/versions, web framework + host, backend + API style, datastore(s), mobile stack (or "none"), CI/CD, auth, key third-party services, and the bound connectors. Aspirational entries ("we plan to move to…") are labeled as such, never treated as current.
+2. **One source of truth.** Every agent reads the relevant section; conventions (naming, error shapes, token usage) live here or point here, so they can't diverge across agents.
+3. **Changes are decisions.** Adopting a new framework/datastore/host is an ADR first; on acceptance, the profile is updated (version bump) and the change traces to the ADR number.
+4. **Detect drift.** Code introducing a dependency or pattern not in the profile is flagged — either the profile needs updating (via ADR) or the code is off-standard.
+
+## Output Format
+
+The profile follows `assets/stack-profile-template.md`. In use, agents cite the relevant section: "per stack-profile §Backend, APIs are REST with the documented error shape."
+
+## Principles
+
+- **Current reality, not aspiration** — aspirational entries are labeled.
+- **One document, read by all** — conventions don't fork across agents.
+- **Stack changes are ADRs** — never silent; versioned, traced.
+- **Drift is a finding** — off-profile code gets flagged, not absorbed.
+- **Connectors are named here** — the deployment bindings (which host, which DB connector, which CI) live in the profile so tool skills know what exists.
+
+## Fallback
+
+- No profile + urgent work → proceed on the operator's verbally-stated stack, labeled provisional, and start the build.
+- Multi-service business (different stacks per product) → one profile section per service; shared conventions factored out.
+- Profile stale after a migration → flagged; the migration should have been an ADR that updated it.
+
+## Boundaries with Other Skills
+
+- `architecture-decisions` decides the stack; this documents the current state and every agent reads it.
+- Every other Engineering skill consumes it: raj (backend/API), mia (frontend/tokens), dana (datastores — including the HelixDB playbook if adopted), nova (mobile), ops (hosting/CI/monitoring), aegis (attack surface), rank (rendering/SEO-relevant framework facts).
+- Cross-department: mia's design-token section bridges to atlas's brand kit; ops's hosting section is where board's infra-spend context lives.

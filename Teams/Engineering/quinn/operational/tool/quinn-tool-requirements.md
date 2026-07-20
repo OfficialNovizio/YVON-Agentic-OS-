@@ -1,0 +1,41 @@
+---
+name: quinn-tool-requirements
+type: operational/tool
+status: specifies needs, does not grant them — grants happen at deployment via config/connectors
+assigned_agent: quinn (Engineering / QA)
+date_added: 2026-07-09
+---
+
+## Purpose
+
+What quinn needs to operate at full capability, and what happens without each. All of quinn's own external tool use is itself plan-locked (Rail 1) and sandboxed (Rail 2) — the enforcer is not exempt.
+
+## Requirements
+
+| Need | Tool / access | Used by | Without it |
+|---|---|---|---|
+| Edit-gate verification (state, network, file:line) | **Reticle** — github.com/reticlehq/reticle (MCP; proposed connector, redesign plan §5) | browser-verification | Edit gate = labeled manual checklist, "unverified by tooling" flag |
+| Release-gate browser runs | **Playwright** — via marketplace/webapp-testing machinery | browser-verification | E tier reports UNMET; gate verdict says so |
+| Hashing for plan-locks | sha256 utility (local, no egress) | charter-enforcement | Verbatim-record fallback, flagged |
+| Append-only file access | plan_lock_log · regression map · flaky register (paths per config) | charter-enforcement, regression-map | The affected rail/tier stops issuing verdicts; loud degradation |
+| Read access to diffs/PRs & test-run results | repo + CI read scope (per stack-profile's CI) | test-strategy, browser-verification | Gate can't verify tiers green — GATE FAIL by default, not pass |
+| Sandbox runtime for tool calls | per charter Rail 2 (`sandbox_policy`) | all | No sandbox → no external calls, fail closed |
+
+## Explicit non-needs (by design)
+
+- **No write access to application code** — quinn blocks, never builds (principle 8).
+- **No database access of any kind** — quinn verifies Rail 3 compliance in plans/diffs; it never touches data itself.
+- **No production credentials** — release-gate runs use synthetic data in sandboxed environments only.
+
+## Notes
+
+- Connector adoption is surfaced to the operator at deployment (`suggest_connectors` pattern, redesign plan §5); skills degrade to method-only per their fallback sections.
+- Any new tool quinn adopts enters via this file + config + a locked plan — not ad hoc.
+
+## MCP Marketplace Tools (added 2026-07-14)
+
+| Tool | Source | Purpose | Always-on |
+|------|--------|---------|-----------|
+| **Browserbase MCP** | [docs.browserbase.com/integrations/mcp](https://docs.browserbase.com/integrations/mcp) | Browser-based E2E testing: execute test plans in real cloud browsers, capture full-page screenshots for visual regression, compare before/after, monitor browser console logs for errors. Upgrades quinn's verification from "manual checklist" to automated browser verification. | ⚠️ On-demand — during test-strategy execution and regression-map review phases. Pairs with existing Playwright MCP for headless testing; Browserbase adds real-browser visual verification. |
+
+See Engineering/MCP-MARKETPLACE.md for setup.

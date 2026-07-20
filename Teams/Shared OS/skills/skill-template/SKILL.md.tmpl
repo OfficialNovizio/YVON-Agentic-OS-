@@ -1,0 +1,113 @@
+<!--
+  ═══════════════════════════════════════════════════════════════════════
+  YVON SKILL TEMPLATE — Adoption A1 (gstack pattern, YVON-native)
+  ═══════════════════════════════════════════════════════════════════════
+
+  This template is the single source of the COMPILED skill format.
+  The generator (cli/skillgen.js) reads an agent's source files in Teams/
+  and fills every {{PLACEHOLDER}} below. Output lands in dist/skills/<agent>/.
+
+  Teams/ is the single source of truth. Generated output is disposable —
+  never hand-edit a generated skill; edit the source and regenerate.
+
+  PLACEHOLDER → SOURCE MAP (derived, never invented — Playbook §0.5):
+    {{SKILL_NAME}}      ← source SKILL.md frontmatter `name`
+    {{AGENT_ID}}        ← source frontmatter `assigned_agent` (id only)
+    {{DEPT}}            ← source frontmatter `assigned_agent` (dept part)
+    {{VERSION}}         ← 1.0.0 on first generation; generator bumps minor
+                          when source_hash changes
+    {{TIER}}            ← preamble tier. Default rule:
+                            1 = router/index skills
+                            2 = advisory/creative (no config, no builds)
+                            3 = config-dependent (reads agent config; loud
+                                <FILL_IN> detection)
+                            4 = build/exec (retrieval + TASK-SPEC slice)
+                          Overrides: `tier:` field in source frontmatter wins.
+    {{DESCRIPTION}}     ← first sentence of source `## Purpose` + routing
+                          hints; ends with "(yvon)" marker
+    {{TRIGGERS}}        ← derived from source `## When to Use` phrases +
+                          this skill's entries in the agent's
+                          operational/skill/<agent>-skill-routing.md
+    {{ALLOWED_TOOLS}}   ← operational/tool/<agent>-tool-requirements.md;
+                          unknown/<FILL_IN> values pass through as-is —
+                          the preamble flags them loudly at runtime
+    {{SOURCE_PATH}}     ← repo-relative path of the source SKILL.md
+    {{SOURCE_SHA256}}   ← hash of source at generation time (Gate 1 of the
+                          harness authenticates generated skill ↔ source)
+    {{TIMESTAMP}}       ← generation time (ISO)
+    {{PREAMBLE}}        ← tier-matched preamble block from
+                          Teams/Shared OS/skills/skill-template/preambles/
+                          (Artifact 2)
+    {{WHEN_TO_USE}}     ← source `## When to Use` (condensed)
+    {{PURPOSE}}         ← source `## Purpose` (condensed)
+    {{PROTOCOL}}        ← source `## Structure / Protocol` (verbatim —
+                          the load-bearing content, never summarized)
+    {{BOUNDARIES}}      ← this skill's handoff rules from the agent's
+                          skill-routing file (upstream/downstream skills,
+                          precedence when requests match multiple)
+    {{OUTPUT_FORMAT}}   ← source `## Output Format` if present, else omitted
+
+  RULES (enforced by generator, not hope):
+    - §0.4  No venture/company names anywhere in generated output —
+            source provenance frontmatter is the only permitted location.
+    - §0.5  Nothing invented: a placeholder with no source data renders as
+            an explicit <FILL_IN: what's missing> marker, never a guess.
+    - Sections with no source content are OMITTED, not stubbed — generated
+      skills stay token-lean (CAOS economy applies to skills themselves).
+  ═══════════════════════════════════════════════════════════════════════
+-->
+---
+name: {{SKILL_NAME}}
+agent: {{AGENT_ID}}
+department: {{DEPT}}
+version: {{VERSION}}
+tier: {{TIER}}
+description: |
+  {{DESCRIPTION}}
+triggers:
+{{TRIGGERS}}
+allowed-tools:
+{{ALLOWED_TOOLS}}
+owns-paths: {{OWNS_PATHS}}
+identity: {{IDENTITY}}
+provenance:
+  source_file: {{SOURCE_PATH}}
+  source_hash: {{SOURCE_SHA256}}
+  generated: {{TIMESTAMP}}
+  generator: cli/skillgen.js
+portable: true
+---
+<!-- AUTO-GENERATED from {{SOURCE_PATH}} — DO NOT EDIT.
+     Edit the source in Teams/, then regenerate: node cli/skillgen.js {{AGENT_ID}} -->
+
+## Preamble (run first)
+
+{{PREAMBLE}}
+
+## When to invoke this skill
+
+{{WHEN_TO_USE}}
+
+## Purpose
+
+{{PURPOSE}}
+
+## Protocol
+
+{{PROTOCOL}}
+
+## Boundaries & handoffs
+
+{{BOUNDARIES}}
+
+## Output format
+
+{{OUTPUT_FORMAT}}
+
+## Voice
+
+{{VOICE}}
+
+## Completion (run last)
+
+{{POSTAMBLE}}

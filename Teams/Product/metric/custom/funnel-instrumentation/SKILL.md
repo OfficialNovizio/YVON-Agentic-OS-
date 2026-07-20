@@ -1,0 +1,48 @@
+---
+name: funnel-instrumentation
+type: custom
+status: built from scratch
+sources_referenced: []  # catalog's aarrr-framework (marketplace) — search 2026-07-10 found framework articles, no verbatim skill fit; AARRR method built custom, candidates queued for scout
+fulfills_catalog_entry: aarrr-framework (catalog listed marketplace; built custom after search)
+assigned_agent: metric (Product / Product Analytics)
+portable: true
+date_added: 2026-07-10
+---
+
+# Funnel Instrumentation
+
+## Introduction
+The AARRR funnel (Acquisition → Activation → Retention → Referral → Revenue) mapped per product, instrumented against the metrics spec, with gap detection and a weekly cohort read. Pirate metrics with the house's honesty rules.
+
+## Purpose
+A funnel you haven't instrumented is a story; a funnel without cohorts is a snapshot pretending to be a trend. This skill turns the AARRR frame into named events, versioned definitions, and a recurring read.
+
+## When to Use
+- A product's funnel needs mapping or re-mapping (new flows, new stages).
+- The cohort-read cadence fires (`<FILL_IN: suggested weekly — catalog default>`).
+- A stage's numbers look wrong (instrumentation-gap suspicion).
+
+## Structure / Protocol
+MAP (each AARRR stage → the product's actual journey moments, per product profile) → INSTRUMENT (each stage boundary = a taxonomy event or definition from product-metrics-spec, cited `@vN`; missing events → instrumentation requests, not guesses) → GAP CHECK (stages whose numbers can't be computed are declared MISSING — never interpolated) → COHORT READ (by signup week: stage-to-stage conversion, per cohort, vs trailing cohorts; vanity totals excluded by design — rates and cohorts only) → FLAG (conversion drops beyond `<FILL_IN: threshold — reasoning-based until the stats book lands>` route to spec/loom as evidence).
+
+## Instructions
+1. Rates over totals, cohorts over aggregates, always — total signups is not a permitted output of this skill (lean-startup's vanity/actionable split, enforced structurally).
+2. Every number cites its definition version; funnel reads on mixed definition versions are marked `version-break` at the changeover.
+3. Gaps are loud: a MISSING stage appears in every read until instrumented — invisible gaps become confident nonsense.
+4. Referral-stage overlap: viral mechanics belong to Growth's future agents and nate; metric MEASURES referral conversion, never designs incentives.
+5. Flags are evidence, not verdicts: routed to spec (intake evidence) or loom (assumption check) — metric measures, others decide (gauge's separation, product edition).
+
+## Output Format
+Funnel map (stage / journey moment / event@vN); weekly cohort table (cohort × stage conversions); gap list; flags with routing.
+
+## Principles
+- Rates, cohorts, versions — the three honesty rules of funnel reading.
+- MISSING beats interpolated, every time.
+- Measure referrals, don't design them.
+
+## Fallback
+No cohort history yet (new product)? Publish single-cohort reads labeled `no-baseline` — same honest-thinness pattern as gauge's manual-sample mode.
+
+## Boundaries with Other Skills
+- product-metrics-spec supplies every definition; experiment-instrumentation handles experiment-specific measures; loom consumes retention curves for PMF reads.
+- kai: marketing-side funnel (campaign → signup) is kai's; product-side (signup onward) is metric's — the signup event is the shared boundary, co-cited.

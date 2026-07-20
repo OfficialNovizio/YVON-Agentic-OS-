@@ -1,0 +1,1 @@
+Intentionally empty — no marketplace skill adopted yet for this agent. Searches run 2026-07-10 (skillsmp.com / awesomeskill.ai / GitHub) found no verbatim fit; candidates noted in agent.md as pending. (playbook 7.0a)

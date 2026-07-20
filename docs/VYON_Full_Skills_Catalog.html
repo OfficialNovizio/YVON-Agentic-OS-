@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VYON — Full Skills Catalog</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#06060F;color:#E2E8F0;font-family:'Inter',-apple-system,system-ui,sans-serif;min-width:1400px}
+.header{background:linear-gradient(160deg,#08081E,#0C0C28,#080818);border-bottom:1px solid #1E2940;padding:30px 48px 24px;text-align:center}
+.eyebrow{font-size:10px;letter-spacing:.22em;color:#F59E0B;font-weight:700;margin-bottom:8px}
+.title{font-size:24px;font-weight:900;letter-spacing:.04em;margin-bottom:8px;background:linear-gradient(90deg,#E2E8F0,#F59E0B,#E2E8F0);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sub{font-size:9.5px;color:#64748B;letter-spacing:.1em;font-weight:600;margin-bottom:12px}
+.legend{display:flex;justify-content:center;gap:24px}
+.leg-item{display:flex;align-items:center;gap:6px;font-size:8.5px;color:#94A3B8}
+.leg-dot{width:8px;height:8px;border-radius:2px}
+.content{padding:24px 48px}
+.divider{display:flex;align-items:center;gap:14px;margin:24px 0 12px}
+.div-line{flex:1;height:1px;background:#1E2940}
+.div-label{font-size:9.5px;font-weight:700;letter-spacing:.16em;color:#F59E0B;text-transform:uppercase;white-space:nowrap}
+.dept-section{margin-bottom:28px}
+.dept-header{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
+.dept-name{font-size:13px;font-weight:900;letter-spacing:.06em}
+.dept-meta{font-size:8px;color:#475569}
+.dept-grid{display:grid;gap:9px}
+.agent-card{background:#09091A;border-radius:8px;padding:11px 12px;border-top:3px solid;transition:filter .15s}
+.agent-card:hover{filter:brightness(1.15)}
+.agent-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.agent-name{font-size:11px;font-weight:900}
+.agent-meta{display:flex;align-items:center;gap:6px}
+.status-dot{font-size:6px;font-weight:700}
+.skill-count{font-size:9px;font-weight:900;color:#CBD5E1;background:#1E2940;padding:1px 6px;border-radius:3px}
+.agent-note{font-size:6.5px;color:#FB7185;font-style:italic;margin-bottom:7px;line-height:1.4;padding:4px 7px;background:#4C051922;border-radius:3px}
+.tier-label{font-size:6px;font-weight:800;letter-spacing:.05em;margin-bottom:3px;margin-top:5px}
+.cu-label{color:#F59E0B}
+.mk-label{color:#7C3AED}
+.skill-item{font-size:6.8px;margin-bottom:2px;padding-left:6px;position:relative;line-height:1.3}
+.cu-item{color:#94A3B8}
+.mk-item{color:#64748B}
+.findings-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:8px}
+.finding-card{background:#09091A;border-radius:8px;padding:13px 15px}
+.finding-title{font-size:9.5px;font-weight:800;margin-bottom:6px}
+.finding-text{font-size:8px;color:#94A3B8;line-height:1.5}
+.footer{text-align:center;margin-top:20px;padding:16px;font-size:7.5px;color:#1E2940;letter-spacing:.14em}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="eyebrow">VYON GROUP INC. · COMPLETE SKILLS CATALOG</div>
+  <div class="title">49 AGENTS · 251 DEDICATED SKILLS · 13 DEPARTMENTS</div>
+  <div class="sub">+ 8 SHARED OPERATING-SYSTEM SKILLS APPLY TO EVERY AGENT AUTOMATICALLY — NOT COUNTED PER-CARD</div>
+  <div class="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:#F59E0B"></div>CUSTOM — VYON-proprietary</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#7C3AED"></div>MARKETPLACE — downloaded</div>
+    <div class="leg-item"><span style="color:#16A34A;font-weight:700">LIVE = 23</span><span style="color:#475569">/</span><span style="color:#F59E0B;font-weight:700">NEW = 26</span></div>
+  </div>
+</div>
+<div class="content">
+<div class="dept-section">
+  <div class="dept-header">
+    <span class="dept-name" style="color:#F59E0B">CEO</span>
+    <span class="dept-meta">3 agents (1 live, 2 new) · 18 dedicated skills</span>
+  </div>
+  <div class="dept-grid" style="grid-template-columns:repeat(3,1fr)"><div class="agent-card" style="border-top:3px solid #F59E0B;border:1px solid #F59E0B44;border-top:3px solid #F59E0B">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#F59E0B">marcus</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">8</span>
+    </div>
+  </div>
+  <div class="agent-note">⚠ Already has 6 real marketplace skills — zero custom. Highest-leverage fix.</div>
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-okr-cascade</div><div class="skill-item cu-item">· vyon-venture-priority-matrix</div>
+  <div class="tier-label mk-label">MARKETPLACE (6)</div>
+  <div class="skill-item mk-item">· creativity-inc</div><div class="skill-item mk-item">· decision-critic</div><div class="skill-item mk-item">· good-strategy-bad-strategy</div><div class="skill-item mk-item">· storytelling</div><div class="skill-item mk-item">· strategy-advisor</div><div class="skill-item mk-item">· vision</div>
+</div><div class="agent-card" style="border-top:3px solid #F59E0B;border:1px solid #F59E0B44;border-top:3px solid #F59E0B">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#F59E0B">echo</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (3)</div>
+  <div class="skill-item cu-item">· vyon-pitch-narrative</div><div class="skill-item cu-item">· vyon-investor-update-template</div><div class="skill-item cu-item">· vyon-cap-table-context</div>
+  <div class="tier-label mk-label">MARKETPLACE (2)</div>
+  <div class="skill-item mk-item">· yc-pitch-deck-framework</div><div class="skill-item mk-item">· investor-update-best-practices</div>
+</div><div class="agent-card" style="border-top:3px solid #F59E0B;border:1px solid #F59E0B44;border-top:3px solid #F59E0B">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#F59E0B">vista</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-okr-cascade</div><div class="skill-item cu-item">· vyon-north-star-metrics</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· okr-framework-google</div><div class="skill-item mk-item">· roadmap-prioritization-rice</div><div class="skill-item mk-item">· amazon-working-backwards</div>
+</div></div>
+</div><div class="dept-section">
+  <div class="dept-header">
+    <span class="dept-name" style="color:#0F766E">COO</span>
+    <span class="dept-meta">4 agents (1 live, 3 new) · 20 dedicated skills</span>
+  </div>
+  <div class="dept-grid" style="grid-template-columns:repeat(4,1fr)"><div class="agent-card" style="border-top:3px solid #0F766E;border:1px solid #0F766E44;border-top:3px solid #0F766E">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#0F766E">diana</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  <div class="agent-note">⚠ Real: marketplace/lean-startup confirmed. Building out rest.</div>
+  <div class="tier-label cu-label">CUSTOM (3)</div>
+  <div class="skill-item cu-item">· vyon-cross-venture-ops-playbook</div><div class="skill-item cu-item">· vyon-resource-allocation-rules</div><div class="skill-item cu-item">· vyon-sprint-cadence-standard</div>
+  <div class="tier-label mk-label">MARKETPLACE (2)</div>
+  <div class="skill-item mk-item">· lean-startup</div><div class="skill-item mk-item">· agile-scrum-framework</div>
+</div><div class="agent-card" style="border-top:3px solid #0F766E;border:1px solid #0F766E44;border-top:3px solid #0F766E">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#0F766E">flux</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-sop-library</div><div class="skill-item cu-item">· vyon-bottleneck-escalation-rules</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· theory-of-constraints</div><div class="skill-item mk-item">· lean-six-sigma-basics</div><div class="skill-item mk-item">· kaizen-continuous-improvement</div>
+</div><div class="agent-card" style="border-top:3px solid #0F766E;border:1px solid #0F766E44;border-top:3px solid #0F766E">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#0F766E">relay</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (3)</div>
+  <div class="skill-item cu-item">· vyon-venture-sync-cadence</div><div class="skill-item cu-item">· vyon-cross-brand-dependency-map</div><div class="skill-item cu-item">· vyon-conflict-resolution-protocol</div>
+  <div class="tier-label mk-label">MARKETPLACE (2)</div>
+  <div class="skill-item mk-item">· raci-matrix-framework</div><div class="skill-item mk-item">· dependency-mapping-method</div>
+</div><div class="agent-card" style="border-top:3px solid #0F766E;border:1px solid #0F766E44;border-top:3px solid #0F766E">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#0F766E">grid</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (3)</div>
+  <div class="skill-item cu-item">· vyon-headcount-model</div><div class="skill-item cu-item">· vyon-budget-to-ops-mapping</div><div class="skill-item cu-item">· vyon-hiring-trigger-thresholds</div>
+  <div class="tier-label mk-label">MARKETPLACE (2)</div>
+  <div class="skill-item mk-item">· capacity-planning-framework</div><div class="skill-item mk-item">· resource-leveling-method</div>
+</div></div>
+</div><div class="dept-section">
+  <div class="dept-header">
+    <span class="dept-name" style="color:#EF4444">COMMAND</span>
+    <span class="dept-meta">2 agents (1 live, 1 new) · 12 dedicated skills</span>
+  </div>
+  <div class="dept-grid" style="grid-template-columns:repeat(2,1fr)"><div class="agent-card" style="border-top:3px solid #EF4444;border:1px solid #EF444444;border-top:3px solid #EF4444">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#EF4444">board</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">7</span>
+    </div>
+  </div>
+  <div class="agent-note">⚠ Real: 3 custom + 3 marketplace confirmed. strategic-veto in README but folder missing.</div>
+  <div class="tier-label cu-label">CUSTOM (4)</div>
+  <div class="skill-item cu-item">· constitution-enforcement</div><div class="skill-item cu-item">· fiduciary-guard</div><div class="skill-item cu-item">· risk-assessment-matrix</div><div class="skill-item cu-item">· strategic-veto (build gap)</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· decision-critic</div><div class="skill-item mk-item">· postmortem-writing</div><div class="skill-item mk-item">· pre-mortem</div>
+</div><div class="agent-card" style="border-top:3px solid #EF4444;border:1px solid #EF444444;border-top:3px solid #EF4444">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#EF4444">precedent</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (3)</div>
+  <div class="skill-item cu-item">· vyon-ruling-precedent-log</div><div class="skill-item cu-item">· vyon-consistency-check-rules</div><div class="skill-item cu-item">· vyon-precedent-conflict-escalation</div>
+  <div class="tier-label mk-label">MARKETPLACE (2)</div>
+  <div class="skill-item mk-item">· case-law-precedent-method</div><div class="skill-item mk-item">· stare-decisis-framework</div>
+</div></div>
+</div><div class="dept-section">
+  <div class="dept-header">
+    <span class="dept-name" style="color:#10B981">FINANCE</span>
+    <span class="dept-meta">4 agents (1 live, 3 new) · 20 dedicated skills</span>
+  </div>
+  <div class="dept-grid" style="grid-template-columns:repeat(4,1fr)"><div class="agent-card" style="border-top:3px solid #10B981;border:1px solid #10B98144;border-top:3px solid #10B981">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#10B981">felix</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  <div class="agent-note">⚠ 2 marketplace confirmed. Zero custom — critical gap for finance lead.</div>
+  <div class="tier-label cu-label">CUSTOM (3)</div>
+  <div class="skill-item cu-item">· vyon-burn-rate-thresholds</div><div class="skill-item cu-item">· vyon-runway-model</div><div class="skill-item cu-item">· vyon-unit-economics-by-venture</div>
+  <div class="tier-label mk-label">MARKETPLACE (2)</div>
+  <div class="skill-item mk-item">· saas-economics-efficiency-metrics</div><div class="skill-item mk-item">· saas-revenue-growth-metrics</div>
+</div><div class="agent-card" style="border-top:3px solid #10B981;border:1px solid #10B98144;border-top:3px solid #10B981">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#10B981">vault</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (3)</div>
+  <div class="skill-item cu-item">· vyon-cash-forecast-model</div><div class="skill-item cu-item">· vyon-banking-relationships</div><div class="skill-item cu-item">· vyon-fx-exposure-rules</div>
+  <div class="tier-label mk-label">MARKETPLACE (2)</div>
+  <div class="skill-item mk-item">· treasury-management-basics</div><div class="skill-item mk-item">· cash-flow-scenario-planning</div>
+</div><div class="agent-card" style="border-top:3px solid #10B981;border:1px solid #10B98144;border-top:3px solid #10B981">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#10B981">ledger</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (3)</div>
+  <div class="skill-item cu-item">· vyon-chart-of-accounts</div><div class="skill-item cu-item">· vyon-cra-filing-calendar</div><div class="skill-item cu-item">· vyon-multi-entity-bookkeeping-rules</div>
+  <div class="tier-label mk-label">MARKETPLACE (2)</div>
+  <div class="skill-item mk-item">· gst-hst-filing-guide</div><div class="skill-item mk-item">· ap-ar-reconciliation-method</div>
+</div><div class="agent-card" style="border-top:3px solid #10B981;border:1px solid #10B98144;border-top:3px solid #10B981">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#10B981">levy</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-tax-jurisdiction-map</div><div class="skill-item cu-item">· vyon-tax-optimization-playbook</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· transfer-pricing-basics</div><div class="skill-item mk-item">· treaty-shopping-overview</div><div class="skill-item mk-item">· vat-gst-international-guide</div>
+</div></div>
+</div><div class="dept-section">
+  <div class="dept-header">
+    <span class="dept-name" style="color:#B45309">LEGAL</span>
+    <span class="dept-meta">4 agents (2 live, 2 new) · 20 dedicated skills</span>
+  </div>
+  <div class="dept-grid" style="grid-template-columns:repeat(4,1fr)"><div class="agent-card" style="border-top:3px solid #B45309;border:1px solid #B4530944;border-top:3px solid #B45309">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#B45309">comply</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  <div class="agent-note">⚠ ZERO skills today — full build required.</div>
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-17-reg-compliance-matrix</div><div class="skill-item cu-item">· vyon-hourbour-fintrac-osfi</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· gdpr-checklist</div><div class="skill-item mk-item">· soc2-audit-framework</div><div class="skill-item mk-item">· iso27001-overview</div>
+</div><div class="agent-card" style="border-top:3px solid #B45309;border:1px solid #B4530944;border-top:3px solid #B45309">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#B45309">guard</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  <div class="agent-note">⚠ ZERO skills today — full build required.</div>
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-ip-portfolio-registry</div><div class="skill-item cu-item">· vyon-oss-license-policy</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· trademark-search-method</div><div class="skill-item mk-item">· patent-landscape-analysis</div><div class="skill-item mk-item">· oss-license-compatibility-matrix</div>
+</div><div class="agent-card" style="border-top:3px solid #B45309;border:1px solid #B4530944;border-top:3px solid #B45309">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#B45309">scribe</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (3)</div>
+  <div class="skill-item cu-item">· vyon-contract-template-library</div><div class="skill-item cu-item">· vyon-standard-terms</div><div class="skill-item cu-item">· vyon-client-agreement-tiering</div>
+  <div class="tier-label mk-label">MARKETPLACE (2)</div>
+  <div class="skill-item mk-item">· contract-drafting-basics</div><div class="skill-item mk-item">· redlining-best-practices</div>
+</div><div class="agent-card" style="border-top:3px solid #B45309;border:1px solid #B4530944;border-top:3px solid #B45309">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#B45309">shield</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (3)</div>
+  <div class="skill-item cu-item">· vyon-dispute-log</div><div class="skill-item cu-item">· vyon-risk-register</div><div class="skill-item cu-item">· vyon-escalation-to-counsel-rules</div>
+  <div class="tier-label mk-label">MARKETPLACE (2)</div>
+  <div class="skill-item mk-item">· litigation-risk-scoring</div><div class="skill-item mk-item">· dispute-resolution-framework</div>
+</div></div>
+</div><div class="dept-section">
+  <div class="dept-header">
+    <span class="dept-name" style="color:#9333EA">MARKETING</span>
+    <span class="dept-meta">8 agents (6 live, 2 new) · 40 dedicated skills</span>
+  </div>
+  <div class="dept-grid" style="grid-template-columns:repeat(4,1fr)"><div class="agent-card" style="border-top:3px solid #9333EA;border:1px solid #9333EA44;border-top:3px solid #9333EA">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#9333EA">atlas</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  <div class="agent-note">⚠ Real: brand-guidelines (custom) + 3 marketplace confirmed.</div>
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· brand-guidelines</div><div class="skill-item cu-item">· vyon-visual-identity-system</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· canvas-design</div><div class="skill-item mk-item">· algorithmic-art</div><div class="skill-item mk-item">· theme-factory</div>
+</div><div class="agent-card" style="border-top:3px solid #9333EA;border:1px solid #9333EA44;border-top:3px solid #9333EA">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#9333EA">kai</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  <div class="agent-note">⚠ Already at 5 real skills. No action needed.</div>
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· brands/novizio</div><div class="skill-item cu-item">· brands/hourbour</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· marketing-ideas</div><div class="skill-item mk-item">· seo-audit</div><div class="skill-item mk-item">· analytics-tracking</div>
+</div><div class="agent-card" style="border-top:3px solid #9333EA;border:1px solid #9333EA44;border-top:3px solid #9333EA">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#9333EA">lena</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (3)</div>
+  <div class="skill-item cu-item">· brands/novizio</div><div class="skill-item cu-item">· brands/hourbour</div><div class="skill-item cu-item">· vyon-brand-voice-guide</div>
+  <div class="tier-label mk-label">MARKETPLACE (2)</div>
+  <div class="skill-item mk-item">· copywriting-frameworks</div><div class="skill-item mk-item">· email-marketing-best-practices</div>
+</div><div class="agent-card" style="border-top:3px solid #9333EA;border:1px solid #9333EA44;border-top:3px solid #9333EA">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#9333EA">nate</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (3)</div>
+  <div class="skill-item cu-item">· brands/novizio</div><div class="skill-item cu-item">· brands/hourbour</div><div class="skill-item cu-item">· vyon-growth-experiment-backlog</div>
+  <div class="tier-label mk-label">MARKETPLACE (2)</div>
+  <div class="skill-item mk-item">· growth-experiment-design</div><div class="skill-item mk-item">· ab-testing-statistics</div>
+</div><div class="agent-card" style="border-top:3px solid #9333EA;border:1px solid #9333EA44;border-top:3px solid #9333EA">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#9333EA">pixel</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  <div class="agent-note">⚠ Folder exists but EMPTY — hidden zero. Full build needed.</div>
+  <div class="tier-label cu-label">CUSTOM (3)</div>
+  <div class="skill-item cu-item">· vyon-image-style-guide</div><div class="skill-item cu-item">· vyon-asset-naming-convention</div><div class="skill-item cu-item">· vyon-batch-production-pipeline</div>
+  <div class="tier-label mk-label">MARKETPLACE (2)</div>
+  <div class="skill-item mk-item">· midjourney-prompt-engineering</div><div class="skill-item mk-item">· upscaling-workflow-best-practices</div>
+</div><div class="agent-card" style="border-top:3px solid #9333EA;border:1px solid #9333EA44;border-top:3px solid #9333EA">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#9333EA">rio</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (3)</div>
+  <div class="skill-item cu-item">· brands/novizio</div><div class="skill-item cu-item">· brands/hourbour</div><div class="skill-item cu-item">· vyon-ad-spend-thresholds</div>
+  <div class="tier-label mk-label">MARKETPLACE (2)</div>
+  <div class="skill-item mk-item">· ad-performance-frameworks</div><div class="skill-item mk-item">· retargeting-playbooks</div>
+</div><div class="agent-card" style="border-top:3px solid #9333EA;border:1px solid #9333EA44;border-top:3px solid #9333EA">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#9333EA">cialdini</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-persuasion-playbook-by-venture</div><div class="skill-item cu-item">· vyon-conversion-psychology-tests</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· cialdini-influence-principles</div><div class="skill-item mk-item">· persuasive-copywriting-method</div><div class="skill-item mk-item">· behavioral-pricing-tactics</div>
+</div><div class="agent-card" style="border-top:3px solid #9333EA;border:1px solid #9333EA44;border-top:3px solid #9333EA">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#9333EA">fogg</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-habit-loop-map-by-app</div><div class="skill-item cu-item">· vyon-engagement-nudge-library</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· fogg-behavior-model</div><div class="skill-item mk-item">· hook-model-nir-eyal</div><div class="skill-item mk-item">· gamification-mechanics-overview</div>
+</div></div>
+</div><div class="dept-section">
+  <div class="dept-header">
+    <span class="dept-name" style="color:#EC4899">PSYCHOLOGY</span>
+    <span class="dept-meta">2 agents (1 live, 1 new) · 10 dedicated skills</span>
+  </div>
+  <div class="dept-grid" style="grid-template-columns:repeat(2,1fr)"><div class="agent-card" style="border-top:3px solid #EC4899;border:1px solid #EC489944;border-top:3px solid #EC4899">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#EC4899">kahneman</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  <div class="agent-note">⚠ ZERO skills today — only live agent in dept with no skills at all.</div>
+  <div class="tier-label cu-label">CUSTOM (3)</div>
+  <div class="skill-item cu-item">· vyon-decision-log</div><div class="skill-item cu-item">· vyon-bias-audit-checklist</div><div class="skill-item cu-item">· vyon-calibration-tracking</div>
+  <div class="tier-label mk-label">MARKETPLACE (2)</div>
+  <div class="skill-item mk-item">· thinking-fast-and-slow-framework</div><div class="skill-item mk-item">· cognitive-bias-codex</div>
+</div><div class="agent-card" style="border-top:3px solid #EC4899;border:1px solid #EC489944;border-top:3px solid #EC4899">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#EC4899">maslow</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (3)</div>
+  <div class="skill-item cu-item">· vyon-employee-needs-survey</div><div class="skill-item cu-item">· vyon-customer-needs-hierarchy</div><div class="skill-item cu-item">· vyon-motivation-intervention-playbook</div>
+  <div class="tier-label mk-label">MARKETPLACE (2)</div>
+  <div class="skill-item mk-item">· maslow-needs-hierarchy-framework</div><div class="skill-item mk-item">· self-determination-theory</div>
+</div></div>
+</div><div class="dept-section">
+  <div class="dept-header">
+    <span class="dept-name" style="color:#2563EB">RESEARCH</span>
+    <span class="dept-meta">3 agents (3 live, 0 new) · 15 dedicated skills</span>
+  </div>
+  <div class="dept-grid" style="grid-template-columns:repeat(3,1fr)"><div class="agent-card" style="border-top:3px solid #2563EB;border:1px solid #2563EB44;border-top:3px solid #2563EB">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#2563EB">depth</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  <div class="agent-note">⚠ ZERO skills today — full build.</div>
+  <div class="tier-label cu-label">CUSTOM (3)</div>
+  <div class="skill-item cu-item">· vyon-competitor-watchlist</div><div class="skill-item cu-item">· vyon-novizio-fashion-comp-set</div><div class="skill-item cu-item">· vyon-hourbour-fintech-comp-set</div>
+  <div class="tier-label mk-label">MARKETPLACE (2)</div>
+  <div class="skill-item mk-item">· competitor-teardown-framework</div><div class="skill-item mk-item">· tam-sam-som-sizing</div>
+</div><div class="agent-card" style="border-top:3px solid #2563EB;border:1px solid #2563EB44;border-top:3px solid #2563EB">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#2563EB">synth</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  <div class="agent-note">⚠ ZERO skills today — full build.</div>
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-strategic-thesis-template</div><div class="skill-item cu-item">· vyon-cross-venture-synthesis-rules</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· good-strategy-bad-strategy</div><div class="skill-item mk-item">· pyramid-principle-writing</div><div class="skill-item mk-item">· mckinsey-mece-framework</div>
+</div><div class="agent-card" style="border-top:3px solid #2563EB;border:1px solid #2563EB44;border-top:3px solid #2563EB">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#2563EB">vette</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  <div class="agent-note">⚠ ZERO skills today — full build.</div>
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-source-trust-tiers</div><div class="skill-item cu-item">· vyon-claim-verification-log</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· fact-checking-methodology</div><div class="skill-item mk-item">· bayesian-confidence-scoring</div><div class="skill-item mk-item">· lateral-reading-method</div>
+</div></div>
+</div><div class="dept-section">
+  <div class="dept-header">
+    <span class="dept-name" style="color:#7C3AED">SENSE</span>
+    <span class="dept-meta">3 agents (3 live, 0 new) · 15 dedicated skills</span>
+  </div>
+  <div class="dept-grid" style="grid-template-columns:repeat(3,1fr)"><div class="agent-card" style="border-top:3px solid #7C3AED;border:1px solid #7C3AED44;border-top:3px solid #7C3AED">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#7C3AED">forge</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  <div class="agent-note">⚠ ZERO skills today — full build.</div>
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-ai-stack-inventory</div><div class="skill-item cu-item">· vyon-model-routing-rules</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· llm-benchmark-evaluation</div><div class="skill-item mk-item">· model-comparison-framework</div><div class="skill-item mk-item">· ai-cost-performance-tradeoffs</div>
+</div><div class="agent-card" style="border-top:3px solid #7C3AED;border:1px solid #7C3AED44;border-top:3px solid #7C3AED">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#7C3AED">radar</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  <div class="agent-note">⚠ ZERO skills today — full build.</div>
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-market-alert-thresholds</div><div class="skill-item cu-item">· vyon-competitor-alert-rules</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· trend-monitoring-framework</div><div class="skill-item mk-item">· social-listening-method</div><div class="skill-item mk-item">· google-alerts-rss-method</div>
+</div><div class="agent-card" style="border-top:3px solid #7C3AED;border:1px solid #7C3AED44;border-top:3px solid #7C3AED">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#7C3AED">scout</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  <div class="agent-note">⚠ ZERO skills today — full build.</div>
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-tool-evaluation-criteria</div><div class="skill-item cu-item">· vyon-integration-approval-checklist</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· github-trending-scan</div><div class="skill-item mk-item">· mcp-ecosystem-directory</div><div class="skill-item mk-item">· product-hunt-scanning-method</div>
+</div></div>
+</div><div class="dept-section">
+  <div class="dept-header">
+    <span class="dept-name" style="color:#0891B2">TECHNICAL</span>
+    <span class="dept-meta">4 agents (4 live, 0 new) · 21 dedicated skills</span>
+  </div>
+  <div class="dept-grid" style="grid-template-columns:repeat(4,1fr)"><div class="agent-card" style="border-top:3px solid #0891B2;border:1px solid #0891B244;border-top:3px solid #0891B2">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#0891B2">dev</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">6</span>
+    </div>
+  </div>
+  <div class="agent-note">⚠ Already 11+ real skills. No addition needed — audit only.</div>
+  <div class="tier-label cu-label">CUSTOM (1)</div>
+  <div class="skill-item cu-item">· code-review/01-03 (internal process)</div>
+  <div class="tier-label mk-label">MARKETPLACE (5)</div>
+  <div class="skill-item mk-item">· general</div><div class="skill-item mk-item">· vercel-composition-patterns</div><div class="skill-item mk-item">· vercel-react-best-practices</div><div class="skill-item mk-item">· webapp-testing</div><div class="skill-item mk-item">· superpowers x7</div>
+</div><div class="agent-card" style="border-top:3px solid #0891B2;border:1px solid #0891B244;border-top:3px solid #0891B2">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#0891B2">raj</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-supabase-schema-conventions</div><div class="skill-item cu-item">· vyon-api-route-standards</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· superpowers (subset)</div><div class="skill-item mk-item">· supabase-best-practices</div><div class="skill-item mk-item">· postgres-performance-tuning</div>
+</div><div class="agent-card" style="border-top:3px solid #0891B2;border:1px solid #0891B244;border-top:3px solid #0891B2">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#0891B2">mia</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  <div class="agent-note">⚠ Rich — superpowers + ui + design-and-build confirmed. Audit not addition.</div>
+  <div class="tier-label cu-label">CUSTOM (1)</div>
+  <div class="skill-item cu-item">· vyon-design-system-tokens</div>
+  <div class="tier-label mk-label">MARKETPLACE (4)</div>
+  <div class="skill-item mk-item">· ui</div><div class="skill-item mk-item">· creative-visual subset</div><div class="skill-item mk-item">· design-and-build subset</div><div class="skill-item mk-item">· superpowers subset</div>
+</div><div class="agent-card" style="border-top:3px solid #0891B2;border:1px solid #0891B244;border-top:3px solid #0891B2">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#0891B2">quinn</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#16A34A">LIVE</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-qa-checklist-by-venture</div><div class="skill-item cu-item">· vyon-regression-test-suite-map</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· webapp-testing</div><div class="skill-item mk-item">· systematic-debugging</div><div class="skill-item mk-item">· test-driven-development</div>
+</div></div>
+</div><div class="dept-section">
+  <div class="dept-header">
+    <span class="dept-name" style="color:#F472B6">CREATIVITY</span>
+    <span class="dept-meta">4 agents (0 live, 4 new) · 20 dedicated skills</span>
+  </div>
+  <div class="dept-grid" style="grid-template-columns:repeat(4,1fr)"><div class="agent-card" style="border-top:3px solid #F472B6;border:1px solid #F472B644;border-top:3px solid #F472B6">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#F472B6">muse</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-brand-concept-library</div><div class="skill-item cu-item">· vyon-creative-brief-template</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· ideo-design-thinking</div><div class="skill-item mk-item">· brainstorming-techniques</div><div class="skill-item mk-item">· scamper-ideation-method</div>
+</div><div class="agent-card" style="border-top:3px solid #F472B6;border:1px solid #F472B644;border-top:3px solid #F472B6">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#F472B6">weave</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-brand-story-arc</div><div class="skill-item cu-item">· vyon-narrative-consistency-checklist</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· storytelling</div><div class="skill-item mk-item">· hero-journey-framework</div><div class="skill-item mk-item">· pixar-storytelling-method</div>
+</div><div class="agent-card" style="border-top:3px solid #F472B6;border:1px solid #F472B644;border-top:3px solid #F472B6">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#F472B6">tempo</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-sound-identity-guide</div><div class="skill-item cu-item">· vyon-video-audio-standards</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· audio-branding-basics</div><div class="skill-item mk-item">· royalty-free-music-licensing</div><div class="skill-item mk-item">· sound-design-for-social-video</div>
+</div><div class="agent-card" style="border-top:3px solid #F472B6;border:1px solid #F472B644;border-top:3px solid #F472B6">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#F472B6">spark</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (3)</div>
+  <div class="skill-item cu-item">· vyon-cross-brand-style-guide</div><div class="skill-item cu-item">· vyon-creative-qa-checklist</div><div class="skill-item cu-item">· vyon-creative-escalation-rules</div>
+  <div class="tier-label mk-label">MARKETPLACE (2)</div>
+  <div class="skill-item mk-item">· brand-consistency-audit-method</div><div class="skill-item mk-item">· creative-director-review-framework</div>
+</div></div>
+</div><div class="dept-section">
+  <div class="dept-header">
+    <span class="dept-name" style="color:#06B6D4">R&D</span>
+    <span class="dept-meta">4 agents (0 live, 4 new) · 20 dedicated skills</span>
+  </div>
+  <div class="dept-grid" style="grid-template-columns:repeat(4,1fr)"><div class="agent-card" style="border-top:3px solid #06B6D4;border:1px solid #06B6D444;border-top:3px solid #06B6D4">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#06B6D4">catalyst</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-innovation-opportunity-log</div><div class="skill-item cu-item">· vyon-cross-venture-innovation-matrix</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· jobs-to-be-done-framework</div><div class="skill-item mk-item">· blue-ocean-strategy</div><div class="skill-item mk-item">· disruptive-innovation-theory</div>
+</div><div class="agent-card" style="border-top:3px solid #06B6D4;border:1px solid #06B6D444;border-top:3px solid #06B6D4">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#06B6D4">loom</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-experiment-backlog</div><div class="skill-item cu-item">· vyon-pmf-scorecard</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· lean-experimentation-method</div><div class="skill-item mk-item">· ab-testing-statistics</div><div class="skill-item mk-item">· sean-ellis-pmf-survey</div>
+</div><div class="agent-card" style="border-top:3px solid #06B6D4;border:1px solid #06B6D444;border-top:3px solid #06B6D4">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#06B6D4">proto</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-mvp-template-library</div><div class="skill-item cu-item">· vyon-feasibility-scoring-rubric</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· rapid-prototyping-method</div><div class="skill-item mk-item">· figma-to-code-workflow</div><div class="skill-item mk-item">· no-code-prototyping-tools</div>
+</div><div class="agent-card" style="border-top:3px solid #06B6D4;border:1px solid #06B6D444;border-top:3px solid #06B6D4">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#06B6D4">edge</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-emerging-tech-watchlist</div><div class="skill-item cu-item">· vyon-tech-adoption-criteria</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· blockchain-fundamentals-fintech</div><div class="skill-item mk-item">· open-banking-tech-landscape</div><div class="skill-item mk-item">· web3-fintech-rails-overview</div>
+</div></div>
+</div><div class="dept-section">
+  <div class="dept-header">
+    <span class="dept-name" style="color:#22C55E">GROWTH</span>
+    <span class="dept-meta">4 agents (0 live, 4 new) · 20 dedicated skills</span>
+  </div>
+  <div class="dept-grid" style="grid-template-columns:repeat(4,1fr)"><div class="agent-card" style="border-top:3px solid #22C55E;border:1px solid #22C55E44;border-top:3px solid #22C55E">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#22C55E">viral</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-referral-program-design</div><div class="skill-item cu-item">· vyon-referral-incentive-structure</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· viral-coefficient-modeling</div><div class="skill-item mk-item">· network-effects-framework</div><div class="skill-item mk-item">· dropbox-referral-case-study</div>
+</div><div class="agent-card" style="border-top:3px solid #22C55E;border:1px solid #22C55E44;border-top:3px solid #22C55E">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#22C55E">bridge</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-partnership-target-list</div><div class="skill-item cu-item">· vyon-partner-qualification-criteria</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· partnership-deal-structuring</div><div class="skill-item mk-item">· channel-partner-program-design</div><div class="skill-item mk-item">· co-marketing-playbook</div>
+</div><div class="agent-card" style="border-top:3px solid #22C55E;border:1px solid #22C55E44;border-top:3px solid #22C55E">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#22C55E">compound</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-ltv-model-by-venture</div><div class="skill-item cu-item">· vyon-retention-trigger-rules</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· churn-prediction-method</div><div class="skill-item mk-item">· customer-success-playbook</div><div class="skill-item mk-item">· expansion-revenue-tactics</div>
+</div><div class="agent-card" style="border-top:3px solid #22C55E;border:1px solid #22C55E44;border-top:3px solid #22C55E">
+  <div class="agent-header">
+    <span class="agent-name" style="color:#22C55E">orbit</span>
+    <div class="agent-meta">
+      <span class="status-dot" style="color:#F59E0B">NEW</span>
+      <span class="skill-count">5</span>
+    </div>
+  </div>
+  
+  <div class="tier-label cu-label">CUSTOM (2)</div>
+  <div class="skill-item cu-item">· vyon-market-entry-scorecard</div><div class="skill-item cu-item">· vyon-regulatory-readiness-by-market</div>
+  <div class="tier-label mk-label">MARKETPLACE (3)</div>
+  <div class="skill-item mk-item">· market-feasibility-framework</div><div class="skill-item mk-item">· international-expansion-checklist</div><div class="skill-item mk-item">· beachhead-market-strategy</div>
+</div></div>
+</div>
+<div class="divider"><div class="div-line"></div><div class="div-label">WHAT THIS REVEALS</div><div class="div-line"></div></div>
+<div class="findings-grid"><div class="finding-card" style="border-top:3px solid #FB7185">
+  <div class="finding-title" style="color:#FB7185">HIDDEN ZERO: PIXEL</div>
+  <div class="finding-text">Had a skills/ folder, looked covered. Folder was empty. Same risk as the 9 confirmed zeros but hidden by the folder existing.</div>
+</div><div class="finding-card" style="border-top:3px solid #F59E0B">
+  <div class="finding-title" style="color:#F59E0B">OVER-RESOURCED: DEV, MIA, KAI</div>
+  <div class="finding-text">Already at or above 5-6 real skills. No build needed — flagged for audit only. Not every gap needs filling.</div>
+</div><div class="finding-card" style="border-top:3px solid #16A34A">
+  <div class="finding-title" style="color:#16A34A">CUSTOM-STARVED: MARCUS, FELIX</div>
+  <div class="finding-text">Both lead critical functions but run on 100% downloaded frameworks. Zero proprietary playbooks. Highest-leverage fix in this whole catalog.</div>
+</div></div>
+<div class="footer">VYON GROUP INC. · COMPLETE SKILLS CATALOG v1.0 · CONFIDENTIAL · KML · MMXXVI</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,116 @@
+---
+name: brand-story-arcs
+type: custom
+status: built from scratch (catalog protocol expanded per 2026-07-07 Brand Studio v3 build — designated priority build per operator)
+based_on_catalog_entry: vyon-brand-story-arcs (VYON_Skills_Catalog_Full_v2.html, weave/Brand Studio) — renamed brand-story-arcs, genericized per rule 0.4b; the arc's content becomes an operator-supplied story-arc file per brand, template provided
+sources_informing_craft: the sibling marketplace skill brand-storytelling (RefoundAI/lenny-skills, 1.1k★ — 50 insights from 30 practitioners) supplies the narrative craft this skill's checks cite; this skill adds the ARC ARCHITECTURE and CONTINUITY machinery the marketplace skill doesn't carry
+assigned_agent: weave (Brand Studio / Storytelling)
+portable: true — every arc is per-business content; this skill carries the architecture, the tests, and the template
+includes: assets/story-arc-template.md (the canonical arc structure), assets/chapter-registry-template.md (continuity ledger)
+logical_layer_hook: narrative theory grounding (StoryBrand SB7 / McKee) awaits operator-supplied books per weave's book-requirements — coordinate with lena's book list (StoryBrand may land here)
+date_added: 2026-07-07
+---
+
+## Introduction
+
+brand-story-arcs makes a brand's story *cumulative*. Most businesses tell a new story every campaign — each one plausible, none of them adding up. This skill fixes that with three mechanisms: a **canonical arc** per brand (one written narrative spine: the world's change, the old game and its villain, the customer-hero, the brand-as-guide, the stakes, the promised land), a **chapters discipline** (every campaign positions as a chapter *of that arc* — advancing it, never contradicting it, never off-arc), and a **continuity ledger** (a registry of told chapters, so the story never repeats itself or breaks its own canon). It is weave's version of the pattern atlas and lena run: the arc file is law; no written arc, no arc enforcement.
+
+## Purpose
+
+Two business problems, one mechanism. First, *memory*: audiences forget disconnected campaigns but remember stories that continue — a chapter inherits all the meaning of the chapters before it, which is compounding attention instead of rented attention. Second, *coherence at volume*: when pulse posts daily and pixel produces in batches, the only way the output stays one brand instead of a content mill is a story spine everything maps back to. For a small business this is the difference between "that company that posts stuff" and "that story I'm following."
+
+## When to Use
+
+Triggers: "campaign story," "narrative angle," "what's the story here," "does this fit our story," creating or revising a brand's arc, or automatically whenever muse's concepts, lena's campaigns, or pulse's content series need narrative positioning — and as spark's third gate reference (arc fit).
+
+Not for: individual story *craft* (hooks, five-second moments, dinner-test delivery — that's the sibling `brand-storytelling` skill), or wording (lena).
+
+## Structure / Protocol
+
+```
+Load the brand's arc (configured path)
+  -> If none exists: STOP — build it via assets/story-arc-template.md from the operator's
+     real history and positioning (never invent a founding story or fabricate stakes)
+    -> For any campaign/content: position it as a chapter
+       — which arc element does it advance? (world-change / villain / hero's struggle /
+         guide's proof / promised-land glimpse)
+       — ARC-FIT test: could this chapter only belong to THIS brand's story?
+    -> Continuity check vs the chapter registry
+       — contradicts a told chapter? repeats one? breaks canon facts?
+        -> Verdict: ON-ARC (chapter registered) / OFF-ARC (named conflict + the on-arc
+           alternative) / ARC GAP (the arc doesn't cover this — operator amends, not weave)
+```
+
+## Instructions
+
+### Phase 1 — Load or Build the Arc
+
+Read the arc from `story_arc_path` (weave's config, one per brand). If none exists, stop and build it properly with the operator using `assets/story-arc-template.md`: the raw material is the business's *real* history, customers, and enemy-of-the-old-way — collected from the operator, never invented. A fabricated origin story or manufactured stakes is a constitution-grade honesty violation, not a craft choice. The arc is versioned and operator-owned; weave proposes, the operator adopts.
+
+### Phase 2 — Position the Campaign as a Chapter
+
+For the campaign/content in hand, answer in writing:
+
+1. **Which arc element does it advance?** Every chapter moves exactly one primary element: sharpening the villain (the old way's cost), showing the hero's struggle (customer reality), proving the guide (the brand's tool working — Obi-Wan, never Luke), or glimpsing the promised land (the world-that-could-be). A chapter that advances nothing is content, not story — say so.
+2. **The ARC-FIT test:** could this chapter belong to a competitor's story with the logo swapped? If yes, it's off-arc by genericness — the chapter must be *only tellable by this brand* (its specific customers, its specific enemy, its specific proof).
+3. **The toggle:** does the chapter hold the tension between world-that-is and world-that-could-be (the craft the sibling skill teaches)? Chapters that only celebrate lose the plot's stakes; chapters that only complain never earn the guide's role.
+
+### Phase 3 — Continuity Check
+
+Against `assets/chapter-registry-template.md`'s ledger for this brand:
+
+- **Contradiction:** does this chapter break a canon fact (the origin, the named villain, a prior claim)? A brand that said "the old way is X" cannot casually sell X next quarter without the arc itself being amended (a real strategic act, operator-owned, logged like an overrule — precedent's discipline applied to narrative).
+- **Repetition:** is this a chapter already told? Retelling is allowed only as deliberate callback, named as such — muse's concept-library dedupe is the upstream defense; this is the narrative backstop.
+- **Sequence:** does it assume chapters the audience hasn't been told? (Proof chapters before any villain chapter confuse; promised-land chapters before proof ring hollow.)
+
+### Phase 4 — Verdict and Register
+
+- **ON-ARC** — element advanced, fit test passed, continuity clean → the chapter is registered in the ledger (one line: date, campaign, element advanced, canon facts added).
+- **OFF-ARC** — the specific conflict named (which element/canon fact it breaks, or "generic — fails the logo-swap test") *plus the on-arc alternative*: the nearest version of this campaign that would fit. Off-arc without an offered alternative is obstruction, not stewardship.
+- **ARC GAP** — the campaign is sound but the arc genuinely doesn't cover it (new product line, new audience). The arc needs an operator-approved amendment (a new act, not a retcon) — weave drafts the amendment options, the operator adopts.
+
+## Output Format
+
+```
+## Arc Positioning: [campaign, one line] — [brand]
+
+**Arc:** [file/version] · **Chapter #:** [next in ledger]
+
+| Test | Result |
+|---|---|
+| Element advanced | [villain / hero-struggle / guide-proof / promised-land / world-change] |
+| ARC-FIT (logo-swap) | pass / fail — [why only this brand could tell it] |
+| Tension toggle | holds / celebration-only / complaint-only |
+| Continuity | clean / contradicts [chapter/canon fact] / repeats [chapter] / out of sequence |
+
+### Verdict: ON-ARC / OFF-ARC / ARC GAP
+[ON-ARC: ledger entry added. OFF-ARC: named conflict + the on-arc alternative.
+ ARC GAP: drafted amendment options → operator.]
+```
+
+## Principles
+
+- **No written arc, no arc enforcement.** Same law as atlas's kit and lena's guide.
+- **Real history only.** Origins, stakes, and enemies come from the business's actual life; a fabricated story is a lie with structure. (The craft skill's "problems beat successes" works precisely because the problems were real.)
+- **The customer is the hero; the brand is the guide.** Every chapter that casts the brand as Luke instead of Obi-Wan gets flagged — hero-syndrome is the most common off-arc failure.
+- **One element per chapter.** A chapter that advances everything advances nothing.
+- **Fails the logo-swap test = off-arc**, however pretty the concept.
+- **Canon changes are amendments, not drift.** Operator-owned, versioned, logged — never silently retconned.
+- **Off-arc verdicts carry the alternative.** Weave is a steward, not a blocker.
+
+## Fallback
+
+- No arc + urgent campaign → position it honestly as "pre-arc content," flag that chapters can't accumulate until the arc exists, and start the template with the operator.
+- Arc exists but pre-dates a pivot → ARC GAP writ large; propose the amendment (new act) rather than forcing chapters into a stale spine.
+- Ledger missing/empty for an old brand → reconstruct what's reconstructible from published campaigns (labeled as reconstructed), start the ledger now.
+- Two brands' arcs colliding (multi-brand operators) → arcs are separated like atlas's kits; a shared parent-story element must be in both arcs explicitly, or it's narrative bleed → spark.
+
+## Boundaries with Other Skills
+
+- `brand-storytelling` (sibling, marketplace) owns story *craft* — how any one chapter hooks, lands its five-second moment, and gets retold at dinner. This skill owns *architecture* — which chapter it is and whether it may exist. Craft runs inside every chapter this skill approves.
+- **muse** generates concepts; this skill positions the survivors as chapters (muse's dedupe is upstream of continuity).
+- **lena** words the chapter (voice + humanic pass); **weave never wordsmiths.**
+- **pulse** serializes chapters into platform-native content — a chapter can be many posts; the ledger tracks chapters, not posts.
+- **spark's gate** checks arc fit as one of its three references; this skill is that check's engine.
+- **echo** consumes the arc for investor narrative (pitch-narrative's story and the brand arc must not contradict — same facts, different audience).
+- **Behavioral Science (when built):** kahneman/cialdini review of a chapter's framing sits between lena's wording and spark's gate.

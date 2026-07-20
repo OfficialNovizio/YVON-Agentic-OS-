@@ -1,0 +1,69 @@
+---
+name: image-style-guide
+type: custom
+status: built from scratch (catalog protocol expanded per 2026-07-07 Brand Studio v3 build)
+based_on_catalog_entry: vyon-image-style-guide (VYON_Skills_Catalog_Full_v2.html, pixel/Brand Studio) — renamed image-style-guide, genericized per rule 0.4b off hardcoded per-brand styles ("Novizio editorial emerald/steel; Hourbour clean UI-first"); style params become an operator-approved template file per brand
+assigned_agent: pixel (Brand Studio / Production)
+portable: true — style parameters are per-brand content derived from each brand's kit; template provided
+includes: assets/image-style-template.md
+date_added: 2026-07-07
+---
+
+## Introduction
+
+image-style-guide translates a brand's visual identity into **reusable generation parameters**: prompt templates, palette/lighting/composition constants, and reject rules. Atlas's kit (§5 Imagery) says what the brand's imagery *is*; this skill turns that into what pixel *types into the generator* — so every batch starts from the same, operator-approved style DNA instead of re-improvising it per run.
+
+## Purpose
+
+The gap between "our imagery is warm, editorial, people-first" (kit language) and a prompt that reliably produces it is where visual drift lives. This skill closes it once per brand: derive the parameters from the kit, get the operator's sign-off on a test set, and freeze them as templates — amended deliberately, never per-deadline.
+
+## When to Use
+
+Triggers: "image style," "on-brand image," "set up our image templates," or automatically inside asset-pipeline Phase 2 (every generation pulls the brand's templates).
+
+## Structure / Protocol
+
+```
+Derive style params from the brand kit's imagery section (+ real reference images if supplied)
+  -> Draft the template file: prompt constants, per-use-case templates, reject rules
+    -> Test set: generate 3–5 assets, operator reviews → corrections encoded (like lena's voice loop)
+      -> Freeze as the brand's image-style file; asset-pipeline consumes it every run
+        -> Rejects at QA cite the specific param violated; repeated rejects → template or kit review
+```
+
+## Instructions
+
+### Phase 1 — Derive
+
+From the kit's imagery direction (photography style, color treatment, composition, rejected aesthetics) plus any real reference images the operator supplies, draft the template file per `assets/image-style-template.md`: the style constants (treatment, lighting, palette anchors as tokens, composition defaults), per-use-case prompt templates (product / people / abstract / environment — the content-image patterns, parameterized), and reject rules written as checkable statements ("off-palette beyond the kit's tokens," "stock-photo aesthetic," whatever the kit bans).
+
+### Phase 2 — Test and Encode Corrections
+
+Generate a small test set across use cases; the operator marks keepers and rejects with reasons. Corrections get encoded into the templates — the same operator-correction loop that builds lena's voice guide. No template ships on theory alone.
+
+### Phase 3 — Freeze and Consume
+
+The approved file is the brand's image-style law: asset-pipeline pulls it every run; deviations are QA rejects citing the parameter. Amendments are operator-approved and versioned (drift via "just this once" prompts is exactly what this skill prevents).
+
+## Output Format
+
+Phase 1–2 output the draft/approved template file. In production, this skill's output is the *prompt block* per shot: template used, filled parameters, and the reject rules the QA step will check.
+
+## Principles
+
+- **Derived from the kit, approved on real outputs.** Never from genre defaults; never frozen without the test loop.
+- **Templates are law until amended.** Per-deadline prompt improvisation is drift.
+- **Reject rules are checkable statements.** "Doesn't feel right" is not a reject rule.
+- **Repeated rejects mean the template (or kit) needs review** — routed via atlas/spark, not patched silently.
+
+## Fallback
+
+- No kit imagery section → flag the kit gap to atlas/operator; interim templates are labeled provisional.
+- No generation capability at deployment → templates still valuable: they parameterize briefs for human designers or external tools.
+
+## Boundaries with Other Skills
+
+- **atlas's kit** defines direction (and owns amendments); this skill operationalizes it for generation. The kit's AI-imagery policy governs whether this skill runs at all.
+- `content-image` (sibling) supplies model-agnostic prompt craft; this skill supplies the brand-specific constants that fill it.
+- `asset-pipeline` (sibling) is the consumer, every run.
+- **Multi-brand operators:** one file per brand; style bleed between brands is atlas's multi-brand-system territory.

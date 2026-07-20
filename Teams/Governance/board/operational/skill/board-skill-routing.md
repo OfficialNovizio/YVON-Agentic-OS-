@@ -1,0 +1,56 @@
+---
+name: board-skill-routing
+type: operational/skill
+status: consolidated from the "Boundaries" sections already defined within each of board's skill files — no new logic invented
+assigned_agent: board (Governance / Governance Gate)
+date_added: 2026-07-06
+---
+
+## Purpose
+
+Board's routing map: the gate sequence, early-exit rules, and handoffs. Sourced from each skill's own Boundaries section. For trigger phrases, see `operational/commands/board-commands.md`.
+
+## Where Identity Fits
+
+Board is Governance's department leader and carries the active identity in `identity/` (currently `principled-gatekeeper-charlie-munger.md`). Identity governs *how* rulings are communicated; this file governs *which skill runs when*. Identity never overrides the sequence or any skill's method.
+
+## The Gate Sequence
+
+A decision submitted for governance review runs the gates in this order, with early exits:
+
+```
+1. constitution-enforcement     (categorical never-do's)
+       VIOLATION → STOP. Review ends; paths: change decision / operator amends constitution.
+2. strategic-veto               (locked strategy commitments)
+       VETO → STOP. Review ends; appeal paths: amend via marcus+operator / re-scope.
+3. fiduciary-guard              (spend thresholds — only if the decision commits spend)
+       REJECT recommendation → typically STOP; re-scope and resubmit.
+4a. pre-mortem                  (major commitments / untested assumptions — generates failure scenarios)
+4b. risk-assessment-matrix      (scores and gates the risks; pre-mortem's CRITICAL items are input rows)
+       HOLD → wait for mitigation plans + owners, then convert.
+→ Aggregate ruling to the operator; everything logged.
+```
+
+Early exits are the point: an unconstitutional decision doesn't get a budget review, and a vetoed one doesn't consume a risk workshop.
+
+## Handoff Rules
+
+- **constitution-enforcement → strategic-veto**: rules that keep needing exceptions migrate *out* of the constitution — categorical rules stay in article form, expiring bets belong in locked commitments, tunable numbers in fiduciary config. Each skill flags misplaced rules toward the right layer.
+- **fiduciary-guard → pre-mortem**: a CONDITIONAL resting on a shaky return estimate routes the estimate to pre-mortem for testing.
+- **pre-mortem → risk-assessment-matrix**: pre-mortem generates and triages failure scenarios; its CRITICAL items enter the matrix as rows to be scored and gated. For routine decisions, the matrix alone suffices; for major commitments, run pre-mortem first.
+- **risk-assessment-matrix → risk register**: all scored risks log to the configured register — the future Risk department's input.
+- **All skills → decision log**: every ruling is logged (constitution rulings, vetoes + appeals, fiduciary recommendations + operator overrules, risk rulings). This log is the precedent stream the Governance department's precedent agent (Institutional Memory, when built) will consume.
+
+## Cross-Agent Boundaries
+
+- **marcus improves, board gates.** decision-critic/venture-priority-matrix sharpen a proposal before submission; board rules on the submitted proposal. Passing marcus's red-team does not skip any gate.
+- **marcus (with the operator) sets what board enforces.** Locked commitments come from marcus's strategy process; board never amends them (strategic-veto appeal path a routes there). The constitution belongs to the operator alone.
+- **vista's flagged roadmap items** (cut/defer/accelerate) route to marcus, not board — unless the resulting decision commits spend above the gate or touches a commitment, at which point it enters this sequence like any other decision.
+
+## Precedence When a Request Matches Multiple Skills
+
+A full submitted decision runs the whole sequence — that's the default. A request naming one check ("just risk-score this") runs that skill alone, with a note if other gates obviously apply and haven't run. See `board-commands.md`.
+
+## Fallback
+
+If a request doesn't fit the sequence or any single gate, ask what ruling is actually being sought rather than forcing a review nobody requested — consistent with the identity's "sit on your hands" trait and each skill's clarify-first guidance.

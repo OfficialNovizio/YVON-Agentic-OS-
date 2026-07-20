@@ -1,0 +1,52 @@
+---
+name: kai-logical-book-requirements
+type: logical
+status: built — inherits from Shared OS (2026-07-15)
+assigned_agent: kai (Brand Studio / Analyst)
+date_added: 2026-07-07
+date_filled: 2026-07-15
+---
+
+## Purpose
+
+Logical artifacts are Python scripts in `Shared OS/logical/` (playbook §13.5). Kai inherits 4 scripts: the department-shared `marketing_laws.py` plus 3 cross-department scripts that ground signal detection, investor metrics, and experiment validity. All dedicated scripts are paywall-blocked pending Route D .md files. This file is the only file in this folder.
+
+## Scripts (Shared OS/logical/)
+
+| # | Script | Source Book 1 | Book 1 URL | Source Book 2 | Book 2 URL | Route |
+|---|--------|--------------|------------|---------------|------------|-------|
+| 1 | `marketing_laws.py` | Ries & Trout, *The 22 Immutable Laws of Marketing* (1993) | [archive.org](https://archive.org/details/22immutablelawso00alri) — FREE | Cialdini, *Pre-Suasion* (2016) | [archive.org](https://archive.org/details/presuasionrevolu0000cial) — FREE | B |
+
+Additional free sources in `marketing_laws.py`: Pareto (1896), Marshall (1890), Bernays (1928), Campbell (1949), Zipf (1949), Lasswell (1948), Hick (1952), Zajonc (1968), Von Restorff (1933). 10 free books/papers total.
+
+## Inherited Scripts (Shared OS/logical/ — imported, not copied)
+
+| Script | Source Book | Book URL | Why Kai Needs It |
+|--------|------------|----------|---------------------|
+| `signal_detection.py` | Holmes, Illowsky & Dean, *Introductory Business Statistics* 2e (2023, OpenStax) | [openstax.org](https://openstax.org/details/books/introductory-business-statistics-2e) — FREE | Signal vs noise classification: when a scorecard delta deserves a red flag — grounds "meaningful change" calls with confidence intervals and control chart rules |
+| `investor_metrics.py` | Croll & Yoskovitz, *Lean Analytics* (2013) + Skok, "SaaS Metrics 2.0" | O'Reilly / forEntrepreneurs.com | Unit economics, cohort trends, actionable vs vanity classification — grounds metric baselines and fixed-shape validation |
+| `experiment_methods.py` | Kohavi et al., *Trustworthy Online Controlled Experiments* (2020) | [experimentguide.com](https://experimentguide.com/) (Ch.1 free) / Cambridge University Press | Measurement design validity — ensures the metrics being tracked are measured with adequate power and proper guardrails |
+| `marketing_laws.py` | Ries & Trout + Cialdini + 8 free sources | See above | Pareto for KPI prioritization, diminishing returns for budget efficiency, Zipf for metric distribution patterns |
+
+## Flag Clearance Summary
+
+| Previously Flagged (0.6) | Status | Script |
+|--------------------------|--------|--------|
+| "meaningful change" calls — when a delta is signal vs noise, flagged as judgment | ✅ Cleared | `signal_detection.py` (confidence intervals Ch.8, two-sample comparison Ch.9-10, control chart rules for drift detection) |
+| attribution — how much credit each channel deserves when platform claims overlap | ✅ Cleared | `signal_detection.py` (chi-square goodness-of-fit for distributional changes) + `investor_metrics.py` (cohort trend detection for channel-level analysis) |
+| baseline anchoring — fixed shapes validated empirically | ✅ Cleared | `investor_metrics.py` (benchmark grading from published industry data) + `marketing_laws.py` — `pareto_principle` (vital few metrics vs trivia) |
+| scorecard delta thresholds — when a red flag triggers | ✅ Cleared | `signal_detection.py` (control chart rules: Western Electric for drift detection) + `marketing_laws.py` — `diminish_returns` (is the delta economically meaningful?) |
+
+## Skills to Script Mapping
+
+- **scorecard-analysis** — imports `signal_detection.py` (confidence intervals, control charts, two-sample comparison) + `investor_metrics.py` (benchmark grading)
+- **funnel-analysis** — imports `signal_detection.py` (chi-square for stage transitions) + `marketing_laws.py` (`pareto_principle` for bottleneck identification)
+- **attribution** — imports `signal_detection.py` (distribution comparison) + `investor_metrics.py` (cohort tables) + `marketing_laws.py` (`zipf_law` for channel dominance patterns)
+
+## Still Pending
+
+| Script | Blocked By | Source Needed |
+|--------|-----------|---------------|
+| Dedicated marketing measurement extraction | Paywalled book | Marketing measurement / attribution methodology text — shared with rio; kai's cut: reconciling overlapping platform claims into one honest read |
+
+These require Route D .md files from paywalled sources before extraction can proceed.

@@ -1,0 +1,520 @@
+---
+name: heath-made-to-stick
+type: logical (Route D — practitioner-operator wisdom)
+status: extracted 2026-07-16
+source_books:
+  - Heath, Chip & Heath, Dan, *Made to Stick: Why Some Ideas Survive
+    and Others Die* (Random House, 2007).
+    ISBN: 978-1400064281 / eISBN: 978-1588365965.
+    Authors: Chip Heath — professor, Stanford Graduate School of
+    Business; Dan Heath — senior fellow, Duke CASE center.
+    Chapters used: Introduction (What Sticks?), Ch.1 (Simple),
+    Ch.2 (Unexpected), Ch.3 (Concrete), Ch.4 (Credible), Ch.5
+    (Emotional), Ch.6 (Stories), Epilogue (What Sticks).
+
+source_urls:
+  - Books/made-to-stick-9781588365965-2006046467.pdf
+
+assigned_agents: lena, spark
+extended_skills: art-direction-critique, coherence-qa, humanic-writing
+portable: true
+cross_references:
+  - marketing_laws.py (Hick's Law, Von Restorff Effect, Cialdini's 6
+    persuasion principles)
+  - berger-contagious.md (STEPPS framework — complementary contagion
+    model)
+  - ogilvy-creative-code.md (Ogilvy's creative rules — applied SUCCESs)
+  - content_performance.py (SUCCESs scoring function + composite
+    contagion score)
+---
+
+# Heath & Heath — SUCCESs: The Six Principles of Sticky Ideas
+
+## Introduction
+
+Chip and Dan Heath's *Made to Stick* (2007) is the definitive empirical framework for why some ideas survive and spread while others die. After a decade of research — Chip at Stanford studying naturally sticky ideas (urban legends, proverbs, conspiracy theories), Dan at Thinkwell studying how great teachers make complex topics memorable — the Heath brothers identified six shared traits across every sticky idea they studied. They named this framework **SUCCESs**: Simple, Unexpected, Concrete, Credible, Emotional, Stories.
+
+This extraction operationalizes each SUCCESs element with definitions, psychological mechanisms, testable criteria, and connections to the Brand Studio's foundational marketing laws (marketing_laws.py). It is the core creative brief checklist for spark's art-direction-critique gate and lena's humanic-writing skill.
+
+---
+
+## THE CURSE OF KNOWLEDGE — The Foundational Problem
+
+*Introduction, pp.19-24*
+
+Before the six principles can be applied, one must overcome what the Heaths call the **Curse of Knowledge** — the psychological phenomenon whereby once we know something, we find it impossible to imagine what it was like not to know it. The classic experiment (Newton, 1990, cited in Introduction, pp.19-22): "tappers" tapped the rhythm of well-known songs and predicted listeners would guess correctly 50% of the time. Listeners guessed only 2.5% of the time (3 out of 120). The tapper hears the full tune in their head; the listener hears only disconnected taps.
+
+The Curse of Knowledge is the single biggest barrier to effective communication. Every CEO who says "unlock shareholder value," every engineer who describes "asynchronous API-driven data pipelines," every marketer who writes "best-in-class solutions" — they are tappers, unable to hear what the listener hears. The SUCCESs framework is a systematic antidote.
+
+**Test for spark's coherence-qa gate:** Does the creative pass the "tapper test"? If someone without domain knowledge heard it, would they understand the tune or just disconnected taps?
+
+---
+
+## PRINCIPLE 1 — SIMPLE
+
+*Chapter 1, pp.25-72*
+
+### Definition
+
+> "Find the core of the idea. Strip it down to its most critical essence. We must be masters of exclusion. We must relentlessly prioritize." (Ch.1, p.28)
+
+Simple does NOT mean "dumbed down" or "sound bites." The ideal of simplicity is the **proverb** — a compact statement that is both simple AND profound. The Golden Rule ("Do unto others as you would have them do unto you") is the ultimate simple idea: one sentence so deep an individual could spend a lifetime learning to follow it.
+
+### Mechanism: Commander's Intent
+
+*Ch.1, pp.34-40*
+
+The Heaths borrow the military concept of **Commander's Intent** (CI) from the U.S. Army's planning process. CI is "a crisp, plain-talk statement that appears at the top of every order, specifying the plan's goal, the desired end-state of an operation." It answers: "If we do nothing else tomorrow, we must accomplish _________." It is the single most important thing. No plan survives contact with the enemy, but a clear Commander's Intent allows soldiers on the ground to improvise adaptively toward a shared goal.
+
+The Heaths (Ch.1, p.40): "Commander's Intent manages to align the behavior of soldiers at all levels without requiring play-by-play instructions from their leaders. When people know the desired destination, they're free to improvise as needed."
+
+**Civilian examples in the book (Ch.1, pp.41-52):**
+- **Southwest Airlines:** "THE low-fare airline." Every decision — from peanut policy to fleet selection to route planning — is judged against this single core. (Ch.1, pp.41-46)
+- **JFK's moon speech (1961):** "Put a man on the moon and return him safely by the end of the decade." Contrast with a "CEO version": "Our mission is to become the international leader in the space industry through maximum team-centered innovation and strategically targeted aerospace initiatives." (Introduction, pp.24-25)
+
+### The Simple Test (from Ch.1)
+
+1. Can the core idea be expressed in a single sentence a frontline employee would remember Monday morning?
+2. Does it guide decisions? (If it's equally consistent with two opposite choices, it's not a core — it's a platitude.)
+3. Could it be passed down through the organization like a proverb — refined, not distorted, with each retelling?
+4. Is it a Commander's Intent or a mission statement? (Intent guides action; mission statements decorate walls.)
+
+### Connection to marketing_laws.py
+
+| Heath (Simple) | marketing_laws.py | Mechanism |
+|---------------|-------------------|-----------|
+| "Find the core" | **Hick's Law** (hicks_law) — fewer choices = faster decisions. A simple core reduces cognitive load. A message with 1 core point embeds faster than one with 10. | Hick (1952): RT = a + b * log2(n+1). 3 options = fast; 7 = slow; 20+ = paralysis. |
+| "Masters of exclusion" | **Law of Focus** (law_of_focus) — Ries & Trout, Ch.5: Own ONE word in the prospect's mind. You cannot own "safety" AND "luxury" AND "performance." | Exclusion is the mechanism of focus. Southwest owns "low-fare" — they cannot also own "luxury." |
+| "Proverbs, not sound bites" | **Mere Exposure Effect** (mere_exposure_effect) — repeated exposures build liking. Proverbs survive centuries because they compress wisdom into a form that survives retelling. | The compact form enables repetition. |
+
+---
+
+## PRINCIPLE 2 — UNEXPECTED
+
+*Chapter 2, pp.73-108*
+
+### Definition
+
+> "How do we get our audience to pay attention? We need to violate people's expectations. We need to be counterintuitive." (Ch.2, p.73)
+
+The Unexpected has two phases: (1) **Surprise** — the "mechanism that gets our attention." Surprise jolts us into alertness because it signals that our existing mental model has failed. (2) **Interest** — the "mechanism that keeps our attention." Surprise fades quickly; to endure, an idea must generate curiosity and sustain engagement.
+
+### Mechanism 1: Surprise — Violating Schemas
+
+*Ch.2, pp.76-85*
+
+The Heaths explain that our brains run on **schemas** — mental models of how the world works. When an input violates a schema, surprise triggers an orienting response. The brain says: "Your schema has failed. Pay attention. Something unexpected is happening."
+
+The CSPI popcorn story (Introduction, pp.6-12) is the Heaths' canonical example: "A medium-sized butter popcorn contains more artery-clogging fat than a bacon-and-eggs breakfast, a Big Mac and fries for lunch, and a steak dinner with all the trimmings — combined!" The schema "popcorn is a light snack" is violently contradicted by the unexpected truth.
+
+Key insight (Ch.2, p.81): "Surprise doesn't just get our attention — it's designed to sustain it. Surprise makes us want to find an answer — to resolve the question of why we were surprised." This is the bridge from surprise to interest.
+
+**Ethical boundary (Ch.2, p.84):** Cheap surprise — clickbait, misleading headlines, "you won't believe what happened next" — exploits the surprise mechanism without delivering on its promise. The schema violation must be resolved with truthful, valuable information.
+
+### Mechanism 2: The Gap Theory of Curiosity
+
+*Ch.2, pp.88-100*
+
+The Heaths' most powerful tool for sustaining attention: "We can engage people's curiosity over a long period of time by systematically 'opening gaps' in their knowledge — and then filling those gaps." (Introduction, p.17)
+
+Drawing from George Loewenstein's information-gap theory (1994), the Heaths explain: "Curiosity happens when we feel a gap in our knowledge. Gaps cause pain. When we want to know something but don't, it's like having an itch that we need to scratch." (Ch.2, p.91)
+
+**The Gap technique (Ch.2, pp.92-98):**
+1. **Open the gap first** — make people aware of what they DON'T know. A teacher who states the topic ("Today we'll cover mitosis") opens no gap. A teacher who asks "Why don't siblings from the same parents look identical?" opens a gap the lesson will fill.
+2. **Context before content** — the gap must be personal. "Scientists discovered a new planet" is abstract. "Could there be a planet like Earth out there?" creates a personal gap. "There is one, and here's how we found it" builds interest.
+3. **Progressive disclosure** — fill one gap, then open another. Mystery novels sustain interest through layered gap-filling.
+
+**The "Nordstrom's tire" story (Ch.2, pp.99-102):** A customer returned a set of tires to Nordstrom — a department store that has NEVER sold tires. Nordstrom refunded the money anyway. The story is sticky because it violates our schema of "normal return policy." The gap: "Why would Nordstrom do that?" The answer (Nordstrom's legendary customer service) fills the gap satisfyingly.
+
+### The Unexpected Test (from Ch.2)
+
+1. **Schema check:** What schema does your audience hold about this topic? What would violate that schema in a productive way?
+2. **Surprise check:** Will the audience experience a genuine "Wait, what?" moment — not "That's clever" but "My mental model just broke"?
+3. **Gap check:** What specific knowledge gap does your message open? Is it personal to the audience? Does the message fill it?
+4. **Surprise-to-insight path:** Is the surprise resolved with a valuable insight, or is it just a gimmick?
+
+### Connection to marketing_laws.py
+
+| Heath (Unexpected) | marketing_laws.py | Mechanism |
+|-------------------|-------------------|-----------|
+| "Violate schemas" | **Von Restorff Effect** (von_restorff_effect) — distinctive items are recalled 2-3x more often. The unexpected IS the purple cow in a field of brown cows. | Von Restorff (1933): "The isolated item is remembered." Godin (2002): "In a crowded marketplace, fitting in is failing." |
+| "Gap Theory — open then fill" | **Cialdini's Commitment/Consistency** (cialdini_commitment_consistency) — once a gap is opened, the audience is motivated to close it (consistency drive). | Information gaps produce cognitive discomfort; closing them restores consistency. |
+| "Nordstrom tire return" | **Von Restorff Effect** + **CLT Principle** — the unexpected detail is the "concrete, credible, surprising" anchor that makes the abstract concept ("customer service") tangible and shareable. | Dual-layer: the story IS distinctive (Von Restorff) AND credible because it's specific. |
+
+---
+
+## PRINCIPLE 3 — CONCRETE
+
+*Chapter 3, pp.109-143*
+
+### Definition
+
+> "We must explain our ideas in terms of human actions, in terms of sensory information. Speaking concretely is the only way to ensure that our idea will mean the same thing to everyone in our audience." (Ch.3, p.109)
+
+Concrete means: specific people doing specific things, not abstract nouns doing abstract verbs. "Maximize shareholder value" (abstract) vs. "THE low-fare airline" (concrete). "Deliver best-in-class customer experience" (abstract) vs. "The Ritz-Carlton credo: We are ladies and gentlemen serving ladies and gentlemen" (concrete).
+
+### Mechanism: The Velcro Theory of Memory
+
+*Ch.3, pp.116-125*
+
+> "Concrete ideas are like Velcro — they have lots of hooks that grab onto your memory. Abstract ideas are like Teflon — nothing sticks." (Ch.3, pp.116-117)
+
+The Heaths explain: "Concreteness creates a shared understanding. When a Boeing engineer speaks of 'a pod that would prove difficult for the average airline mechanic to open,' that is concrete. When a consultant speaks of 'synergistic cross-platform optimization,' that is abstract — and meaningless. The engineer's statement means exactly the same thing to every listener. The consultant's statement means nothing to anyone, including the consultant." (Ch.3, pp.118-119)
+
+The Velcro metaphor: every concrete sensory detail — a color, a sound, a texture, a human action — is a "hook loop" in memory. The more hooks, the more surfaces for the idea to cling to. Abstract ideas are smooth Teflon — no hooks.
+
+**The "fox and the grapes" test (Ch.3, pp.124-127):** "Aesop's fables have survived 2,500 years because they encode abstract moral truths in concrete stories. 'Don't be a sore loser' is abstract and forgettable. 'The fox, unable to reach the grapes, walked away muttering they were probably sour anyway' is concrete, visual, and unforgettable." The moral is embedded in sensory experience.
+
+### The Abstract-to-Concrete Translation
+
+*Ch.3, pp.130-138*
+
+The Heaths provide a translation exercise:
+- Abstract: "We must improve knowledge management across the enterprise."
+- Concrete: "We need a way for the engineer in Tulsa to learn from the engineer in Singapore's mistake."
+
+The key question: "What does it look like in practice? What would I see, hear, or feel?" If you cannot answer this, the idea is not yet concrete.
+
+**Rule for lena's humanic-writing:** Every sentence in a creative brief must survive the concrete test. If a claim doesn't evoke a sensory or action-oriented image, re-write it.
+
+### The Concrete Test (from Ch.3)
+
+1. **Sensory check:** Does the idea evoke a specific image, sound, or physical sensation?
+2. **Velcro check:** How many "memory hooks" are present? (Count them: specific people, places, objects, actions, sensory details.)
+3. **Shared meaning check:** Would 10 different people, reading this independently, form the SAME mental picture?
+4. **Translation check:** Can you act out the idea? If you "did" the idea in a short skit, what would the audience see?
+
+### Connection to marketing_laws.py
+
+| Heath (Concrete) | marketing_laws.py | Mechanism |
+|-----------------|-------------------|-----------|
+| "Sensory hooks" | **Von Restorff Effect** — concrete details create distinctiveness. A table full of greasy food is more memorable than "37g saturated fat." | Concrete = distinctive = memorable. |
+| "Shared meaning" | **Lasswell Model** (lasswell_model) — the message element must be unambiguous. "What does it mean?" must have ONE answer. | Lasswell (1948): A complete communication requires a clear message. Concrete ensures clarity. |
+| "Velcro Theory" | **Mere Exposure Effect** — concrete ideas survive repeated exposure without boredom (they have enough hooks to be re-experienced). | Abstract ideas become grating on repetition; concrete ones reveal new facets. |
+
+---
+
+## PRINCIPLE 4 — CREDIBLE
+
+*Chapter 4, pp.144-174*
+
+### Definition
+
+> "Sticky ideas have to carry their own credentials. We need ways to help people test our ideas for themselves — a 'try before you buy' philosophy for the world of ideas." (Ch.4, p.144)
+
+The challenge: most of us cannot recruit the Surgeon General to endorse our ideas. We must make ideas credible through internal properties, not external authority.
+
+### Mechanism 1: The Sinatra Test
+
+*Ch.4, pp.152-158*
+
+> "If you can make it there, you can make it anywhere." — Frank Sinatra, "New York, New York"
+
+The Heaths (Ch.4, p.152): "A Sinatra Test is a single example that is so powerful, so extreme, that it establishes credibility for the entire claim. If you can make it THERE — in the hardest possible case — you can make it anywhere."
+
+**The canonical example (Ch.4, pp.153-155):** When Safexpress, an Indian logistics company, wanted to prove it could deliver anywhere in India, it didn't boast about its fleet size. It delivered to the remote village of Kibithoo — population 400, elevation 11,000 feet, accessible only by a narrow dirt road. That one delivery said more than any statistic or claim. "If we can deliver to Kibithoo" is a Sinatra Test.
+
+**Key insight (Ch.4, p.157):** "The Sinatra Test works because it substitutes a single compelling test case for statistical evidence. It transforms credibility from something you CLAIM into something the audience WITNESSES for themselves."
+
+### Mechanism 2: Testable Credentials
+
+*Ch.4, pp.159-165*
+
+The Heaths describe Ronald Reagan's 1980 debate question: "Before you vote, ask yourself if you are better off today than you were four years ago." (Ch.4, p.160)
+
+This is the template for testable credentials: **a question that lets the audience verify the claim using their own experience.** Reagan didn't cite unemployment statistics. He asked a question every voter could answer personally.
+
+Other examples (Ch.4, pp.161-163):
+- **Snapple's "Real Facts":** Each Snapple cap carries a quirky fact (e.g., "A hummingbird weighs less than a penny"). The fact is trivial, but it makes the brand feel authentic. "If they care enough to verify hummingbird facts, maybe they care about what goes in the bottle."
+- **Wendy's "Where's the beef?":** A simple, visual, testable question. The audience can check the next time they eat a competitor's burger.
+
+**The "try before you buy" principle (Ch.4, p.164):** "Don't just tell people. Let them verify for themselves. Statistical evidence requires trust in the source. Testable credentials require only that the audience trusts its own experience."
+
+### Mechanism 3: Vivid Details as Internal Credibility
+
+*Ch.4, pp.166-172*
+
+The Heaths cite a University of Michigan study (p.166): when jurors were presented with identical arguments — one with vivid details ("The mother used a pair of scissors"), one without ("The mother used a weapon") — the vivid version was consistently rated more credible. Even irrelevant vivid details increase belief in the core claim.
+
+This explains why urban legends are packed with odd, specific details: the ice-filled bathtub, the tube protruding from the lower back, the cell phone on the small table beside the bathtub. These details don't prove the story is true — but they make it FEEL true.
+
+**Warning (Ch.4, p.170):** Vivid details must be true. Using false details to boost credibility is propaganda, not communication. The Bernays ethics gate (marketing_laws.py) applies.
+
+### The Credible Test (from Ch.4)
+
+1. **External authority check:** Is there a credible, recognized authority backing the claim?
+2. **Sinatra Test check:** Is there a single, extreme example that makes the broader claim undeniable?
+3. **Testable credentials check:** Does the audience have a way to verify this claim using their own experience? (Reagan's question model)
+4. **Vivid detail check:** Are there specific, sensory details that make the claim feel real?
+5. **Statistics check:** If numbers are used, are they made human-scale? (37g fat = meaningless. "A full day's worth of greasy meals combined" = credible.)
+
+### Connection to marketing_laws.py
+
+| Heath (Credible) | marketing_laws.py | Mechanism |
+|-----------------|-------------------|-----------|
+| "External authority" | **Cialdini's Authority** (cialdini_authority) — credentials increase persuasion. The Sinatra Test IS an authority heuristic. | Cialdini (1984), Ch.6: "We are trained from birth that obedience to proper authority is right." |
+| "Testable credentials" | **Cialdini's Commitment/Consistency** — self-verification creates a small commitment that triggers consistency. | "Ask yourself if you're better off" = self-persuasion through consistency. |
+| "Vivid details → credibility" | **Von Restorff Effect** — vivid, distinctive details are more memorable AND more credible (dual effect). | The ice-filled bathtub is concrete AND credible — one hook, two principles. |
+
+---
+
+## PRINCIPLE 5 — EMOTIONAL
+
+*Chapter 5, pp.176-208*
+
+### Definition
+
+> "How do we get people to care about our ideas? We make them feel something. Research shows that people are more likely to make a charitable gift to a single needy individual than to an entire impoverished region. We are wired to feel things for people, not for abstractions." (Ch.5, p.176)
+
+### Mechanism 1: The Mother Teresa Effect
+
+*Ch.5, pp.180-186*
+
+The Heaths cite research by Paul Slovic (University of Oregon, cited in Ch.5, pp.180-181): When people were shown a photo of a starving seven-year-old girl named Rokia from Mali, they gave generously. When the same people were shown statistics about starvation affecting 3 million children in Malawi, donations dropped significantly. When given BOTH Rokia's story AND the statistics, donations dropped to near the "statistics only" level. The statistics actually DEADENED the emotional response.
+
+The Heaths (Ch.5, p.183): "The Mother Teresa effect — 'If I look at the mass, I will never act. If I look at the one, I will.' — is the empirical finding that human empathy scales DOWN to individuals, not UP to statistics. We help the one we can see and feel, not the millions we can only count."
+
+**Application to marketing/communication (Ch.5, pp.184-186):** "If you want people to care — about a cause, a product, an idea — show them ONE person affected. Do not show them the aggregate. The aggregate numbs. The individual activates."
+
+### Mechanism 2: The Semantic Stretch of "Emotion"
+
+*Ch.5, pp.188-195*
+
+The Heaths distinguish between two kinds of emotional appeal:
+1. **"Hitting people in the gut"** — fear, disgust, anger, awe. The knee-jerk response. The movie popcorn campaign triggered disgust at the food table visual.
+2. **"Appealing to self-interest"** — what's in it for THEM? The WIIFY ("What's In It For You?") framework.
+
+**The WIIFY framework (Ch.5, pp.191-195):** People care about ideas that affect them personally. Telling a teenager about the 400,000 annual smoking deaths is abstract. Showing them how Big Tobacco manipulated them specifically — "They knew and lied to you" — is personal.
+
+The Heaths (Ch.5, p.193): "WIIFY doesn't mean 'make everything selfish.' It means 'make the consequences tangible to the specific human being you're talking to.' The consequences of a merger are abstract to a line worker — unless you explain how it affects their department, their role, their paycheck."
+
+### Mechanism 3: The Power of Identity Appeals
+
+*Ch.5, pp.196-204*
+
+The Heaths cite the famous "Don't Mess with Texas" anti-littering campaign (Ch.5, pp.196-199): "The campaign didn't appeal to environmental consciousness or civic duty — abstract concepts with weak emotional pull. It appealed to TEXAS PRIDE — a deeply felt identity. Littering wasn't 'bad for the environment'; it was an insult to Texas."
+
+The emotional lever was not "litter is wrong" — it was "you are a Texan, and Texans don't trash their state." This is an identity-based emotional appeal, far more powerful than a values-based one.
+
+**Identity vs. values table (Ch.5, pp.200-204):**
+
+| Appeal Type | Example | Emotional Strength | Duration |
+|-------------|---------|-------------------|----------|
+| **Values** (abstract) | "Protect the environment" | Weak — applies to everyone, activates no one | Fades quickly |
+| **Identity** (specific) | "Don't mess with Texas" | Strong — applies to Texans specifically | Endures for years |
+| **Self-interest** (individual) | "This will save you $200/year" | Medium-strong — activates personal benefit | Lasts until benefit is achieved |
+| **Group identity** (tribal) | "Real programmers use Vim" | Very strong — activates belonging/threat | Endures as long as identity is salient |
+
+### The Emotional Test (from Ch.5)
+
+1. **The ONE test:** Are you showing the audience one individual they can feel for, or a mass of statistics?
+2. **The WIIFY test:** Does the audience know exactly what's in it for THEM — personally, concretely?
+3. **The identity test:** Does the message tap into a specific identity the audience holds (Texan, parent, professional, athlete)?
+4. **The arousal test:** Does the message trigger high-arousal emotion (awe, excitement, anger, fear) or low-arousal (sadness, contentment)? High arousal = action. Low arousal = passivity. (Cross-reference: Berger's Emotion chapter in berger-contagious.md.)
+
+### Connection to marketing_laws.py
+
+| Heath (Emotional) | marketing_laws.py | Mechanism |
+|------------------|-------------------|-----------|
+| "Mother Teresa — the ONE vs. the many" | **Cialdini's Liking** (cialdini_liking) — similarity to an individual triggers identification. We like the one we can relate to. | Cialdini (1984), Ch.5: "We prefer to say yes to people we know and like." A named individual triggers liking; "3 million children" does not. |
+| "Identity appeals" | **Cialdini's Commitment/Consistency** — identity pledges create internal consistency pressure. "I am a Texan → Texans don't litter → I don't litter." | The self-image consistency drive (Cialdini, Ch.3) is the mechanism that makes identity appeals durable. |
+| "WIIFY — personal benefit" | **Kotler's 4 Ps** (kotler_4p) — the "Promotion" P must communicate benefits, not features. WIIFY = the benefit of the Promotion translated to the receiver. | Kotler (1967): Features tell; benefits sell. WIIFY is the emotional translation of features → personal benefits. |
+
+---
+
+## PRINCIPLE 6 — STORIES
+
+*Chapter 6, pp.209-244*
+
+### Definition
+
+> "How do we get people to act on our ideas? We tell stories. Hearing stories acts as a kind of mental flight simulator, preparing us to respond more quickly and effectively." (Ch.6, p.209)
+
+The Heaths argue that stories are not decoration — they are the delivery mechanism for action. A story puts the audience IN the scenario, making them mentally rehearse the response. When a firefighter hears the story of a colleague who detected a backdraft by noticing an unusual puff of smoke, they are mentally cataloging that pattern for future use.
+
+### Mechanism 1: Mental Simulation — The Flight Simulator
+
+*Ch.6, pp.212-219*
+
+The Heaths cite research on mental rehearsal: "Studies show that mentally rehearsing a situation helps us perform better when we encounter that situation in the physical environment. Visualizing a tennis serve improves actual serving accuracy. Visualizing a piano piece improves performance. Stories trigger the same kind of mental simulation."
+
+**The Subway Jared story (Ch.6, pp.219-225; also Introduction p.17):** Jared Fogle lost 245 pounds eating Subway sandwiches daily. The story is sticky because it is:
+- A **Challenge plot** (see below) — underdog overcomes obstacles
+- **Concrete:** specific weight numbers, specific Subway orders
+- **Emotional:** personal transformation story
+- **Credible:** the "before and after" photos are testable credentials (Sinatra Test applied to weight loss)
+- **A flight simulator:** the listener mentally simulates "Could I do that? What would I order?"
+
+### Mechanism 2: The Three Story Archetypes
+
+*Ch.6, pp.226-240*
+
+The Heaths identify three fundamental story types that appear across all sticky ideas:
+
+**1. The Challenge Plot (Ch.6, pp.227-231):**
+> "David vs. Goliath. The underdog overcomes a formidable obstacle through perseverance, courage, or cleverness."
+
+Examples: The Subway Jared story, the Apple "1984" ad, the story of the startup that beat the incumbent. The listener mentally rehearses: "Could I overcome my challenge?"
+
+**2. The Connection Plot (Ch.6, pp.232-236):**
+> "The story of people who develop a relationship that bridges a gap — racial, class, ethnic, religious, demographic."
+
+Examples: The Good Samaritan parable, the story of a CEO who spends a day on the factory floor and learns something transformative. The listener mentally rehearses: "What would I learn if I connected with people unlike me?"
+
+**3. The Creativity Plot (Ch.6, pp.237-240):**
+> "The story of someone making a mental breakthrough, solving a long-standing puzzle, or approaching a problem in a radically new way."
+
+Examples: The Nordstrom tire return, the story of the Apollo 13 engineers who solved the CO2 scrubber problem with duct tape and spare parts. The listener mentally rehearses: "What creative solution might apply to MY problem?"
+
+### Mechanism 3: The Shop Talk Test
+
+*Ch.6, pp.241-244*
+
+The Heaths' acid test for story quality:
+> "If you were overhearing your customers in a bar or a coffee shop, talking about your product or idea — what would they say? Would they tell a story?"
+
+This is the "Shop Talk" test: imagine the conversation in the target audience's natural environment. Are they recounting a story, or are they reciting your tagline? "People don't quote ads to each other. They tell stories." (Ch.6, p.243)
+
+**The "story as Trojan Horse" concept (Ch.6, pp.241-242 — cross-referencing Berger, Ch.6):** "The story is the horse — it's what gets shared. The idea is the soldiers inside — it's what you want people to remember and act on. If the horse doesn't get shared, the soldiers never arrive."
+
+### The Stories Test (from Ch.6)
+
+1. **Archetype check:** Does the story fit a Challenge, Connection, or Creativity plot?
+2. **Flight simulator check:** Does the audience mentally rehearse the desired behavior by hearing the story?
+3. **Shop Talk check:** Would an actual customer tell this story to a friend, unprompted, in their own words?
+4. **Brand integration check:** If you removed the brand from the story, does the story collapse? (Cross-reference: Berger's Story-Brand Integration Rule in berger-contagious.md.)
+5. **Trojan Horse check:** Is the message INSIDE the story, or is the story wrapped around the message like gift wrap? Good integration = inseparable.
+
+### Connection to marketing_laws.py
+
+| Heath (Stories) | marketing_laws.py | Mechanism |
+|----------------|-------------------|-----------|
+| "Mental flight simulator" | **Cialdini's Social Proof** (cialdini_social_proof) — "people like me do this." A story about "someone like me" creates imitation through social proof. | Cialdini (1984), Ch.4: "We view a behavior as more correct when we see others performing it." Stories = social proof delivered narratively. |
+| "Challenge plot" | **Ries & Trout, Law of Perception** (law_of_perception) — the David vs. Goliath story changes perception of relative strength. | The narrative re-frames: Goliath's size becomes a vulnerability, not an advantage. |
+| "Trojan Horse" | **Lasswell Model** (lasswell_model) — the story is the channel through which the message reaches the receiver. A good story makes the channel invisible; the message arrives inside an engaging wrapper. | Lasswell (1948): "in which channel" → the story IS the channel for the message. |
+
+---
+
+## THE COMPLETE SUCCESs CHECKLIST
+
+*Epilogue, pp.245-260; "Making Ideas Stick: The Easy Reference Guide," pp.261-270*
+
+This is the master checklist reproduced from the Heaths' epilogue and reference guide. Every creative brief in Brand Studio should be scored against this list.
+
+### S — Simple: Find the Core
+
+1. What is the Commander's Intent? The single most important thing — if nothing else survives, THIS must.
+2. Is it compact? Can an employee remember it Monday morning?
+3. Is it profound? Short is easy. Short AND deep is the goal. Proverbs, not sound bites.
+4. Does it guide decisions? If it supports two contradictory choices, it's not a core.
+
+**Ogilvy alignment:** Ogilvy's Big Idea test ("Could it be used for 30 years?") is a simplicity test. A Big Idea IS a Commander's Intent.
+
+### U — Unexpected: Violate Expectations
+
+1. What schema are you violating?
+2. Does the violation produce genuine surprise (not confusion)?
+3. What gap are you opening? Is it personal to the audience?
+4. How will you fill the gap? Surprise without resolution is betrayal.
+
+**Ogilvy alignment:** Ogilvy's "Did it make you gasp?" Big Idea criterion is a surprise test.
+
+### C — Concrete: Make It Sensory
+
+1. Can you see, hear, or touch the idea?
+2. How many sensory hooks does it have?
+3. Would 10 people form the same mental picture?
+4. Can it be acted out? Abstract ideas cannot be performed.
+
+**Ogilvy alignment:** Ogilvy's Specificity Principle ("specific facts stick") IS concreteness.
+
+### C — Credible: Help People Test
+
+1. Is there a Sinatra Test — a single extreme example that proves the point?
+2. Are there testable credentials — can the audience verify using their own experience?
+3. Are details vivid and true?
+4. Are statistics made human-scale and relatable?
+
+**Ogilvy alignment:** Ogilvy's Research-Before-Creativity Rule — research-backed claims ARE credible claims.
+
+### E — Emotional: Make People Care
+
+1. Are you showing ONE person, or a mass statistic? (Mother Teresa effect)
+2. What identity are you appealing to?
+3. Is there a clear WIIFY? What's in it for THIS specific person?
+4. Is the emotion high-arousal (awe, excitement, anger, fear)?
+
+**Ogilvy alignment:** Ogilvy's Rule #1 (Consumer-Is-Your-Wife) is an emotional respect rule. "She's not a moron — she's someone you care about."
+
+### S — Stories: Drive Action Through Simulation
+
+1. What story archetype does it fit? (Challenge, Connection, Creativity)
+2. Does the audience mentally rehearse the desired behavior?
+3. Would customers tell this story in their own words? (Shop Talk test)
+4. Is the brand IN the story, not glued ON the story? (Trojan Horse test)
+
+**Ogilvy alignment:** Ogilvy's "Big Idea" stories — the Hathaway man with the eye patch, the Rolls-Royce clock, Schweppes Commander Whitehead — are enduring SUCCESs stories.
+
+---
+
+## APPLICATION: SPARK'S GATE CHECKLIST
+
+For every creative passing through spark's art-direction-critique gate, score against SUCCESs:
+
+| # | Element | Score (0-2) | Test |
+|---|---------|------------|------|
+| 1 | **Simple** | | Is there a clear Commander's Intent? Can it survive retelling? |
+| 2 | **Unexpected** | | Does it violate a schema? Does it open a knowledge gap? |
+| 3 | **Concrete** | | Are there sensory hooks? Would everyone form the same picture? |
+| 4 | **Credible** | | Is there a Sinatra Test or testable credential? Are details vivid and true? |
+| 5 | **Emotional** | | Is it showing ONE person? Is there identity appeal? Is arousal high? |
+| 6 | **Stories** | | Is there a narrative archetype? Does it work as a flight simulator? |
+
+**Scoring:** 0 = absent, 1 = present but weak, 2 = strong and well-integrated.
+- **12/12:** Sticky. Ship. The Heaths would be proud.
+- **9-11/12:** Strong. Strengthen the weak element(s) and re-submit.
+- **6-8/12:** Adequate. At least 3 of 6 SUCCESs elements are missing or weak.
+- **<=5/12:** Stillborn. Return to core concept. The idea will not stick.
+
+**Curse of Knowledge override:** Before final scoring, have someone NOT involved in creating the idea read it. If they can't explain it back, the Curse has won — regardless of SUCCESs scores.
+
+---
+
+## CROSS-FRAMEWORK INTEGRATION
+
+### SUCCESs + STEPPS (Berger)
+
+| Heath (SUCCESs) | Berger (STEPPS) | Integration |
+|----------------|-----------------|-------------|
+| Simple | Practical Value (Ch.5) | Simple ideas with practical utility = maximum shareability |
+| Unexpected | Social Currency (Ch.1) | Unexpected things make the sharer look smart/in-the-know |
+| Concrete | Stories (Ch.6) | Concrete details make stories transportable |
+| Credible | Triggers (Ch.2) | Repeated credible messages build top-of-mind association |
+| Emotional | Emotion (Ch.3) | Direct mapping — high-arousal = shared, low-arousal = not |
+| Stories | Stories + Public (Ch.4, Ch.6) | Stories leave a "public residue" on the sharer |
+
+### SUCCESs + Ogilvy
+
+Every Ogilvy rule maps onto SUCCESs:
+- Consumer-Is-Your-Wife = Emotional + Credible
+- Big Idea = Simple (Commander's Intent)
+- Specificity = Concrete
+- Research-Backed = Credible
+- Headline Rule = Simple + Emotional
+- Brand Image = Emotional + Stories
+
+### SUCCESs + Ries & Trout
+
+- Law of Focus = Simple (own ONE word; Commander's Intent)
+- Law of Leadership = Credible (first in mind)
+- Law of Perception = Unexpected (perception gap = schema violation)
+
+---
+
+## BOUNDARIES WITH OTHER SCRIPTS
+
+- **marketing_laws.py:** SUCCESs operationalizes Von Restorff (Unexpected + Concrete), Hick's Law (Simple), Cialdini's Authority (Credible), Cialdini's Liking (Emotional), and Cialdini's Social Proof (Stories).
+- **content_performance.py:** Imports SUCCESs scoring function and composites it with STEPPS for a contagion score.
+- **berger-contagious.md:** STEPPS is the "why it spreads" framework; SUCCESs is the "why it sticks" framework. Together they form the complete content effectiveness model.
+- **ogilvy-creative-code.md:** Ogilvy's 10-point test battery is a practitioner's pre-internet application of SUCCESs. Every Ogilvy rule traces to a SUCCESs element.
+- **mckee-story-structure.md:** Heath's three archetypes (Challenge, Connection, Creativity) are simplified applications of McKee's full dramatic structure.

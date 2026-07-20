@@ -1,0 +1,72 @@
+---
+name: platform-playbooks
+type: custom
+status: built 2026-07-09 (Fable build)
+based_on_catalog_entry: none — new; generalizes plan §3's "AWS/Vercel/Harness.io/Datadog dated playbooks" line into a discipline instead of hardcoded platform docs (rule 0.4b), applying Brand Studio's three-layer volatility split to infrastructure knowledge
+marketplace_search: 2026-07-09 — platform-specific skills exist per-tool (deploy/K8s/cloud skills on skillsmp/mcpmarket); none provide the dated-knowledge discipline itself; kept custom. Per-platform marketplace skills may be imported INTO a business's playbook set at deployment
+assigned_agent: ops (Engineering / DevOps & Reliability)
+portable: true — this is the portability mechanism itself: the skill is the discipline; each business's playbooks are its own dated instances
+includes: assets/platform-playbook-template.md
+date_added: 2026-07-09
+---
+
+## Introduction
+
+platform-playbooks is how ops knows *this business's* infrastructure without the department hardcoding anyone's: durable method lives in the sibling skills (release-discipline, incident-response, maintenance-hygiene — true on any host), while platform-specific mechanics (how THIS host deploys, where THIS CI's logs live, what THIS telemetry product calls an alert) live in **dated, per-business playbook documents**, one per platform named in the stack-profile. Brand Studio's three-layer volatility split, engineering edition: durable discipline static · volatile platform knowledge in dated playbooks · the business's own deploy/incident records as ground truth.
+
+## Purpose
+
+Platform knowledge rots fast — consoles move, CLIs deprecate, pricing changes — and it varies per business. Baked into skills, it makes the team serve one stack and go stale silently (the catalog's original defect, plan §1). In dated playbooks, it stays current-or-visibly-old: a playbook dated 14 months ago announces its own unreliability, and the same 11 agents serve any stack by swapping playbooks, not skills.
+
+## When to Use
+
+Triggers: "how do we deploy on [host]," "where are the logs," "write the playbook for [platform]," any sibling skill reaching a host-specific step, onboarding a new business (toongine binding), a platform migration ADR landing, and a dated playbook crossing its staleness horizon.
+
+## Structure / Protocol
+
+```
+stack-profile names the platforms (host, CI/CD, telemetry, backup service, DNS/CDN…)
+  -> ONE PLAYBOOK PER PLATFORM (assets/platform-playbook-template.md), each header carrying:
+     as-of DATE · source (vendor docs version / verified-by-doing record ref) · staleness horizon
+    -> Sibling skills reference playbooks at their host-specific steps
+       (release-discipline: "deploy per playbook §" · hygiene: "backup service mechanics per playbook")
+      -> UPDATED BY: verified deploy/incident/hygiene records (ground truth beats docs) ·
+         platform changes noticed in use · staleness-horizon review (config cadence)
+        -> Platform CHANGES (new host, new CI) are dev ADRs → stack-profile updates → new playbook;
+           the old playbook is archived-dated, never edited into fiction
+```
+
+## Instructions
+
+1. **One platform, one playbook, one date.** Each playbook covers a single platform from the stack-profile and states its as-of date, its source, and its staleness horizon in the header. No undated platform claims anywhere in the department — an undated "how it works" is folklore.
+2. **Ground truth outranks documentation.** A verified deploy record ("this exact command worked on [date]") beats vendor docs; contradictions between a playbook and reality are resolved toward reality and the playbook re-dated. The business's own records are the highest-trust layer.
+3. **Stale is loud.** Past the staleness horizon, the playbook's guidance is flagged in any output using it ("per playbook dated [old date] — verify before trusting"). Sibling skills inherit the flag; a deploy following a stale playbook says so on its checklist.
+4. **Connectors are named, not assumed.** Each playbook lists the MCP/connector that automates its platform (plan §5: Harness.io for CI/CD, Datadog for telemetry — proposed at deployment via the suggest-connectors pattern). Absent connector = manual mechanics documented, capability degraded loudly (quinn's principle 2, inherited).
+5. **Marketplace per-platform skills import into playbooks.** If a business runs a platform with a good marketplace skill, import it verbatim-with-provenance as that playbook's machinery (quinn's webapp-testing pattern) — the playbook wraps it with the business's specifics and the date.
+6. **Charter binds the mechanics.** Playbook commands run under locked plans (Rail 1) in sandboxes (Rail 2); any playbook step touching data destructively is written as a prepared-script-for-operator step (Rail 3) — a playbook may never instruct an agent to run one.
+
+## Output Format
+
+Playbooks follow `assets/platform-playbook-template.md`. In use, agents cite date + section: "per [host] playbook §Deploy (as of [date])" — the date travels with every citation.
+
+## Principles
+
+- **Method is durable; platforms are dated** — the volatility split is the portability mechanism.
+- **Ground truth beats vendor docs** — verified records re-date playbooks; reality wins contradictions.
+- **Stale knowledge announces itself** — horizons + loud flags; silent staleness is the failure mode this skill exists to kill.
+- **One playbook per platform, per business** — swapping businesses swaps playbooks, never skills.
+- **No undated platform claims** — anywhere, in any Engineering output.
+- **Playbooks never instruct charter breaches** — destructive steps are operator-script steps by construction.
+
+## Fallback
+
+- No playbook for a platform the stack-profile names → sibling skills run method-only with manual verification at each host step; writing the playbook becomes a dated task, seeded from the first verified run.
+- Stack-profile itself missing → dev's problem first (its fallback: build from operator's stated stack, provisional); playbooks follow it, never precede it.
+- Two businesses share a platform → playbooks may share a common base but each business carries its own instance (accounts, regions, quotas differ — the specifics are the point).
+
+## Boundaries with Other Skills
+
+- **release-discipline / incident-response / maintenance-hygiene** (siblings): the invariant disciplines; this skill holds their host-specific mechanics. The split is deliberate — siblings never name platforms, playbooks never define discipline.
+- **dev/stack-profile**: names WHICH platforms exist (the what); playbooks document HOW each behaves (the mechanics); platform changes are ADRs that flow stack-profile → playbook.
+- **quinn/charter-enforcement**: playbook-driven tool calls are locked and sandboxed like all others; quinn can reject a plan whose steps cite a stale playbook for a risky operation.
+- **rank/mia/dana** (when built): platform playbooks for their surfaces (CDN/rendering, app stores, datastores) follow this same discipline — the template is department-shared.

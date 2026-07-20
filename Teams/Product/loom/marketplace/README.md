@@ -1,0 +1,1 @@
+Intentionally empty — no marketplace skill adopted yet. Candidate identified 2026-07-10 (lean-experimentation, PM-skills marketplaces) queued for scout's marketplace-skill-scouting pass; adoption requires operator approval per playbook 4.3-4.4. (playbook 7.0a)

@@ -1,0 +1,39 @@
+---
+name: spec-logical-book-requirements
+type: logical
+status: built — inherits from Shared OS (2026-07-15)
+assigned_agent: spec (Product / Product Manager — department leader)
+date_added: 2026-07-10
+date_filled: 2026-07-15
+---
+
+## Purpose
+
+All logical scripts live in `Shared OS/logical/` (playbook §13.5). Spec inherits scripts from the shared layer — no dedicated scripts needed. This file is the only file in this folder.
+
+## Inherited Scripts (Shared OS/logical/ — imported, not copied)
+
+| Script | Source Book | Book URL | Why Spec Needs It |
+|--------|------------|----------|---------------------|
+| `rice_prioritization.py` | Intercom RICE + Reinersten WSJF + SAFe | Canonical standard (Tier B) | RICE weights, cost-of-delay, effort calibration for backlog ranking |
+| `decision_analysis.py` | Clemen & Reilly, *Making Hard Decisions* (3rd Ed., 2012) | [archive.org](https://archive.org/details/makingharddecisi0000clem_u9f9) | Decision trees, MAUT, EVPI for opportunity assessment and kill/park decisions |
+| `signal_detection.py` | OpenStax, *Introductory Business Statistics 2e* (2023) | [openstax.org](https://openstax.org/details/books/introductory-business-statistics-2e) — FREE | Evidence-cap coupling: CI checks, significance tests for PRD claims |
+| `planning_fallacy.py` | Kahneman, *Thinking, Fast and Slow* (2011) | [archive.org](https://dn790002.ca.archive.org/0/items/DanielKahnemanThinkingFastAndSlow/) | De-bias roadmap projections in PRDs |
+| `experiment_methods.py` | Kohavi et al., *Trustworthy Online Controlled Experiments* papers + OpenStax | [experimentguide.com](https://experimentguide.com/) / [openstax.org](https://openstax.org/) | Power analysis, sample sizing for A/B tests — validates metrics claims |
+| `pricing_methods.py` | Nagle, *Strategy and Tactics of Pricing* (2002) + Van Westendorp (1976) | [archive.org](https://archive.org/details/strategytacticso0000nagl) — FREE | Revenue guardrail thresholds for PRD financial sections |
+
+## Flag Clearance Summary
+
+| Previously Flagged (0.6) | Status | Script |
+|--------------------------|--------|--------|
+| RICE weights + confidence caps | ✅ Cleared | `rice_prioritization.py` (RICE scoring + calibrate_effort) |
+| Cost-of-delay vs RICE's rubric | ✅ Cleared | `rice_prioritization.py` (cod_from_rice_factors, WSJF) |
+| Age-out from actual decay data | ✅ Cleared | `signal_detection.py` (detect_metric_drift, classify_metric_change) |
+| Evidence-cap coupling for PRD claims | ✅ Cleared | `signal_detection.py` (CI + significance) + `experiment_methods.py` (power analysis) |
+
+## Skills → Script Mapping
+
+- **backlog-rules** → imports `rice_prioritization.py` (RICE, effort calibration)
+- **opportunity-assessment** → imports `decision_analysis.py` (EVPI, decision trees)
+- **prd-discipline** → imports `signal_detection.py` (evidence verification) + `planning_fallacy.py` (projection de-biasing)
+- **acceptance-criteria-handoff** → imports `experiment_methods.py` (MDE, power for acceptance criteria)

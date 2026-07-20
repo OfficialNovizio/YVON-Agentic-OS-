@@ -1,0 +1,26 @@
+---
+name: book-requirements
+type: logical (placeholder — awaiting operator-supplied source books per rule 0.6)
+assigned_agent: cypher (Engineering / Adversary / Red Team)
+date_added: 2026-07-09
+---
+
+## Purpose
+
+The logical layer grounds cypher's judgments in real, citable sources. cypher's attack classes are already sourced from OWASP (web Top 10, LLM Top 10 2025) — cited in attack-playbooks. The books below ground severity and prioritization judgments that convention currently supplies.
+
+## Candidate sources (operator to supply; suggestions, not purchases cypher made)
+
+1. **A web-application hacking / offensive-security reference** — grounds the classic attack playbooks with technique depth beyond the OWASP category names.
+2. **An LLM/AI red-teaming reference** — grounds the agent-attack playbooks (indirect injection, tool poisoning, plan override) as the field matures; shared candidate with the future AI & Agents department.
+3. **A severity/triage text** (shared with aegis and quinn) — grounds finding severity and loop prioritization with a real scoring system rather than threat-model-relative reasoning.
+
+## Currently flagged as reasoning-based (rule 0.6)
+
+- Loop target prioritization weighting (fresh-surface > model-rank > breach-history > coverage — reasoned, not derived).
+- Finding severity beyond the threat-model asset rating.
+- Any emerging attack class not yet in a published source (labeled in the register).
+
+## Extraction protocol (when books arrive)
+
+Techniques/scoring extracted with page-level citations into this folder; attack-class register and findings severity updated to cite them; reasoning-based flags removed only where a citation replaces them. Coordinate the red-teaming and severity texts with aegis and the future AI & Agents dept.

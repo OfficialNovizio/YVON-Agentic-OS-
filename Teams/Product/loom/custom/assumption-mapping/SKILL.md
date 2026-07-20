@@ -1,0 +1,48 @@
+---
+name: assumption-mapping
+type: custom
+status: built from scratch
+fulfills_catalog_entry: none — new; the riskiest-first triage that decides WHAT to test (redesign §3)
+assigned_agent: loom (Product / PMF & Experimentation)
+portable: true
+date_added: 2026-07-10
+---
+
+# Assumption Mapping
+
+## Introduction
+Surfacing the beliefs a plan rests on and ranking them by risk — how damaging if wrong × how uncertain — so the riskiest, least-known assumption gets tested first. You don't test everything; you test the belief most likely to kill the idea.
+
+## Purpose
+Teams test what's easy or what they're curious about, not what's dangerous. Mapping assumptions by risk aims the limited experiment budget at the belief whose falseness would sink the plan — the leap-of-faith assumption, first.
+
+## When to Use
+- A PRD, opportunity, or PMF plan rests on unvalidated beliefs (spec/loom).
+- Before experiment-discipline runs — mapping decides which hypothesis it tests.
+- A shipped miss: which assumption was wrong? (annealing input).
+
+## Structure / Protocol
+SURFACE (list the beliefs the plan needs to be true: desirability — will they want it; viability — will it pay; feasibility — can we build it; usability — can they use it) → SCORE (each: impact-if-wrong × uncertainty — both flagged reasoning-based until the decision-analysis source) → RANK (riskiest-first: high-impact + high-uncertainty is the leap-of-faith assumption) → ROUTE (top assumption → experiment-discipline for the cheapest falsifying test; known-enough assumptions → cite existing evidence, don't re-test; feasibility → Engineering, not a user experiment) → RECORD (the map, so a later miss can point to which assumption failed).
+
+## Instructions
+1. Surface the uncomfortable ones — the assumption nobody wants to question (usually "customers want this") is the one to map, not skip.
+2. Score both axes: a high-impact belief that's already well-evidenced isn't the priority; a low-impact unknown isn't either. Riskiest = damaging AND uncertain (both flagged 0.6 until the source).
+3. Riskiest-first, always — the experiment budget goes to the leap-of-faith assumption; testing easy-but-safe beliefs first is how teams validate everything except the thing that kills them.
+4. Not every assumption is a user experiment: feasibility routes to Engineering (a spike), viability may route to price (WTP), desirability/usability to experiment-discipline or ux.
+5. Record the map: when something ships and misses, the map tells you which belief was wrong — the raw material for annealing spec's/ux's/loom's skill text.
+
+## Output Format
+Assumption map: belief · category (desirability/viability/feasibility/usability) · impact-if-wrong · uncertainty · rank · route (experiment / cite-evidence / Engineering / price).
+
+## Principles
+- Riskiest-first — test what could kill it, not what's easy.
+- Both axes: damaging AND uncertain earns the test.
+- Map it so a later miss has an address.
+
+## Fallback
+Too many assumptions to test in the budget? Rank ruthlessly and test only the top — an untested lower assumption is a stated, accepted risk, logged, not a silent gap.
+
+## Boundaries with Other Skills
+- experiment-discipline tests the top assumption; pmf-scorecard's PMF question is itself a bundle of assumptions this maps; experiment-registry records outcomes.
+- Engineering (feasibility spikes), price (viability/WTP), ux (desirability research) receive routed assumptions by type.
+- spec: opportunity-assessment's do-nothing cost and alternatives feed the impact axis.

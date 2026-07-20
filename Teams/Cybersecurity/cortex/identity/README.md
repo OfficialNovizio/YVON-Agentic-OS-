@@ -1,0 +1,1 @@
+Identity folder intentionally empty. cortex is a non-leader agent — identity content is department-leader-only (warden holds Cybersecurity's identity). Per universal folder structure rule and playbook §6.1.

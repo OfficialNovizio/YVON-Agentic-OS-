@@ -1,0 +1,18 @@
+# Risk Register — [business name]
+
+> Append-only. Every risk: asset × threat × vuln, scored (risk_score.py), treated, owned. Acceptance above `risk_acceptance_threshold` → board. Scales are operator-set (rule 0.5), flagged reasoning-based (0.6) until the risk-management source.
+
+## Register
+| ID | Asset | Threat | Vulnerability | Likelihood | Impact | Score | Crown-jewel | Treatment | Owner | Review | Status |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| R-001 | <FILL_IN> | | | [1-5] | [1-5] | [L×I] | y/n | mitigate/transfer/avoid/ACCEPT | | [date] | open/treated/accepted-by-X-on-date |
+
+## Acceptance log (operator/board decisions — append-only)
+| Risk ID | Accepted by | Date | Rationale | Board ref (if above threshold) | Review-by |
+|---|---|---|---|---|---|
+
+## Config
+- likelihood_scale / impact_scale: <FILL_IN> (default 5×5)
+- risk_acceptance_threshold: <FILL_IN> (above → board; e.g. score ≥ 15)
+- crown_jewel_assets: <FILL_IN> (weight up)
+- review_cadence: <FILL_IN>

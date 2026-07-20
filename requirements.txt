@@ -1,0 +1,16 @@
+# YVON RAG Pipeline — Python Dependencies
+# Install: pip install -r requirements.txt --break-system-packages
+
+# Embedding
+sentence-transformers>=2.2.0
+scikit-learn>=1.0.0
+
+# Vector store
+sqlite-vec>=0.1.0
+
+# PDF processing (optional, for chunkify.py)
+pypdf>=3.0.0
+pdfplumber>=0.7.0
+
+# CLI tools
+numpy>=1.24.0

@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VYON Group Inc. — Master Structure</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#06060F; color:#E2E8F0; font-family:'Inter',-apple-system,system-ui,sans-serif; min-width:1400px; }
+.header { background:linear-gradient(160deg,#08081E 0%,#0C0C28 55%,#080818 100%); border-bottom:1px solid #1E2940; padding:30px 48px 24px; text-align:center; }
+.eyebrow { font-size:10px; letter-spacing:0.22em; color:#F59E0B; font-weight:700; margin-bottom:8px; }
+.title { font-size:25px; font-weight:900; letter-spacing:0.04em; margin-bottom:8px;
+  background:linear-gradient(90deg,#E2E8F0 0%,#F59E0B 50%,#E2E8F0 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.subtitle { font-size:9.5px; color:#64748B; letter-spacing:0.1em; font-weight:600; }
+.content { padding:24px 48px; }
+.divider { display:flex; align-items:center; gap:14px; margin:22px 0 12px; }
+.div-line { flex:1; height:1px; background:#1E2940; }
+.div-text { text-align:center; flex-shrink:0; }
+.div-label { font-size:9.5px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; }
+.div-sub { font-size:7.5px; color:#334155; margin-top:2px; letter-spacing:0.05em; }
+.gov-grid { display:grid; grid-template-columns:1fr 1.4fr; gap:14px; }
+.board-box { border:2px solid #2563EB44; border-radius:10px; overflow:hidden; }
+.board-head { background:#2563EB14; padding:10px 14px; border-bottom:1px solid #2563EB44; }
+.board-head-title { font-size:11.5px; font-weight:900; color:#93C5FD; }
+.board-head-sub { font-size:7.5px; color:#64748B; }
+.board-body { padding:12px 14px; }
+.bm-name { font-size:10.5px; font-weight:800; color:#93C5FD; }
+.bm-role { font-size:8px; color:#CBD5E1; }
+.bm-type { font-size:6.5px; color:#64748B; margin-top:2px; }
+.board-target { margin-top:10px; padding-top:10px; border-top:1px dashed #1E2940; font-size:7px; color:#64748B; }
+.council-box { border:2px solid #7C3AED44; border-radius:10px; overflow:hidden; }
+.council-head { background:#7C3AED14; padding:10px 14px; border-bottom:1px solid #7C3AED44; }
+.council-head-title { font-size:11.5px; font-weight:900; color:#C4B5FD; }
+.council-head-sub { font-size:7.5px; color:#64748B; }
+.council-grid { padding:10px 12px; display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.council-card { background:#09091A; border-radius:5px; padding:6px 7px; }
+.cc-top { display:flex; justify-content:space-between; align-items:center; }
+.cc-agent { font-size:8px; font-weight:800; }
+.cc-status { font-size:5px; font-weight:700; }
+.cc-dept { font-size:6px; color:#64748B; margin-top:1px; }
+.ceo-wrap { display:flex; justify-content:center; }
+.varrow { display:flex; flex-direction:column; align-items:center; height:18px; }
+.varrow-line { width:2px; flex:1; background:#1E3A5F; }
+.varrow-tip { width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-top:6px solid #1E3A5F; }
+.ceo-box { background:#130E00; border:2px solid #F59E0B; border-radius:8px; padding:12px 46px; text-align:center; }
+.ceo-title { font-size:12.5px; font-weight:900; letter-spacing:0.08em; color:#FCD34D; }
+.ceo-name { font-size:10.5px; color:#F59E0B; font-weight:700; margin-top:2px; }
+.cs-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:7px; margin-bottom:7px; }
+.cs-card { background:#09091A; border-radius:6px; padding:8px 8px; text-align:center; position:relative; }
+.cs-badge { position:absolute; top:4px; right:4px; font-size:5px; font-weight:700; padding:1px 3px; border-radius:2px; }
+.cs-abbr { font-size:14px; font-weight:900; }
+.cs-title { font-size:6.5px; color:#94A3B8; margin-top:2px; line-height:1.2; }
+.fork-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.brands-box { border:2px solid #F59E0B44; border-radius:10px; overflow:hidden; }
+.brands-head { background:#F59E0B14; border-bottom:1px solid #F59E0B44; padding:10px 14px; }
+.brands-title { font-size:12px; font-weight:900; color:#F59E0B; letter-spacing:0.06em; }
+.brands-sub { font-size:7.5px; color:#78716C; }
+.brands-body { padding:12px 14px; display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.brand-card { background:#07070F; border:1px solid #F59E0B33; border-top:3px solid #F59E0B; border-radius:6px; padding:10px 9px; text-align:center; }
+.brand-name { font-size:10px; font-weight:900; color:#F59E0B; margin-bottom:4px; }
+.brand-status { display:inline-block; font-size:6px; font-weight:700; padding:1px 5px; border-radius:3px; margin-bottom:5px; }
+.brand-desc { font-size:7px; color:#64748B; line-height:1.4; }
+.platform-box { border:2px solid #A78BFA44; border-radius:10px; overflow:hidden; }
+.platform-head { background:#A78BFA14; border-bottom:1px solid #A78BFA44; padding:10px 14px; }
+.platform-title { font-size:12px; font-weight:900; color:#A78BFA; letter-spacing:0.06em; }
+.platform-sub { font-size:7.5px; color:#7C3AED99; }
+.platform-body { padding:12px 14px; display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+.platform-card { background:#07070F; border:1px solid #A78BFA33; border-top:3px solid #A78BFA; border-radius:6px; padding:9px 9px; }
+.platform-name { font-size:7.5px; font-weight:800; color:#A78BFA; margin-bottom:3px; line-height:1.25; }
+.platform-desc { font-size:6.5px; color:#64748B; line-height:1.4; }
+.dept-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:9px; }
+.dept-panel { border-radius:8px; overflow:hidden; }
+.dept-header { padding:8px 10px; display:flex; justify-content:space-between; align-items:center; }
+.dept-name { font-size:9.5px; font-weight:900; letter-spacing:0.05em; }
+.dept-newbadge { font-size:5.5px; color:#F59E0B; margin-left:4px; background:#F59E0B22; padding:1px 3px; border-radius:2px; }
+.dept-counts { font-size:6px; color:#475569; }
+.dept-body { padding:8px 10px; }
+.agent-row { display:flex; gap:5px; margin-bottom:5px; align-items:flex-start; }
+.agent-dot { width:4px; height:4px; border-radius:50%; flex-shrink:0; margin-top:4px; }
+.agent-line1 { display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
+.agent-name { font-size:8px; font-weight:800; color:#CBD5E1; }
+.agent-role { font-size:6px; font-weight:700; }
+.agent-csuite { font-size:5px; font-weight:700; color:#475569; background:#1E2940; padding:0px 3px; border-radius:2px; }
+.agent-desc { font-size:6.5px; color:#64748B; line-height:1.3; }
+.footer { text-align:center; margin-top:18px; font-size:7.5px; color:#1E2940; letter-spacing:0.14em; }
+.dept-panel:hover { filter:brightness(1.15); transition:filter 0.15s; }
+.cs-card:hover, .council-card:hover, .brand-card:hover, .platform-card:hover { filter:brightness(1.2); transition:filter 0.15s; cursor:default; }
+@media print { body { min-width:0; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="eyebrow">VYON GROUP INC. · MASTER STRUCTURE</div>
+  <div class="title">TWO-ARM DIVISION · 49-AGENT ROSTER · BOARD GOVERNANCE</div>
+  <div class="subtitle">HUMAN BOARD (LEGAL) + AI COUNCIL (ADVISORY) — NOT THE SAME THING</div>
+</div>
+
+<div class="content">
+
+  <div class="divider"><div class="div-line"></div><div class="div-text">
+    <div class="div-label" style="color:#2563EB">GOVERNANCE LAYER</div><div class="div-sub">HUMAN BOARD HOLDS LEGAL AUTHORITY · AI COUNCIL ADVISES, DOES NOT VOTE</div>
+    </div><div class="div-line"></div></div>
+  <div class="gov-grid">
+    <div class="board-box">
+      <div class="board-head"><div class="board-head-title">BOARD OF DIRECTORS</div><div class="board-head-sub">Legal authority · CBCA · Fiduciary liability</div></div>
+      <div class="board-body">
+        <div class="board-member" style="border-bottom:1px solid #1E2940;padding-bottom:9px;margin-bottom:9px;">
+<div class="bm-name">Novy Singh</div><div class="bm-role">Chairman & CEO</div><div class="bm-type">Inside · Founder</div></div><div class="board-member" style="border-bottom:1px solid #1E2940;padding-bottom:9px;margin-bottom:9px;">
+<div class="bm-name">Amit Choudhary</div><div class="bm-role">Director — CTO/CPO</div><div class="bm-type">Inside · Co-Founder</div></div><div class="board-member" style="">
+<div class="bm-name">Sagar Poojari</div><div class="bm-role">Director — COO/VP Eng</div><div class="bm-type">Inside · Co-Founder</div></div>
+        <div class="board-target">+ 2 independent directors, 1 advisory seat — target, pre-Series A</div>
+      </div>
+    </div>
+    <div class="council-box">
+      <div class="council-head"><div class="council-head-title">AI COUNCIL OF DEPARTMENT HEADS</div><div class="council-head-sub">Advisory only — cannot hold legal directorship · Feeds Board via "board" agent's 4-gate cycle</div></div>
+      <div class="council-grid"><div class="council-card" style="border-left:3px solid #F59E0B">
+    <div class="cc-top"><span class="cc-agent" style="color:#F59E0B">marcus</span><span class="cc-status" style="color:#16A34A">LIVE</span></div>
+    <div class="cc-dept">CEO</div></div><div class="council-card" style="border-left:3px solid #0F766E">
+    <div class="cc-top"><span class="cc-agent" style="color:#0F766E">diana</span><span class="cc-status" style="color:#16A34A">LIVE</span></div>
+    <div class="cc-dept">COO</div></div><div class="council-card" style="border-left:3px solid #EF4444">
+    <div class="cc-top"><span class="cc-agent" style="color:#EF4444">board</span><span class="cc-status" style="color:#16A34A">LIVE</span></div>
+    <div class="cc-dept">COMMAND</div></div><div class="council-card" style="border-left:3px solid #10B981">
+    <div class="cc-top"><span class="cc-agent" style="color:#10B981">felix</span><span class="cc-status" style="color:#16A34A">LIVE</span></div>
+    <div class="cc-dept">FINANCE</div></div><div class="council-card" style="border-left:3px solid #B45309">
+    <div class="cc-top"><span class="cc-agent" style="color:#B45309">comply</span><span class="cc-status" style="color:#16A34A">LIVE</span></div>
+    <div class="cc-dept">LEGAL</div></div><div class="council-card" style="border-left:3px solid #9333EA">
+    <div class="cc-top"><span class="cc-agent" style="color:#9333EA">kai</span><span class="cc-status" style="color:#16A34A">LIVE</span></div>
+    <div class="cc-dept">MARKETING</div></div><div class="council-card" style="border-left:3px solid #EC4899">
+    <div class="cc-top"><span class="cc-agent" style="color:#EC4899">kahneman</span><span class="cc-status" style="color:#16A34A">LIVE</span></div>
+    <div class="cc-dept">PSYCHOLOGY</div></div><div class="council-card" style="border-left:3px solid #2563EB">
+    <div class="cc-top"><span class="cc-agent" style="color:#2563EB">synth</span><span class="cc-status" style="color:#16A34A">LIVE</span></div>
+    <div class="cc-dept">RESEARCH</div></div><div class="council-card" style="border-left:3px solid #7C3AED">
+    <div class="cc-top"><span class="cc-agent" style="color:#7C3AED">radar</span><span class="cc-status" style="color:#16A34A">LIVE</span></div>
+    <div class="cc-dept">SENSE</div></div><div class="council-card" style="border-left:3px solid #0891B2">
+    <div class="cc-top"><span class="cc-agent" style="color:#0891B2">dev</span><span class="cc-status" style="color:#16A34A">LIVE</span></div>
+    <div class="cc-dept">TECHNICAL</div></div><div class="council-card" style="border-left:3px solid #F472B6">
+    <div class="cc-top"><span class="cc-agent" style="color:#F472B6">spark</span><span class="cc-status" style="color:#F59E0B">NEW</span></div>
+    <div class="cc-dept">CREATIVITY</div></div><div class="council-card" style="border-left:3px solid #06B6D4">
+    <div class="cc-top"><span class="cc-agent" style="color:#06B6D4">catalyst</span><span class="cc-status" style="color:#F59E0B">NEW</span></div>
+    <div class="cc-dept">R&D</div></div><div class="council-card" style="border-left:3px solid #22C55E">
+    <div class="cc-top"><span class="cc-agent" style="color:#22C55E">bridge</span><span class="cc-status" style="color:#F59E0B">NEW</span></div>
+    <div class="cc-dept">GROWTH</div></div></div>
+    </div>
+  </div>
+
+  <div class="varrow"><div class="varrow-line"></div><div class="varrow-tip"></div></div>
+  <div class="ceo-wrap"><div class="ceo-box"><div class="ceo-title">CHIEF EXECUTIVE OFFICER (CEO)</div><div class="ceo-name">Novy Singh</div></div></div>
+
+  <div class="divider"><div class="div-line"></div><div class="div-text">
+    <div class="div-label" style="color:#3B82F6">GROUP C-SUITE · 14 ROLES</div><div class="div-sub">SHARED SERVICES — SERVE BOTH DIVISIONS BELOW</div>
+    </div><div class="div-line"></div></div>
+  <div class="cs-grid"><div class="cs-card" style="border:1px solid #2563EB44;border-top:3px solid #2563EB">
+    <div class="cs-abbr" style="color:#2563EB">CSO</div>
+    <div class="cs-title">Chief Strategy Officer</div></div><div class="cs-card" style="border:1px solid #0F766E44;border-top:3px solid #0F766E">
+    <div class="cs-abbr" style="color:#0F766E">COO</div>
+    <div class="cs-title">Chief Operating Officer</div></div><div class="cs-card" style="border:1px solid #D9770644;border-top:3px solid #D97706">
+    <div class="cs-abbr" style="color:#D97706">CFO</div>
+    <div class="cs-title">Chief Financial Officer</div></div><div class="cs-card" style="border:1px solid #DC262644;border-top:3px solid #DC2626">
+    <div class="cs-abbr" style="color:#DC2626">CRO</div>
+    <div class="cs-title">Chief Revenue Officer</div></div><div class="cs-card" style="border:1px solid #9333EA44;border-top:3px solid #9333EA">
+    <div class="cs-abbr" style="color:#9333EA">CMO</div>
+    <div class="cs-title">Chief Marketing Officer</div></div><div class="cs-card" style="border:1px solid #0369A144;border-top:3px solid #0369A1">
+    <div class="cs-abbr" style="color:#0369A1">CHRO</div>
+    <div class="cs-title">Chief HR Officer</div></div><div class="cs-card" style="border:1px solid #0891B244;border-top:3px solid #0891B2">
+    <div class="cs-badge" style="color:#0891B2;background:#0891B218">YVON OS</div><div class="cs-abbr" style="color:#0891B2">CTO</div>
+    <div class="cs-title">Chief Technology Officer</div></div></div>
+  <div class="cs-grid" style="margin-bottom:0"><div class="cs-card" style="border:1px solid #F9731644;border-top:3px solid #F97316">
+    <div class="cs-badge" style="color:#FB7185;background:#4C051922">0 AGENTS</div><div class="cs-abbr" style="color:#F97316">CISO</div>
+    <div class="cs-title">Chief Info Security Officer</div></div><div class="cs-card" style="border:1px solid #7C3AED44;border-top:3px solid #7C3AED">
+    <div class="cs-badge" style="color:#7C3AED;background:#7C3AED18">COUNCIL</div><div class="cs-abbr" style="color:#7C3AED">CAIO</div>
+    <div class="cs-title">Chief AI Officer</div></div><div class="cs-card" style="border:1px solid #A21CAF44;border-top:3px solid #A21CAF">
+    <div class="cs-badge" style="color:#FB7185;background:#4C051922">0 AGENTS</div><div class="cs-abbr" style="color:#A21CAF">CDO</div>
+    <div class="cs-title">Chief Data Officer</div></div><div class="cs-card" style="border:1px solid #B4530944;border-top:3px solid #B45309">
+    <div class="cs-abbr" style="color:#B45309">CLO</div>
+    <div class="cs-title">Chief Legal Officer</div></div><div class="cs-card" style="border:1px solid #16A34A44;border-top:3px solid #16A34A">
+    <div class="cs-abbr" style="color:#16A34A">CGO</div>
+    <div class="cs-title">Chief Global Officer</div></div><div class="cs-card" style="border:1px solid #BE123C44;border-top:3px solid #BE123C">
+    <div class="cs-badge" style="color:#FB7185;background:#4C051922">0 AGENTS</div><div class="cs-abbr" style="color:#BE123C">CRSO</div>
+    <div class="cs-title">Chief Risk & Sustainability</div></div><div class="cs-card" style="border:1px solid #EC489944;border-top:3px solid #EC4899">
+    <div class="cs-badge" style="color:#FB7185;background:#4C051922">0 AGENTS</div><div class="cs-abbr" style="color:#EC4899">CCO</div>
+    <div class="cs-title">Chief Comms Officer</div></div></div>
+
+  <div class="varrow" style="margin-top:18px"><div class="varrow-line"></div><div class="varrow-tip"></div></div>
+  <div class="divider"><div class="div-line"></div><div class="div-text">
+    <div class="div-label" style="color:#475569">TWO-ARM DIVISION FORK</div><div class="div-sub">OWNED BRANDS RUN SEPARATELY FROM EXTERNAL PLATFORM CLIENTS</div>
+    </div><div class="div-line"></div></div>
+  <div class="fork-grid">
+    <div class="brands-box">
+      <div class="brands-head"><div class="brands-title">OWNED BRANDS DIVISION</div><div class="brands-sub">Full P&amp;L ownership · Internal execution</div></div>
+      <div class="brands-body"><div class="brand-card">
+    <div class="brand-name">NOVIZIO</div>
+    <div class="brand-status" style="color:#16A34A;background:#16A34A18">LIVE</div>
+    <div class="brand-desc">D2C custom fashion · App + Web</div></div><div class="brand-card">
+    <div class="brand-name">HOURBOUR</div>
+    <div class="brand-status" style="color:#D97706;background:#D9770618">BUILDING</div>
+    <div class="brand-desc">Multi-job income fintech · Canada</div></div><div class="brand-card">
+    <div class="brand-name">FUTURE BRAND</div>
+    <div class="brand-status" style="color:#475569;background:#47556918">PLANNED</div>
+    <div class="brand-desc">Next venture slot</div></div></div>
+    </div>
+    <div class="platform-box">
+      <div class="platform-head"><div class="platform-title">EXTERNAL PLATFORM DIVISION</div><div class="platform-sub">Multi-tenant SaaS · Any industry</div></div>
+      <div class="platform-body"><div class="platform-card"><div class="platform-name">CLIENT TIERING & PACKAGING</div><div class="platform-desc">Starter · Module · Full Agent Access</div></div><div class="platform-card"><div class="platform-name">VERTICAL CONFIGURATION ENGINE</div><div class="platform-desc">Industry-tuned agents — any vertical</div></div><div class="platform-card"><div class="platform-name">MULTI-TENANT ONBOARDING</div><div class="platform-desc">Client setup, dashboard provisioning</div></div><div class="platform-card"><div class="platform-name">BILLING & SUBSCRIPTION INFRA</div><div class="platform-desc">Usage and tier-based revenue ops</div></div><div class="platform-card"><div class="platform-name">PARTNER & RESELLER CHANNEL</div><div class="platform-desc">Accounting firms, BDC, agencies</div></div><div class="platform-card"><div class="platform-name">PLATFORM TRUST & SAFETY</div><div class="platform-desc">Data isolation, per-tenant audit</div></div></div>
+    </div>
+  </div>
+
+  <div class="divider"><div class="div-line"></div><div class="div-text">
+    <div class="div-label" style="color:#7C3AED">FULL 13-DEPARTMENT AGENT ROSTER · WHO DOES WHAT</div><div class="div-sub">EVERY AGENT · ROLE · C-SUITE FEED · 23 LIVE + 26 PROPOSED</div>
+    </div><div class="div-line"></div></div>
+  <div class="dept-grid"><div class="dept-panel" style="border:1px solid #F59E0B44;border-top:3px solid #F59E0B;background:#09091A">
+    <div class="dept-header" style="border-bottom:1px solid #F59E0B33">
+    <div class="dept-name" style="color:#F59E0B">CEO</div>
+    <div class="dept-counts"><span style="color:#16A34A">1L</span> / <span style="color:#F59E0B">2N</span></div>
+    </div><div class="dept-body"><div class="agent-row"><div class="agent-dot" style="background:#16A34A"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">marcus</span><span class="agent-role" style="color:#F59E0B">Orchestrator</span>
+    <span class="agent-csuite">→CEO</span></div>
+    <div class="agent-desc">Strategy, synthesis, CEO briefs, cross-venture decisions</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">echo</span><span class="agent-role" style="color:#F59E0B">Investor Relations</span>
+    <span class="agent-csuite">→CEO</span></div>
+    <div class="agent-desc">Stakeholder comms, pitch materials, board prep</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">vista</span><span class="agent-role" style="color:#F59E0B">Roadmap Lead</span>
+    <span class="agent-csuite">→CEO</span></div>
+    <div class="agent-desc">Long-range planning, OKR cascade, north-star metrics</div></div></div></div></div><div class="dept-panel" style="border:1px solid #0F766E44;border-top:3px solid #0F766E;background:#09091A">
+    <div class="dept-header" style="border-bottom:1px solid #0F766E33">
+    <div class="dept-name" style="color:#0F766E">COO</div>
+    <div class="dept-counts"><span style="color:#16A34A">1L</span> / <span style="color:#F59E0B">3N</span></div>
+    </div><div class="dept-body"><div class="agent-row"><div class="agent-dot" style="background:#16A34A"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">diana</span><span class="agent-role" style="color:#0F766E">Operations Lead</span>
+    <span class="agent-csuite">→COO</span></div>
+    <div class="agent-desc">Workflow, sprint planning, resource allocation</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">flux</span><span class="agent-role" style="color:#0F766E">Process Optimizer</span>
+    <span class="agent-csuite">→COO</span></div>
+    <div class="agent-desc">Bottleneck detection, SOPs, automation</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">relay</span><span class="agent-role" style="color:#0F766E">Cross-Venture Sync</span>
+    <span class="agent-csuite">→COO</span></div>
+    <div class="agent-desc">Coordinates Novizio/Hourbour/Platform ops</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">grid</span><span class="agent-role" style="color:#0F766E">Capacity Planner</span>
+    <span class="agent-csuite">→COO</span></div>
+    <div class="agent-desc">Resource & headcount planning</div></div></div></div></div><div class="dept-panel" style="border:1px solid #EF444444;border-top:3px solid #EF4444;background:#09091A">
+    <div class="dept-header" style="border-bottom:1px solid #EF444433">
+    <div class="dept-name" style="color:#EF4444">COMMAND</div>
+    <div class="dept-counts"><span style="color:#16A34A">1L</span> / <span style="color:#F59E0B">1N</span></div>
+    </div><div class="dept-body"><div class="agent-row"><div class="agent-dot" style="background:#16A34A"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">board</span><span class="agent-role" style="color:#EF4444">Governance Gate · Level 1</span>
+    <span class="agent-csuite">→BOARD</span></div>
+    <div class="agent-desc">Constitutional enforcement, risk governance, Council chair</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">precedent</span><span class="agent-role" style="color:#EF4444">Institutional Memory</span>
+    <span class="agent-csuite">→BOARD</span></div>
+    <div class="agent-desc">Tracks board rulings for decision consistency</div></div></div></div></div><div class="dept-panel" style="border:1px solid #10B98144;border-top:3px solid #10B981;background:#09091A">
+    <div class="dept-header" style="border-bottom:1px solid #10B98133">
+    <div class="dept-name" style="color:#10B981">FINANCE</div>
+    <div class="dept-counts"><span style="color:#16A34A">1L</span> / <span style="color:#F59E0B">3N</span></div>
+    </div><div class="dept-body"><div class="agent-row"><div class="agent-dot" style="background:#16A34A"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">felix</span><span class="agent-role" style="color:#10B981">Finance Lead</span>
+    <span class="agent-csuite">→CFO</span></div>
+    <div class="agent-desc">Budget, P&L, CAC/LTV/MRR, runway</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">vault</span><span class="agent-role" style="color:#10B981">Treasury</span>
+    <span class="agent-csuite">→CFO</span></div>
+    <div class="agent-desc">Cash forecasting, banking operations</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">ledger</span><span class="agent-role" style="color:#10B981">Bookkeeping</span>
+    <span class="agent-csuite">→CFO</span></div>
+    <div class="agent-desc">CRA filing, AP/AR reconciliation</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">levy</span><span class="agent-role" style="color:#10B981">Tax Strategy</span>
+    <span class="agent-csuite">→CFO</span></div>
+    <div class="agent-desc">Multi-jurisdiction tax planning</div></div></div></div></div><div class="dept-panel" style="border:1px solid #B4530944;border-top:3px solid #B45309;background:#09091A">
+    <div class="dept-header" style="border-bottom:1px solid #B4530933">
+    <div class="dept-name" style="color:#B45309">LEGAL</div>
+    <div class="dept-counts"><span style="color:#16A34A">2L</span> / <span style="color:#F59E0B">2N</span></div>
+    </div><div class="dept-body"><div class="agent-row"><div class="agent-dot" style="background:#16A34A"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">comply</span><span class="agent-role" style="color:#B45309">Compliance Lead</span>
+    <span class="agent-csuite">→CLO</span></div>
+    <div class="agent-desc">GDPR, CCPA, SOC2, ISO monitoring</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#16A34A"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">guard</span><span class="agent-role" style="color:#B45309">IP Protection</span>
+    <span class="agent-csuite">→CLO</span></div>
+    <div class="agent-desc">Patents, trademarks, open-source compliance</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">scribe</span><span class="agent-role" style="color:#B45309">Contracts</span>
+    <span class="agent-csuite">→CLO</span></div>
+    <div class="agent-desc">Documentation, contract drafting & review</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">shield</span><span class="agent-role" style="color:#B45309">Litigation</span>
+    <span class="agent-csuite">→CLO</span></div>
+    <div class="agent-desc">Risk tracking, dispute management</div></div></div></div></div><div class="dept-panel" style="border:1px solid #EC489944;border-top:3px solid #EC4899;background:#09091A">
+    <div class="dept-header" style="border-bottom:1px solid #EC489933">
+    <div class="dept-name" style="color:#EC4899">PSYCHOLOGY</div>
+    <div class="dept-counts"><span style="color:#16A34A">1L</span> / <span style="color:#F59E0B">3N</span></div>
+    </div><div class="dept-body"><div class="agent-row"><div class="agent-dot" style="background:#16A34A"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">kahneman</span><span class="agent-role" style="color:#EC4899">Decision Bias Lead</span>
+    <span class="agent-csuite">→BOARD</span></div>
+    <div class="agent-desc">Dual-system analysis, feeds Board Decision Critic gate</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">cialdini</span><span class="agent-role" style="color:#EC4899">Persuasion</span>
+    <span class="agent-csuite">→CMO</span></div>
+    <div class="agent-desc">Influence principles for conversion & sales</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">fogg</span><span class="agent-role" style="color:#EC4899">Behavior Design</span>
+    <span class="agent-csuite">→CMO</span></div>
+    <div class="agent-desc">Habit formation, product engagement</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">maslow</span><span class="agent-role" style="color:#EC4899">Motivation</span>
+    <span class="agent-csuite">→CHRO</span></div>
+    <div class="agent-desc">Employee + customer needs psychology</div></div></div></div></div><div class="dept-panel" style="border:1px solid #2563EB44;border-top:3px solid #2563EB;background:#09091A">
+    <div class="dept-header" style="border-bottom:1px solid #2563EB33">
+    <div class="dept-name" style="color:#2563EB">RESEARCH</div>
+    <div class="dept-counts"><span style="color:#16A34A">3L</span> / <span style="color:#F59E0B">0N</span></div>
+    </div><div class="dept-body"><div class="agent-row"><div class="agent-dot" style="background:#16A34A"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">depth</span><span class="agent-role" style="color:#2563EB">Deep Research</span>
+    <span class="agent-csuite">→CSO</span></div>
+    <div class="agent-desc">Competitor teardowns, market maps</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#16A34A"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">synth</span><span class="agent-role" style="color:#2563EB">Synthesis Lead</span>
+    <span class="agent-csuite">→CSO</span></div>
+    <div class="agent-desc">Strategic theses, board-ready recommendations</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#16A34A"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">vette</span><span class="agent-role" style="color:#2563EB">Verification</span>
+    <span class="agent-csuite">→CSO</span></div>
+    <div class="agent-desc">Claim cross-referencing, confidence scoring</div></div></div></div></div><div class="dept-panel" style="border:1px solid #7C3AED44;border-top:3px solid #7C3AED;background:#09091A">
+    <div class="dept-header" style="border-bottom:1px solid #7C3AED33">
+    <div class="dept-name" style="color:#7C3AED">SENSE</div>
+    <div class="dept-counts"><span style="color:#16A34A">3L</span> / <span style="color:#F59E0B">0N</span></div>
+    </div><div class="dept-body"><div class="agent-row"><div class="agent-dot" style="background:#16A34A"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">forge</span><span class="agent-role" style="color:#7C3AED">AI Methods</span>
+    <span class="agent-csuite">→CAIO</span></div>
+    <div class="agent-desc">New technique/benchmark discovery</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#16A34A"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">radar</span><span class="agent-role" style="color:#7C3AED">Trend Monitor</span>
+    <span class="agent-csuite">→CSO</span></div>
+    <div class="agent-desc">Market & competitor surveillance</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#16A34A"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">scout</span><span class="agent-role" style="color:#7C3AED">Tool Scanner</span>
+    <span class="agent-csuite">→CAIO</span></div>
+    <div class="agent-desc">New AI tools/repos/models</div></div></div></div></div><div class="dept-panel" style="border:1px solid #0891B244;border-top:3px solid #0891B2;background:#09091A">
+    <div class="dept-header" style="border-bottom:1px solid #0891B233">
+    <div class="dept-name" style="color:#0891B2">TECHNICAL</div>
+    <div class="dept-counts"><span style="color:#16A34A">4L</span> / <span style="color:#F59E0B">0N</span></div>
+    </div><div class="dept-body"><div class="agent-row"><div class="agent-dot" style="background:#16A34A"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">dev</span><span class="agent-role" style="color:#0891B2">Lead Developer</span>
+    <span class="agent-csuite">→CTO</span></div>
+    <div class="agent-desc">Architecture, tech decisions</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#16A34A"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">raj</span><span class="agent-role" style="color:#0891B2">Backend</span>
+    <span class="agent-csuite">→CTO</span></div>
+    <div class="agent-desc">Supabase, API routes, data models</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#16A34A"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">mia</span><span class="agent-role" style="color:#0891B2">Frontend</span>
+    <span class="agent-csuite">→CTO</span></div>
+    <div class="agent-desc">React, UI, design system</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#16A34A"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">quinn</span><span class="agent-role" style="color:#0891B2">QA</span>
+    <span class="agent-csuite">→CTO</span></div>
+    <div class="agent-desc">Testing, code review</div></div></div></div></div><div class="dept-panel" style="border:1px solid #F472B644;border-top:3px solid #F472B6;background:#F472B608">
+    <div class="dept-header" style="border-bottom:1px solid #F472B633">
+    <div class="dept-name" style="color:#F472B6">CREATIVITY<span class="dept-newbadge">NEW</span></div>
+    <div class="dept-counts"><span style="color:#16A34A">0L</span> / <span style="color:#F59E0B">4N</span></div>
+    </div><div class="dept-body"><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">muse</span><span class="agent-role" style="color:#F472B6">Ideation</span>
+    <span class="agent-csuite">→CMO</span></div>
+    <div class="agent-desc">Creative concept generation</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">weave</span><span class="agent-role" style="color:#F472B6">Storytelling</span>
+    <span class="agent-csuite">→CMO</span></div>
+    <div class="agent-desc">Brand narrative arcs</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">tempo</span><span class="agent-role" style="color:#F472B6">Audio Branding</span>
+    <span class="agent-csuite">→CMO</span></div>
+    <div class="agent-desc">Sound for video content</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">spark</span><span class="agent-role" style="color:#F472B6">Creative Director</span>
+    <span class="agent-csuite">→CMO</span></div>
+    <div class="agent-desc">Cross-brand coherence QA</div></div></div></div></div><div class="dept-panel" style="border:1px solid #06B6D444;border-top:3px solid #06B6D4;background:#06B6D408">
+    <div class="dept-header" style="border-bottom:1px solid #06B6D433">
+    <div class="dept-name" style="color:#06B6D4">R&D<span class="dept-newbadge">NEW</span></div>
+    <div class="dept-counts"><span style="color:#16A34A">0L</span> / <span style="color:#F59E0B">4N</span></div>
+    </div><div class="dept-body"><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">catalyst</span><span class="agent-role" style="color:#06B6D4">Innovation Lead</span>
+    <span class="agent-csuite">→CSO</span></div>
+    <div class="agent-desc">Cross-venture opportunity ID</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">loom</span><span class="agent-role" style="color:#06B6D4">PMF Testing</span>
+    <span class="agent-csuite">→CSO</span></div>
+    <div class="agent-desc">Structured experimentation</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">proto</span><span class="agent-role" style="color:#06B6D4">Prototyping</span>
+    <span class="agent-csuite">→CAIO</span></div>
+    <div class="agent-desc">Rapid MVP mockups</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">edge</span><span class="agent-role" style="color:#06B6D4">Emerging Tech</span>
+    <span class="agent-csuite">→CAIO</span></div>
+    <div class="agent-desc">Blockchain, new fintech rails</div></div></div></div></div><div class="dept-panel" style="border:1px solid #22C55E44;border-top:3px solid #22C55E;background:#22C55E08">
+    <div class="dept-header" style="border-bottom:1px solid #22C55E33">
+    <div class="dept-name" style="color:#22C55E">GROWTH<span class="dept-newbadge">NEW</span></div>
+    <div class="dept-counts"><span style="color:#16A34A">0L</span> / <span style="color:#F59E0B">4N</span></div>
+    </div><div class="dept-body"><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">viral</span><span class="agent-role" style="color:#22C55E">Referral Engineering</span>
+    <span class="agent-csuite">→CRO</span></div>
+    <div class="agent-desc">Network-effect design</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">bridge</span><span class="agent-role" style="color:#22C55E">Partnerships/BD</span>
+    <span class="agent-csuite">→CRO</span></div>
+    <div class="agent-desc">Strategic partnerships, channel deals</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">compound</span><span class="agent-role" style="color:#22C55E">Retention</span>
+    <span class="agent-csuite">→CRO</span></div>
+    <div class="agent-desc">LTV expansion, churn prevention</div></div></div><div class="agent-row"><div class="agent-dot" style="background:#F59E0B"></div>
+    <div class="agent-info"><div class="agent-line1">
+    <span class="agent-name">orbit</span><span class="agent-role" style="color:#22C55E">Market Entry</span>
+    <span class="agent-csuite">→CGO</span></div>
+    <div class="agent-desc">Expansion feasibility scoring</div></div></div></div></div></div>
+
+  <div class="footer">VYON GROUP INC. · MASTER STRUCTURE v1.0 · CONFIDENTIAL · KML · MMXXVI</div>
+
+</div>
+</body>
+</html>

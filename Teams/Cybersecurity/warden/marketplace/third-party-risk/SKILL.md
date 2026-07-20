@@ -1,0 +1,145 @@
+---
+name: vendor-review
+type: marketplace (verbatim copy — unaltered per playbook §4.8)
+source: Anthropic — official Anthropic skill
+source_url: https://skillsmp.com/skills/anthropics-knowledge-work-plugins-operations-skills-vendor-review-skill-md
+status: verbatim copy of official Anthropic vendor-review skill
+assigned_agent: warden (Cybersecurity / CISO — leader)
+fulfills_catalog_entry: third-party-risk (CYBERSECURITY-REDESIGN-PLAN-v2 §1.3)
+note_from_build: This is a verbatim marketplace adoption. No content has been altered. The original Anthropic skill covers the full vendor assessment cycle — TCO cost analysis, risk assessment (financial stability, security/compliance, concentration, lock-in), performance metrics (SLA, support, uptime), and a comparison matrix. Output: Proceed / Negotiate / Pass recommendation with negotiation points.
+portable: true
+date_added: 2026-07-12
+# yvon-compile metadata (auto-derived from skill content 2026-07-20 — review welcome; body verbatim)
+tier: 2
+description: "If key information is missing — the team can't articulate what data the vendor would touch, or pricing is 'we haven't asked yet' — flag it."
+triggers: [third party risk]
+---
+
+# Vendor Review
+
+## Introduction
+Evaluate third-party vendors systematically — comparing the full cost of a vendor relationship against its risks, performance, and strategic fit — so that the business makes procurement decisions with clear eyes and a clear recommendation.
+
+## Purpose
+Vendor decisions that are made on price alone, or on the demo alone, or on the relationship alone, regularly turn into surprises: hidden migration costs, security gaps no one checked, SLA failures that aren't enforceable, or lock-in that becomes clear only when it's too late to back out. This skill exists to prevent those surprises by putting every significant vendor decision through the same structured evaluation, so the business can compare apples to apples and know exactly what it's signing up for.
+
+## When to Use
+- A new vendor is being evaluated for a significant contract (typically $5K+/year or touching sensitive data).
+- An existing vendor is up for renewal and should be re-evaluated rather than auto-renewed.
+- Something went wrong with a vendor and the business needs to assess whether to escalate, renegotiate, or replace.
+- A shortlist of vendors exists and the business needs a structured comparison to make a final selection.
+- This skill covers vendor selection and renewal evaluation. It does not cover contract negotiation, compliance audits of existing vendors, or procurement process design — those are separate workflows.
+
+## Structure / Protocol
+
+```
+GATHER (vendor details, pricing, and scope of engagement)
+  → ANALYZE COST (TCO: subscription + implementation + migration + training + exit costs)
+    → ASSESS RISK (financial stability, security/compliance posture, concentration risk, lock-in)
+      → EVALUATE PERFORMANCE (SLA compliance, support responsiveness, uptime history — for renewals)
+        → COMPARE (side-by-side matrix for shortlists, or current vs market for single-vendor evaluations)
+          → RECOMMEND (Proceed / Negotiate / Pass with supporting rationale and negotiation points)
+```
+
+## Instructions
+
+### Phase 1 — Gather information
+Start by collecting the basic facts about the vendor and the engagement:
+- **Vendor name**, product/service being evaluated, and the business unit or team proposing it.
+- **Scope of engagement**: what the vendor will do, what data it will access, what systems it will integrate with.
+- **Pricing model and total annual cost** as proposed. If a shortlist, collect for each vendor.
+
+If key information is missing — the team can't articulate what data the vendor would touch, or pricing is "we haven't asked yet" — flag it. An evaluation on incomplete information is worse than no evaluation; it creates false confidence.
+
+### Phase 2 — Analyze total cost of ownership (TCO)
+Cost is not just the subscription line. Calculate the full TCO across:
+- **Subscription/licensing** — the base annual or monthly cost, including any per-seat or overage charges.
+- **Implementation and migration** — estimated internal engineering time, data migration effort, integration work. Get a rough engineering-day estimate from the team if possible.
+- **Training** — cost to train the team on the new tool or platform.
+- **Ongoing operations** — any incremental headcount or operational overhead the vendor introduces.
+- **Exit cost** — what it would cost to move off the vendor: data export fees, migration time to a future replacement, any contractual penalties.
+
+For renewals, also flag any **price increases** since the last term and any **scope creep** that wasn't reflected in the original pricing.
+
+### Phase 3 — Assess risk
+Evaluate the vendor across four risk dimensions:
+
+**1. Financial stability**
+- How long has the vendor been in business? What's their funding stage or public financial health?
+- Are they reliant on a small number of customers? High concentration risk for them is concentration risk for you.
+- Any recent layoffs, leadership turnover, or negative financial signals? (Public information only — don't ask for financials you're not entitled to.)
+
+**2. Security and compliance posture**
+- What certifications do they hold? (SOC 2 Type II, ISO 27001, FedRAMP, etc.) Check the scope — a SOC 2 report that excludes the service you're buying is worth less than one that covers it.
+- Do they have a published security page, trust center, or shared responsibility model?
+- Have they had a public breach in the last 3 years? How did they handle it?
+- What data would they process or store? Does their subprocessor list include any names that should raise flags?
+- *Note: This is a evaluator's assessment based on public info and the vendor's trust center. It is not a replacement for a full security review by warden. High-risk vendors should additionally be assessed through warden's third-party-risk (the dedicated skill).*
+
+**3. Concentration risk**
+- Would switching away from this vendor be hard? Very hard? Nearly impossible? (Data portability, API dependency, workflow embedding — rate it.)
+- Does this vendor have a competitors market — is there a realistic alternative if prices rise or quality drops?
+- For SaaS: can you export your data in a standard format without professional-services help?
+
+**4. Lock-in risk**
+- Contract terms: minimum commitment period, auto-renewal clauses, termination-for-convenience penalties.
+- Are there early-termination fees? How are they calculated?
+- Data egress or API access restrictions that would make leaving painful.
+
+### Phase 4 — Evaluate performance (renewals only)
+For existing vendors being re-evaluated:
+- **SLA compliance**: Has the vendor met its uptime/performance SLAs over the current term? If there were breaches, were credits paid without a fight?
+- **Support responsiveness**: Ticket response times, severity handling, and whether support quality has changed over the term.
+- **Uptime and reliability**: Any major outages? How frequent? How long? Was communication good during them?
+- **Relationship trend**: Has the account management relationship improved, stayed the same, or deteriorated?
+
+For new evaluations, this phase is replaced by reference calls or analyst reports if available.
+
+### Phase 5 — Compare (shortlist) or benchmark (single vendor)
+- **For shortlists**: Build a comparison matrix across the dimensions above — cost, risk, performance. Winner isn't always the cheapest; weight by the business's priorities.
+- **For single-vendor evaluations**: Benchmark their offering against the market. What do comparable vendors charge? What features would they lack? Is this vendor priced fairly or is there a premium for incumbency?
+
+If the vendor is the only option (no realistic alternative), state that explicitly — "sole source" is a risk finding in itself and should be flagged as a concentration risk finding.
+
+### Phase 6 — Recommend
+Deliver a clear recommendation with supporting rationale:
+- **Proceed** — the vendor is a good fit. Include any conditions or negotiation points.
+- **Negotiate** — the vendor could work but specific terms need improvement. List the top 3 things to negotiate (price, contract terms, security addenda).
+- **Pass** — the vendor is not a good fit. State the primary reason(s) clearly.
+
+## Output Format
+```
+## Vendor Review: [vendor name] — [product/service]
+TCO: $[annual total] · Term: [length]
+Risk assessment: [Low/Medium/High — with key flags]
+  Financial: [assessment]
+  Security/Compliance: [assessment] (see also: warden third-party-risk for deep security review)
+  Concentration: [assessment]
+  Lock-in: [assessment]
+Performance (renewals): [SLA compliance · support · uptime]
+Comparison: [shortlist matrix or market benchmark]
+Recommendation: [Proceed / Negotiate / Pass]
+  Rationale: [key drivers]
+  If Negotiate: top 3 points: [1. 2. 3.]
+Last evaluated: [date]
+```
+
+## Principles
+1. **TCO over sticker price.** The cheapest vendor can be the most expensive after migration and exit costs.
+2. **Risk before price.** A vendor that's cheap but unstable, insecure, or impossible to leave is not a bargain.
+3. **Recommend, don't decide.** The evaluator's job is a clear, evidence-backed recommendation; the procurement decision belongs to the business.
+4. **Flag unknown information.** If the team can't tell you what data the vendor would touch, say so — don't assume "it's probably fine."
+5. **Comparison is the point.** A single-vendor evaluation is a benchmark against the market; a shortlist evaluation is a head-to-head. Both are better than evaluating in a vacuum.
+
+## Fallback
+- **No pricing info yet** → evaluate on risk and fit alone; flag that cost is TBD and the recommendation is conditional on price being within an acceptable band.
+- **No security certifications** → raise the risk score but don't automatically reject; smaller vendors may have compensating controls without the cert budget. Flag for warden's third-party-risk deep dive.
+- **Sole source** → flag concentration risk; the recommendation becomes "proceed but mitigate dependency" rather than a comparison-based choice.
+- **Incomplete information** → state what's missing and how critical it is. Don't manufacture a recommendation from insufficient data.
+
+## Boundaries with Other Skills
+- **warden's risk-register**: vendor risk scores feed the risk register; accepted vendor risk routes to board.
+- **warden's security-policy-framework**: vendor controls map to the ISMS; a vendor without a DPA on PII is a framework gap.
+- **vendor-ai-risk** (supplementary marketplace skill): for AI-specific vendor assessments, use vendor-ai-risk alongside this skill for the AI dimensions (data training rights, model behavior, output ownership).
+- **cortex (Cybersecurity)**: a vendor breach triggers immediate IR coordination.
+- **veil (Cybersecurity)**: breach-notification obligations may fire on vendor incidents.

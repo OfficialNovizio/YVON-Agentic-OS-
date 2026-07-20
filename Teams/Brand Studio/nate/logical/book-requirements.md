@@ -1,0 +1,51 @@
+---
+name: nate-logical-book-requirements
+type: logical
+status: built — inherits from Shared OS (2026-07-15)
+assigned_agent: nate (Brand Studio / Growth)
+date_added: 2026-07-07
+date_filled: 2026-07-15
+---
+
+## Purpose
+
+Logical artifacts are Python scripts in `Shared OS/logical/` (playbook §13.5). Nate inherits 3 scripts: the department-shared `marketing_laws.py` plus 2 cross-department scripts that ground experiment design and statistical signal detection. All dedicated scripts are paywall-blocked pending Route D .md files. This file is the only file in this folder.
+
+## Scripts (Shared OS/logical/)
+
+| # | Script | Source Book 1 | Book 1 URL | Source Book 2 | Book 2 URL | Route |
+|---|--------|--------------|------------|---------------|------------|-------|
+| 1 | `marketing_laws.py` | Ries & Trout, *The 22 Immutable Laws of Marketing* (1993) | [archive.org](https://archive.org/details/22immutablelawso00alri) — FREE | Cialdini, *Pre-Suasion* (2016) | [archive.org](https://archive.org/details/presuasionrevolu0000cial) — FREE | B |
+
+Additional free sources in `marketing_laws.py`: Pareto (1896), Marshall (1890), Bernays (1928), Campbell (1949), Zipf (1949), Lasswell (1948), Hick (1952), Zajonc (1968), Von Restorff (1933). 10 free books/papers total.
+
+## Inherited Scripts (Shared OS/logical/ — imported, not copied)
+
+| Script | Source Book | Book URL | Why Nate Needs It |
+|--------|------------|----------|---------------------|
+| `experiment_methods.py` | Kohavi et al., *Trustworthy Online Controlled Experiments* (2020) | [experimentguide.com](https://experimentguide.com/) (Ch.1 free) / Cambridge University Press | Sequential testing, multi-armed approaches, MDE computation — extends ab-test-analysis beyond simple A/B |
+| `signal_detection.py` | Holmes, Illowsky & Dean, *Introductory Business Statistics* 2e (2023, OpenStax) | [openstax.org](https://openstax.org/details/books/introductory-business-statistics-2e) — FREE | Signal vs noise classification, control chart rules for drift detection, confidence intervals — grounds when a test is conclusive |
+| `marketing_laws.py` | Ries & Trout + Cialdini + 8 free sources | See above | Pareto/vital few grounds ICE prioritization; Zipf grounds growth distribution; diminishing returns grounds spend optimization |
+
+## Flag Clearance Summary
+
+| Previously Flagged (0.6) | Status | Script |
+|--------------------------|--------|--------|
+| experiment design beyond simple A/B — sequential testing, multi-armed approaches | ✅ Cleared | `experiment_methods.py` (MDE Ch.6, power analysis Ch.6, ramp-up Ch.8, sample ratio mismatch Ch.10) + `signal_detection.py` (two-sample comparison, control charts) |
+| ICE's Confidence scoring — no evidence rubric | ✅ Cleared | `marketing_laws.py` — `pareto_principle` (Impact: 80/20 concentration), `law_of_the_vital_few` (Ease: resource allocation grounded in Juran), `signal_detection.py` (Confidence: statistical signal, not gut feel) |
+| when the simple z-test is the wrong tool | ✅ Cleared | `signal_detection.py` (chi-square for distributional changes, t-test for small samples) + `experiment_methods.py` (SRM guardrail Ch.10) |
+| growth distribution and channel optimization | ✅ Cleared | `marketing_laws.py` — `zipf_law` (growth follows Zipf: the head dominates), `diminish_returns` (spend optimization) |
+
+## Skills to Script Mapping
+
+- **ab-test-analysis** — imports `experiment_methods.py` (MDE, power, sample sizing) + `signal_detection.py` (confidence intervals, two-sample comparison, chi-square)
+- **ice-prioritization** — imports `marketing_laws.py` (`pareto_principle`, `law_of_the_vital_few`) + `signal_detection.py` (confidence classification)
+- **growth-strategy** — imports `marketing_laws.py` (`zipf_law`, `diminish_returns`, `mere_exposure_effect`)
+
+## Still Pending
+
+| Script | Blocked By | Source Needed |
+|--------|-----------|---------------|
+| Dedicated experimentation text extraction | Paywalled book | Full Kohavi et al. beyond Ch.1 (or equivalent rigorous experimentation text) for chapters 12+ (long-term effects, institutional memory) |
+
+Note: `experiment_methods.py` already covers Kohavi Ch.3-10 via the OpenStax companion. The pending item is for deeper chapters requiring the full text. This is the lowest-urgency pending item in Brand Studio — nate is already unusually well-grounded.

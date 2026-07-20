@@ -1,0 +1,25 @@
+# Stack Notes — TypeScript/JavaScript Conventions (dated 2026-07)
+
+**Applies only when the business's stack-profile names TypeScript/JavaScript (Node, React, Next.js).** Method authority: `code-review-standards` (this note feeds its style + correctness steps). Source: affaan-m/everything-claude-code `coding-standards`, adopted 2026-07-10, condensed. Re-verify against ecosystem norms if >6 months old.
+
+## Universal floor (stack-agnostic — already enforced by code-review-standards)
+Readability first · KISS · DRY · YAGNI · early returns over deep nesting (≤3 levels) · no magic numbers (named constants) · functions ≤~50 lines · comments explain WHY not WHAT.
+
+## TypeScript/JavaScript specifics
+
+- **Naming:** descriptive (`marketSearchQuery` not `q`); functions verb-noun (`fetchMarketData`, `isValidEmail`); booleans `is/has/can` prefixed.
+- **Immutability (critical):** spread over mutation — `{...user, name}` / `[...items, newItem]`; never `obj.x =` or `arr.push()` on shared state. Deliberate mutation for performance gets a WHY comment.
+- **No `any`:** proper interfaces; closed sets as union literals (`'active' | 'resolved'`).
+- **Error handling:** every `fetch`/IO wrapped — check `response.ok`, throw with status context; never bare `response.json()`.
+- **Async:** `Promise.all` for independent awaits — sequential awaits only when dependent.
+- **Files:** components PascalCase (`Button.tsx`) · hooks `useX.ts` · utils camelCase · types `*.types.ts`.
+- **JSDoc on public APIs:** params, returns, throws, example.
+
+## React specifics (review checklist)
+Typed props interfaces with defaults · functional state updates (`setCount(prev => prev + 1)`, never stale `count + 1`) · custom hooks for reused logic (e.g. `useDebounce`) · `&&`-chains over nested ternaries for conditional rendering.
+
+## Testing style
+AAA structure (Arrange-Act-Assert) · descriptive names ("returns empty array when no match", never "works") — quinn's test-strategy owns the gate; this is the per-review style check.
+
+## API-route style (raj's api-standards is the contract authority)
+Consistent `{success, data?, error?, meta?}` envelope · schema validation (e.g. Zod) at the handler edge, 400 with details on failure.

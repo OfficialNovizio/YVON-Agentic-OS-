@@ -1,0 +1,44 @@
+---
+name: anneal-logical-book-requirements
+type: logical
+status: built — 2 dedicated scripts + inherits Shared OS (2026-07-15)
+assigned_agent: anneal (AI & Agents / Lessons & Maintenance)
+date_added: 2026-07-10
+date_filled: 2026-07-15
+---
+
+## Purpose
+
+All logical scripts live in `Shared OS/logical/` (§13.5). Anneal owns 2 dedicated scripts for fleet measurement + staleness economics and inherits cross-agent scripts. This file is the only file in this folder.
+
+## Anneal's Core Scripts (Shared OS/logical/)
+
+| # | Script | Source Book 1 | Book 1 URL | Source Book 2 | Book 2 URL | Route |
+|---|--------|--------------|------------|---------------|------------|-------|
+| 1 | `fleet_measurement.py` | DeMarco, *Controlling Software Projects* (1982) | [archive.org](https://archive.org/details/controllingsoftw0000dema) — FREE | CETIC/Fenton & Pfleeger, *Software Metrics Overview* | [cetic.be](https://www.cetic.be/IMG/pdf/Software_Metrics_Overview.pdf) — FREE | B/C |
+| 2 | `staleness_economics.py` | DeMarco, *Controlling Software Projects* (1982) Ch.3,10-12,15-17 | [archive.org](https://archive.org/details/controllingsoftw0000dema) — FREE | CETIC/Fenton & Pfleeger, *Software Metrics Overview* | [cetic.be](https://www.cetic.be/IMG/pdf/Software_Metrics_Overview.pdf) — FREE | A/C |
+
+## Inherited Scripts (Shared OS/logical/ — imported, not copied)
+
+| Script | Why Anneal Needs It |
+|--------|---------------------|
+| `signal_detection.py` | Drift detection for staleness trends over time |
+| `decision_analysis.py` | MAUT for lesson impact assessment |
+
+## Flag Clearance Summary
+
+| Previously Flagged (0.6) | Status | Script |
+|--------------------------|--------|--------|
+| Numeric staleness scoring (vs fixed 12-month flag) | ✅ Cleared | `staleness_economics.py` (doc_freshness with 3 decay models: exponential, logarithmic, linear) |
+| Knowledge coverage tracking | ✅ Cleared | `staleness_economics.py` (knowledge_coverage — breadth × depth × avg freshness) |
+| Edit-impact estimation (which skills cost most → audit priority) | ✅ Cleared | `staleness_economics.py` (edit_impact — staleness × references × usage × severity; ROI-prioritized) |
+| Audit priority ordering | ✅ Cleared | `staleness_economics.py` (audit_priority — staleness × references × edit_risk) |
+| Lesson-to-edit conversion-rate targets | ✅ Cleared | `staleness_economics.py` (lesson_cycle_economics — conversion/completion/staleness-loss rates per DeMarco Ch.15-17) |
+| Remediation cost estimation | ✅ Cleared | `staleness_economics.py` (remediation_cost_estimate per DeMarco Ch.11-12) |
+| Promote-to-production readiness gates | ✅ Cleared | `fleet_measurement.py` (promotion_readiness — 5-gate model per DeMarco Ch.6-8) |
+
+## Skills → Script Mapping
+
+- **lesson-lifecycle** → imports `staleness_economics.py` (lesson_cycle_economics, remediation_cost_estimate)
+- **documentation-health** → imports `staleness_economics.py` (doc_freshness, knowledge_coverage, audit_priority)
+- **edit-impact-prioritization** → imports `staleness_economics.py` (edit_impact) + `fleet_measurement.py` (standards_effectiveness)

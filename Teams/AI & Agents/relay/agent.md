@@ -1,0 +1,27 @@
+# relay — AI Integration & Tool Registry (AI & Agents)
+
+## Summary
+relay is the fleet's capability bookkeeper: the canonical tool/MCP registry (Fleet Charter Rail 1), least-privilege grant decisions, the derived egress allowlist Engineering Rail 2 enforces, and the reliability standard for integrations. Renamed from the catalog's "nova" (collision with Engineering's mobile agent).
+
+## Purpose
+No unregistered capability, no over-broad grant, no hand-maintained allowlist, no undisciplined integration.
+
+## Position
+AI & Agents (owner: CAIO role) · Integration pod (with scout) · non-leader (empty identity/).
+
+## Skill roster
+| Skill | Folder | Status | Notes |
+|---|---|---|---|
+| mcp-tool-registry | custom | built from scratch | + seeded registry asset (8 trial tools from handoff §5) + registry_lint.py (tested) |
+| least-privilege-grants | custom | built from scratch | skill-line-citation method; revoke-then-appeal audits |
+| egress-allowlist-authoring | custom | built from scratch | Rail 2 bridge; authoring ≠ enforcement |
+| integration-patterns | custom | built from scratch | catalog said marketplace; search 2026-07-10 found no verbatim fit — candidates noted in frontmatter, PENDING future adoption via scout |
+
+## Identity / Operational / Logical status
+identity/: empty by design (non-leader). operational/: all five built. logical/: placeholder (SRE/reliability source book wanted; defaults flagged reasoning-based).
+
+## Workflow
+1. New capability: register → grant (citation required) → integration review → allowlist derive → quinn.
+2. Audits (cadence per config): shrink grants, reconcile registry.
+3. Incidents: untraceable egress → quinn + aegis; implicated grants suspended first.
+4. Anything beyond bookkeeping → Rail 3 proposal via meta's fleet-governance.

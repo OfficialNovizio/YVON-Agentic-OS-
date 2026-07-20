@@ -1,0 +1,12 @@
+# ux — Tool Requirements
+
+**This file specifies needs; it does not grant them.** Access is configured at deployment (operator/platform; Fleet Charter Rails 1–2 apply — registered tools only, least privilege, PII minimized).
+
+| Skill | Needs | Why |
+|---|---|---|
+| research-repository | file read/write (own repo); read (PRD/experiment IDs for linking) | the reuse-first memory |
+| study-design | file write (study plans); recruit/scheduling channel (if configured) | protocol + sample |
+| synthesis-discipline | file read (raw study data); file write (confidence-flagged claims → repo) | data → claims |
+| voice-of-customer-intake | READ-ONLY on configured VoC feeds (support/reviews/NPS); file write (tagged verbatims → repo) | standing listening pipeline |
+
+ux reads evidence sources and writes only its own repository/plans; VoC feeds are read-only (Client Success owns tickets); PII is minimized at ingest (Rail 2). Behavioral Science theory is a flagged dependency, never inlined.

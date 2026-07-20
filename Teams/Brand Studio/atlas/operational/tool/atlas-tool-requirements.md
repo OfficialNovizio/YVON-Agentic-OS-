@@ -1,0 +1,32 @@
+---
+name: atlas-tool-requirements
+type: operational/tool
+status: derived directly from instructions in each skill file
+assigned_agent: atlas (Brand Studio / Art Director)
+date_added: 2026-07-07
+---
+
+## Purpose
+
+What each of atlas's skills technically needs. Governance values live in `atlas-config.md`.
+
+**This file specifies needs — it does not grant them.** Listing a capability here doesn't give atlas that capability; actual access is a separate runtime-configuration step wherever atlas is deployed. This table is the checklist for whoever does that configuration.
+
+## Tool Requirements by Skill
+
+| Skill | Required | Optional / Future | Source line |
+|---|---|---|---|
+| brand-guidelines | File read (brand kit); file append (audit log); **image viewing** for visual assets | — | Phase 1 load; Phase 3 element audit |
+| brand-identity | File write (the identity output set: colors.md, typography.md, etc.) | Image generation for logo/application mockups (design direction works without it; renders need it) | "Output format" file set |
+| multi-brand-system | File read (matrix + sibling kits) | Image viewing for element-level comparison | Phases 1–3 |
+| layout-composition | None beyond conversation; file read if reviewing an existing artifact | — | Decision-level craft |
+
+## Notes
+
+- **Image viewing is atlas's defining tool need** — auditing a visual asset requires seeing it. Where the runtime can't view images, audits degrade to spec-level review (colors/type/spacing as declared, not as rendered) and must say so.
+- Image *generation* is pixel's core need, not atlas's — atlas judges; pixel produces. brand-identity's mockup step is the one place generation helps atlas directly.
+- No scripts, no Python, no web search (OS-level layer). The WCAG contrast math in brand-identity's reference is simple enough to compute in reasoning; a contrast-check script is a plausible future 5.2 proposal if audit volume demands it.
+
+## How to Apply
+
+File read/write on kit and log locations plus image viewing is the floor for atlas to function as designed.

@@ -1,0 +1,53 @@
+---
+name: rio-logical-book-requirements
+type: logical
+status: built — inherits from Shared OS (2026-07-15)
+assigned_agent: rio (Brand Studio / Ads)
+date_added: 2026-07-07
+date_filled: 2026-07-15
+---
+
+## Purpose
+
+Logical artifacts are Python scripts in `Shared OS/logical/` (playbook §13.5). Rio inherits 4 scripts: the department-shared `marketing_laws.py` plus 3 cross-department scripts that ground incrementality, budget allocation, and statistical validation. All dedicated scripts are paywall-blocked pending Route D .md files. This file is the only file in this folder.
+
+## Scripts (Shared OS/logical/)
+
+| # | Script | Source Book 1 | Book 1 URL | Source Book 2 | Book 2 URL | Route |
+|---|--------|--------------|------------|---------------|------------|-------|
+| 1 | `marketing_laws.py` | Ries & Trout, *The 22 Immutable Laws of Marketing* (1993) | [archive.org](https://archive.org/details/22immutablelawso00alri) — FREE | Cialdini, *Pre-Suasion* (2016) | [archive.org](https://archive.org/details/presuasionrevolu0000cial) — FREE | B |
+
+Additional free sources in `marketing_laws.py`: Pareto (1896), Marshall (1890), Bernays (1928), Campbell (1949), Zipf (1949), Lasswell (1948), Hick (1952), Zajonc (1968), Von Restorff (1933). 10 free books/papers total.
+
+## Inherited Scripts (Shared OS/logical/ — imported, not copied)
+
+| Script | Source Book | Book URL | Why Rio Needs It |
+|--------|------------|----------|---------------------|
+| `experiment_methods.py` | Kohavi et al., *Trustworthy Online Controlled Experiments* (2020) | [experimentguide.com](https://experimentguide.com/) (Ch.1 free) / Cambridge University Press | Holdout test design, MDE computation, power analysis — grounds incrementality measurement for ad campaigns |
+| `signal_detection.py` | Holmes, Illowsky & Dean, *Introductory Business Statistics* 2e (2023, OpenStax) | [openstax.org](https://openstax.org/details/books/introductory-business-statistics-2e) — FREE | Lift significance detection: confidence intervals and two-sample comparison for ad performance measurement |
+| `capital_budgeting.py` | Brealey, Myers & Allen, *Principles of Corporate Finance* 12e (2017) | McGraw-Hill | ROI, NPV, IRR for ad investment decisions — grounds budget allocation across channels with capital budgeting math |
+| `marketing_laws.py` | Ries & Trout + Cialdini + 8 free sources | See above | Diminishing returns for spend optimization, Pareto for channel prioritization, Lasswell for ad message structure |
+
+## Flag Clearance Summary
+
+| Previously Flagged (0.6) | Status | Script |
+|--------------------------|--------|--------|
+| incrementality — "true lift typically 40–60% of reported" as practitioner lore | ✅ Cleared | `experiment_methods.py` (holdout test design, MDE computation) + `signal_detection.py` (lift significance via two-sample comparison) |
+| budget allocation across channels — config + judgment, no marginal-return method | ✅ Cleared | `capital_budgeting.py` (NPV, IRR for channel investment) + `marketing_laws.py` — `diminish_returns` (marginal spend analysis), `pareto_principle` (channel prioritization: 80% of results from 20% of channels) |
+| ad message structure — no formal communication check | ✅ Cleared | `marketing_laws.py` — `lasswell_model` (every ad = who says what in which channel to whom with what effect), `kotler_4p` (promotion consistency with other Ps) |
+| lift claims and allocation advice flagged as heuristics | ✅ Cleared | `signal_detection.py` (confidence intervals for lift claims) + `capital_budgeting.py` (discounted cash flow for long-term allocation) |
+
+## Skills to Script Mapping
+
+- **ad-thresholds** — imports `experiment_methods.py` (holdout design, MDE) + `signal_detection.py` (lift significance) + `marketing_laws.py` (`diminish_returns` for spend caps)
+- **budget-allocation** — imports `capital_budgeting.py` (NPV, IRR) + `marketing_laws.py` (`diminish_returns`, `pareto_principle`)
+- **ad-strategy** — imports `marketing_laws.py` (`lasswell_model`, `kotler_4p`, `law_of_focus`)
+
+## Still Pending
+
+| Script | Blocked By | Source Needed |
+|--------|-----------|---------------|
+| Dedicated marketing measurement extraction | Paywalled book | Marketing measurement / incrementality methodology text with formal holdout testing, geo experiments, and media-mix modeling |
+| Dedicated advertising effectiveness extraction | Paywalled book | Advertising effectiveness research — shared domain with spark (long-vs-short-term effects, creative commitment); one source could serve both |
+
+These require Route D .md files from paywalled sources before extraction can proceed.

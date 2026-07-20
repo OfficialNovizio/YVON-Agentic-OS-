@@ -1,0 +1,33 @@
+# Stack Notes — Laravel Security (dated 2026-07)
+
+**Applies only when the business's stack-profile names Laravel/PHP.** Method authority: `secure-code-review` + `threat-model` (stack-agnostic classes there; this note maps them to Laravel mechanics). Source: affaan-m/everything-claude-code `laravel-security`, adopted 2026-07-10, condensed. Verify against current Laravel docs if >6 months old.
+
+## Review checklist by layer
+
+**Core settings:** `APP_DEBUG=false` in prod · `APP_KEY` set, rotated on compromise · `SESSION_SECURE_COOKIE=true`, `SESSION_HTTP_ONLY=true`, `SAME_SITE=lax` (strict for sensitive flows) · trusted proxies configured for HTTPS detection · sessions regenerated on login/privilege change.
+
+**AuthN:** Sanctum/Passport for API auth (`auth:sanctum` middleware) · short-lived tokens + refresh for sensitive data · tokens revoked on logout/compromise · passwords `Hash::make()` only, `Password::min(12)->letters()->mixedCase()->numbers()->symbols()` rule · password broker for resets.
+
+**AuthZ:** policies for model-level checks (`$this->authorize('update', $project)`) · route-level `can:update,project` middleware · never derive authorization from request payloads.
+
+**Input:** Form Requests for ALL validation (authorize() + rules()) · strict types · never trust payloads for derived fields.
+
+**Mass assignment:** `$fillable`/`$guarded` always; `Model::unguard()` is a finding · prefer DTOs/explicit mapping.
+
+**Injection/XSS/CSRF:** Eloquent/query-builder parameter binding, raw SQL is a flag · Blade `{{ }}` default; `{!! !!}` only for sanitized trusted HTML · `VerifyCsrfToken` on, `@csrf` in forms, `sanctum.stateful` domains configured for SPAs.
+
+**Files:** validate size + MIME + extension in a Form Request (`mimes:pdf|max:5120`) · store on a non-public disk · malware-scan where risk warrants.
+
+**Rate limiting:** `throttle` on auth + write endpoints · `RateLimiter::for('login')` keyed by BOTH IP and normalized email, e.g. 5/min · stricter on login/reset/OTP.
+
+**Secrets/data:** no secrets in VCS · env + secrets manager · rotate on exposure + invalidate sessions · `'encrypted'` casts for sensitive columns · logs redact email/token/card (`[REDACTED]`), never passwords.
+
+**Headers/CORS:** SecurityHeaders middleware — CSP, HSTS (subdomains/preload only when all-HTTPS), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy` · `config/cors.php` explicit origins, **no wildcards on authenticated routes**, minimal headers, `supports_credentials` deliberate.
+
+**Supply chain:** `composer audit` in aegis's vuln-pipeline cadence · prompt CVE updates (joint with ops maintenance-hygiene).
+
+**Signed URLs:** `URL::temporarySignedRoute` + `signed` middleware for temporary tamper-proof links (downloads, invites).
+
+## Ties
+- Findings route through aegis's vuln-pipeline schema; verified-patching closes them.
+- cypher's attack playbooks should include these classes when a Laravel target is in scope.

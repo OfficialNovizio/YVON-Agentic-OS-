@@ -1,0 +1,78 @@
+---
+name: findings-report
+type: custom
+status: built 2026-07-09 (Fable build)
+based_on_catalog_entry: none — new; plan §3 "findings-report (→ quinn)" and Rail 4's "findings routed to quinn"
+marketplace_search: 2026-07-09 — the defending-code harness's report stage (structured exploitability analysis) is credited as the report shape; kept custom because routing is bound to quinn's intake and the caged-scope guarantee
+assigned_agent: cypher (Engineering / Adversary / Red Team)
+portable: true — the report format is business-agnostic
+includes: assets/redteam-finding-template.md
+date_added: 2026-07-09
+---
+
+## Introduction
+
+findings-report is cypher's only output channel: every breach becomes a structured finding routed to quinn's intake, from which it flows to aegis for the fix and eventually to a regression-map entry. This is the whole point of a caged adversary — cypher's value is the *report*, never the damage. If cypher cannot describe a breach as a finding, cypher has no other way to act on it.
+
+## Purpose
+
+An uncaged red team's output is compromise; a caged one's output is knowledge. This skill is where the cage's "findings only" rule becomes concrete: a reproducible, severity-rated, exploitability-analyzed report that tells aegis exactly what to fix and tells quinn exactly what to guard. It's also the accountability trail — every cypher action ends in a report or it didn't happen.
+
+## When to Use
+
+Triggers: any breach from attack-playbooks or continuous-attack-loop, a rail that bent under attack, a reopened patch (re-attack succeeded), and "report cypher's findings."
+
+## Structure / Protocol
+
+```
+Breach observed in-sandbox (caged-scope guaranteed the whole run)
+  -> Reproduce in a fresh sandbox instance (offense's separate-verification; unreproduced = no finding)
+    -> Write the structured finding (assets/redteam-finding-template.md):
+       target · attack class · reproduction (in-sandbox only) · what it yields · severity ·
+       affected asset (aegis's threat model) · rail implicated (if any)
+      -> ROUTE to quinn intake (the ONLY channel) → aegis (fix) → verified-patching → regression-map
+        -> NO exploit artifact leaves the sandbox; the report is prose + sandbox-bound repro, not a weapon
+```
+
+## Instructions
+
+1. **Reproduce before reporting.** A breach isn't a finding until a fresh sandbox instance reproduces it — the offense-side of aegis's separate-grader rule. This kills "I think I got in" and keeps cypher's findings as trustworthy as aegis demands of its own.
+2. **The report is the deliverable, not the exploit.** Describe how the attack worked, what it yielded, and how to reproduce it *in the sandbox* — but ship no standalone weaponizable artifact (caged-scope's no-weaponization line). aegis and the owning builder get enough to fix it, not a tool to fire it.
+3. **Rate severity against the threat model.** Use aegis's asset map and the business's impact scale — a breach of a critical asset outranks a clever exploit of something trivial. Rail breaches (an agent driven off-plan, data leaving the sandbox, a destructive-op path) are top severity regardless of the asset, because they undermine the whole safety spine.
+4. **Route through quinn, only.** quinn's charter-enforcement is the intake; from there aegis fixes and verified-patching closes with a regression-map entry. cypher never routes a finding directly to a builder or "just fixes it" — offense reports, defense fixes, the gate tracks.
+5. **Close the loop on rails.** A finding that a rail bent is the most important the department produces — it means the charter's enforcement has a gap. It goes to quinn AND is flagged for operator attention (charter amendments are operator-only; a bent rail may be amendment pressure or an enforcement bug).
+6. **Every action ends in a report or a clean-negative.** A cypher run that breached nothing still logs "attacked X by class Y, held" (continuous-attack-loop's coverage). Silence is not an option — accountability for an adversary agent is total.
+
+## Output Format
+
+```
+## Red-Team Finding: [id] — [target] — severity [low..critical]
+Attack class: [W-A## / L## / R#] · caged-scope: PASS · Sandbox repro: [ref, reproduced fresh ✓]
+What it yields: [access/data/control gained — described, not demonstrated live]
+Affected asset: [aegis threat-model ref] · Rail implicated: [none / Rail # — bent]
+Route: → quinn intake [ref] → aegis → verified-patching
+Weaponization: NONE (PoC sandbox-bound)
+```
+
+## Principles
+
+- **The report is the only output** — cypher's value is knowledge, never damage.
+- **Reproduce before reporting** — offense verifies its own breaches, like aegis does.
+- **Describe, don't weaponize** — enough to fix, never a standalone tool.
+- **Route through quinn only** — offense reports, defense fixes, the gate tracks; no shortcuts.
+- **Rail breaches are top severity** — a bent rail undermines everything and reaches the operator.
+- **Every run ends in a report or a logged clean-negative** — total accountability.
+
+## Fallback
+
+- Breach can't be reproduced in a fresh instance → not filed as a finding; logged as an unreproduced observation for aegis's awareness, explicitly not a confirmed breach.
+- Finding severity disputed → the threat-model asset rating governs; escalate genuine disputes to the operator, but a reproduced breach is not downgraded to zero by argument.
+- quinn intake unavailable → cypher HALTS reporting-dependent work (no other channel exists) and escalates; it does not route around quinn.
+
+## Boundaries with Other Skills
+
+- **caged-scope** (sibling) guarantees the run that produced the finding was in-cage; this skill guarantees the output stays findings-only.
+- **attack-playbooks / continuous-attack-loop** (siblings) produce breaches; this is their sole exit.
+- **quinn/charter-enforcement**: the intake and the only channel; findings become regression-map entries on close.
+- **aegis/verified-patching**: the destination — cypher's finding, aegis's fix, cypher's re-attack to confirm.
+- **operator**: rail-breach findings reach the operator (charter amendments are operator-only).

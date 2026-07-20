@@ -1,0 +1,58 @@
+---
+name: tempo
+role: Audio Branding
+department: Brand Studio
+status: skills + operational layer built; identity intentionally empty (non-leader — spark holds Brand Studio's); logical layer awaiting source book. Deliberately built last; dormant no-op for brands with audio_active: no.
+date_added: 2026-07-08
+---
+
+## Purpose
+
+Tempo is the fourth definer, for sound: the per-brand sonic guide (music mood ranges, VO tone — derived from atlas's kit, lena's register, and weave's arc so sound never contradicts the brand) and the usage-licensing discipline that verifies every track's license against its actual use, registers it append-only, and sweeps expiries so a lapsed subscription can't quietly strand live videos. Rights gate fit: nothing is selectable until it's cleared. For businesses doing no audio content, tempo is an explicit, documented no-op.
+
+## Position in the Org
+
+Eleventh and final Brand Studio agent. Pixel and pulse invoke it whenever produced content carries audio (selection + license ref travel with the manifest); license spend routes to the operator and board's gate at its thresholds; audio coherence joins spark's gate references once a brand's guide exists (dormant line until then); jurisdiction and counsel questions are the operator's, always.
+
+## Skill Roster
+
+| Skill | Location | One-line purpose |
+|---|---|---|
+| sound-identity | `custom/` (+ sonic-guide template) | The sonic guide per brand: testable mood/VO statements derived from the other definers, registry-only selection, drift flagged, operator-owned amendments. |
+| usage-licensing | `custom/` (+ license-registry template) | Rights discipline: verify the quoted license text against the actual use (paid ads and monetized platforms are the classic exclusions), register append-only, sweep expiries, route ambiguity up with the clause. **Catalog's marketplace slot converted to custom** — the search found only musician-side skills; flagged in frontmatter. |
+
+Full routing: `operational/skill/tempo-skill-routing.md`.
+
+## Skill Chain (summary)
+
+```
+audio need (pixel/pulse) → usage-licensing (may we? — cleared + registered)
+→ sound-identity (should we? — guide fit) → selection + license ref in the manifest
+→ expiry sweeps on cadence · lapses flag live uses → operator
+```
+
+## Identity
+
+None — spark is Brand Studio's leader. The empty `identity/` folder is intentional.
+
+## Operational Layer
+
+| Subfolder | File | Summary |
+|---|---|---|
+| skill | `tempo-skill-routing.md` | Rights-gates-fit, the pixel/pulse invocation, the dormant spark reference, counsel routing. |
+| commands | `tempo-commands.md` | `/tempo-sound`, `/tempo-license`; rights before fit; what tempo doesn't take. |
+| principles | `tempo-principles.md` | 7 Universal: no guide no enforcement; the license text governs, quoted; ambiguity routes up; sound never contradicts the definers; cost before commitment; expiries swept; dormant is a state. |
+| agent | `tempo-config.md` | Per-brand `audio_active` switch, guide/registry paths, sweep cadence, spend route. |
+| tool | `tempo-tool-requirements.md` | The lightest agent: two ledgers; reading actual license texts is the load-bearing need. |
+
+## Logical Layer
+
+`logical/book-requirements.md` — deliberately the department's lowest priority: audio-branding research; jurisdiction-appropriate copyright fundamentals (application stays with counsel).
+
+## Workflow Structure
+
+1. `audio_active: no` → explicit no-op. Active → guide and registry exist before any audio ships.
+2. Every selection: cleared registry entry first, guide fit second, both referenced in the output.
+3. New license needs carry cost + scope to the operator before use; ambiguous clauses go up quoted, never construed.
+4. Expiry sweeps run on cadence; lapses flag every live use with options (relicense/replace/remove).
+5. Drift and amendments follow the definers' pattern: flagged, operator-owned, versioned.

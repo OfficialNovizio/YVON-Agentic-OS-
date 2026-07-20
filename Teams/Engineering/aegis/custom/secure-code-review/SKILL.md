@@ -1,0 +1,92 @@
+---
+name: secure-code-review
+type: custom
+status: built 2026-07-09 (Fable build)
+based_on_catalog_entry: none — new; the deep security pass dev's code-review-standards routes risky diffs to (plan §3 "secure-code-review")
+marketplace_search: 2026-07-09 skillsmp.com / mcpmarket.com — candidates found (security-review-specialist; various STRIDE review skills). Kept custom for department integration (dev's routing in, quinn's S-tier out, threat-model context); adopted with credit the STRIDE lens and OWASP-category structure
+assigned_agent: aegis (Engineering / Application Security)
+portable: true — the security dimensions are stack-agnostic; stack-specific sinks/sources come from the stack-profile and threat model
+includes: assets/secure-review-checklist.md
+date_added: 2026-07-09
+---
+
+## Introduction
+
+secure-code-review is aegis's deep, human-paced security read of a specific change — the pass dev's code-review-standards routes to when a diff touches a new external surface, an auth path, secret handling, or a threat-modeled hot spot. Where dev's review asks "is this correct and safe enough to merge" across every diff, this asks "can this specific change be attacked" on the diffs that warrant a specialist. Its verdict is quinn's S-tier input.
+
+**This skill is aegis's primary teeth on interpreted stacks (Python/JS/TS) and agent code** — it is fully stack-agnostic, where vuln-pipeline's harness detector is native-code-only. On this deployment (LLM agents in Python/JS/TS), most real findings come from this adversarial read plus vuln-pipeline's web/LLM detection classes, not from ASAN crashes.
+
+## Purpose
+
+Most breaches enter through code that passed a normal review — it looked correct because the reviewer wasn't reading as an attacker. A dedicated security review reads adversarially: not "does the happy path work" but "what does the malicious path do." It's the depth complement to vuln-pipeline's breadth, focused where the threat model and dev's routing say the risk concentrates.
+
+## When to Use
+
+Triggers: dev's code-review-standards routing a risky surface here (the primary entry), "security review this," "is this change safe," auth/crypto/input-handling diffs, anything touching a high-likelihood threat-model surface, and pre-release for security-adjacent changes (quinn's matrix S row).
+
+## Structure / Protocol
+
+```
+Risky diff arrives (dev routing / threat-model surface / self-flagged)
+  -> Load context: the diff + stack-profile sinks/sources + THREAT_MODEL.md rows it touches
+    -> Read adversarially by category (STRIDE lens; OWASP/CWE specifics):
+       WEB: input validation · authn · authZ (per-object, not just per-route) · secrets/keys ·
+       injection (SQL/command/template/LDAP) · SSRF/XXE · deserialization · crypto misuse ·
+       error/info leakage · rate-limit/DoS · dependency risk introduced
+       LLM/AGENT (when the diff touches agent code/prompts/tools): prompt injection (untrusted
+       content into prompts undelimited) · insecure output handling (LLM output → sink unvalidated) ·
+       excessive agency (tools/perms beyond role; off-plan or out-of-sandbox calls) · system-prompt
+       leakage · RAG/memory poisoning + cross-tenant retrieval · unsafe auto-execution around the gate/Rail 3
+      -> Each concern: exploit sketch (how an attacker reaches it) + severity + fix
+        -> VERDICT: SECURE / FINDINGS (→ vuln-pipeline schema, routed) → feeds quinn's S-tier
+          -> New threat discovered? → update THREAT_MODEL.md (threats outlive this diff)
+```
+
+## Instructions
+
+1. **Read as the attacker, not the author.** For each changed sink, ask what hostile input reaches it and what that input achieves — not whether the intended input works. The author already checked the happy path; your job is the other paths.
+2. **Authorization is per-object, not per-route.** The most common real-world hole: authentication present, authorization checked at the route but not on the specific resource (IDOR). Verify the change checks the actor may act on *this* object, every new path.
+3. **Trace untrusted data to every sink.** Follow tainted input from entry to SQL, shell, template, filesystem, outbound request, deserializer. A parameterized query here and a string-concatenated one there is still an injection — completeness matters.
+4. **Secrets, crypto, and errors.** No secrets in code/logs/errors; crypto uses vetted primitives correctly (no homemade, no ECB, no static IV/nonce); error messages don't leak stack traces, queries, or internal structure to untrusted callers.
+5. **New dependency = new surface.** A diff adding a dependency imports its vulnerabilities and its transitive tree; flag for vuln-pipeline/ops CVE tracking and question whether it's warranted (dev's boring-is-a-feature, security edition).
+6. **Findings are exploit-sketched.** Each finding names how it's reached and what it yields, at `file:line`, with a fix — the same actionable discipline as dev's reviews, plus the attack path. Vague "this looks insecure" is not a finding.
+7. **Threats outlive diffs.** If the review reveals a threat class (not just this instance), update the threat model via the imported skill — a fixed line of code shouldn't erase the lesson (the harness's threats-vs-vulns litmus).
+
+## Output Format
+
+```
+## Security Review: [change] — routed by [dev ref / threat surface]
+Threat context: [THREAT_MODEL.md rows touched]
+Categories reviewed: [input · authn · authz · injection · secrets · crypto · SSRF · deser · deps]
+Findings: [F-id · class · file:line · exploit sketch · severity · fix] → vuln-pipeline schema
+
+### Verdict: SECURE / FINDINGS  (→ quinn S-tier)
+Threat-model update: [none / T# added or raised]
+```
+
+## Principles
+
+- **Read adversarially** — the malicious path, not the happy one.
+- **AuthZ is per-object** — the IDOR hole is the one normal review misses most.
+- **Trace taint to every sink, completely** — one missed concatenation is the injection.
+- **Every finding carries an exploit sketch + fix at file:line** — actionable or it's not a finding.
+- **New dependencies are new attack surface** — warranted, or flagged.
+- **Threats outlive the diff** — instance fixed, class recorded in the threat model.
+
+## Fallback
+
+- No threat model for the area yet → review on universal security grounds (OWASP/CWE), and flag that the surface needs a threat model (seed it from what the review found).
+- Diff too large to review adversarially in depth → request it be split (dev's over-broad-diff integrity concern, security edition) rather than skim it and stamp SECURE.
+- Uncertain exploitability → route to vuln-pipeline for execution-verification in the sandbox rather than guess; "I couldn't prove it safe" is a finding, not a pass.
+
+## Boundaries with Other Skills
+
+- **dev/code-review-standards** is the per-PR gate that ROUTES risky surfaces here; this is the specialist depth, not a replacement for dev's review.
+- **vuln-pipeline** (sibling) is breadth-across-a-surface; this is depth-on-a-diff. Uncertain findings route to the pipeline for sandboxed verification.
+- **verified-patching** (sibling) fixes what this finds; findings use the shared vuln-pipeline schema.
+- **quinn/test-strategy**: this verdict is the S-tier the release-gate matrix requires for security-adjacent changes.
+- **marketplace/threat-model**: consumed for context, updated when a new threat class surfaces.
+
+## Stack Notes (dated)
+
+- `assets/stack-notes-laravel-security-2026-07.md` — Laravel security review checklist by layer. Applies only when stack-profile names Laravel/PHP; adopted from marketplace (ECC) 2026-07-10; method conflicts resolve to this skill.

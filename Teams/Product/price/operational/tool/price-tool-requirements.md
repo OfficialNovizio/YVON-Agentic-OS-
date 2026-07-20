@@ -1,0 +1,12 @@
+# price — Tool Requirements
+
+**This file specifies needs; it does not grant them.** Access is configured at deployment (operator/platform; Fleet Charter Rails 1–2 apply — registered tools only, least privilege).
+
+| Skill | Needs | Why |
+|---|---|---|
+| pricing-research | survey/conjoint tooling (if configured); **script execution (van_westendorp.py — stdlib, no network)**; file read (ux value research); file write (own WTP studies) | willingness-to-pay + PSM computation |
+| packaging-tiers | file read (product profile, features from spec); file write (own packaging specs) | tier/fence design |
+| pricing-experiment-discipline | loom's experiment platform + registry; metric revenue instrumentation (verify-live); file write (experiment cards) | revenue tests |
+| price-change-governance | file read (locked-commitments doc); proposal channel to board; handoff to echo/comms; file write (change proposals) | governed changes |
+
+price researches, designs, tests, and proposes prices; it never executes a live price change without an approved proposal (and board sign-off if a locked commitment is in scope). It writes only its own studies/specs/proposals; Engineering builds the pricing page; finance owns margin math.

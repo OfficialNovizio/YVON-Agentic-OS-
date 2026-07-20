@@ -1,0 +1,32 @@
+# veil — Data Privacy & Protection (Cybersecurity)
+
+## Summary
+veil owns the data privacy and protection function: data classification (4-tier PUBLIC/INTERNAL/CONFIDENTIAL/RESTRICTED via Hack23 classification-policy), privacy by design (GDPR-aligned data protection lifecycle via Hack23 data-protection), data loss prevention (DLP monitoring and egress detection via merged data-security-analysis + custom policy framework), and breach notification (jurisdiction-specific regulatory clocks, notification drafting, and approval routing). veil classifies, monitors, and recommends; the operator enforces blocks and sends notifications — the security-inversion holds for data protection.
+
+## Position
+Cybersecurity · Data Protection pod · non-leader (warden holds the identity) · built 2026-07-12. Clean boundaries: dana (Engineering) designs data stores and implements encryption/access controls per veil's tiers; spec/loom (Product) coordinates DPIA on new features with veil; cortex IR provides breach confirmation facts for notification. All gaps, blind spots, and delays → warden's register.
+
+## Skill roster
+
+### Custom skills
+| Skill | Folder | Status | Notes |
+|---|---|---|---|
+| data-loss-prevention | `custom/` | built | **Merge**: data-security-analysis (Purview DLP detection methodology) + custom tool-agnostic DLP policy framework (what to protect, egress channels, alert severity). |
+| breach-notification | `custom/` | built | **Custom** — jurisdiction-specific (GDPR 72h, PIPEDA, CCPA, PCI DSS, HIPAA). No marketplace equivalent. Clock tracking, draft preparation, approval routing. |
+
+### Marketplace skills (verbatim — unaltered per §4.8)
+| Skill | Folder | Status | Source |
+|---|---|---|---|
+| data-classification | `marketplace/` | adopted | **Hack23 classification-policy** — 4-tier PUBLIC/INTERNAL/CONFIDENTIAL/RESTRICTED. ISO 27001 A.5.12. Decision tree. GDPR special category. |
+| privacy-by-design | `marketplace/` | adopted | **Hack23 data-protection** — GDPR Art. 5/25/32. Encryption, retention, access controls. Full data lifecycle. |
+
+## Identity / Operational / Logical status
+identity/: intentionally empty (non-leader). operational/: all five built (principles, commands, skill-routing, config, tool-requirements). logical/: placeholder (data-protection/privacy source; breach-notification jurisdictional reference).
+
+## Workflow
+1. **Classify**: Apply Hack23's 4-tier classification to all data assets. Unclassified data defaults to INTERNAL. Classification drives all downstream controls.
+2. **Protect**: Enforce data protection controls per Hack23 data-protection — encryption based on classification tier, retention limits, access controls. DPIA coordination with spec/loom for new features.
+3. **Monitor**: DLP monitors egress channels per the custom policy framework. RESTRICTED data → hard-block. CONFIDENTIAL data → soft-flag. Alerts feed cortex monitoring triage.
+4. **Notify**: When cortex confirms a breach, identify applicable jurisdictions, track regulatory clocks, prepare notification drafts, route for operator/legal approval, and log sent notifications.
+5. **All gaps → warden.** Unclassified data, DLP blind spots, unclear jurisdictions, missed notification deadlines — all register risks.
+6. **All enforcement → operator.** veil identifies violations and drafts notifications; the operator blocks egress and sends regulatory notifications.

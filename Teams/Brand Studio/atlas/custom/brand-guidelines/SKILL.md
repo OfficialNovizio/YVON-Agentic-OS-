@@ -1,0 +1,109 @@
+---
+name: brand-guidelines
+type: custom
+status: built from scratch (catalog protocol expanded per 2026-07-07 Brand Studio v3 build)
+based_on_catalog_entry: brand-guidelines (VYON_Skills_Catalog_Full_v2.html, atlas/Brand Studio) — the original loaded per-venture brand kits with hardcoded content; genericized per rule 0.4b to enforce an operator-supplied brand-kit file, template provided
+assigned_agent: atlas (Brand Studio / Art Director)
+portable: true — the kit's content is per-business; this skill carries only the audit process and the template
+includes: assets/brand-kit-template.md (fill-in structure; shape informed by Anthropic's official brand-guidelines skill and rampstackco's identity-system-spec, cited as structural references)
+date_added: 2026-07-07
+---
+
+## Introduction
+
+brand-guidelines is atlas's enforcement skill: load the business's brand-kit file, audit any asset against it, and return **PASS or an itemized fix list**. It is the visual sibling of board's constitution-enforcement — same discipline (quote the rule, cite the section, never enforce rules that were never written), applied to logos, color, type, spacing, and imagery instead of governance articles.
+
+## Purpose
+
+Brand erosion happens one asset at a time: a slightly-off green here, a stretched logo there, a new font someone liked. Each is small; the sum is a brand nobody recognizes. This skill makes every outbound asset auditable against one written kit, so consistency is enforced by process rather than by whoever happens to notice.
+
+## When to Use
+
+Triggers: "on brand check," "visual identity check," "is this on brand," "audit this asset," or automatically when pixel's asset-pipeline QA step runs, and as spark's coherence gate's visual component.
+
+Not for: *creating* an identity (that's `brand-identity`, whose output populates the kit), layout craft judgments beyond the kit's rules (that's `layout-composition`), or brand-to-brand separation (that's `multi-brand-system`).
+
+## Structure / Protocol
+
+```
+Load the brand kit (configured path, per brand)
+  -> If none exists: STOP — offer assets/brand-kit-template.md, or route to brand-identity
+     to create the system first; nothing to enforce
+    -> Identify which kit sections apply to this asset type
+      -> Audit element by element, quoting the kit rule per finding
+        -> PASS or itemized fix list (rule violated → what's wrong → the fix)
+          -> Repeat findings feed the drift note to spark
+```
+
+## Instructions
+
+### Phase 1 — Load
+
+Read the brand kit from `brand_kit_path` in atlas's config (one path per brand the business runs). No kit → stop and offer two routes: fill the template directly (business already has an identity, just undocumented), or run `brand-identity` to create the system and populate the template from its output. Never audit against remembered or inferred brand rules.
+
+### Phase 2 — Scope
+
+State which kit sections apply to this asset (a social graphic touches logo/color/type/imagery; an email header maybe only logo/color) and which don't. Shown in the output.
+
+### Phase 3 — Audit
+
+Element by element, against the kit's actual text:
+
+- **Logo**: correct variant for the context, minimum size, clear space, misuse rules (stretch/rotate/recolor/busy-background).
+- **Color**: palette-only (name the off-palette value found and the nearest approved token), correct pairings, contrast rule (text on brand colors must meet the kit's accessibility bar — the WCAG check from brand-identity's reference applies at audit time too).
+- **Typography**: approved families/weights only, scale respected, no display weights at body sizes.
+- **Spacing/layout**: the kit's spacing unit and clear-space rules (finer layout judgment defers to `layout-composition`).
+- **Imagery**: within the kit's photography/illustration direction; rejects named ("stock aesthetic" only if the kit bans it).
+
+Every finding quotes the kit rule it violates. An asset can't fail a rule the kit doesn't contain — gaps in the kit are flagged as kit gaps, not asset failures.
+
+### Phase 4 — Verdict
+
+- **PASS** — no violations; note any kit gaps encountered.
+- **FIX LIST** — itemized: rule (quoted, section cited) → what's wrong in the asset → the specific fix. Ordered by visibility of the violation, not discovery order. No "make it feel more on-brand" — every item is actionable.
+
+### Phase 5 — Drift Note
+
+Repeat findings across assets (same rule violated 3+ times, any producer) go to spark as a drift note: either production needs correcting or the kit rule needs revisiting — spark and the operator decide which.
+
+## Output Format
+
+```
+## Brand Audit: [asset, one line] — [brand]
+
+**Kit:** [file/version loaded] · **Sections applied:** [list; excluded + why]
+
+### Verdict: PASS / FIX LIST
+
+| # | Kit rule (quoted, §) | Found in asset | Fix |
+|---|---|---|---|
+
+### Kit Gaps
+[Rules the kit needed but doesn't have — flagged for the operator, not counted against the asset]
+
+### Drift Note
+[Repeat-violation patterns, if any → spark]
+```
+
+## Principles
+
+- **No kit, no audit.** Enforcement against unwritten rules is taste wearing a badge.
+- **Quote the rule, cite the section.** Same discipline as constitution-enforcement.
+- **Asset failures ≠ kit gaps.** An asset only fails written rules; missing rules are the kit's problem, flagged separately.
+- **Every fix is actionable.** "Off-palette: found #2E8B57, nearest approved token color-brand-primary #0E7A4F" — never "wrong green."
+- **Accessibility is a brand rule.** Contrast failures are violations, not suggestions, wherever the kit (per the template) sets the WCAG bar.
+- **Repeat findings escalate.** Three of the same violation is a process or kit problem, and spark hears about it.
+
+## Fallback
+
+- Kit path unset / file missing → stop per Phase 1; offer template or brand-identity.
+- Kit exists but thin (logo-only, no color/type rules) → audit what's written, list the gaps prominently, recommend completing the kit via the template.
+- Asset format unreadable → audit what's describable, state what couldn't be checked; never PASS unchecked elements.
+- Multiple brands, ambiguous target → ask which brand's kit applies; never guess (that's exactly a multi-brand bleed risk).
+
+## Boundaries with Other atlas Skills
+
+- `brand-identity` creates the system; this skill enforces it. Creation output populates the kit; the kit is this skill's law.
+- `layout-composition` owns composition craft the kit doesn't legislate; this skill only enforces what the kit says about spacing/clear-space.
+- `multi-brand-system` owns cross-brand separation; this skill audits one asset against one brand's kit.
+- Downstream: pixel's asset-pipeline calls this audit in its QA step; spark's coherence gate includes this as its visual check. Cross-department: lena owns everything about words' *content and tone* — this skill only checks that text is *set* per the kit.

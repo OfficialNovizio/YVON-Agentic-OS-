@@ -1,0 +1,97 @@
+---
+name: multi-brand-system
+type: custom
+status: built from scratch (catalog protocol expanded per 2026-07-07 Brand Studio v3 build)
+based_on_catalog_entry: vyon-multi-brand-system (VYON_Skills_Catalog_Full_v2.html, atlas/Brand Studio) — renamed multi-brand-system, genericized per rule 0.4b off hardcoded brand names and palettes ("Novizio emerald/steel, Hourbour, VYON corporate"); the separation rules become an operator-supplied matrix
+assigned_agent: atlas (Brand Studio / Art Director)
+portable: true — brands, distance rules, and shared elements are all per-business config; dormant by design for single-brand operators
+date_added: 2026-07-07
+---
+
+## Introduction
+
+multi-brand-system keeps a multi-venture operator's brands **visually distinct yet related**: each asset is checked against brand-distance rules (does this look like the brand it claims to be — and *not* like the siblings?), shared elements are allowed only from an approved common set, and drift toward another brand's territory routes to spark for review. For single-brand businesses this skill is intentionally dormant — a documented no-op, not a missing capability.
+
+## Purpose
+
+Operators running multiple ventures face a two-sided failure: brands that blur together (customers can't tell them apart, positioning collapses) or brands so unrelated the portfolio gets no halo. The middle path needs written rules — which elements are deliberately shared (a corporate mark, a type family), which are exclusive per brand (palettes, imagery styles), and how much distance is enough. This skill enforces that middle path.
+
+## When to Use
+
+Triggers: "cross brand visual," "brand separation," "does this look too much like [sibling brand]," or automatically inside brand-guidelines audits whenever the business runs 2+ brands.
+
+Not for: single-brand audits (brand-guidelines alone), or deciding the portfolio strategy itself (which brands exist and how related they *should* be is an operator/marcus call — this skill enforces the documented answer).
+
+## Structure / Protocol
+
+```
+Load the separation matrix (operator-supplied; part of atlas config)
+  -> If single brand or no matrix: dormant — note and pass through
+    -> Identify the asset's claimed brand + the sibling set
+      -> Distance check: exclusive elements (palette, imagery, type where exclusive)
+         appear only for the owning brand
+        -> Shared-elements check: anything shared comes from the approved common set only
+          -> PASS / BLEED finding (which sibling, which element) → spark review
+```
+
+## Instructions
+
+### Phase 1 — Load the Matrix
+
+From atlas config (`brand_separation_matrix`): the list of brands, each element class marked **exclusive** (owned by one brand — typically primary palette, imagery style, logo) or **shared** (drawn from an approved common set — perhaps a parent mark, a type family, a spacing system). No matrix + multiple brands → stop and ask the operator to define one (a starter table lives in this skill's Output Format); never infer separation rules from the kits alone.
+
+### Phase 2 — Distance Check
+
+For the asset's claimed brand: verify no *exclusive* element of any sibling appears. The test is element-level and auditable — sibling's primary palette tokens, sibling's imagery treatment, sibling's mark — not "vibes similar." Near-misses (a color within perceptual range of a sibling's token) are flagged as near-boundary, mirroring sentinel's warn-early pattern.
+
+### Phase 3 — Shared-Elements Check
+
+Every element the asset shares across brands must be on the approved common set list. Sharing anything else — even innocently ("we reused the illustration style because it looked good") — is how brands blur; it's a finding, and either the element gets added to the common set deliberately (operator decision) or the asset changes.
+
+### Phase 4 — Verdict and Routing
+
+- **PASS** — distinct where required, shared only from the common set.
+- **BLEED** — name the element, the sibling brand it belongs to (or the unapproved sharing), and the fix. All BLEED findings route to **spark** (per the catalog: drift → creative-director review) — spark judges whether it's an asset fix or a deliberate evolution needing a matrix/kit amendment by the operator.
+
+## Output Format
+
+```
+## Brand Separation Check: [asset] — claimed brand: [X], siblings: [Y, Z]
+
+**Matrix:** [version loaded]
+
+| Element class | Rule (exclusive-to / shared-approved) | Found | Verdict |
+|---|---|---|---|
+
+### Verdict: PASS / BLEED
+[Per BLEED: element → owning sibling or unapproved share → fix → routed to spark]
+```
+
+Starter matrix shape (for operators defining one):
+
+| Element class | Brand A | Brand B | Shared common set |
+|---|---|---|---|
+| Primary palette | exclusive | exclusive | — |
+| Logo/mark | exclusive | exclusive | parent mark (approved contexts listed) |
+| Type family | — | — | shared: [family] |
+| Imagery style | exclusive | exclusive | — |
+
+## Principles
+
+- **Dormant is a state, not a gap.** Single-brand businesses get an explicit no-op, keeping the skill roster uniform across deployments.
+- **Element-level tests, not vibes.** Every separation rule must name the element class it governs.
+- **Sharing is deliberate or it's bleed.** The common set is a decision log, not a default.
+- **Near-misses get flagged early.** Perceptually-close colors are tomorrow's blur.
+- **Spark judges drift; the operator amends rules.** This skill detects; it doesn't decide whether drift is evolution.
+
+## Fallback
+
+- Multiple brands, no matrix → stop, provide the starter table, ask the operator to fill it.
+- Matrix exists but element classes are vague → check what's checkable, flag the vague classes as matrix gaps.
+- Asset claims no brand → that's the finding; unbranded outbound assets route to spark.
+
+## Boundaries with Other atlas Skills
+
+- `brand-guidelines` audits one asset against its own kit; this skill audits the same asset against the *siblings'* territory. Both run in a multi-brand audit.
+- `brand-identity`, when creating a new sibling brand, consumes the matrix as a constraint (new brand must be distinct by the existing rules) and extends it (operator approves the new row).
+- Drift findings route to spark (coherence gate), whose cross-brand bleed test is this skill run at the gate.

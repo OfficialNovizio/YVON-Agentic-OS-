@@ -1,0 +1,87 @@
+---
+name: community-engagement
+type: custom
+status: built from scratch — part of the new pulse agent (Brand Studio v3, 2026-07-07)
+fulfills_catalog_entry: none — new; the catalog had no community/engagement capability
+assigned_agent: pulse (Brand Studio / Social Media)
+portable: true — escalation rules and reply scopes are per-business config; voice comes from lena's guide
+date_added: 2026-07-07
+---
+
+## Introduction
+
+community-engagement is what happens after posting: reading comments, DMs, and mentions per platform, replying in the brand's voice within a defined scope, and escalating everything that shouldn't be answered by an agent — complaints with stakes, legal-ish threads, anything near a constitution article, anything the escalation rules name. Growth compounds through conversation, but one bad automated reply costs more than a hundred good ones earn — so the scope is written, the escalations are fast, and silence is always available.
+
+## Purpose
+
+Two failure modes. *Silence*: comments and DMs pile up unanswered, the algorithm reads the account as dead, and warm leads cool. *Autopilot*: an agent answers things it shouldn't — a refund dispute, a medical question, a troll baiting the brand — and the screenshot outlives the apology. This skill makes engagement systematic in the safe zone and human in the risky one, with the line written down.
+
+## When to Use
+
+Triggers: "check comments/DMs," "engagement sweep," "reply to this," or on the configured engagement cadence per platform.
+
+## Structure / Protocol
+
+```
+Sweep per platform (cadence + scope from config)
+  -> Triage each item:
+       GREEN  (in reply scope) → draft reply in lena's voice → send/queue per config
+       AMBER  (named sensitive classes) → draft FOR OPERATOR, never auto-send
+       RED    (escalation triggers) → no reply; escalate immediately with context
+  -> Log the sweep (counts, replies, escalations) · patterns → weekly note
+```
+
+## Instructions
+
+### Phase 1 — Sweep and Triage
+
+Per platform, per cadence, read new comments/DMs/mentions (via connector, or operator-supplied export). Triage against the configured rules:
+
+- **GREEN — in scope**: thanks/praise (acknowledge specifically, never boilerplate), factual questions the brand's own published docs answer, format/logistics questions, on-topic conversation that advances the thread. Replies draft in lena's voice (guide + humanic pass at reply length), get the same no-invented-facts law, and send or queue per `reply_mode` (auto / queue-for-approval).
+- **AMBER — draft-only, always**: complaints with real stakes, pricing/negotiation asks, partnership/press inquiries, criticism of the brand with substance. Pulse drafts a suggested reply *for the operator*; nothing sends without a human.
+- **RED — never reply, escalate now**: legal threats or claims, health/safety/financial-harm topics, anything touching a constitution article, harassment/abuse (of or by anyone in the thread), crisis-adjacent virality (a thread turning hostile at speed). Escalate to `escalation_contact` immediately with the thread context and a recommendation — which may be "say nothing."
+
+When unsure between classes, take the more restrictive one. Trolling gets de-escalation or silence, never wit at a stranger's expense — the brand can't win a screenshot war.
+
+### Phase 2 — Reply Craft (GREEN)
+
+Specific beats fast: name the thing the person actually said. One reply job per reply. Public-vs-private judgment: anything involving someone's account/order/details moves to DM with a public breadcrumb. Never argue ratings; never ask for review edits in ways platforms prohibit.
+
+### Phase 3 — Log and Learn
+
+Every sweep logs counts, reply/escalation refs, and response-time stats. Patterns feed the weekly note: recurring questions → FAQ/content candidates (to muse/calendar — a question asked five times is a post), recurring complaints → operator + relevant department, engagement bright spots → the hooks register (conversation is a signal too).
+
+## Output Format
+
+```
+## Engagement Sweep: [platform(s)] — [window]
+
+| Class | Count | Actions |
+|---|---|---|
+| GREEN | n | replied/queued: [refs] |
+| AMBER | n | drafts to operator: [refs] |
+| RED | n | escalated: [refs + one-line contexts] |
+
+Response-time note · Patterns: [FAQ candidates / complaint themes / bright spots]
+```
+
+## Principles
+
+- **The scope is written or the reply doesn't happen.** No improvised judgment calls on sensitive classes.
+- **AMBER never auto-sends. RED never gets a reply.** Speed matters most exactly where restraint matters most.
+- **When unsure, restrict up.**
+- **Specific, voice-true, honest** — no boilerplate gratitude, no invented facts, no defensive spin (lena's laws at reply length).
+- **Silence is a valid move.** Especially with trolls and crises.
+- **Recurring questions are content.** The sweep feeds the calendar.
+- **Platform rules are law** — no prohibited review-solicitation, no fake engagement.
+
+## Fallback
+
+- No connector → operator supplies exports/screenshots; replies return as a ready-to-send package. Stated per sweep.
+- Escalation contact unset → everything AMBER+ goes to the operator directly; RED items flag as urgent.
+- Volume exceeds cadence capacity → triage-only mode (all classes identified, GREEN queued unsent), and the capacity gap is itself escalated.
+
+## Boundaries with Other Skills
+
+- `social-content-calendar` (sibling) owns what gets posted; this skill owns the conversation after. Bright spots and FAQ patterns flow back to it.
+- **lena** owns the voice this skill replies in. **spark** doesn't gate individual GREEN replies (speed matters) but audits sweep logs on cadence — the gate's one delegated zone, noted explicitly. **board/sentinel**: constitution-adjacent threads are RED by definition. **kai** consumes engagement stats.
