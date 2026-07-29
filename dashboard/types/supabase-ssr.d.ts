@@ -32,6 +32,7 @@ declare module '@supabase/ssr' {
     auth: {
       getUser(): Promise<{ data: { user: User | null } }>
       signInWithOtp(opts: { email: string; options?: { emailRedirectTo?: string } }): Promise<{ error: { message: string } | null }>
+      signInWithPassword(opts: { email: string; password: string }): Promise<{ error: { message: string } | null }>
       exchangeCodeForSession(code: string): Promise<{ error: { message: string } | null }>
       signOut(): Promise<{ error: { message: string } | null }>
     }
