@@ -119,5 +119,5 @@ conflict flags ("⚠️ Agent must reconcile"). Full pipeline reference: `README
 | Dept sequencing | `Teams/<Dept>/DEPARTMENT-WORKFLOW.md` |
 | Cross-agent skills + logic scripts | `Teams/Shared OS/` |
 | Security rails (senior to all agents) | `Teams/Engineering/SECURITY-CHARTER.md` |
-| Architecture docs | `docs/` (4LAYER, HARNESS, WORK_TREE, FULL) |
+| Architecture docs | `docs/ARCHITECTURE.md` (unified; deep-dives in `docs/archive/`) |
 | Fleet CLI | `node cli/yvon.js doctor|agents|graph` |

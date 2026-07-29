@@ -54,7 +54,11 @@
     "typescript": ">=5.0.0"
   },
   "devDependencies": {
+    "@dietrichgebert/ponytail": "^4.8.4",
+    "@playwright/test": "^1.61.1",
     "@types/node": "^20.19.43",
+    "agentation": "^3.0.2",
+    "impeccable": "^3.2.1",
     "typescript": "^5.9.3"
   },
   "engines": {

@@ -84,6 +84,16 @@ def log_feedback(trace: Dict, outcome: str = 'pending', notes: str = '') -> str:
     with open(FEEDBACK_LOG, 'a') as f:
         f.write(json.dumps(event) + '\n')
 
+    # ── Hermes loop (TS-002): a confirmed lesson (accepted outcome + notes)
+    # is pushed to the agent's memory so it's read back on the next retrieval.
+    # This closes the feedback → memory → retrieval loop (MASTER §7.4).
+    if outcome == 'accepted' and notes.strip():
+        try:
+            from hermes_memory import push_lesson
+            push_lesson(event['agent_id'], notes.strip())
+        except Exception:
+            pass  # memory push optional — never blocks feedback logging
+
     return event['id']
 
 

@@ -19,9 +19,12 @@ Build pod (with raj and nova). Consumes raj's API contracts and atlas's brand ki
 | Skill | Location | One-line purpose |
 |---|---|---|
 | design-tokens | `custom/` (+ token schema) | **The atlas bridge:** atlas's brand kit is the source of truth → semantic tokens → components; hardcoded brand values are drift findings; carries theming/white-label. |
+| impeccable-design | tool: `Teams/Shared OS/skills/impeccable` (23 `/impeccable` commands) + `impeccable` CLI (46 deterministic detectors) | **The design-quality layer.** Reads the project `DESIGN.md`/`PRODUCT.md`; `/impeccable shape` before build, `/impeccable audit`+`critique`+`polish` after. `impeccable detect` runs in CI with no API key and BLOCKS on anti-pattern tells (overused fonts, gray-on-color, gradient text, card nesting). No generic UI ships. |
 | ui-accessibility-standards | `custom/` (+ a11y checklist) | Consistent + accessible: components from tokens, semantic HTML, keyboard-operable, WCAG AA; failing contrast pairings are atlas findings. |
-| frontend-verification | `custom/` | Agentation (precise, component-aware feedback IN) + quinn's Reticle/Playwright (real-render proof OUT); mock data in the DOM is an integrity block. |
+| frontend-verification | `custom/` | Agentation (precise, component-aware feedback IN — `agentation` npm dev-dep, dev-only toolbar) + quinn's Reticle/Playwright (real-render proof OUT — `@playwright/test`, `npm run test:e2e`); mock data in the DOM is an integrity block. |
 | frontend-performance | `custom/` | Core Web Vitals (LCP/INP/CLS) measured on realistic conditions, bundle discipline; a shared UX+SEO signal with rank. |
+
+> **Framework lock:** all product UI is **Next.js** (App Router). Every build passes `impeccable detect` (design gate) and `npm run test:e2e` (quinn's Playwright release gate) before "done."
 
 Full routing: `operational/skill/mia-skill-routing.md`.
 
@@ -29,9 +32,11 @@ Full routing: `operational/skill/mia-skill-routing.md`.
 
 ```
 design-tokens (atlas kit → tokens — styling source of truth)
-   → ui-accessibility-standards (components from tokens; semantic, keyboard, WCAG)
-      → frontend-verification (Agentation feedback + quinn's browser gate)
-         → frontend-performance (Core Web Vitals — shared with rank)
+   → impeccable-design /shape (plan UX/UI before code, read DESIGN.md)
+      → ui-accessibility-standards (components from tokens; semantic, keyboard, WCAG)
+         → impeccable-design /audit + /critique + /polish (design-quality pass)
+            → frontend-verification (Agentation feedback IN + quinn's Playwright gate OUT)
+               → frontend-performance (Core Web Vitals — shared with rank)
 ```
 
 ## Identity

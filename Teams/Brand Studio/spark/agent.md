@@ -20,6 +20,7 @@ Department leader and identity holder (idea-guardian, Ogilvy-archetype). Downstr
 |---|---|---|
 | coherence-qa | `custom/` | The blocking gate: four checks (visual/verbal/narrative/bleed) + dormant behavioral line + the cross-lane coherence judgment → PASS ships / itemized cited FIX LIST returns. Operator overrides logged like board overrules. Non-chapter content labeled and counted. |
 | art-direction-critique | `marketplace/` | The coach: 5-axis scoring (concept/craft/composition/coherence/finishing), SHIP/REWORK/KILL, priority-ordered concrete fixes, client-safe mode with unchanged diagnosis. Verbatim (ETman001/ArtDirector). |
+| impeccable-direction | tool: `Teams/Shared OS/skills/impeccable` | On frontend/product surfaces, spark runs `/impeccable critique` (hierarchy, clarity, emotional resonance) and picks direction with `/impeccable bolder`\|`quieter`\|`distill`. Names anti-references so the build avoids the generic-SaaS tells. Feeds mia's build with a chosen, defensible direction — never "generic UI." |
 
 Full routing: `operational/skill/spark-skill-routing.md`.
 

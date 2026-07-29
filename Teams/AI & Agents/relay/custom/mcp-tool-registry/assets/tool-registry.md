@@ -10,6 +10,7 @@ them. Grants are least-privilege: only the named agents. Egress = declared domai
 | Playwright | MCP | playwright.dev | `<FILL_IN>` | quinn | release-gate browser tests | quinn | `<FILL_IN>` | trial | 2026-07-10 |
 | defending-code-reference-harness | repo/script | github.com/anthropics | n/a (local) | aegis | native-code vuln pipeline | aegis, cypher | NONE | trial | 2026-07-10 |
 | Agentation | MCP | agentation.com | `<FILL_IN>` | mia | UI annotation feedback | mia | `<FILL_IN>` | trial | 2026-07-10 |
+| OpenSandbox | MCP | open-sandbox.ai (opensandbox-mcp) | `<FILL_IN>` | ops | create/run/file in isolated box | mia, quinn, raj, nova | per-sandbox egress allowlist (warden) | trial | 2026-07-23 |
 | claude-seo | plugin | github.com/AgriciDaniel/claude-seo | n/a (local) | rank | technical SEO sub-skills | rank | NONE | trial | 2026-07-10 |
 | HelixDB | database | github.com/helixdb/helix-db | `<FILL_IN>` | dana | datastore (reads; writes via Rail 3 scripts) | dana | `<FILL_IN>` | trial | 2026-07-10 |
 | Harness.io | MCP | mcp registry | `<FILL_IN>` | ops | CI/CD | ops | `<FILL_IN>` | trial | 2026-07-10 |

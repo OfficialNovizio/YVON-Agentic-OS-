@@ -1,0 +1,59 @@
+# TASK-SPEC — meta/task-dispatch
+id: TS-003
+status: approved
+source_message: "Fix the issue and verify that it worked by installing the awesome design again"
+requester: operator
+rules: { sharding: worker gets only its item + contracts, handoff: contracts-only, inject_form: .toon }
+
+classification:
+  task_type: infra_integration      # close the §7.7 no-Docker hole
+  departments: [Engineering, Cybersecurity]
+  lead: dev
+
+context:
+  chunks: [docs/MASTER.md §7.7, Teams/Shared OS/tools/shared-tool-registry.md]
+  existing_assets:
+    - "§7.7 names OpenSandbox as THE quarantine box; OpenSandbox needs Docker/K8s (no local runtime) → flow unusable in Docker-less envs"
+    - "Ponytail + getdesign were installed straight into repo (quarantine skipped) — the hole"
+  conflicts: []
+
+discovery:
+  decisions:
+    - "Add a no-Docker TIER-1 quarantine (git-worktree/temp-dir process box) usable everywhere; OpenSandbox stays TIER-2 (stronger, Docker)."
+    - "Prove it by re-installing awesome-design (getdesign catalog) THROUGH the box: remove direct install → quarantine → promote."
+
+work_items:
+  - id: WI-1
+    owner: dev
+    objective: "Build cli/quarantine.sh — no-Docker process box: fetch candidate to throwaway dir, safety scan, claim check, PASS/FAIL, promote instructions (never auto-promote)"
+    produces: [cli/quarantine.sh]
+    owns_paths: [cli/quarantine.sh]
+    acceptance: ["runs without Docker", "isolates outside repo", "scans for malware patterns", "exit 0/1"]
+  - id: WI-2
+    owner: warden
+    objective: "Safety-scan ruleset inside the box (postinstall hooks, curl|sh, eval, base64 exfil, network in install)"
+    consumes: [cli/quarantine.sh]
+    security_review: yes
+    acceptance: ["flags dangerous patterns", "clean repo passes"]
+  - id: WI-3
+    owner: dev
+    objective: "Update §7.7 with the two-tier model + registry note"
+    produces: [docs/MASTER.md, Teams/Shared OS/tools/shared-tool-registry.md]
+    owns_paths: []
+    acceptance: ["§7.7 shows TIER-1 no-Docker + TIER-2 Docker"]
+  - id: WI-4
+    owner: quinn
+    objective: "PROVE it: remove getdesign direct install → run quarantine on VoltAgent/awesome-design-md → PASS → promote atlas skill"
+    consumes: [cli/quarantine.sh]
+    blocked_by: [WI-1, WI-2]
+    acceptance: ["quarantine runs green on awesome-design", "atlas skill promoted only after PASS", "log written"]
+
+dag: { parallel: [[WI-1, WI-3]], critical_path: [WI-1, WI-2, WI-4] }
+exit_gate: { owner: quinn, proof: "awesome-design re-installed via quarantine box, PASS logged" }
+feedback:
+  outcome: gated
+  proof: >
+    cli/quarantine.sh built (no-Docker TIER-1) · scanner FLAGS evil repo (5 findings→FAIL) + fixed
+    false-PASS-on-empty-fetch bug · awesome-design re-installed THROUGH the box (153 files, 0 findings,
+    claim 221≥70, PASS, exit 0) · atlas skill promoted only after PASS · §7.7 two-tier · fleet lesson pushed to Hermes.
+  lesson: "§7.7 no longer Docker-gated: TIER-1 process box works everywhere. Ponytail/getdesign should be retro-vetted the same way (getdesign done; Ponytail pending)."

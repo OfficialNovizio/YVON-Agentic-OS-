@@ -22,6 +22,8 @@ First-built of Brand Studio's 11 agents (v3 structure, 2026-07-07). Atlas's kit 
 | brand-guidelines | `custom/` (+ `assets/brand-kit-template.md`) | The enforcement gate: audit any asset against the operator's brand-kit file → PASS or itemized fixes, every finding quoting the kit rule. Accessibility (WCAG bar) is an auditable brand rule. |
 | multi-brand-system | `custom/` | Distance + shared-set checks keeping sibling brands distinct; BLEED → spark. Documented no-op for single-brand businesses. |
 | layout-composition | `marketplace/` | Grid systems, Gestalt principles, whitespace as active element, hierarchy and focal-point craft. Verbatim copy (marvinrichter/clarc), fulfills the catalog's canvas-design slot. |
+| impeccable-tokens | tool: `Teams/Shared OS/skills/impeccable` + `impeccable` CLI | **atlas owns the project `DESIGN.md`/`PRODUCT.md`** that impeccable reads. `/impeccable document` extracts a DESIGN.md from existing code; `/impeccable extract` pulls reusable tokens/components. atlas resolves every `<FILL_IN>` (e.g. the distinctive font replacing the flagged Inter). The `impeccable detect` anti-pattern set is a brand rule, enforced in CI. |
+| design-reference-library | `custom/` (+ getdesign CLI) | Catalog of **74 real-world DESIGN.md systems** (Airbnb, Stripe, Notion, Linear, Figma, Apple…). When a build should "look like <site>", atlas installs it via `npx getdesign@latest add <site>` → seeds the project `DESIGN.md`, hands to mia. Grounds the design language in a proven reference instead of from-scratch. |
 
 Full routing: `operational/skill/atlas-skill-routing.md`.
 

@@ -20,6 +20,11 @@ Cybersecurity · Infrastructure pod · non-leader (warden holds the identity) ·
 |---|---|---|---|
 | cloud-posture | `marketplace/` | adopted | **implementing-cloud-vulnerability-posture-management** — verbatim. Prowler, ScoutSuite, AWS Security Hub, Azure Defender. Multi-cloud CIS benchmarking. |
 
+### Shared OS tools (inherited, not owned)
+| Tool | Where | bastion's role |
+|---|---|---|
+| **OpenSandbox** | `Shared OS/tools/shared-tool-registry.md` · runtime owned by ops | bastion owns the **network + container hardening** of each sandbox: segmentation between boxes, firewall/egress enforcement at the runtime edge, secure-runtime baselines (gVisor/Kata/Firecracker per hardening-baselines). Pairs with warden's policy: warden decides the egress allowlist, bastion enforces it at the network layer. |
+
 ### Superseded
 | Skill | Previous state | Superseded by |
 |---|---|---|

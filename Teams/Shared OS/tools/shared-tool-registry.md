@@ -1,0 +1,36 @@
+# Shared OS — Shared Tool Registry
+
+System of record for **plugins, npm dev-deps, CLIs, and external skills used by two or more agents** (Playbook §13.6).
+MCP **servers** are registered by relay (`Teams/AI & Agents/relay/custom/mcp-tool-registry/`) — this file points to relay for those rows and covers everything else.
+
+Rule: install once, register here, cite by reference from each consuming agent's `operational/tool/<agent>-tool-requirements.md`. Never re-install or re-document per agent.
+
+| Tool | Version | Install command | Install location | Consuming agents | One-time human step | Purpose |
+|---|---|---|---|---|---|---|
+| **impeccable** (skill + CLI) | 3.2.1 (CLI) / 3.9.1 (skill) | root workspace: `npm i -D impeccable` at repo root · skill lives at `Teams/Shared OS/skills/impeccable/` | **root** `package.json` devDep → `node_modules/impeccable` (hoisted, shared by all workspace apps); **skill** at `Teams/Shared OS/skills/impeccable/` (committed) | atlas, spark, pixel, mia | `npx impeccable install` (plugin into harness — needs impeccable.style network) | Design-quality layer: 23 `/impeccable` commands + 46 deterministic anti-pattern detectors; CI design gate |
+| **Playwright** | @playwright/test 1.61.1 | root workspace: `npm i -D @playwright/test` at repo root + `npx playwright install chromium firefox webkit` | **root** devDep → `node_modules/@playwright` (shared); browsers in ms-playwright cache; harness config `dashboard/playwright.config.ts` | quinn, mia, nova | `npx playwright install-deps` (OS libs, needs root) | Real-browser E2E; quinn's release gate after every feature (`npm run test:e2e`) |
+| **agentation** | 3.0.2 | root workspace: `npm i -D agentation` at repo root | **root** devDep → `node_modules/agentation` (shared); toolbar `dashboard/components/AgentationToolbar.tsx` | mia, quinn | none | Visual feedback FROM the running app: click/annotate elements → structured selectors back to the agent (dev-only) |
+| **browser-use** | 0.13.x | `uv add browser-use` (or `pip install browser-use`) + `browser-use skill install` | Python env (repo `pyproject`/venv, Python **≥3.11**); NOT in this sandbox (Python 3.10) | quinn (exploratory QA), dana + rank (act-and-extract), scout (tool recon) | Python ≥3.11 · an LLM key (`BROWSER_USE_API_KEY` or provider key) in `.env` · browser OS deps | **Autonomous** LLM-driven browser agent: natural-language web tasks (fill forms, extract data, exploratory QA). Complements Playwright (scripted gate) — does NOT replace it. |
+| **OpenSandbox — SDK/CLI** | SDK 0.1.14 · CLI 0.1.1 | `pip install opensandbox opensandbox-cli` · server: `uvx opensandbox-server` | Python env (Python ≥3.10, installed & tested); `osb` CLI at `~/.local/bin`; config `~/.opensandbox/config.toml` | ops (runtime), warden + bastion (isolation/egress), dana (migration dry-run), scout (tool vetting) | **Docker** (or K8s) for live containers — not in build sandbox; run server on operator machine | Isolation runtime — the quarantine box for sandbox-first promotion (MASTER §7.7): platform code calls `Sandbox.create()`; per-tenant isolation (Part 5). |
+| **OpenSandbox — MCP** | `opensandbox-mcp` | `pip install opensandbox-mcp` + `opensandbox-mcp --domain <server> --protocol http` | MCP server; **registered by relay** in `Teams/AI & Agents/relay/custom/mcp-tool-registry/` | mia, quinn, raj, nova (agents that need a box) | needs a running OpenSandbox server (Docker) | How *agents* drive sandboxes (create/run/file as MCP tools) — the interactive per-work-item path (§7.7 cases A/B). |
+| **Crawl4AI** (scraper + MCP) | latest | `pip install crawl4ai` + `crawl4ai-setup` (installs Playwright browsers); MCP: `crawl4ai --mcp` | Python env (≥3.10); browsers in ms-playwright cache | dana + rank (act-and-extract / crawl), scout (vetting) | **heavy install (~300MB deps)** — completes on operator machine, not build sandbox; needs open-web egress | **The free scraping stack** — Apache-2.0, self-hosted, no API key. JS-rendered crawling → clean markdown for the RAG chunker. Chosen over Firecrawl (freemium) / Scrapling. Live crawl needs egress; static scraping also available via `web_fetch`. |
+| **Ponytail** (6 skills) | 4.8.4 (MIT) | **in-project:** `npm i -D @dietrichgebert/ponytail` at repo root; skills copied to `Teams/Shared OS/skills/ponytail*/` | **root** devDep → `node_modules/@dietrichgebert/ponytail` (shared); **skills** committed at `Teams/Shared OS/skills/ponytail*/` | dev, axiom (all coding work) | none required (skills work in-project); optional `/plugin install ponytail@ponytail` for harness always-on | Minimal-code skill ("laziest senior dev"): YAGNI, stdlib/native before deps, one line before fifty. ~54% less code, 100% safe. DRY at generation time. Levels: lite/full/ultra. |
+| **getdesign** (DESIGN.md catalog) | latest | `npx getdesign@latest add <site>` (per build, no global install) | drops `DESIGN.md` at the target project/app root; catalog of 74 sites | atlas (owns DESIGN.md), mia (builds from it) | none (no API key); needs npm network for the CLI, else fetch getdesign.md pages | 74 real-world design systems (Airbnb, Stripe, Notion, Linear, Figma, Apple…) as ready DESIGN.md files. atlas seeds the project design language from a reference; mia builds. Wrapped by atlas's `design-reference-library` skill. |
+
+## Sandbox-first quarantine (§7.7) — two tiers
+Any new external tool/skill/dep is vetted BEFORE it touches the repo:
+- **TIER-1 · process box** — `cli/quarantine.sh <name> <git|npm> <source>` (no Docker, runs everywhere): throwaway dir outside the repo, warden safety-scan, claim check, PASS/FAIL, log → `store/quarantine/`. This is the default and closes the Docker-less gap.
+- **TIER-2 · container** — OpenSandbox `Sandbox.create()` (kernel isolation, needs Docker/K8s) when available.
+Rule: no Docker ⇒ TIER-1, never skip. The rows below (Ponytail, getdesign, …) should each carry a `store/quarantine/<name>.log` once re-vetted.
+
+## Boundary note — browser-use vs Playwright (don't confuse them)
+- **Playwright** = deterministic release gate. You script every step + assertion; it answers "does the *known* flow still pass?" Runs in CI, blocks releases. Owner: quinn.
+- **browser-use** = autonomous exploratory agent. You give a natural-language task; the LLM decides the steps. Use for open-ended web work and finding bugs you didn't script. Non-deterministic → NOT a CI gate. Owner: quinn (QA), dana/rank (act-and-extract).
+- They stack: quinn's exploratory pass (browser-use) surfaces issues → the fix gets a scripted Playwright test so the regression is gated forever.
+
+## How to add a row
+1. Confirm the tool is (or will be) used by ≥2 agents. One agent only → keep it in that agent's `tool/` file until a second agent needs it.
+2. Install to the tool's natural home (project dev-dep, repo `.claude/skills/`, or global). Not into an agent folder.
+3. Add a row above: name, version, install command, location, consuming agents, any one-time human step, purpose.
+4. In each consuming agent's `operational/tool/<agent>-tool-requirements.md`, cite it as *"Shared OS tool (inherited, not owned): <name> — see Shared OS/tools/shared-tool-registry.md."*
+5. If it's an MCP server, register it with relay instead and link that row here.

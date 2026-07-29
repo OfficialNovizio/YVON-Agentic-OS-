@@ -207,6 +207,25 @@ class HybridRetriever:
 
         # Sort by combined score, deduplicate
         all_results.sort(key=lambda x: x.get('combined_score', 0), reverse=True)
+
+        # ── Hermes memory injection (TS-002) — operator identity + lessons as P0.
+        # Read back the loop: what the fleet/this agent has learned. Optional; if
+        # the store is absent, retrieval proceeds unchanged.
+        try:
+            from hermes_memory import get_hermes_context
+            hctx = get_hermes_context(agent_id, queries[0].split() if queries else [])
+            if hctx:
+                all_results.insert(0, {
+                    'id': 'hermes-memory',
+                    'text': hctx,
+                    'source_file': 'store/hermes/MEMORY.md',
+                    'combined_score': 999.0,   # P0 — never dropped
+                    'quality_score': 1.0,
+                    'hermes': True,
+                })
+        except Exception:
+            pass  # Hermes optional — degrade without breaking retrieval
+
         return all_results[:top_k]
 
     def _retrieve_from_store(self, queries, agent_dept, agent_id, top_k, seen_ids):

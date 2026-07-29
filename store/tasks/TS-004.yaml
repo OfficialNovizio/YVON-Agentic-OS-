@@ -1,0 +1,52 @@
+id: TS-004
+status: approved
+source_message: "adopt the old app wholesale design and we will change after import"
+requester: operator
+rules: { sharding: worker gets item + contracts, handoff: contracts-only, inject_form: .toon }
+
+classification:
+  task_type: ui_port
+  departments: [Engineering, Brand Studio]
+  lead: dev
+
+context:
+  source_repo: github.com/OfficialNovizio/YVON-OS (operator's own; quarantine flagged 4 benign findings — real Next15 app, base64=image upload)
+  target: dashboard/ (current thin YVON-Engine UI to be replaced)
+  existing_assets:
+    - "OLD: 34 pages, components/ui.tsx design system (Card/Chip/StatusBadge/PageHeader/Avatar/Shimmer), Shell/Sidebar/TopBar/WorkspaceSwitcher, MD3 tokens + per-workspace accents, lib/ (WorkspaceContext, workspaces, agent-*)"
+    - "Next 15 + React 19; heavy deps: supabase, stripe, gsap, recharts, motion, anthropic SDK"
+  conflicts:
+    - "current dashboard is Next 14 + React 18 → adopt the old app's package.json (Next 15/React 19) for fidelity"
+    - "pages fetch live data (supabase/API) → render on loading/error states without env; data wiring is POST-import (operator: 'change after import')"
+
+discovery:
+  decisions:
+    - "Adopt wholesale: replace dashboard front-end with YVON-OS app/components/lib/tokens; keep it a working import; refine + wire data after."
+
+work_items:
+  - id: WI-1
+    owner: dev
+    objective: "Import old front-end into dashboard/ (app, components, lib, public, globals.css, tailwind/postcss/tsconfig/next.config) — back up current first"
+    produces: [dashboard/app, dashboard/components, dashboard/lib, dashboard/app/globals.css, dashboard/tailwind.config.ts]
+    owns_paths: [dashboard/]
+  - id: WI-2
+    owner: dev
+    objective: "Align dashboard/package.json to the old app deps (Next15/React19 + UI libs), keep workspace tools; npm install"
+    produces: [dashboard/package.json]
+    blocked_by: [WI-1]
+  - id: WI-3
+    owner: quinn
+    objective: "Verify: typecheck a page + render the design shell (decision-queue/dashboard) in Chromium, screenshot"
+    produces: [screenshot]
+    blocked_by: [WI-2]
+    acceptance: ["app compiles the design pages", "shell + a page render", "screenshot proof"]
+
+dag: { critical_path: [WI-1, WI-2, WI-3] }
+exit_gate: { owner: quinn, proof: "YVON-OS design rendered in the dashboard" }
+feedback:
+  outcome: gated
+  proof: >
+    35 pages + ui.tsx design system + Shell/Sidebar/WorkspaceSwitcher + 94 lib files + MD3 tokens/per-workspace
+    accents imported into dashboard/. Deps aligned to Next 15.5.22 / React 19.2.8 (+ lucide/recharts/gsap/motion/
+    supabase). Dev server RENDERED /dashboard at HTTP 200 (PASS logged). layout → WorkspaceProvider → Shell wired.
+  lesson: "Wholesale YVON-OS import complete + renders. Full-page screenshot blocked by sandbox OOM on this heavy Next15 app (dev compile alone >1.3GB) — works on operator machine via npm run dev. Data wiring (supabase/API → YVON-Engine pipeline) is the post-import step, per operator."

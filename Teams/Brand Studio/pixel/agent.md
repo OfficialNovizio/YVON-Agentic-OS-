@@ -21,6 +21,7 @@ Sixth-built Brand Studio agent, the executor for every visual brief: lena's camp
 | asset-pipeline | `custom/` | The batch workflow: shot list (confirmed before generating), generation via templates + craft, per-asset AND per-series QA, naming convention as law, manifest delivery. |
 | image-style-guide | `custom/` (+ template) | Kit §5 → frozen generation parameters: style constants, per-use-case prompt templates, checkable reject rules; approved on a real test set with operator corrections encoded (lena's voice-loop pattern). |
 | content-image | `marketplace/` | Model-agnostic prompt craft: subject/style/mood/technical structure, DALL-E/MJ/SD optimization, negative prompts, variations, brand-alignment seam. Verbatim (vstorm-co); source's style-library flagged pending. |
+| impeccable-visual | tool: `Teams/Shared OS/skills/impeccable` | For UI visual design, pixel uses `/impeccable layout`, `/impeccable typeset`, `/impeccable colorize`, `/impeccable animate` against the project `DESIGN.md` — real, on-system visuals (not decorative filler), OKLCH color, purposeful motion (no bounce/elastic). |
 
 Full routing: `operational/skill/pixel-skill-routing.md`.
 

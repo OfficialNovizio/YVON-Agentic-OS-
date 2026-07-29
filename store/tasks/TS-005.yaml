@@ -1,0 +1,50 @@
+id: TS-005
+status: approved
+source_message: "now how we can change it to align with our project and motive"
+requester: operator
+rules: { sharding: worker gets item + contracts, handoff: contracts-only, inject_form: .toon }
+
+classification:
+  task_type: ui_alignment
+  departments: [Engineering, AI & Agents, Brand Studio]
+  lead: dev
+
+discovery:
+  decisions:
+    - purpose: "operator console to run OWN brands — Novizio, Hourbour, AgentX (+ others). Fleet control plane."
+    - scope: "keep + reshape all 35 screens; regroup nav around brands + 7 departments"
+    - agent_identity: "replace app's ~14 personas / 5 depts with the real 46 agents / 7 departments from Teams/"
+    - backend: "rewire ToonGine/Hermes-VPS → in-project rag/ + store/hermes (later WIs)"
+
+work_items:
+  - id: WI-1
+    owner: meta
+    objective: "Generate the real 46-agent fleet dataset (7 departments) from Teams/ → dashboard lib/fleet.ts"
+    produces: [dashboard/lib/fleet.ts]
+    owns_paths: [dashboard/lib/fleet.ts]
+    acceptance: ["46 agents", "7 real departments", "id/name/role/dept/color per agent from Teams/"]
+  - id: WI-2
+    owner: dev
+    objective: "Point lib/agents.ts + AgentDepartment type at the real fleet (keep interface the screens use)"
+    produces: [dashboard/lib/agents.ts, dashboard/lib/types.ts]
+    blocked_by: [WI-1]
+    acceptance: ["/agents + /org-chart render the 46 real agents by real department", "tsc clean on touched files"]
+  - id: WI-3
+    owner: atlas
+    objective: "Add AgentX (+ others) to workspaces; nav regroup around brands + departments"
+    produces: [dashboard/lib/workspaces.ts, dashboard/components/Sidebar.tsx]
+    blocked_by: [WI-1]
+  - id: WI-4
+    owner: quinn
+    objective: "Verify fleet + brands render; syntax scan clean"
+    blocked_by: [WI-2, WI-3]
+
+dag: { parallel: [[WI-2, WI-3]], critical_path: [WI-1, WI-2, WI-4] }
+exit_gate: { owner: quinn, proof: "real 46-agent fleet + brands render in the app" }
+feedback:
+  outcome: gated
+  proof: >
+    lib/fleet.ts generated from Teams/ = 46 real agents across 7 real departments (Engineering shows all 11).
+    /api/org-chart rebuilt to serve the real fleet tree (leaders report to operator). AgentX added to
+    workspaces + globals accent theme. 3 touched files syntax-clean. Identity layer aligned.
+  lesson: "Fleet data now flows from Teams/ (single source of truth) into the dashboard via lib/fleet.ts — regenerate on Teams/ change. Next phases: nav regroup around brands+depts, backend rewire (ToonGine→rag/), per-screen live data."

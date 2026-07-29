@@ -1,0 +1,4 @@
+{
+  "hermesMemoryDir": "store/hermes",
+  "agentMemoryDir": "store/agent-memory"
+}

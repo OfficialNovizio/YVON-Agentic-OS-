@@ -37,17 +37,20 @@ function getConfig() {
         }
         catch { /* use defaults */ }
     }
+    // Relative paths in yvon.config.json resolve against project root (portable,
+    // in-repo config); absolute paths pass through unchanged.
+    const fromRoot = (p) => p === undefined ? undefined : ((0, path_1.resolve)(p) === p ? p : (0, path_1.join)(root, p));
     return {
         projectRoot: root,
-        teamsPath: fileConfig.teamsPath ?? (0, path_1.join)(root, 'Teams'),
-        sharedOsPath: fileConfig.sharedOsPath ?? (0, path_1.join)(root, 'Teams', 'Shared OS', 'logical'),
-        booksPath: fileConfig.booksPath ?? (0, path_1.join)(root, 'Books'),
-        graphifyReport: fileConfig.graphifyReport ?? (0, path_1.join)(root, 'graphify-out', 'GRAPH_REPORT.md'),
-        codegraphReport: fileConfig.codegraphReport ?? (0, path_1.join)(root, 'graphify-out', 'CODEGRAPH_REPORT.md'),
-        agentMemoryDir: fileConfig.agentMemoryDir ?? (0, path_1.join)(root, 'agent-memory'),
-        hermesMemoryDir: fileConfig.hermesMemoryDir ?? (0, path_1.join)((0, os_1.homedir)(), '.hermes', 'memories'),
-        projectClaudePath: fileConfig.projectClaudePath ?? (0, path_1.join)(root, 'CLAUDE.md'),
-        ventureDocsDir: fileConfig.ventureDocsDir ?? (0, path_1.join)(root, 'docs', 'ventures'),
+        teamsPath: fromRoot(fileConfig.teamsPath) ?? (0, path_1.join)(root, 'Teams'),
+        sharedOsPath: fromRoot(fileConfig.sharedOsPath) ?? (0, path_1.join)(root, 'Teams', 'Shared OS', 'logical'),
+        booksPath: fromRoot(fileConfig.booksPath) ?? (0, path_1.join)(root, 'Books'),
+        graphifyReport: fromRoot(fileConfig.graphifyReport) ?? (0, path_1.join)(root, 'graphify-out', 'GRAPH_REPORT.md'),
+        codegraphReport: fromRoot(fileConfig.codegraphReport) ?? (0, path_1.join)(root, 'graphify-out', 'CODEGRAPH_REPORT.md'),
+        agentMemoryDir: fromRoot(fileConfig.agentMemoryDir) ?? (0, path_1.join)(root, 'agent-memory'),
+        hermesMemoryDir: fromRoot(fileConfig.hermesMemoryDir) ?? (0, path_1.join)((0, os_1.homedir)(), '.hermes', 'memories'),
+        projectClaudePath: fromRoot(fileConfig.projectClaudePath) ?? (0, path_1.join)(root, 'CLAUDE.md'),
+        ventureDocsDir: fromRoot(fileConfig.ventureDocsDir) ?? (0, path_1.join)(root, 'docs', 'ventures'),
         cieEnabled: fileConfig.cieEnabled ?? true,
         contextCap: fileConfig.contextCap ?? 2500,
         adaptiveInjection: fileConfig.adaptiveInjection ?? true,

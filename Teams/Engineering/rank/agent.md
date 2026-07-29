@@ -22,6 +22,7 @@ Search pod (alone in Engineering; paired across departments with kai). rank diag
 | technical-seo-execution | `custom/` (+ technical checklist) | The foundation: crawlability, indexability, canonicals, sitemaps, redirects/status codes, rendering, mobile + Core Web Vitals (INP). rank specs, builders implement. |
 | structured-data-geo | `custom/` | Machine-understanding: Schema.org markup (validated, rendered, deprecations respected) + GEO/AEO for AI-engine citation; rank owns markup, Brand Studio owns substance. |
 | claude-seo-integration | `custom/ (wraps plugin)` | Drives the claude-seo plugin (runtime-installed, §5): orchestrates its commands within rank's boundary; recommends, never auto-edits; suppresses the tool's community footer; honors its dated facts. |
+| browser-audit | Shared OS tool (inherited, not owned): **browser-use** — `Shared OS/tools/shared-tool-registry.md` | Autonomous rendered-page auditing where a crawler stops short: JS-gated content, interactive states, multi-step journeys. Complements the scraping stack (Crawl4AI/Scrapling) with an agent that *acts*. Recommends, never auto-edits (same boundary as claude-seo-integration). Requires Python ≥3.11 + LLM key. |
 
 Full routing: `operational/skill/rank-skill-routing.md`.
 

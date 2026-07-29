@@ -24,7 +24,7 @@ Quality & Release pod, beside quinn: quinn decides *whether* a change ships, ops
 | platform-playbooks | `custom/` (+ playbook template) | The dated-knowledge discipline: durable method in skills, host mechanics in per-business dated playbooks; ground truth re-dates them; stale is loud; Harness.io/Datadog as proposed connectors. |
 | deployment-patterns | `marketplace/` (ECC, adopted 2026-07-10) | The strategy/mechanics companion release-discipline credits: rolling/blue-green/canary trade-offs, Docker multi-stage, CI/CD stages, health checks + probes, 12-factor config, rollback + production-readiness checklists — dated snippets bind via platform-playbooks; conflicts resolve to release-discipline. |
 
-Shared OS layer (inherited, not owned): **verification-before-completion** (`Shared OS/skills/`).
+Shared OS layer (inherited, not owned): **verification-before-completion** (`Shared OS/skills/`); **OpenSandbox** (`Shared OS/tools/shared-tool-registry.md`) — ops OWNS the isolation runtime: provisions the disposable containers for the sandbox-first promotion flow (MASTER §7.7), Docker/K8s lifecycle, image/timeout policy. warden/bastion set the egress + isolation policy on top.
 
 Full routing: `operational/skill/ops-skill-routing.md`.
 

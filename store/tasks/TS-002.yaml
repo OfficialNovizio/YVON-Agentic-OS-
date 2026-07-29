@@ -1,0 +1,83 @@
+# TASK-SPEC — meta/task-dispatch
+id: TS-002
+status: approved
+source_message: "now let's connect project to hermes, to get full workflow"
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only
+  inject_form: .toon
+
+classification:
+  task_type: infra_integration        # memory-loop wiring (MASTER §6, §7.4)
+  departments: [Engineering, AI & Agents]
+  lead: dev
+
+context:
+  chunks:
+    - src/adapters/config.ts            # hermesMemoryDir resolution
+    - src/adapters/hermes-sync.ts       # read/push/clear
+    - src/cie/sources/hermes-memory.ts  # TS retrieval reader
+    - rag/core/retriever.py             # Python injection point
+    - rag/core/feedback.py              # lesson source (log_feedback)
+  existing_assets:
+    - "Hermes wired in TS code but directory never created — not connected"
+    - "Config picks up yvon.config.json at root (absent)"
+  conflicts: []
+
+discovery:
+  decisions:
+    - location: in-repo store/hermes/ (versioned, portable)
+    - loop_depth: FULL (seed + feedback→push + retrieval reads back)
+    - python_bridge: YES (both TS CIE and Python pipeline read Hermes)
+    - granularity: fleet MEMORY.md + per-agent sections
+
+work_items:
+  - id: WI-1
+    owner: dev
+    objective: "Point Hermes at store/hermes; make relative config paths resolve against root"
+    strategy: BALANCE 1.0x
+    produces: [yvon.config.json, src/adapters/config.ts, dist/adapters/config.js]
+    owns_paths: [yvon.config.json, src/adapters/config.ts]
+    acceptance: ["getConfig().hermesMemoryDir → <root>/store/hermes", "tsc clean"]
+  - id: WI-2
+    owner: dana
+    objective: "Seed the memory store: USER.md + MEMORY.md (fleet + per-agent)"
+    strategy: FAST
+    produces: [store/hermes/USER.md, store/hermes/MEMORY.md]
+    owns_paths: [store/hermes/]
+    acceptance: ["files exist", "fleet + per-agent sections present"]
+  - id: WI-3
+    owner: raj
+    objective: "Python bridge: read Hermes into retrieval + push accepted lessons"
+    strategy: BALANCE 1.5x
+    consumes: [yvon.config.json, store/hermes/MEMORY.md]
+    produces: [rag/core/hermes_memory.py, rag/core/retriever.py, rag/core/feedback.py]
+    owns_paths: [rag/core/hermes_memory.py]
+    blocked_by: [WI-1, WI-2]
+    acceptance: ["get_hermes_context() returns USER+MEMORY", "retrieve() injects it", "accepted feedback pushes a lesson"]
+  - id: WI-4
+    owner: quinn
+    objective: "Prove the loop: push a lesson → it lands in MEMORY.md → retriever reads it back"
+    strategy: FAST
+    consumes: [rag/core/hermes_memory.py]
+    produces: [verification log]
+    blocked_by: [WI-3]
+    acceptance: ["round-trip test green", "CAOS smoke still 5/5"]
+    security_review: none
+
+dag:
+  parallel: [[WI-1, WI-2]]              # disjoint paths
+  critical_path: [WI-1, WI-3, WI-4]
+
+exit_gate:
+  owner: quinn
+  proof: "round-trip loop test + verify-caos --quick"
+
+feedback:
+  outcome: gated             # exit gate PASSED — awaiting operator accept
+  proof: >
+    hermes_memory --test PASS · full loop (accepted feedback → MEMORY.md → retriever reads back) PASS ·
+    retriever injects hermes P0 (score 999, source store/hermes/MEMORY.md) · verify-caos --quick 5/5 ·
+    tsc 0 errors · both Python + TS CIE resolve hermesMemoryDir → <root>/store/hermes
+  lesson: "Hermes loop now closed on BOTH pipelines. Config made portable (relative paths resolve to root). Live CRDT sync to ~/.hermes still a machine/operator step; in-repo store is the source of truth."

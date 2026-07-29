@@ -24,7 +24,7 @@ Design pod (with axiom). dana's store choices are dev ADRs; its schema is what r
 | migration-discipline | `custom/` (+ migration-script template) | **The Rail 3 signature:** every change reversible, dana writes the script + plain-language summary, the OPERATOR runs it — no exceptions, mid-incident included. |
 | database-migrations | `marketplace/` (ECC, adopted 2026-07-10) | Dated tool playbooks behind migration-discipline: Postgres lock-safe patterns, expand-contract, batched backfills, Prisma/Drizzle/Kysely/Django/golang-migrate mechanics — Rail 3 overlay (dana authors, operator runs); method conflicts resolve to migration-discipline. |
 
-Shared OS layer (inherited, not owned): **verification-before-completion** (`Shared OS/skills/`).
+Shared OS layer (inherited, not owned): **verification-before-completion** (`Shared OS/skills/`); **browser-use** (`Shared OS/tools/shared-tool-registry.md`) — autonomous browser agent for act-and-extract data acquisition (behind logins, forms, paginated flows a static scraper can't reach); output feeds data-modeling. Non-deterministic; Rail 3 still applies (dana authors, operator runs any write). Requires Python ≥3.11 + LLM key. **Crawl4AI** (`Shared OS/tools/shared-tool-registry.md`) — the free scraping stack: JS-rendered crawl → clean markdown, feeds data-modeling + the RAG chunker. Deterministic; static pages also reachable via `web_fetch`.
 
 Full routing: `operational/skill/dana-skill-routing.md`.
 

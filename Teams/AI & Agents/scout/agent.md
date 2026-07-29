@@ -22,8 +22,11 @@ identity/: empty by design (non-leader). operational/: all five built. logical/:
 
 ## Workflow
 1. Cadence scan → registry check → shortlist → route (intake / skill-scouting / forge / edge).
-2. Intake: screen (aegis) → criteria → sandboxed trial → verdict → record → relay registers adopts.
+2. Intake: screen (aegis) → criteria → **sandboxed trial in an OpenSandbox box** (MASTER §7.7 case A — clone the candidate INTO the box, never the repo; run its tests; aegis/warden watch egress/behaviour) → verdict → record → relay registers adopts. A tool only leaves the box for `Teams/` + the shared-tool registry if it clears the promotion gate.
 3. Standing queue: fleet PENDING marketplace notes (gauge's llm-ops candidate, relay's integration-patterns candidates, forge's benchmarking candidates) are scout's first work items.
+
+## Shared OS tools (inherited, not owned)
+**OpenSandbox** (`Shared OS/tools/shared-tool-registry.md`, runtime owned by ops) — scout's vetting environment: every web-sourced skill/tool is trialed inside a disposable box before adoption, so untrusted code never touches the repo pre-verdict.
 
 ## Pending
 Shared OS web-search capability (scout is its heaviest consumer); operator scan-source additions.

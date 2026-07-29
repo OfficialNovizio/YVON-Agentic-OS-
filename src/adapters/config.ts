@@ -60,18 +60,23 @@ export function getConfig(): EngineConfig {
       fileConfig = JSON.parse(readFileSync(configPath, 'utf-8'))
     } catch { /* use defaults */ }
   }
-  
+
+  // Relative paths in yvon.config.json resolve against project root (portable,
+  // in-repo config); absolute paths pass through unchanged.
+  const fromRoot = (p: string | undefined): string | undefined =>
+    p === undefined ? undefined : (resolve(p) === p ? p : join(root, p))
+
   return {
     projectRoot: root,
-    teamsPath: fileConfig.teamsPath ?? join(root, 'Teams'),
-    sharedOsPath: fileConfig.sharedOsPath ?? join(root, 'Teams', 'Shared OS', 'logical'),
-    booksPath: fileConfig.booksPath ?? join(root, 'Books'),
-    graphifyReport: fileConfig.graphifyReport ?? join(root, 'graphify-out', 'GRAPH_REPORT.md'),
-    codegraphReport: fileConfig.codegraphReport ?? join(root, 'graphify-out', 'CODEGRAPH_REPORT.md'),
-    agentMemoryDir: fileConfig.agentMemoryDir ?? join(root, 'agent-memory'),
-    hermesMemoryDir: fileConfig.hermesMemoryDir ?? join(homedir(), '.hermes', 'memories'),
-    projectClaudePath: fileConfig.projectClaudePath ?? join(root, 'CLAUDE.md'),
-    ventureDocsDir: fileConfig.ventureDocsDir ?? join(root, 'docs', 'ventures'),
+    teamsPath: fromRoot(fileConfig.teamsPath) ?? join(root, 'Teams'),
+    sharedOsPath: fromRoot(fileConfig.sharedOsPath) ?? join(root, 'Teams', 'Shared OS', 'logical'),
+    booksPath: fromRoot(fileConfig.booksPath) ?? join(root, 'Books'),
+    graphifyReport: fromRoot(fileConfig.graphifyReport) ?? join(root, 'graphify-out', 'GRAPH_REPORT.md'),
+    codegraphReport: fromRoot(fileConfig.codegraphReport) ?? join(root, 'graphify-out', 'CODEGRAPH_REPORT.md'),
+    agentMemoryDir: fromRoot(fileConfig.agentMemoryDir) ?? join(root, 'agent-memory'),
+    hermesMemoryDir: fromRoot(fileConfig.hermesMemoryDir) ?? join(homedir(), '.hermes', 'memories'),
+    projectClaudePath: fromRoot(fileConfig.projectClaudePath) ?? join(root, 'CLAUDE.md'),
+    ventureDocsDir: fromRoot(fileConfig.ventureDocsDir) ?? join(root, 'docs', 'ventures'),
 
     cieEnabled: fileConfig.cieEnabled ?? true,
     contextCap: fileConfig.contextCap ?? 2500,

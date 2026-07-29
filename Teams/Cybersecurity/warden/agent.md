@@ -23,6 +23,11 @@ Cybersecurity · Governance & Risk pod · **leader** (identity: risk-owning-ciso
 | GRCEngClub GRC pack | adopted-by-reference | primary pack | skillsmp.com/creators/grcengclub/claude-grc-engineering — 96 skills, runtime-installed per config `control_standard` |
 | Hack23/cia | adopted-by-reference | secondary pack | skillsmp.com/creators/hack23/cia — 80 skills |
 
+### Shared OS tools (inherited, not owned)
+| Tool | Where | warden's role |
+|---|---|---|
+| **OpenSandbox** | `Shared OS/tools/shared-tool-registry.md` · runtime owned by ops | warden sets **isolation + egress policy** on every sandbox: what a box may reach (per-sandbox egress allowlist), which runtime tier (gVisor/Kata/Firecracker), Rail-3 synthetic-data-only enforcement. Senior to the runtime per the Security Charter. The security-clearance half of §7.7's promotion gate (no malware, egress within policy) is warden's call. |
+
 ### Superseded
 | Skill | Previous state | Superseded by |
 |---|---|---|
