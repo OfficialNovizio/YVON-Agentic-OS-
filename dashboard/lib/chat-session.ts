@@ -52,12 +52,16 @@ const VENTURES: Record<string, { workdir: string; name: string }> = {
 
 // ─── Fingerprinting ──────────────────────────────────────────────────────────
 
+// Sources watched for delta between messages. Directories end with '/' (fingerprinted
+// by listing entries); files are stat'd directly. Used by both fingerprintSources()
+// and sendChatMessage()'s per-message delta scan — must stay a shared module const.
+const WATCHED_SOURCES: readonly string[] = [
+  'docs/',
+]
+
 async function fingerprintSources(workdir: string): Promise<string> {
   const hash = createHash('sha256')
-  const sources = [
-    'docs/',
-  ]
-  for (const src of sources) {
+  for (const src of WATCHED_SOURCES) {
     const full = join(workdir, src)
     try {
       if (src.endsWith('/')) {
@@ -131,7 +135,7 @@ export async function sendChatMessage(
   } else {
     // Context unchanged — no re-injection needed
     // Check for delta (files changed since last message)
-    for (const src of deltaSources) {
+    for (const src of WATCHED_SOURCES) {
       const full = join(session.workdir, src)
       try {
         if (src.endsWith('/')) continue  // docs dir handled by fingerprint
