@@ -187,7 +187,6 @@ async function loadOsContext(ventureSlug?: string): Promise<OsContext> {
   }
   const [
     workflowSummary, sessionState, feedbackRules, ventureSession,
-    skillKarpathy, skillMemory, skillSessionProtocol, skillReflection,
   ] = await Promise.all([
     safeRead(path.join(root, 'docs/WORKFLOW.md'), 6000),
     safeRead(path.join(root, 'docs/os/SESSION.md'), 3000),
@@ -196,6 +195,11 @@ async function loadOsContext(ventureSlug?: string): Promise<OsContext> {
       ? safeRead(path.join(root, `docs/ventures/${ventureSlug}/SESSION.md`), 3000)
       : Promise.resolve(''),
   ])
+  // Skill payloads reserved for later wiring — kept in the return shape for downstream consumers.
+  const skillKarpathy = ''
+  const skillMemory = ''
+  const skillSessionProtocol = ''
+  const skillReflection = ''
   return { workflowSummary, sessionState, feedbackRules, ventureSession, skillKarpathy, skillMemory, skillSessionProtocol, skillReflection }
 }
 
