@@ -1,8 +1,13 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { usePathname } from 'next/navigation'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
+
+// Routes that render WITHOUT the shell (sidebar + top bar).
+// Login screens must stand alone or they show a signed-out sidebar behind them.
+const BARE_ROUTE_PREFIXES = ['/login', '/auth/']
 
 // ── Responsive context ────────────────────────────────────────────────────────
 type SidebarMode = 'full' | 'icons'
@@ -27,6 +32,7 @@ export function useShell() {
 
 // ── Shell component ───────────────────────────────────────────────────────────
 export function Shell({ children }: { children: ReactNode }) {
+  const pathname = usePathname()
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>('full')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -41,6 +47,12 @@ export function Shell({ children }: { children: ReactNode }) {
     window.addEventListener('popstate', close)
     return () => window.removeEventListener('popstate', close)
   }, [])
+
+  // Bare routes (login, auth callback) render standalone — no shell.
+  const isBare = BARE_ROUTE_PREFIXES.some((p) => pathname === p.replace(/\/$/, '') || pathname.startsWith(p))
+  if (isBare) {
+    return <>{children}</>
+  }
 
   if (!mounted) {
     return (
