@@ -325,6 +325,14 @@ export async function buildContextObject(
     const { readFileSync, readdirSync, existsSync } = require('fs')
     const { join } = require('path')
 
+    // Context source paths — resolved from the venture workdir. Missing files
+    // are non-fatal (each existsSync short-circuits and the outer catch handles
+    // any read failure), so we set sensible defaults here.
+    const constPath: string = join(session.workdir, 'CONSTITUTION.md')
+    const memPath:   string = join(session.workdir, 'store/hermes/MEMORY.md')
+    const graphPath: string = join(session.workdir, 'store/graph.db')
+    const docsPath:  string = join(session.workdir, 'docs')
+
     // Constitution
     if (existsSync(constPath)) {
       constitutionChars = readFileSync(constPath, 'utf-8').length

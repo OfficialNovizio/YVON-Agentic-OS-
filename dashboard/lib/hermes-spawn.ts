@@ -19,6 +19,10 @@
 import { spawn, ChildProcess } from 'child_process'
 import { resolve, join } from 'path'
 import { promises as fs } from 'fs'
+// node:sqlite is a Node 22+ builtin; @types/node may lag the release.
+// The runtime resolution is fine on Vercel (Node 22 LTS).
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
 import { DatabaseSync } from 'node:sqlite'
 
 // ─── Types ────────────────────────────────────────────────────────────────────

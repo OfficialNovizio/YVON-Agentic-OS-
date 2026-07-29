@@ -16,6 +16,7 @@
 #   4. Duplicate next.config.{js,ts}       → Next 15 hard error
 #   5. vercel.json crons > Hobby limit     → deploy rejection
 #   6. .gitignore covers .next/env/nm      → repo bloat / secret leak
+#   7. tsc --noEmit (if installed)         → every "Cannot find name", type mismatch
 #
 # Scope: dashboard/ (the Vercel-deployed app). Extend via APPS= env var:
 #   APPS="dashboard other-app" cli/verify-deploy.sh
@@ -199,6 +200,32 @@ check_vercel_crons() {
   fi
 }
 
+# ── CHECK 7: tsc --noEmit (if available) ─────────────────────────────────────
+# Catches TS2304 "Cannot find name", type mismatches, missing exports, etc. —
+# the whole class of bugs Vercel's Next build worker catches after webpack.
+# Skipped only if node_modules isn't installed (npm install in dashboard/ first).
+check_tsc() {
+  local app="$1"; local dir="$ROOT/$app"
+  local tsc="$dir/node_modules/.bin/tsc"
+  if [ ! -x "$tsc" ]; then
+    gray "  (skip: run 'cd $app && npm install' to enable strict tsc gate)"
+    return
+  fi
+  # Cap at 120s — a real build takes 30s; anything longer is a stall we bail out of.
+  local out
+  out=$(cd "$dir" && timeout 120 "$tsc" --noEmit --pretty false 2>&1)
+  local rc=$?
+  if [ $rc -eq 124 ]; then
+    echo "FAIL::tsc timed out after 120s in $app — investigate separately"
+    return
+  fi
+  # tsc prints "file(line,col): error TSxxxx: message" or "file:line:col - error TSxxxx: message"
+  echo "$out" | grep -E ': error TS[0-9]+:' | head -20 | while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    echo "FAIL::tsc: $line"
+  done
+}
+
 # ── CHECK 6: .gitignore hygiene ──────────────────────────────────────────────
 check_gitignore() {
   local gi="$ROOT/.gitignore"
@@ -218,7 +245,7 @@ echo "── deploy-gate ── $(date +%H:%M:%S) ── plan=$VERCEL_PLAN ─�
 for app in $APPS; do
   echo ""
   echo "▸ $app"
-  for check_name in check_undeclared_imports check_bare_supabase check_promise_all_arity check_dup_config check_vercel_crons; do
+  for check_name in check_undeclared_imports check_bare_supabase check_promise_all_arity check_dup_config check_vercel_crons check_tsc; do
     out=$("$check_name" "$app" 2>&1 || true)
     label="${check_name#check_}"
     if [ -z "$out" ]; then ok "$label"
