@@ -1,0 +1,89 @@
+id: TS-010
+status: approved
+source_message: >
+  "Rebuild the isometric where the chart should be enough big and i can easily
+  see which agent is doing what from which department. If they are working
+  single or with team and if i click agent a info window shows with what he's
+  doing, with whom, all the info like a manager ask what feature you are
+  doing for which brand and with whom, why and how much it's done"
+requester: operator
+
+classification:
+  task_type: ui_feature + backend_read
+  departments: [Engineering, Brand Studio]
+  lead: mia
+  security_review: none  # read-only aggregation
+
+discovery:
+  decisions:
+    - metaphor: "isometric top-down office (rebuild), 1400×900 default, pan+zoom kept"
+    - rooms: "7 departments from Teams/, sized by headcount"
+    - agents: "real 46 from dashboard/lib/fleet.ts — hardcoded old personas removed"
+    - team_visual: "dashed halo linking co-agents in shared session"
+    - drawer: "right-side slide-in on click; agent info + task + coAgents + brand + spec + progress + recent"
+    - progress_metric: "completed_work_items / total_work_items of current TASK-SPEC (deterministic, no LLM)"
+    - data_policy: "live-first from Supabase + Hermes + store/tasks; no fake data ever"
+    - poll: "15s (matches other Command Center pages)"
+
+work_items:
+  - id: WI-1
+    owner: mia
+    objective: "Rebuild page.tsx isometric: 7-dept floor plan, 46 real agents, remove hardcoded personas"
+    produces: [dashboard/app/office/page.tsx]
+    owns_paths: [dashboard/app/office/**]
+    acceptance:
+      - "7 rooms visible, one per real Teams/ department"
+      - "all 46 real agents rendered (from lib/fleet.ts), zero hardcoded persona strings"
+      - "pan + zoom controls still work"
+      - "hover shows agent name; click opens drawer"
+
+  - id: WI-2
+    owner: raj+dana
+    objective: "Build /api/office — fleet + live activity, no mocks"
+    produces: [dashboard/app/api/office/route.ts]
+    owns_paths: [dashboard/app/api/office/**]
+    acceptance:
+      - "returns { agents: OfficeAgent[] } combining fleet.ts (always) + activity (best-effort)"
+      - "activity source 1: agent_sessions table (Supabase)"
+      - "activity source 2: store/tasks/*.yaml (TASK-SPEC refs + progress)"
+      - "activity source 3: store/hermes/MEMORY.md tail (recent activity)"
+      - "Supabase down → agents render idle, no fabricated tasks"
+
+  - id: WI-3
+    owner: mia
+    objective: "Wire /api/office into page — status colors, live tasks"
+    produces: [dashboard/app/office/page.tsx]  # extends WI-1
+    blocked_by: [WI-1, WI-2]
+    acceptance: ["agent status ring reflects live status", "tooltip shows current task"]
+
+  - id: WI-4
+    owner: mia + spark
+    objective: "Right-side info drawer — full agent card on click"
+    produces: [dashboard/app/office/OfficeDrawer.tsx]
+    blocked_by: [WI-1]
+    acceptance:
+      - "click agent → drawer slides in from right"
+      - "shows: name, role, dept, status+started, task, coAgents (clickable), workspace, TASK-SPEC ref (link), progress %, recent Hermes lines"
+      - "empty states everywhere (no fake data)"
+      - "esc/click-outside/× closes drawer"
+
+  - id: WI-5
+    owner: mia + spark
+    objective: "'Working with team' dashed halo linking co-agents in same session"
+    produces: [dashboard/app/office/page.tsx]  # extends
+    blocked_by: [WI-1, WI-2]
+    acceptance: ["two agents in same session share a dashed-line halo group"]
+
+  - id: WI-6
+    owner: quinn
+    objective: "Gate + preview verify"
+    blocked_by: [WI-1, WI-2, WI-3, WI-4, WI-5]
+    acceptance: ["cli/verify-deploy.sh: 0 findings across 7 checks"]
+
+dag:
+  critical_path: [WI-1, WI-3, WI-4, WI-6]
+  parallel: [[WI-2, WI-4]]
+
+exit_gate: { owner: quinn, proof: "gate green + real 46 agents visible per dept + drawer opens + halo renders when co-agents present" }
+
+feedback: { outcome: pending }
