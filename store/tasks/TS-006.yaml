@@ -1,0 +1,80 @@
+id: TS-006
+status: done
+source_message: "why don't engineering team auto check and fix unless it didn't properly works"
+requester: operator
+rules: { sharding: worker gets item + contracts, handoff: contracts-only, inject_form: .toon }
+
+classification:
+  task_type: verification_gate
+  departments: [Engineering, Cybersecurity]
+  lead: dev
+  owner_gate: quinn
+  security_review: warden
+
+discovery:
+  decisions:
+    - scope: "pre-push gate — local git hook only (not CI). Hard-block on Vercel Hobby cron limit (>2 daily)."
+    - detection_signal: "4 Vercel deploy failures in a row, each a static bug the rail should have caught before push"
+    - root_cause: "quinn-gate skipped — pushed to main → let Vercel find bugs; treated Vercel as CI. §0.1 present-before-build honored; §7.7 verify-before-promote was NOT."
+
+work_items:
+  - id: WI-1
+    owner: quinn
+    objective: "Six static checks catching every regression from deploy failures 1–4"
+    produces: [cli/verify-deploy.sh]
+    owns_paths: [cli/verify-deploy.sh]
+    acceptance:
+      - "undeclared runtime imports flagged with file:line (fix-2 pattern)"
+      - "bare supabase.<verb>() missing .from() flagged (fix-3 pattern)"
+      - "Promise.all destructure-vs-promises arity mismatch flagged (fix-4 pattern)"
+      - "duplicate next.config.{js,ts} flagged (fix-1a pattern)"
+      - "vercel.json crons > plan limit flagged (fix-1b pattern)"
+      - "missing .gitignore patterns / committed .next artifacts flagged (fix-1c pattern)"
+      - "zero false positives against current post-fix repo state"
+      - "sub-3-second runtime, no npm install / no next build required"
+
+  - id: WI-2
+    owner: dev
+    objective: "git pre-push hook wires the gate; idempotent installer"
+    produces: [cli/install-hooks.sh, .git/hooks/pre-push]
+    owns_paths: [cli/install-hooks.sh]
+    blocked_by: [WI-1]
+    acceptance:
+      - "cli/install-hooks.sh runs cleanly, is re-runnable"
+      - ".git/hooks/pre-push executes cli/verify-deploy.sh and propagates its exit code"
+      - "bypass path documented: git push --no-verify"
+
+  - id: WI-3
+    owner: quinn
+    objective: "Prove the gate — reintroduce each of the 4 real bugs, gate must flag each, restore, gate must pass"
+    blocked_by: [WI-1, WI-2]
+    acceptance:
+      - "regression test: 4 induced failures → 4 findings, exit code 4"
+      - "post-restore: 0 findings, exit code 0"
+      - "installed hook path runs the identical checks"
+
+  - id: WI-4
+    owner: meta
+    objective: "Spec + Hermes lesson — future sessions inherit this gate as mandatory"
+    produces: [store/tasks/TS-006.yaml, store/hermes/MEMORY.md]
+    blocked_by: [WI-3]
+    acceptance:
+      - "TS-006.yaml exists with feedback.outcome=done"
+      - "Fleet lesson pushed: 'Every git push to a Vercel-tracked branch MUST pass cli/verify-deploy.sh; skipping it turns Vercel into CI and burns deploy cycles.'"
+
+dag: { critical_path: [WI-1, WI-2, WI-3, WI-4] }
+exit_gate: { owner: quinn, proof: "regression test PASS + hook PASS on current state" }
+
+feedback:
+  outcome: done
+  proof: >
+    cli/verify-deploy.sh — six checks, all green on current state (0 findings, exit 0).
+    Regression test: reintroduced all 4 real bugs from deploys 1–4 → gate flagged
+    every one with file:line, exit code 4. Restored → 0 findings, exit 0.
+    cli/install-hooks.sh wires .git/hooks/pre-push idempotently. Hook simulation
+    runs the identical gate.
+  lesson: "Vercel is not our CI. Every git push to a Vercel-tracked branch must
+    first pass cli/verify-deploy.sh (the local pre-push hook). Four consecutive
+    deploy failures — every one a static bug the gate would have caught — were
+    the direct cost of skipping quinn's verify-before-promote gate (rail §7.7).
+    Reactive deploy-loops are process violations, not shortcuts."
