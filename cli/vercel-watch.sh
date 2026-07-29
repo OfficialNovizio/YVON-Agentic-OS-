@@ -3,7 +3,9 @@
 # Prints status; on failure, pipes the log through cli/vercel-classify.sh.
 #
 # Requirements (one-time on your Mac):
-#   npm i -g vercel && vercel login
+#   npx vercel login                     # simplest — no global install
+#   # or: sudo npm i -g vercel && vercel login
+# The script auto-detects `vercel` and falls back to `npx vercel` if not found.
 #
 # Usage:
 #   cli/vercel-watch.sh                         # watch latest git HEAD
@@ -24,15 +26,22 @@ while [ "${1:-}" ]; do
   esac
 done
 
-if ! command -v vercel >/dev/null 2>&1; then
+# Resolve `vercel` — prefer global install, fall back to `npx vercel` so we
+# work on systems where `npm i -g vercel` hits EACCES on /usr/local.
+if command -v vercel >/dev/null 2>&1; then
+  VERCEL="vercel"
+elif command -v npx >/dev/null 2>&1; then
+  VERCEL="npx --yes vercel"
+else
   cat <<EOF
-⚠️  vercel CLI not installed — skipping remote watch.
+⚠️  neither 'vercel' nor 'npx' available — skipping remote watch.
 
-To enable auto-watch after every push:
-  npm i -g vercel
-  vercel login
+Enable auto-watch by installing Node.js + one of:
+  sudo npm i -g vercel && vercel login          # global install
+  # or (no global install needed):
+  npx vercel login                              # uses on-demand npx
 
-Then re-run: cli/deploy.sh  (or push and re-run cli/vercel-watch.sh)
+Then re-run: cli/deploy.sh  (or cli/vercel-watch.sh)
 EOF
   exit 2
 fi
@@ -48,7 +57,7 @@ DEPLOY_URL=""
 # Wait up to 90s for the deployment to appear
 while [ -z "$DEPLOY_URL" ]; do
   # `vercel ls` output columns: age, deployment url, state, ..., commit-sha
-  DEPLOY_URL=$(vercel ls "$PROJECT" 2>/dev/null | awk -v c="$SHORT" '$0 ~ c {print $2; exit}')
+  DEPLOY_URL=$($VERCEL ls "$PROJECT" 2>/dev/null | awk -v c="$SHORT" '$0 ~ c {print $2; exit}')
   if [ -n "$DEPLOY_URL" ]; then break; fi
   ELAPSED=$(( $(date +%s) - START ))
   if [ "$ELAPSED" -gt 90 ]; then
@@ -64,7 +73,7 @@ echo ""
 
 # Poll status until terminal
 while true; do
-  INSPECT=$(vercel inspect "$DEPLOY_URL" 2>&1 || true)
+  INSPECT=$($VERCEL inspect "$DEPLOY_URL" 2>&1 || true)
   # `state` line format: "  state                READY"
   STATE=$(printf '%s\n' "$INSPECT" | awk '/^[[:space:]]+state[[:space:]]+/ {print $2; exit}')
   STATE="${STATE:-UNKNOWN}"
@@ -79,7 +88,7 @@ while true; do
       echo "❌ deployment $STATE"
       echo ""
       echo "── build log tail ──"
-      LOG=$(vercel logs "$DEPLOY_URL" 2>&1 | tail -120)
+      LOG=$($VERCEL logs "$DEPLOY_URL" 2>&1 | tail -120)
       printf '%s\n' "$LOG"
       echo ""
       echo "── classified diagnosis ──"
