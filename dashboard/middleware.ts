@@ -1,10 +1,13 @@
 // Auth middleware — gates /chat and /settings behind a Supabase session.
-// Everything else (agents, office, foundry, dashboard, brand pages) stays open
-// for now; auth on the rest of the app will land in a follow-up TASK-SPEC.
+//
+// Runs on Vercel's Edge Runtime (V8 isolate, not Node).
+// The Supabase client is created INLINE here, not imported from lib/, because
+// Vercel's Edge bundler couldn't resolve @/lib/supabase-middleware — mirroring
+// Supabase's official Next 15 middleware pattern.
+//
 // Owner: raj · TS-009 WI-0
 import { NextResponse, type NextRequest } from 'next/server'
-// EDGE RUNTIME — do NOT import from '@/lib/supabase-server' (uses next/headers).
-import { supabaseMiddleware } from '@/lib/supabase-middleware'
+import { createServerClient } from '@supabase/ssr'
 
 // Routes that require a signed-in session.
 const PROTECTED = ['/chat', '/settings']
@@ -13,8 +16,25 @@ export async function middleware(request: NextRequest) {
   const response = NextResponse.next({ request })
   const { pathname } = request.nextUrl
 
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set(name, value)
+            response.cookies.set(name, value, options)
+          })
+        },
+      },
+    }
+  )
+
   // Refresh the session cookie on every request (kept fresh even on public pages).
-  const supabase = supabaseMiddleware(request, response)
   const {
     data: { user },
   } = await supabase.auth.getUser()

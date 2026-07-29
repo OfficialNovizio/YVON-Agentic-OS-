@@ -84,10 +84,15 @@ fi
 # ── Class: middleware Edge-runtime unsupported module ──────────────────────
 if printf '%s\n' "$LOG" | grep -qE 'Edge Function "middleware".*referencing unsupported modules'; then
   MOD=$(printf '%s\n' "$LOG" | grep -oE 'middleware\.js: [^ ]+' | head -1 | sed 's|middleware\.js: ||')
-  echo "[middleware_edge] middleware.ts imports Edge-incompatible module: ${MOD:-unknown}"
-  echo "  fix: import from an Edge-safe helper instead (lib/supabase-middleware.ts pattern)."
-  echo "  cause: middleware runs on Vercel Edge Runtime; imports that pull next/headers or Node builtins break it."
-  echo "  regression: gate's check_middleware_edge would have caught this locally."
+  echo "[middleware_edge] middleware.ts references module that Edge bundler cannot resolve: ${MOD:-unknown}"
+  if printf '%s' "$MOD" | grep -qE '^next/headers|/(fs|crypto|child_process|stream|net|tls|dns)$'; then
+    echo "  fix: that module (or its dep) is Node-only. Move the code into an Edge-safe helper (or inline into middleware.ts)."
+    echo "  regression: gate's check_middleware_edge would have caught this locally."
+  else
+    echo "  fix: inline the code directly in middleware.ts instead of importing from ${MOD}."
+    echo "  cause: Vercel's Edge bundler sometimes cannot inline re-exports through local helper files, even for Edge-safe libraries."
+    echo "  reference: Supabase Next 15 middleware pattern (createServerClient inline in middleware.ts)."
+  fi
   MATCHED=$((MATCHED+1))
 fi
 
