@@ -1,0 +1,160 @@
+id: TS-009
+status: approved
+source_message: >
+  "I need dedicated agent chat with my proper agent team should be present
+  there and i can chat to my all agents or specific one if i mention some
+  agent then that agent says the stuff else team decide who is gonna say
+  like in real meetings we do and also there are 3 real BOD members who
+  handles the departments. Amit, Novy, Sagar so i want 4 different chat
+  types visual one where whole team is visible to chat and other 3
+  assigned departments to person and this assigning department can be
+  setup from settings by Novy. So i will provide 3 login to my team for
+  amit and sagar and for myself i am the person who assign teams so that
+  feature only exclusive when i login through my account and i can see
+  all the chats with separated departments from my other coworkers and
+  they only see the whole team and their assigned dedicated department."
+requester: operator
+
+classification:
+  task_type: feature (auth + realtime chat + rbac)
+  departments: [Engineering, Cybersecurity]
+  lead: dev
+  gate_0: true    # auth is structural — dev+spec+meta+warden RFC required
+  security_review: aegis (auth) + warden (RLS)
+
+discovery:
+  decisions:
+    - auth: "Supabase magic-link email — no passwords. Invite Amit + Sagar; Novy is owner."
+    - roles: "owner (Novy) sees every room; bod_member sees Whole Team + rooms for depts assigned to them"
+    - bootstrap: >
+        Default state: all 7 departments assigned to Novy (owner).
+        Amit + Sagar can log in from day 1 and see 'Whole Team' only.
+        When Novy assigns a dept in Settings → assigned user's chat gains that room.
+    - router: "follows workflow.md rail — no new router. meta.classify → CAOS retrieve → Hermes inject → LLM (Anthropic) → SSE stream back"
+    - mention: "@agent-id → that agent replies. No mention → meta picks the department leader per CLAUDE.md §2 routing table"
+    - spend_cap: "$10/day per user soft cap. Warning banner at 80%. User can exceed."
+    - agents_page: "repurpose /agents as fleet directory (kills ToonGine string). /chat is separate."
+    - staging: "ship in 4 pushes so operator gets value at each step"
+
+work_items:
+  # ── Push A — the ToonGine bug fix, plus a real fleet directory ─────────
+  - id: WI-5
+    owner: mia
+    objective: "Repurpose /agents as fleet directory (kills 'ToonGine not detected' string)"
+    produces: [dashboard/app/agents/page.tsx]
+    owns_paths: [dashboard/app/agents/**]
+    acceptance:
+      - "shows all 46 real agents from /api/office (reused endpoint)"
+      - "search box + department filter chips"
+      - "click agent → OfficeDrawer opens (reused component)"
+      - "no reference to ToonGine or venture-scoped repo detection"
+      - "empty state honest — 'no active sessions' not 'no data'"
+
+  # ── Push B — auth foundation ───────────────────────────────────────────
+  - id: WI-0
+    owner: raj + aegis + warden
+    objective: "Supabase magic-link auth + profiles table + RLS baseline"
+    produces:
+      - dashboard/supabase/migrations/100_auth_profiles.sql
+      - dashboard/app/(auth)/login/page.tsx
+      - dashboard/app/(auth)/callback/route.ts
+      - dashboard/lib/supabase-server.ts
+      - dashboard/lib/supabase-client.ts
+      - dashboard/middleware.ts (auth gate for /chat and /settings)
+    acceptance:
+      - "profiles(id uuid pk, email text, role text ['owner','bod_member'], created_at)"
+      - "3 seed rows: Novy (owner), Amit + Sagar (bod_member) — via SQL seed"
+      - "magic-link login flow works; session persisted via cookies"
+      - "RLS: profiles.select — user sees own row + owner sees all"
+      - "middleware redirects /chat and /settings to /login when unauthenticated"
+
+  - id: WI-1
+    owner: raj + warden
+    objective: "Chat schema — rooms, messages, department_assignments + RLS"
+    produces:
+      - dashboard/supabase/migrations/101_chat_schema.sql
+    acceptance:
+      - "chat_rooms(id, kind ['whole_team','department'], department text nullable, created_at)"
+      - "chat_messages(id, room_id fk, author_kind ['user','agent'], author_id, content text, mentions text[], created_at)"
+      - "department_assignments(department text pk, assigned_to uuid fk profiles)"
+      - "seed: 1 whole_team room + 7 department rooms; all 7 assignments default to Novy"
+      - "RLS chat_rooms.select: kind='whole_team' OR (kind='department' AND (owner OR assignments.assigned_to = auth.uid()))"
+      - "RLS chat_messages.select: user can read messages of rooms they can access"
+      - "RLS chat_messages.insert: user can send to rooms they can access"
+      - "RLS department_assignments.update: owner only"
+
+  # ── Push C — the actual chat ──────────────────────────────────────────
+  - id: WI-2
+    owner: raj + meta
+    objective: "Chat router API — POST /api/chat/send with SSE streaming"
+    produces:
+      - dashboard/app/api/chat/send/route.ts
+      - dashboard/app/api/chat/rooms/route.ts
+      - dashboard/lib/chat-router.ts
+    acceptance:
+      - "POST /api/chat/send body: { roomId, message, mentions? }"
+      - "if mentions.length > 0 → route to those specific agents"
+      - "else → meta.classify(message, room.department) → pick department leader from CLAUDE.md §2 routing table"
+      - "CAOS retrieval (rag/core/retriever.py) + Hermes context injection per §7.2"
+      - "SSE stream response tokens back; final agent-message persisted to chat_messages"
+      - "no ANTHROPIC_API_KEY → returns 'LLM not configured' honest empty state (no crash, no bill)"
+      - "spend tracker: append to token_usage table; return running total; UI warns at 80% of $10/day"
+
+  - id: WI-3
+    owner: mia
+    objective: "/chat page — room switcher, message stream, @mention autocomplete"
+    produces:
+      - dashboard/app/chat/page.tsx
+      - dashboard/app/chat/RoomSwitcher.tsx
+      - dashboard/app/chat/MessageStream.tsx
+      - dashboard/app/chat/MentionAutocomplete.tsx
+    acceptance:
+      - "left: room list (visible rooms only, honoring RLS)"
+      - "center: message stream (user + agent messages, auto-scroll, streaming tokens)"
+      - "right: agent roster of the current room"
+      - "typing @ triggers autocomplete against fleet (46 agents)"
+      - "empty state per room; no fake messages"
+
+  # ── Push D — settings ──────────────────────────────────────────────────
+  - id: WI-4
+    owner: mia
+    objective: "Settings — dept assignments (owner-only, gated by RLS)"
+    produces:
+      - dashboard/app/settings/departments/page.tsx
+      - dashboard/app/api/settings/departments/route.ts
+    acceptance:
+      - "route visible in Settings section; owner-only (server-side guard + client hide)"
+      - "shows 7 depts × 3 assignees grid; click cell to reassign"
+      - "PATCH /api/settings/departments updates department_assignments; RLS blocks non-owner"
+
+  # ── Cross-cutting ──────────────────────────────────────────────────────
+  - id: WI-6
+    owner: mia
+    objective: "Sidebar — add 'Chat' item (Push C+); repurposed 'Agents' stays"
+    produces: [dashboard/components/Sidebar.tsx]
+    blocked_by: [WI-3]  # only appears when chat page is real
+    acceptance: ["Command Center: Agents (existing, now directory) + Chat (new) in YVON OS only"]
+
+  - id: WI-7
+    owner: quinn
+    objective: "Gate green at each push; browser verify auth + chat flows in preview"
+    blocked_by: [WI-5]  # gate runs per-push
+    acceptance:
+      - "cli/verify-deploy.sh 0 findings at every commit"
+      - "manual: magic-link email arrives; role-based visibility verified in Supabase policies"
+
+pushes:
+  A: [WI-5]                 # fleet directory (bug fix, no auth needed)
+  B: [WI-0, WI-1]           # auth + schema
+  C: [WI-2, WI-3, WI-6]     # router + UI + sidebar
+  D: [WI-4]                 # dept assignment settings
+
+dag:
+  critical_path: [WI-5, WI-0, WI-1, WI-2, WI-3, WI-4]
+  parallel_in_push_C: [[WI-2, WI-3]]
+
+exit_gate:
+  owner: quinn
+  proof: "end-to-end: Amit logs in via magic-link, sees Whole Team only; Novy assigns Product to Amit; Amit sees Whole Team + Product; sending a message routes via meta.classify and streams back an agent response; owner sees everything"
+
+feedback: { outcome: pending }
