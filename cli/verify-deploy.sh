@@ -17,6 +17,7 @@
 #   5. vercel.json crons > Hobby limit     → deploy rejection
 #   6. .gitignore covers .next/env/nm      → repo bloat / secret leak
 #   7. tsc --noEmit (if installed)         → every "Cannot find name", type mismatch
+#   8. middleware Edge safety              → deploy rejects Node-only imports
 #
 # Scope: dashboard/ (the Vercel-deployed app). Extend via APPS= env var:
 #   APPS="dashboard other-app" cli/verify-deploy.sh
@@ -226,6 +227,85 @@ check_tsc() {
   done
 }
 
+# ── CHECK 8: middleware Edge-runtime safety ─────────────────────────────────
+# Vercel runs middleware.ts on the Edge Runtime (V8 isolate, not Node). Any
+# import that transitively pulls in 'next/headers' or other Node-only APIs is
+# rejected at DEPLOY time (build passes fine) — a class of failure the tsc
+# gate cannot see. This check walks the middleware.ts import graph.
+check_middleware_edge() {
+  local app="$1"; local dir="$ROOT/$app"
+  local mw="$dir/middleware.ts"
+  [ -f "$mw" ] || { gray "  (skip: no middleware.ts)"; return; }
+  python3 - "$dir" <<'PY'
+import os, re, sys
+appdir = sys.argv[1]
+mw = os.path.join(appdir, 'middleware.ts')
+
+# Modules that break the Edge runtime.
+# EXACT_BAD: match exactly (used for scoped stuff like next/*)
+# NODE_ROOTS: match as prefix (Node builtins — 'fs', 'fs/promises', 'node:fs' all bad)
+EXACT_BAD = {'next/headers'}
+NODE_ROOTS = {'fs', 'path', 'os', 'crypto', 'child_process', 'stream',
+              'net', 'tls', 'dns', 'http', 'https', 'zlib', 'cluster',
+              'worker_threads', 'inspector', 'v8', 'vm'}
+
+resolved: dict[str, str] = {}
+def resolve(spec: str, from_file: str) -> str | None:
+    """Resolve a module specifier to an absolute path within the app."""
+    if spec.startswith('@/'):
+        base = os.path.join(appdir, spec[2:])
+    elif spec.startswith('.'):
+        base = os.path.normpath(os.path.join(os.path.dirname(from_file), spec))
+    else:
+        return None  # third-party — leaf
+    for ext in ('.ts', '.tsx', '/index.ts', '/index.tsx'):
+        p = base + ext
+        if os.path.isfile(p): return p
+    if os.path.isfile(base): return base
+    return None
+
+imp = re.compile(r'''(?:import\s[^'"]*from\s*|import\s*\(?\s*|require\(\s*)['"]([^'"]+)['"]''')
+strip_block = re.compile(r'/\*[\s\S]*?\*/')
+strip_line = re.compile(r'^\s*//.*$', re.M)
+
+def imports_of(path: str) -> list[str]:
+    try: txt = open(path, encoding='utf-8').read()
+    except: return []
+    txt = strip_line.sub('', strip_block.sub('', txt))
+    return imp.findall(txt)
+
+# BFS the import graph from middleware.ts. Report first Node-only import found
+# along each path (so the operator sees the reachable culprit, not a leaf).
+seen = set([mw])
+frontier = [(mw, [])]
+findings = []
+while frontier:
+    file, chain = frontier.pop(0)
+    for spec in imports_of(file):
+        norm_spec = spec[5:] if spec.startswith('node:') else spec
+        root = norm_spec.split('/')[0]
+        is_bad = (norm_spec in EXACT_BAD) or (root in NODE_ROOTS)
+        if is_bad:
+            path_str = ' → '.join(['middleware.ts', *[os.path.relpath(c, appdir) for c in chain], f"[{spec}]"])
+            findings.append((spec, path_str))
+            continue
+        # Follow internal (relative or @/) imports deeper
+        resolved_path = resolve(spec, file)
+        if resolved_path and resolved_path not in seen:
+            seen.add(resolved_path)
+            frontier.append((resolved_path, chain + [resolved_path]))
+
+# De-dup by (spec, first-hop file) so we don't spam multiple identical paths
+uniq = {}
+for spec, chain in findings:
+    key = (spec, chain.split(' → ')[1] if ' → ' in chain else chain)
+    uniq.setdefault(key, chain)
+
+for (spec, _first), chain in uniq.items():
+    print(f'FAIL::middleware imports Edge-incompatible module "{spec}" via: {chain}')
+PY
+}
+
 # ── CHECK 6: .gitignore hygiene ──────────────────────────────────────────────
 check_gitignore() {
   local gi="$ROOT/.gitignore"
@@ -245,7 +325,7 @@ echo "── deploy-gate ── $(date +%H:%M:%S) ── plan=$VERCEL_PLAN ─�
 for app in $APPS; do
   echo ""
   echo "▸ $app"
-  for check_name in check_undeclared_imports check_bare_supabase check_promise_all_arity check_dup_config check_vercel_crons check_tsc; do
+  for check_name in check_undeclared_imports check_bare_supabase check_promise_all_arity check_dup_config check_vercel_crons check_tsc check_middleware_edge; do
     out=$("$check_name" "$app" 2>&1 || true)
     label="${check_name#check_}"
     if [ -z "$out" ]; then ok "$label"

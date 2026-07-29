@@ -3,7 +3,8 @@
 // for now; auth on the rest of the app will land in a follow-up TASK-SPEC.
 // Owner: raj · TS-009 WI-0
 import { NextResponse, type NextRequest } from 'next/server'
-import { supabaseMiddleware } from '@/lib/supabase-server'
+// EDGE RUNTIME — do NOT import from '@/lib/supabase-server' (uses next/headers).
+import { supabaseMiddleware } from '@/lib/supabase-middleware'
 
 // Routes that require a signed-in session.
 const PROTECTED = ['/chat', '/settings']

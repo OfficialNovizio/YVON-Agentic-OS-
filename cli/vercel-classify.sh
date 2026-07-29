@@ -81,6 +81,16 @@ if printf '%s\n' "$LOG" | grep -qiE "hobby (accounts|plan) (are )?limited to [0-
   MATCHED=$((MATCHED+1))
 fi
 
+# ── Class: middleware Edge-runtime unsupported module ──────────────────────
+if printf '%s\n' "$LOG" | grep -qE 'Edge Function "middleware".*referencing unsupported modules'; then
+  MOD=$(printf '%s\n' "$LOG" | grep -oE 'middleware\.js: [^ ]+' | head -1 | sed 's|middleware\.js: ||')
+  echo "[middleware_edge] middleware.ts imports Edge-incompatible module: ${MOD:-unknown}"
+  echo "  fix: import from an Edge-safe helper instead (lib/supabase-middleware.ts pattern)."
+  echo "  cause: middleware runs on Vercel Edge Runtime; imports that pull next/headers or Node builtins break it."
+  echo "  regression: gate's check_middleware_edge would have caught this locally."
+  MATCHED=$((MATCHED+1))
+fi
+
 # ── Class: duplicate Next config ────────────────────────────────────────────
 if printf '%s\n' "$LOG" | grep -qiE "found (a )?next\.config\.(js|ts).*next\.config\.(ts|js)|duplicate.*next\.config"; then
   echo "[dup_config] Both next.config.js and next.config.ts present"

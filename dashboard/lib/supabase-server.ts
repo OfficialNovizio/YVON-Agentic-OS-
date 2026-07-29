@@ -1,10 +1,9 @@
-// Server-side Supabase client for RSC / route handlers / middleware.
-// Reads & writes cookies so RLS policies (auth.uid()) evaluate against the
-// signed-in user, not the anon key.
+// Server-side Supabase client for RSC / route handlers ONLY.
+// Uses next/headers cookies() — NOT Edge-compatible.
+// Do NOT import this from middleware.ts — use lib/supabase-middleware.ts there.
 // Owner: raj · TS-009 WI-0
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import type { NextRequest, NextResponse } from 'next/server'
 
 /** For RSC + route handlers (uses next/headers cookies). */
 export async function supabaseServer() {
@@ -25,27 +24,6 @@ export async function supabaseServer() {
           } catch {
             // Called from a Server Component (read-only cookies) — safe to ignore.
           }
-        },
-      },
-    }
-  )
-}
-
-/** For middleware — pass in the request; write cookies to the response. */
-export function supabaseMiddleware(request: NextRequest, response: NextResponse) {
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            request.cookies.set(name, value)
-            response.cookies.set(name, value, options)
-          })
         },
       },
     }
