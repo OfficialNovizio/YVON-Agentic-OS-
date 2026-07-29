@@ -1,31 +1,42 @@
-// Operator auth (TS-001 WI-3b) — single-role gate.
-// Degrades loudly: if OPERATOR_KEY is unset, auth is DISABLED and every
-// response carries a warning header — set it in dashboard/.env.local.
-import { NextResponse, type NextRequest } from 'next/server';
+// Auth middleware — gates /chat and /settings behind a Supabase session.
+// Everything else (agents, office, foundry, dashboard, brand pages) stays open
+// for now; auth on the rest of the app will land in a follow-up TASK-SPEC.
+// Owner: raj · TS-009 WI-0
+import { NextResponse, type NextRequest } from 'next/server'
+import { supabaseMiddleware } from '@/lib/supabase-server'
 
-export function middleware(req: NextRequest) {
-  const key = process.env.OPERATOR_KEY;
-  if (!key) {
-    const res = NextResponse.next();
-    res.headers.set('x-yvon-auth', 'DISABLED - set OPERATOR_KEY in dashboard/.env.local');
-    return res;
+// Routes that require a signed-in session.
+const PROTECTED = ['/chat', '/settings']
+
+export async function middleware(request: NextRequest) {
+  const response = NextResponse.next({ request })
+  const { pathname } = request.nextUrl
+
+  // Refresh the session cookie on every request (kept fresh even on public pages).
+  const supabase = supabaseMiddleware(request, response)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const needsAuth = PROTECTED.some((p) => pathname === p || pathname.startsWith(p + '/'))
+  if (needsAuth && !user) {
+    const url = new URL('/login', request.url)
+    url.searchParams.set('next', pathname)
+    return NextResponse.redirect(url)
   }
 
-  const { pathname } = req.nextUrl;
-  if (pathname.startsWith('/login') || pathname.startsWith('/api/auth')) {
-    return NextResponse.next();
+  // Already signed in and hitting /login — send to /chat.
+  if (user && pathname === '/login') {
+    return NextResponse.redirect(new URL('/chat', request.url))
   }
 
-  const authed = req.cookies.get('yvon_op')?.value === key;
-  if (!authed) {
-    if (pathname.startsWith('/api')) {
-      return new NextResponse('unauthorized', { status: 401 });
-    }
-    return NextResponse.redirect(new URL('/login', req.url));
-  }
-  return NextResponse.next();
+  return response
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
-};
+  matcher: [
+    // Run on everything except static assets, images, favicon, and the callback route
+    // (callback needs to see the code param before we intervene).
+    '/((?!_next/static|_next/image|favicon.ico|.*\\..*|auth/callback).*)',
+  ],
+}

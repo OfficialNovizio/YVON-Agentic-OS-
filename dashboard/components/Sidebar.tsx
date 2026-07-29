@@ -54,6 +54,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Decision Queue', href: '/decision-queue', icon: 'filter_list', liveBadge: true },
       { label: 'Task Board', href: '/task-board', icon: 'view_kanban', liveBadge: true },
       { label: 'Advisory Council', href: '/advisory-council', icon: 'groups' },
+      { label: 'Chat', href: '/chat', icon: 'forum' },
       { label: 'Agents', href: '/agents', icon: 'smart_toy' },
       { label: 'Org Chart', href: '/org-chart', icon: 'account_tree' },
       { label: 'Office', href: '/office', icon: 'apartment' },
