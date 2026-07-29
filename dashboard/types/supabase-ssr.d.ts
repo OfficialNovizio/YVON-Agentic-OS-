@@ -36,11 +36,8 @@ declare module '@supabase/ssr' {
       exchangeCodeForSession(code: string): Promise<{ error: { message: string } | null }>
       signOut(): Promise<{ error: { message: string } | null }>
     }
-    from(table: string): {
-      select(cols: string): {
-        eq(col: string, val: unknown): { single(): Promise<{ data: Record<string, unknown> | null; error: unknown }> }
-      }
-    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    from(table: string): any
   }
 
   export function createBrowserClient(url: string, key: string): AnySupabaseClient
