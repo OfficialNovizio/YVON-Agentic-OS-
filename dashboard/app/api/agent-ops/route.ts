@@ -109,6 +109,7 @@ export async function GET(): Promise<Response> {
     if (agents.length === 0) {
       try {
         const { data: toonAgents } = await supabase
+          .from('agents')
           .select('*')
           .order('last_active', { ascending: false })
         
@@ -160,6 +161,7 @@ export async function GET(): Promise<Response> {
     let activity: ActivityEntry[] = []
     try {
       const { data: toonActivity } = await supabase
+        .from('agent_activity')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(20)
