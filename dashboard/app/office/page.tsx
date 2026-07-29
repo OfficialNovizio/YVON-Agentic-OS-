@@ -11,7 +11,6 @@ import {
   useMemo,
   useEffect,
   type PointerEvent as RPointerEvent,
-  type WheelEvent as RWheelEvent,
 } from 'react'
 import { PageHeader, StatusBadge } from '@/components/ui'
 import { RotateCcw, Users, Activity } from 'lucide-react'
@@ -29,6 +28,8 @@ const OY = 120     // origin y
 const PLAT = 18    // room platform height
 const VW = 1400    // viewBox width
 const VH = 900     // viewBox height
+const CX = VW / 2  // zoom pivot x (center of viewBox)
+const CY = VH / 2  // zoom pivot y
 
 type P = { x: number; y: number }
 const pt = (gx: number, gy: number, gz = 0): P => ({
@@ -154,53 +155,54 @@ function AgentAvatar({
   agent: OfficeAgent
   placement: Placement
   isSelected: boolean
-  onClick: () => void
+  onClick: (e: React.MouseEvent) => void
 }) {
   const base = pt(placement.gx, placement.gy, PLAT + 2)
   const ringColor = STATUS_COLOR[agent.status]
   const isActive = agent.status === 'working' || agent.status === 'in-council'
   const initial = agent.name.slice(0, 1).toUpperCase()
+  // Subtle bob only for active agents so idle floor stays quiet — not messy.
+  const bobClass = isActive ? 'office-bob' : ''
 
   return (
-    <g
-      style={{ cursor: 'pointer' }}
-      onClick={onClick}
-      className="office-agent"
-    >
-      {/* Shadow */}
+    <g onClick={onClick} className="office-agent" style={{ cursor: 'pointer' }}>
+      {/* Shadow (does NOT bob — stays anchored) */}
       <ellipse cx={base.x} cy={base.y + 8} rx={11} ry={4} fill="#000" fillOpacity={0.35} />
-      {/* Status ring */}
-      <circle
-        cx={base.x}
-        cy={base.y}
-        r={13}
-        fill="none"
-        stroke={ringColor}
-        strokeWidth={isActive ? 2 : 1.5}
-        opacity={isActive ? 0.95 : 0.5}
-      />
-      {/* Avatar body */}
-      <circle
-        cx={base.x}
-        cy={base.y}
-        r={10}
-        fill={agent.color}
-        stroke={isSelected ? '#fff' : 'transparent'}
-        strokeWidth={isSelected ? 2 : 0}
-      />
-      {/* Initial */}
-      <text
-        x={base.x}
-        y={base.y + 3.5}
-        textAnchor="middle"
-        fontSize={10}
-        fontWeight={800}
-        fill="#06121f"
-        pointerEvents="none"
-      >
-        {initial}
-      </text>
-      {/* Name label */}
+      {/* Bobbing body group */}
+      <g className={bobClass} style={{ transformBox: 'fill-box', transformOrigin: 'center' }}>
+        {/* Status ring */}
+        <circle
+          cx={base.x}
+          cy={base.y}
+          r={13}
+          fill="none"
+          stroke={ringColor}
+          strokeWidth={isActive ? 2 : 1.5}
+          opacity={isActive ? 0.95 : 0.5}
+        />
+        {/* Avatar body */}
+        <circle
+          cx={base.x}
+          cy={base.y}
+          r={10}
+          fill={agent.color}
+          stroke={isSelected ? '#fff' : 'transparent'}
+          strokeWidth={isSelected ? 2 : 0}
+        />
+        {/* Initial */}
+        <text
+          x={base.x}
+          y={base.y + 3.5}
+          textAnchor="middle"
+          fontSize={10}
+          fontWeight={800}
+          fill="#06121f"
+          pointerEvents="none"
+        >
+          {initial}
+        </text>
+      </g>
+      {/* Name label (doesn't bob) */}
       <text
         x={base.x}
         y={base.y + 24}
@@ -212,7 +214,7 @@ function AgentAvatar({
       >
         {agent.name}
       </text>
-      {/* Hover boost — bigger hit box */}
+      {/* Hover hit-box */}
       <circle cx={base.x} cy={base.y} r={22} fill="transparent" />
     </g>
   )
@@ -309,19 +311,20 @@ export default function OfficePage() {
   // ── Pan + zoom ──────────────────────────────────────────────────────────
   const [scale, setScale] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
-  const drag = useRef<{ x: number; y: number; px: number; py: number } | null>(null)
+  const drag = useRef<{ x: number; y: number; px: number; py: number; moved: boolean } | null>(null)
   const [grabbing, setGrabbing] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
 
-  const onWheel = (e: RWheelEvent) => {
-    setScale((s) => Math.min(2, Math.max(0.6, s - e.deltaY * 0.0012)))
-  }
   const onDown = (e: RPointerEvent) => {
-    drag.current = { x: pan.x, y: pan.y, px: e.clientX, py: e.clientY }
+    drag.current = { x: pan.x, y: pan.y, px: e.clientX, py: e.clientY, moved: false }
     setGrabbing(true)
   }
   const onMove = (e: RPointerEvent) => {
     if (!drag.current) return
-    setPan({ x: drag.current.x + (e.clientX - drag.current.px), y: drag.current.y + (e.clientY - drag.current.py) })
+    const dx = e.clientX - drag.current.px
+    const dy = e.clientY - drag.current.py
+    if (Math.abs(dx) + Math.abs(dy) > 3) drag.current.moved = true
+    setPan({ x: drag.current.x + dx, y: drag.current.y + dy })
   }
   const onUp = () => {
     drag.current = null
@@ -330,13 +333,41 @@ export default function OfficePage() {
   const reset = () => {
     setScale(1)
     setPan({ x: 0, y: 0 })
+    setFocusDept(null)
   }
 
-  // Close drawer on esc handled inside OfficeDrawer.
-  // But also close on route change (nothing to do here — component unmounts).
+  // Wheel zoom — attach as native non-passive listener so we can preventDefault
+  // (avoids the page scrolling while the user is zooming the canvas).
   useEffect(() => {
-    // No-op; kept for future keyboard bindings on the canvas.
+    const el = containerRef.current
+    if (!el) return
+    const handler = (e: WheelEvent) => {
+      e.preventDefault()
+      const factor = Math.exp(-e.deltaY * 0.0015)
+      setScale((s) => Math.min(2.5, Math.max(0.5, s * factor)))
+    }
+    el.addEventListener('wheel', handler, { passive: false })
+    return () => el.removeEventListener('wheel', handler)
   }, [])
+
+  // Focus a department: pan/zoom so its room fills the view.
+  useEffect(() => {
+    if (!focusDept) {
+      setScale(1)
+      setPan({ x: 0, y: 0 })
+      return
+    }
+    const room = ROOMS.find((r) => r.department === focusDept)
+    if (!room) return
+    // Room center in isometric screen coords
+    const c = pt((room.x0 + room.x1) / 2, (room.y0 + room.y1) / 2, PLAT / 2)
+    const target = 1.55
+    // With transform: translate(pan) translate(CX,CY) scale(s) translate(-CX,-CY),
+    // a point (cx, cy) lands at (pan.x + CX + (cx - CX)*s). Solve for pan so it hits (CX, CY):
+    //   pan.x = (CX - cx) * s
+    setScale(target)
+    setPan({ x: (CX - c.x) * target, y: (CY - c.y) * target })
+  }, [focusDept])
 
   return (
     <div className="p-6 md:p-8">
@@ -415,28 +446,56 @@ export default function OfficePage() {
 
       {/* Canvas */}
       <div
+        ref={containerRef}
         className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0a0a0f]"
         style={{ cursor: grabbing ? 'grabbing' : 'grab', touchAction: 'none' }}
-        onWheel={onWheel}
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
         onPointerLeave={onUp}
       >
         <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" height="auto" className="block select-none">
-          <g style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`, transformOrigin: '700px 500px', transition: drag.current ? 'none' : 'transform 120ms ease-out' }}>
+          <g
+            transform={`translate(${pan.x} ${pan.y}) translate(${CX} ${CY}) scale(${scale}) translate(${-CX} ${-CY})`}
+            style={{ transition: drag.current ? 'none' : 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)' }}
+          >
+            {/* Background click-catcher — click empty floor to reset focus + drawer.
+                Placed first so agents/rooms sit above it. */}
+            <rect
+              x={0}
+              y={0}
+              width={VW}
+              height={VH}
+              fill="transparent"
+              onClick={() => {
+                if (drag.current?.moved) return  // ignore click after drag
+                setFocusDept(null)
+                setSelectedId(null)
+              }}
+            />
+
             {/* Rooms */}
             {ROOMS.map((room) => {
               const active = agents.filter(
                 (a) => a.department === room.department && (a.status === 'working' || a.status === 'in-council')
               ).length
               return (
-                <RoomShell
+                <g
                   key={room.department}
-                  room={room}
-                  active={active}
-                  dim={focusDept !== null && focusDept !== room.department}
-                />
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (drag.current?.moved) return
+                    // Click room floor → focus that department
+                    setFocusDept((cur) => (cur === room.department ? null : room.department))
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <RoomShell
+                    room={room}
+                    active={active}
+                    dim={focusDept !== null && focusDept !== room.department}
+                  />
+                </g>
               )
             })}
 
@@ -449,27 +508,20 @@ export default function OfficePage() {
             {agents.map((agent) => {
               const placement = PLACEMENTS.get(agent.id)
               if (!placement) return null
-              if (focusDept && placement.room.department !== focusDept) {
-                // dim by low opacity
-                return (
-                  <g key={agent.id} style={{ opacity: 0.2 }}>
-                    <AgentAvatar
-                      agent={agent}
-                      placement={placement}
-                      isSelected={selectedId === agent.id}
-                      onClick={() => setSelectedId(agent.id)}
-                    />
-                  </g>
-                )
-              }
+              const dim = focusDept !== null && placement.room.department !== focusDept
               return (
-                <AgentAvatar
-                  key={agent.id}
-                  agent={agent}
-                  placement={placement}
-                  isSelected={selectedId === agent.id}
-                  onClick={() => setSelectedId(agent.id)}
-                />
+                <g key={agent.id} style={{ opacity: dim ? 0.18 : 1, transition: 'opacity 220ms ease' }}>
+                  <AgentAvatar
+                    agent={agent}
+                    placement={placement}
+                    isSelected={selectedId === agent.id}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (drag.current?.moved) return
+                      setSelectedId(agent.id)
+                    }}
+                  />
+                </g>
               )
             })}
           </g>
