@@ -1,121 +1,87 @@
-// ═══════════════════════════════════════════════════════════════
-// YVON Dashboard — Fleet Observability (WI-4, TASK-SPEC TS-001)
-// Live data read from the repo itself: Teams/ roster, dist/skills
-// compiled output, store/telemetry invocation log, agent configs.
-// Read-only by design (agents view = observe, never command).
-// ═══════════════════════════════════════════════════════════════
+// AUTO-GENERATED from Teams/ by cli/gen-fleet.py — do not edit by hand.
+// The real YVON fleet. Regenerate when Teams/ changes: python3 cli/gen-fleet.py
 
-import fs from 'fs';
-import path from 'path';
+export type FleetDepartment =
+  | 'Executive Office'
+  | 'Engineering'
+  | 'Brand Studio'
+  | 'Cybersecurity'
+  | 'Product'
+  | 'Governance'
+  | 'AI & Agents'
 
-const ROOT = path.resolve(process.cwd(), '..');
-const TEAMS = path.join(ROOT, 'Teams');
-const DIST = path.join(ROOT, 'dist', 'skills');
-const TELEMETRY = path.join(ROOT, 'store', 'telemetry', 'skill-invocations.jsonl');
-
-const NON_DEPTS = new Set(['Books', 'Shared OS']);
-
-export interface AgentStat {
-  agent: string;
-  dept: string;
-  skillsCompiled: number;
-  invocations: number;
-  completions: number;
-  blocked: number;
-  configUnfilled: number;
-  identity: string | null;
+export interface FleetAgent {
+  id: string
+  name: string
+  role: string
+  department: FleetDepartment
+  color: string
+  icon: string
 }
 
-export interface FleetData {
-  generatedAt: string;
-  totals: {
-    agents: number;
-    departments: number;
-    skillsCompiled: number;
-    invocations: number;
-    blocked: number;
-    configsNeedingAttention: number;
-  };
-  agents: AgentStat[];
+export const FLEET: FleetAgent[] = [
+  // ── Executive Office ──
+  { id: 'echo', name: 'Echo', role: 'Investor Relations', department: 'Executive Office', color: '#F59E0B', icon: '👑' },
+  { id: 'marcus', name: 'Marcus', role: 'Orchestrator', department: 'Executive Office', color: '#F59E0B', icon: '👑' },
+  { id: 'vista', name: 'Vista', role: 'Roadmap Lead', department: 'Executive Office', color: '#F59E0B', icon: '👑' },
+  // ── Engineering ──
+  { id: 'aegis', name: 'Aegis', role: 'Application Security (defense)', department: 'Engineering', color: '#3B82F6', icon: '💻' },
+  { id: 'axiom', name: 'Axiom', role: 'Algorithms & Data Structures', department: 'Engineering', color: '#3B82F6', icon: '💻' },
+  { id: 'cypher', name: 'Cypher', role: 'Adversary / Red Team (offense) — caged', department: 'Engineering', color: '#3B82F6', icon: '💻' },
+  { id: 'dana', name: 'Dana', role: 'Data Architecture', department: 'Engineering', color: '#3B82F6', icon: '💻' },
+  { id: 'dev', name: 'Dev', role: 'Lead Developer', department: 'Engineering', color: '#3B82F6', icon: '💻' },
+  { id: 'mia', name: 'Mia', role: 'Frontend Web', department: 'Engineering', color: '#3B82F6', icon: '💻' },
+  { id: 'nova', name: 'Nova', role: 'Mobile', department: 'Engineering', color: '#3B82F6', icon: '💻' },
+  { id: 'ops', name: 'Ops', role: 'DevOps & Reliability — production owner, the safety net', department: 'Engineering', color: '#3B82F6', icon: '💻' },
+  { id: 'quinn', name: 'Quinn', role: 'QA — blocking gate + Security Charter control point', department: 'Engineering', color: '#3B82F6', icon: '💻' },
+  { id: 'raj', name: 'Raj', role: 'Backend & APIs', department: 'Engineering', color: '#3B82F6', icon: '💻' },
+  { id: 'rank', name: 'Rank', role: 'Technical SEO', department: 'Engineering', color: '#3B82F6', icon: '💻' },
+  // ── Brand Studio ──
+  { id: 'atlas', name: 'Atlas', role: 'Art Director', department: 'Brand Studio', color: '#EC4899', icon: '🎨' },
+  { id: 'kai', name: 'Kai', role: 'Analyst', department: 'Brand Studio', color: '#EC4899', icon: '🎨' },
+  { id: 'lena', name: 'Lena', role: 'Brand Voice', department: 'Brand Studio', color: '#EC4899', icon: '🎨' },
+  { id: 'muse', name: 'Muse', role: 'Ideation', department: 'Brand Studio', color: '#EC4899', icon: '🎨' },
+  { id: 'nate', name: 'Nate', role: 'Growth', department: 'Brand Studio', color: '#EC4899', icon: '🎨' },
+  { id: 'pixel', name: 'Pixel', role: 'Production', department: 'Brand Studio', color: '#EC4899', icon: '🎨' },
+  { id: 'pulse', name: 'Pulse', role: 'Social Media', department: 'Brand Studio', color: '#EC4899', icon: '🎨' },
+  { id: 'rio', name: 'Rio', role: 'Ads', department: 'Brand Studio', color: '#EC4899', icon: '🎨' },
+  { id: 'spark', name: 'Spark', role: 'Creative Director', department: 'Brand Studio', color: '#EC4899', icon: '🎨' },
+  { id: 'tempo', name: 'Tempo', role: 'Audio Branding', department: 'Brand Studio', color: '#EC4899', icon: '🎨' },
+  { id: 'weave', name: 'Weave', role: 'Storytelling', department: 'Brand Studio', color: '#EC4899', icon: '🎨' },
+  // ── Cybersecurity ──
+  { id: 'bastion', name: 'Bastion', role: '', department: 'Cybersecurity', color: '#EF4444', icon: '🛡️' },
+  { id: 'cortex', name: 'Cortex', role: '', department: 'Cybersecurity', color: '#EF4444', icon: '🛡️' },
+  { id: 'keyring', name: 'Keyring', role: '', department: 'Cybersecurity', color: '#EF4444', icon: '🛡️' },
+  { id: 'veil', name: 'Veil', role: '', department: 'Cybersecurity', color: '#EF4444', icon: '🛡️' },
+  { id: 'warden', name: 'Warden', role: '', department: 'Cybersecurity', color: '#EF4444', icon: '🛡️' },
+  // ── Product ──
+  { id: 'loom', name: 'Loom', role: '', department: 'Product', color: '#10B981', icon: '📦' },
+  { id: 'metric', name: 'Metric', role: '', department: 'Product', color: '#10B981', icon: '📦' },
+  { id: 'price', name: 'Price', role: '', department: 'Product', color: '#10B981', icon: '📦' },
+  { id: 'spec', name: 'Spec', role: '', department: 'Product', color: '#10B981', icon: '📦' },
+  { id: 'ux', name: 'Ux', role: '', department: 'Product', color: '#10B981', icon: '📦' },
+  // ── Governance ──
+  { id: 'board', name: 'Board', role: 'Governance Gate', department: 'Governance', color: '#8B5CF6', icon: '⚖️' },
+  { id: 'precedent', name: 'Precedent', role: 'Institutional Memory', department: 'Governance', color: '#8B5CF6', icon: '⚖️' },
+  { id: 'sentinel', name: 'Sentinel', role: 'Compliance Monitor', department: 'Governance', color: '#8B5CF6', icon: '⚖️' },
+  // ── AI & Agents ──
+  { id: 'anneal', name: 'Anneal', role: '', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
+  { id: 'edge', name: 'Edge', role: '', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
+  { id: 'forge', name: 'Forge', role: '', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
+  { id: 'gauge', name: 'Gauge', role: '', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
+  { id: 'meta', name: 'Meta', role: '', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
+  { id: 'proto', name: 'Proto', role: '', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
+  { id: 'relay', name: 'Relay', role: '', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
+  { id: 'scout', name: 'Scout', role: '', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
+]
+
+export const FLEET_DEPARTMENTS: FleetDepartment[] = [
+  'Executive Office', 'Engineering', 'Brand Studio', 'Cybersecurity', 'Product', 'Governance', 'AI & Agents'
+]
+
+export function fleetByDepartment(dept: FleetDepartment): FleetAgent[] {
+  return FLEET.filter((a) => a.department === dept)
 }
-
-function safeDir(p: string): string[] {
-  try {
-    return fs.readdirSync(p, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
-  } catch {
-    return [];
-  }
-}
-
-function telemetryByAgent(): Map<string, { inv: number; done: number; blocked: number }> {
-  const map = new Map<string, { inv: number; done: number; blocked: number }>();
-  try {
-    const lines = fs.readFileSync(TELEMETRY, 'utf8').split('\n').filter(Boolean);
-    for (const line of lines) {
-      try {
-        const e = JSON.parse(line);
-        const cur = map.get(e.agent) || { inv: 0, done: 0, blocked: 0 };
-        if (e.event === 'complete') {
-          if (e.outcome === 'blocked') cur.blocked++;
-          else cur.done++;
-        } else {
-          cur.inv++;
-        }
-        map.set(e.agent, cur);
-      } catch { /* skip bad line */ }
-    }
-  } catch { /* no telemetry yet — renders as zeros, honestly */ }
-  return map;
-}
-
-export function fleetStats(): FleetData {
-  const tel = telemetryByAgent();
-  const agents: AgentStat[] = [];
-  const depts = safeDir(TEAMS).filter((d) => !NON_DEPTS.has(d));
-
-  for (const dept of depts) {
-    for (const agent of safeDir(path.join(TEAMS, dept))) {
-      const aDir = path.join(TEAMS, dept, agent);
-      if (!fs.existsSync(path.join(aDir, 'agent.md'))) continue;
-
-      let configUnfilled = 0;
-      try {
-        const cfgDir = path.join(aDir, 'operational', 'agent');
-        const cfg = fs.readdirSync(cfgDir).find((f) => f.endsWith('.md'));
-        if (cfg) configUnfilled = (fs.readFileSync(path.join(cfgDir, cfg), 'utf8').match(/<FILL_IN>/g) || []).length;
-      } catch { /* no config — shows 0, config column flags via skills view */ }
-
-      let identity: string | null = null;
-      try {
-        const idFile = fs.readdirSync(path.join(aDir, 'identity')).find((f) => f.endsWith('.md'));
-        identity = idFile ? idFile.replace('.md', '') : null;
-      } catch { /* no identity dir */ }
-
-      const t = tel.get(agent) || { inv: 0, done: 0, blocked: 0 };
-      agents.push({
-        agent,
-        dept,
-        skillsCompiled: safeDir(path.join(DIST, agent)).length,
-        invocations: t.inv,
-        completions: t.done,
-        blocked: t.blocked,
-        configUnfilled,
-        identity,
-      });
-    }
-  }
-
-  agents.sort((a, b) => a.dept.localeCompare(b.dept) || a.agent.localeCompare(b.agent));
-  return {
-    generatedAt: new Date().toISOString(),
-    totals: {
-      agents: agents.length,
-      departments: depts.length,
-      skillsCompiled: agents.reduce((s, a) => s + a.skillsCompiled, 0),
-      invocations: agents.reduce((s, a) => s + a.invocations, 0),
-      blocked: agents.reduce((s, a) => s + a.blocked, 0),
-      configsNeedingAttention: agents.filter((a) => a.configUnfilled > 0).length,
-    },
-    agents,
-  };
+export function getFleetAgent(id: string): FleetAgent | undefined {
+  return FLEET.find((a) => a.id === id)
 }

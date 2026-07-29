@@ -1,21 +1,28 @@
-import type { Metadata } from 'next';
-import Sidebar from '@/components/Sidebar';
-import './globals.css';
+import type { Metadata } from 'next'
+import './globals.css'
+import { Analytics } from '@vercel/analytics/react'
+import { SpeedInsights } from '@vercel/speed-insights/next'
+import { WorkspaceProvider } from '@/lib/WorkspaceContext'
+import { Shell } from '@/components/Shell'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 export const metadata: Metadata = {
-  title: 'YVON — Master Control Plane',
-  description: 'Multi-tenant agent fleet dashboard for YVON Engine',
-};
+  title: 'YVON OS · Mission Control',
+  description: 'AI agent command center — LifeOS screens on the YVON design system.',
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className="bg-slate-50 text-slate-900 antialiased">
-        <Sidebar />
-        <main className="ml-56 min-h-screen p-8 max-w-[1200px]">
-          {children}
-        </main>
+    <html lang="en" className="dark">
+      <body className="bg-background text-on-surface bg-yvon-image min-h-screen">
+        <WorkspaceProvider>
+          <ErrorBoundary>
+            <Shell>{children}</Shell>
+          </ErrorBoundary>
+        </WorkspaceProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
-  );
+  )
 }

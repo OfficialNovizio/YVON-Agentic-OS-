@@ -1,1 +1,28 @@
+# Dependencies
 node_modules
+**/node_modules
+
+# Next.js build output
+.next
+**/.next
+.next.buildtest
+**/out
+
+# Env / secrets (never commit)
+.env
+.env*.local
+**/.env.local
+**/.env*.local
+
+# OS junk
+.DS_Store
+**/.DS_Store
+
+# Vercel
+.vercel
+
+# Scratch / logs / import backups
+*.log
+**/*.log
+**/.import-backup
+.import-backup

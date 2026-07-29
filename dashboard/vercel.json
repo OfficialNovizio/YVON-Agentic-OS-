@@ -1,0 +1,13 @@
+{
+  "buildCommand": "next build",
+  "crons": [
+    {
+      "path": "/api/briefing",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/trending",
+      "schedule": "0 9 * * *"
+    }
+  ]
+}

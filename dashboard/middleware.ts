@@ -7,7 +7,7 @@ export function middleware(req: NextRequest) {
   const key = process.env.OPERATOR_KEY;
   if (!key) {
     const res = NextResponse.next();
-    res.headers.set('x-yvon-auth', 'DISABLED — set OPERATOR_KEY in dashboard/.env.local');
+    res.headers.set('x-yvon-auth', 'DISABLED - set OPERATOR_KEY in dashboard/.env.local');
     return res;
   }
 
