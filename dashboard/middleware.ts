@@ -1,4 +1,6 @@
-// Auth middleware — gates /chat and /settings behind a Supabase session.
+// Auth middleware — gates the ENTIRE dashboard behind a Supabase session.
+// Anyone hitting any route without a session is redirected to /login with
+// ?next= preserving where they were headed.
 //
 // Runs on Vercel's Edge Runtime (V8 isolate, not Node).
 // The Supabase client is created INLINE here, not imported from lib/, because
@@ -9,8 +11,10 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
-// Routes that require a signed-in session.
-const PROTECTED = ['/chat', '/settings']
+// Routes reachable WITHOUT a session. Everything else needs auth.
+// The matcher (bottom of this file) already excludes _next/*, static files,
+// favicon, and /auth/callback — those don't need to be listed here.
+const PUBLIC_ROUTES = ['/login']
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next({ request })
@@ -34,21 +38,23 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Refresh the session cookie on every request (kept fresh even on public pages).
+  // Refresh the session cookie on every request (kept fresh on all pages).
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const needsAuth = PROTECTED.some((p) => pathname === p || pathname.startsWith(p + '/'))
-  if (needsAuth && !user) {
+  const isPublic = PUBLIC_ROUTES.some((p) => pathname === p || pathname.startsWith(p + '/'))
+
+  // Not signed in and not on a public route → send to /login, preserving intent.
+  if (!user && !isPublic) {
     const url = new URL('/login', request.url)
-    url.searchParams.set('next', pathname)
+    if (pathname !== '/') url.searchParams.set('next', pathname + request.nextUrl.search)
     return NextResponse.redirect(url)
   }
 
-  // Already signed in and hitting /login — send to /chat.
+  // Already signed in and hitting /login — send to the dashboard home.
   if (user && pathname === '/login') {
-    return NextResponse.redirect(new URL('/chat', request.url))
+    return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
   return response
