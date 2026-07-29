@@ -1,4 +1,11 @@
 import type { NextConfig } from 'next'
+import { fileURLToPath } from 'node:url'
+import { dirname } from 'node:path'
+
+// Repo has two package.json roots (yvon-engine at repo root + yvon-dashboard here).
+// Pin Next's workspace root to THIS directory so the file-tracer picks the
+// correct package-lock and stops warning about multiple lockfiles.
+const HERE = dirname(fileURLToPath(import.meta.url))
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -24,6 +31,9 @@ const csp = [
 const nextConfig: NextConfig = {
   // Required for outputFileTracingIncludes to work
   output: 'standalone',
+  // Pin workspace root to this dir — silences 'multiple lockfiles' warning and
+  // ensures dashboard/package-lock.json is authoritative for the file-tracer.
+  outputFileTracingRoot: HERE,
   eslint: {
     ignoreDuringBuilds: true,
   },
