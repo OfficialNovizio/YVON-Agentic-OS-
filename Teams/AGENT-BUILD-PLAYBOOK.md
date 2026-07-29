@@ -62,6 +62,10 @@ These apply across every step below, not just one phase.
 
 **1.2 — Pick the agent within that department.** List the agents in that department (from the org chart / catalog) and ask which one to start with.
 
+**1.3 — Kickoff snapshot only, no info dump (added 2026-07-29).** When opening work on a new department or new agent, give the operator the end-to-end snapshot they need to decide, and stop. Not the full history, not the full catalog wall — the operator will ask for depth on the things they care about.
+  - **New department:** name · N agents · leader (name + role) · one-line mission. That's it.
+  - **New agent:** name · role · department · N total skills (X marketplace / Y custom) · reports-to. Don't paste the full skill list yet — that opens in §2's discussion.
+
 Don't move past this step until both are confirmed.
 
 ---
@@ -80,11 +84,15 @@ Once the skill list is settled, split it into two buckets:
 
 **Default to marketplace first, every time.** This is now a standing rule, not a per-agent question — real, sourced skills are cheaper to verify and faster to get right than something built from scratch, so exhaust the marketplace search before starting custom work. Only skip straight to custom if the skill list discussion in section 2 already made clear nothing marketplace-sourced could plausibly fit.
 
+**3.1 — Report the marketplace/custom split up front (added 2026-07-29).** After sorting, tell the operator the counts and the specifics before touching any file: `X marketplace, Y custom`, with each skill named in its bucket. Marketplace items include the source URL discovered under §4.1a's three-marketplace search. Wait for approval on the split before proceeding — reshuffling one marketplace pick into a custom (or the reverse) is much cheaper here than after files are written.
+
 ---
 
 ## 4. Build Marketplace Skills (one at a time)
 
 **4.1 — Search by purpose, not by name.** The catalog's skill names are often aspirational — a real skill with that exact name frequently doesn't exist. Search skillsmp.com, mcpmarket.com, and awesomeskill.ai for what the skill's *purpose* reflects, not a literal name match.
+
+**4.1a — Search all three marketplaces, not just one (added 2026-07-29).** The three canonical marketplaces (skillsmp.com, mcpmarket.com, awesomeskill.ai) each surface different skills. For every skill purpose, run the search against **all three** — not the first that returns a hit. Present findings as one table per skill: `source · candidate · fit · url`. Include your recommendation (highlight one row) but show every candidate so the operator can pick differently or pull two for a merge. If the operator gave URLs directly, research every one of them — not the first that looked promising.
 
 **4.2 — Compare candidates.** If more than one skill fits, compare them honestly. Either pick the single best fit, or — if several are each good on different terms — plan to pull and merge them. (Note: a merge is no longer a pure marketplace copy — it becomes a custom skill, see 4.6.)
 
@@ -124,6 +132,16 @@ Custom skills need the most involvement and the most research. Before drafting a
 **5.2 — Discuss tool needs.** If the skill would benefit from external data access ("map access" — i.e. a data source/connector) or needs a Python script (for multi-step math, scoring, or anything better done in code than reasoning), raise it explicitly and get agreement before building. If a script is approved, write it, test it with sample input, and confirm it actually runs correctly before presenting the skill as done.
 
 **5.3 — One skill, then stop.** Same as marketplace: build, present, wait for review.
+
+**5.4 — For each custom skill: plan then wait — including merges (added 2026-07-29).** Before writing any custom skill, present its own plan block and stop:
+  - **What** the skill is
+  - **Why** it's needed (the specific gap that marketplace couldn't fill)
+  - **How** it will work at a high level
+  - **If merging from marketplace sources:** list every source, what each contributes, why merging them into one custom skill is the right shape (vs. keeping them separate). Include the resource links for each source so the operator sees the ingredients, not just the recipe.
+  - **Resources** (URLs, references, related skills)
+  Then WAIT for approval on THAT specific skill before writing a byte. Repeat per skill — even if the operator pre-approved the full custom list in §3. Approval of the *list* is not approval of any *design*.
+
+**5.5 — After all skills done, complete the operational layer in one pass — except logical (added 2026-07-29).** Once every skill (marketplace + custom) is built and approved, fill in ALL remaining `operational/` subfolders (identity, agent, skill, tool, config) in a single pass — do NOT gate each subfolder individually. The one-at-a-time discipline (§0.2) applies to *skills* because they are designed artifacts; operational subfolders are configuration and plumbing, and grinding them one-by-one adds ceremony without adding safety. **`logical/` is the sole exception** — it stays a deliberate, book-grounded phase per §8, with its own plan-then-approve rhythm and full-book reads (see §8.12–8.13).
 
 ---
 
@@ -292,6 +310,19 @@ Build each logical artifact with the same discipline as a custom skill (introduc
 
 	  The litmus for book URLs: Can the operator click one link and see the actual book page (not a summary, not a blog about it)? If no single page exists for a free book, link to the chapter index. The URL must let the operator verify the book is real.
 
+	**8.12 — Book + scripts + resources presented together (added 2026-07-29).** When recommending books for a domain, always present a single bundle and stop:
+	  - **Candidate books** (3–5 preferred), each with author + one-sentence credential (Nobel laureate, Harvard prof, foundational text, etc.) + why it's relevant to this agent's judgments.
+	  - **For each book, the specific Python scripts it would generate** — e.g. "Kahneman → prospect-theory scorer, anchoring-bias detector, availability-heuristic weight." The operator sees the deliverables, not just the reading list.
+	  - **Open-source URL wherever one exists** — publisher page, Project Gutenberg, archive.org, Google Books, OpenStax, author's university page, Creative Commons repositories. Run the §8.8a three-attempt search *before* presenting; do not lead with "please provide the PDF."
+	  - **PAYWALL flag only after the three-attempt search has been exhausted** and logged in book-requirements.md. Only then is it acceptable to ask the operator to place the file in `Agents/_books/`.
+	  - Only permitted authors: recognized, peer-reviewed, established — old editions are fine when the source is authentic (foundational texts don't expire); no random self-published titles.
+	  Present, then wait for the operator to pick the book(s) or provide alternatives. On approval, §8.13's whole-book rule kicks in.
+
+	**8.13 — Never a summary, ever — full read OR ToC-guided full-section read (added 2026-07-29).** After a book is approved, load the actual full text. **No summaries, no cheat sheets, no blog posts about the book — no matter the token cost.** Two acceptable read modes:
+	  - **Full linear read** — start to finish. Default.
+	  - **ToC-guided smart read** — when the book is large: pull the Table of Contents first, identify the exact sections that map to the scripts being built, jump to those sections directly. Then read those sections **IN FULL**, not from a digest.
+	  What is banned, always: getAbstract, Blinkist, Shortform, Four Minute Books, book-review blogs, Wikipedia summaries of the book, "chapter summary in 10 bullet points" pages, or ANY third-party interpretation as substitute source (§8.10 already bans these; §8.13 reinforces that even under token pressure the answer is ToC-jump, never digest). The output must be a script that gives ~99% deterministic strict results — that only happens when the source material is read in its native form, not filtered through a summarizer's judgment.
+
 ---
 
 ## 9. agent.md
@@ -388,6 +419,11 @@ At every arrow: present what's about to be built, wait for approval, build exact
   - **How an agent uses it.** The agent's operational `tool/` file names the dependency as inherited — e.g. *"Shared OS tool (inherited, not owned): impeccable — Teams/Shared OS/skills/impeccable + `impeccable` CLI; see Shared OS/tools/shared-tool-registry.md."* The capability is real; the ownership is central.
   - **One-time human steps stay visible.** If a tool needs a step that can't be scripted into the repo (a plugin that self-installs into the harness, a browser-deps download requiring root), record that step once in the registry so every consuming agent inherits the same instruction instead of rediscovering it.
   - **Worked example.** impeccable (atlas, spark, pixel, mia), Playwright (quinn, mia, nova), and agentation (mia, quinn) are each multi-agent → each is a Shared OS tool: installed once in `dashboard/` / the repo `.claude/skills/`, registered in the shared-tool registry, cited by every consuming agent's `tool/` file. None is re-installed per agent.
+
+**13.7 — Every script lives in Shared OS; grep before writing a new one (added 2026-07-29).** All scripts (Python, shell, JS) generated for any agent go into `Shared OS/scripts/` (or `Shared OS/logical/` for logical extractions per §13.5) and are LINKED from the agent's `custom/*/scripts/` or `logical/`, never inlined per-agent. **Before writing a new script, grep `Shared OS/` for anything that already satisfies the need** — even partially. If a partial match exists, extend or wrap it instead of creating a parallel implementation. State the scan result in the pre-build check:
+  - `Shared OS scan: found N candidates → chose <path> (extending / wrapping / reusing as-is)` OR
+  - `Shared OS scan: no match — new script needed at Shared OS/scripts/<name>.py`
+  This applies even to one-off scripts — nothing about "one-off" predicts future reuse better than "grep first." Every agent inheriting the script gets bug fixes and improvements automatically; parallel copies drift silently until someone notices they've diverged.
 
 ---
 
