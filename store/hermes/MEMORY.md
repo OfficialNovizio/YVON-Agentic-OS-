@@ -8,6 +8,7 @@ rag/core/hermes_memory.py and src/cie/sources/hermes-memory.ts.
 Connected 2026-07-23 (TS-002).
 
 ## Fleet
+- [2026-07-28#loop] External verification signals (Vercel builds, Supabase migrations, third-party APIs) do NOT auto-feed the §7.1/§7.3 loops — those loops are defined for internal signals only. Every external system whose failure the operator has to relay manually is a rail gap. Use `cli/deploy.sh` (gate → push → vercel-watch → classify) instead of raw `git push` — it internalizes Vercel's signal. TS-007.
 - [2026-07-28#loop] Vercel is NOT our CI. Every git push to a Vercel-tracked branch MUST first pass `cli/verify-deploy.sh` (auto-run by `.git/hooks/pre-push`, installed via `cli/install-hooks.sh`). Four consecutive deploys failed in a row — every one a static bug the gate would have caught — the direct cost of skipping quinn's verify-before-promote gate. Reactive deploy-loops are process violations, not shortcuts. TS-006.
 - [2026-07-28#loop] Importing an external app = read its WORKFLOW.md / architecture docs first. Framework/dep-major migrations are structural (GATE 0), not file copies.
 - [2026-07-28#loop] Sandbox-first §7.7 now has a no-Docker TIER-1 (cli/quarantine.sh): throwaway box + warden safety-scan + claim check, PASS-before-promote. No Docker is no excuse to skip quarantine.
