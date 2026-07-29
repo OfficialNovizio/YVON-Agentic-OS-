@@ -37,14 +37,18 @@ interface NavSection {
   workspaces?: WorkspaceKey[]
 }
 
-// Sections tagged brand-only via `workspaces`: those content-production surfaces
-// only make sense inside a brand's workspace (Novizio / Hourbour / AgentX).
-// Everything else (Command Center, Knowledge, Build, System) is system-wide.
+// Strict workspace segregation — no section is duplicated across workspaces:
+//   YVON OS  = control plane. Fleet-level surfaces live here ONLY (no cloning).
+//   Brands   = content workbenches. Per-brand production surfaces live here ONLY.
+// Rationale: one team runs everything, so shared surfaces (agents, decisions,
+// settings) belong on the control plane. Switch to YVON to see them.
+const YVON_ONLY:  WorkspaceKey[] = ['yvon-os']
 const BRAND_ONLY: WorkspaceKey[] = ['novizio', 'hourbour', 'agentx']
 
 const NAV_SECTIONS: NavSection[] = [
   {
     heading: 'Command Center',
+    workspaces: YVON_ONLY,
     items: [
       { label: 'Dashboard Home', href: '/dashboard', icon: 'dashboard' },
       { label: 'Decision Queue', href: '/decision-queue', icon: 'filter_list', liveBadge: true },
@@ -86,6 +90,7 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     heading: 'Knowledge',
+    workspaces: YVON_ONLY,
     items: [
       { label: 'Brain & Wiki', href: '/brain-wiki', icon: 'psychology' },
       { label: 'Asset Lab', href: '/asset-lab', icon: 'palette' },
@@ -94,6 +99,7 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     heading: 'Build',
+    workspaces: YVON_ONLY,
     items: [
       { label: 'Idea Feed', href: '/idea-feed', icon: 'lightbulb', badge: 94 },
       { label: 'Software Pipeline', href: '/software-pipeline', icon: 'code', badge: 1 },
@@ -109,6 +115,7 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     heading: 'System',
+    workspaces: YVON_ONLY,
     items: [
       { label: 'Email Inbox', href: '/inbox', icon: 'inbox' },
       { label: 'Settings', href: '/settings', icon: 'settings' },
