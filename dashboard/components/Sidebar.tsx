@@ -26,7 +26,21 @@ interface NavItem {
 interface NavSection {
   heading: string
   items: NavItem[]
+  /**
+   * Which workspaces this section is visible in.
+   * Omitted = visible in ALL workspaces (system-wide sections).
+   * Set = visible only in the listed workspaces (e.g. brand-only content sections).
+   *
+   * YVON OS is the parent control plane — it manages other software and doesn't
+   * run social/content campaigns, so brand-only sections are hidden there.
+   */
+  workspaces?: WorkspaceKey[]
 }
+
+// Sections tagged brand-only via `workspaces`: those content-production surfaces
+// only make sense inside a brand's workspace (Novizio / Hourbour / AgentX).
+// Everything else (Command Center, Knowledge, Build, System) is system-wide.
+const BRAND_ONLY: WorkspaceKey[] = ['novizio', 'hourbour', 'agentx']
 
 const NAV_SECTIONS: NavSection[] = [
   {
@@ -44,6 +58,7 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     heading: 'Long-form',
+    workspaces: BRAND_ONLY,
     items: [
       { label: 'Content Pipeline', href: '/content-pipeline', icon: 'movie' },
       { label: 'Production Calendar', href: '/production-calendar', icon: 'calendar_month' },
@@ -53,6 +68,7 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     heading: 'Shorts',
+    workspaces: BRAND_ONLY,
     items: [
       { label: 'Short Pipeline', href: '/short-pipeline', icon: 'short_text' },
       { label: 'Shorts', href: '/shorts', icon: 'smart_display' },
@@ -60,6 +76,7 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     heading: 'Posts',
+    workspaces: BRAND_ONLY,
     items: [
       { label: 'Social Approvals', href: '/social-approvals', icon: 'check_circle', badge: 6 },
       { label: 'Scheduler', href: '/scheduler', icon: 'calendar_month' },
@@ -84,6 +101,7 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     heading: 'Revenue',
+    workspaces: BRAND_ONLY,
     items: [
       { label: 'Consulting CRM', href: '/consulting-crm', icon: 'handshake', badge: 3 },
       { label: 'Cinematic Sites', href: '/cinematic-sites', icon: 'palette' },
@@ -270,7 +288,9 @@ export function Sidebar({ mode, onToggle, mobileClose }: SidebarProps) {
 
       {/* ── Nav sections ───────────────────────────────────────────────────── */}
       <nav className="flex-1 px-3 py-3 space-y-5 overflow-y-auto no-scrollbar" onClick={handleNav}>
-        {NAV_SECTIONS.map((section) => (
+        {NAV_SECTIONS
+          .filter((s) => !s.workspaces || s.workspaces.includes(workspace.key))
+          .map((section) => (
           <div key={section.heading}>
             {mode === 'full' && (
               <div className="text-[10px] tracking-[0.15em] text-on-surface-variant px-3 mb-1.5 uppercase">
