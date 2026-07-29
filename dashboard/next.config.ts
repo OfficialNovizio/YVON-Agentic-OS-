@@ -54,6 +54,8 @@ const nextConfig: NextConfig = {
       { source: '/coding-agent',    destination: '/agents/dev-lead',          permanent: true },
       { source: '/website-agent',   destination: '/agents/zara-competitor',   permanent: true },
       { source: '/agent-manager',   destination: '/agents',                    permanent: true },
+      // TS-011: Skill Workshop renamed → Foundry hub; skills page lives under /foundry/skills.
+      { source: '/skill-workshop',  destination: '/foundry/skills',           permanent: true },
     ]
   },
 }

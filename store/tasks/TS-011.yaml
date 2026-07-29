@@ -1,0 +1,108 @@
+id: TS-011
+status: discovery
+source_message: >
+  "Rename to foundary and do hub page + sub-routes"
+  "Skill Workshop needs to be changed as. It's not only about skills its all
+  about skills + tools + MCP + train agent with new books + RAG + CIAS +
+  Harness and everything so how we can divide and view it"
+requester: operator
+rules: { sharding: worker gets item + contracts, handoff: contracts-only, inject_form: .toon }
+
+classification:
+  task_type: ui_ia_refactor
+  departments: [Engineering, Brand Studio]
+  lead: mia
+  security_review: none
+
+discovery:
+  decisions:
+    - name: "Foundry" (rename from skill-workshop). Sidebar label + URL both change.
+    - shape: "hub landing + 6 sub-routes (operator picked 'hub + sub-routes' over tabs)"
+    - subsystems: [skills, tools, mcp, training, rag, harness]
+    - stub_policy: >
+        Hub + 6 sub-routes ship as functional stubs — each sub-route has correct
+        title, breadcrumb, and a placeholder body describing what belongs there.
+        Real content wired in later TASK-SPECs (one per subsystem).
+    - urls:
+        hub:      /foundry
+        skills:   /foundry/skills     # existing agent-training moves here
+        tools:    /foundry/tools      # Shared OS tools registry
+        mcp:      /foundry/mcp        # MCP servers list + connect
+        training: /foundry/training   # book/document ingestion for agents
+        rag:      /foundry/rag        # CAOS pipeline health + retrieval tuning
+        harness:  /foundry/harness    # 5-gate verifier + telemetry
+    - migration:
+        old_path: /skill-workshop
+        new_path: /foundry/skills
+        redirect: 301 in next.config.ts redirects
+    - sidebar:
+        section: Command Center (YVON OS only per TS-008)
+        label:   "Foundry"
+        icon:    "factory" or "science" (material symbol)
+        href:    /foundry
+
+work_items:
+  - id: WI-1
+    owner: mia
+    objective: "Create /foundry hub landing page with 6 subsystem cards"
+    produces: [dashboard/app/foundry/page.tsx, dashboard/app/foundry/layout.tsx]
+    owns_paths: [dashboard/app/foundry/**]
+    acceptance:
+      - "landing shows 6 cards (Skills, Tools, MCPs, Training, RAG, Harness) with icon + 1-line description + link"
+      - "cards use atlas design tokens; consistent with other Command Center pages"
+      - "keyboard nav (tab through cards); WCAG AA contrast"
+
+  - id: WI-2
+    owner: mia
+    objective: "Move existing skill-workshop UI to /foundry/skills unchanged"
+    produces: [dashboard/app/foundry/skills/page.tsx]
+    owns_paths: [dashboard/app/foundry/skills/**]
+    consumes: [dashboard/app/skill-workshop/page.tsx]  # source to move
+    blocked_by: []
+    acceptance:
+      - "/foundry/skills renders identically to old /skill-workshop"
+      - "/api/skill-workshop and /api/skill-workshop/train remain accessible (no route rewrite)"
+
+  - id: WI-3
+    owner: mia
+    objective: "Stub sub-routes: /foundry/{tools,mcp,training,rag,harness}"
+    produces:
+      - dashboard/app/foundry/tools/page.tsx
+      - dashboard/app/foundry/mcp/page.tsx
+      - dashboard/app/foundry/training/page.tsx
+      - dashboard/app/foundry/rag/page.tsx
+      - dashboard/app/foundry/harness/page.tsx
+    owns_paths: [dashboard/app/foundry/**]
+    blocked_by: [WI-1]
+    acceptance:
+      - "each stub has: breadcrumb, title, 1-paragraph 'what belongs here' description, empty-state placeholder"
+      - "empty state cites the source-of-truth file (e.g. Tools → 'Shared OS/tools/shared-tool-registry.md')"
+      - "no fake data (per 'no mocks' rule)"
+
+  - id: WI-4
+    owner: mia
+    objective: "Sidebar update + old-path 301 redirect"
+    produces: [dashboard/components/Sidebar.tsx, dashboard/next.config.ts]
+    owns_paths: [dashboard/components/Sidebar.tsx, dashboard/next.config.ts]
+    blocked_by: [WI-1, WI-2, WI-3]
+    acceptance:
+      - "Sidebar Command Center: 'Skill Workshop' → 'Foundry' (icon updated)"
+      - "next.config.ts redirects /skill-workshop → /foundry/skills (permanent)"
+      - "gate passes (all 7 checks, tsc included)"
+
+  - id: WI-5
+    owner: quinn
+    objective: "Verify — gate green, all 6 sub-routes render, redirect fires"
+    blocked_by: [WI-4]
+    acceptance:
+      - "cli/verify-deploy.sh: 0 findings"
+      - "manual check on preview URL: /foundry, /foundry/skills, /foundry/tools, /foundry/mcp, /foundry/training, /foundry/rag, /foundry/harness all render"
+      - "/skill-workshop redirects to /foundry/skills"
+
+dag:
+  parallel: [[WI-1, WI-2, WI-3]]
+  critical_path: [WI-1, WI-4, WI-5]
+
+exit_gate: { owner: quinn, proof: "gate green + all 7 pages load + redirect verified" }
+
+feedback: { outcome: pending }

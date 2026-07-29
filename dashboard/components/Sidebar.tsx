@@ -57,7 +57,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Agents', href: '/agents', icon: 'smart_toy' },
       { label: 'Org Chart', href: '/org-chart', icon: 'account_tree' },
       { label: 'Office', href: '/office', icon: 'apartment' },
-      { label: 'Skill Workshop', href: '/skill-workshop', icon: 'school' },
+      { label: 'Foundry', href: '/foundry', icon: 'science' },
     ],
   },
   {
