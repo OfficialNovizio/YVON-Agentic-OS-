@@ -16,7 +16,9 @@ import { supabaseBrowser } from '@/lib/supabase-browser'
 import { ContextPanel } from './ContextPanel'
 import { PillHeader } from './PillHeader'
 import { MessageStream } from './MessageStream'
+import { SessionBar } from './SessionBar'
 import { Composer } from './Composer'
+import type { StatusChipData } from './StatusChip'
 import type { UploadedAttachment } from '@/lib/attachments-client'
 import type { ChatRoom } from '@/app/api/chat/rooms/route'
 import type { ChatMessage } from '@/app/api/chat/messages/route'
@@ -67,8 +69,15 @@ export default function ChatPage() {
   const [error, setError] = useState<string | null>(null)
   const [userId, setUserId] = useState<string>('')
   const [mobileRailOpen, setMobileRailOpen] = useState(false)
+  const [statusChips, setStatusChips] = useState<StatusChipData[]>([])
   const sendAbortRef = useRef<AbortController | null>(null)
   const lastMessageIdRef = useRef<string | null>(null)
+
+  // Derive the active agent id for the SessionBar (from focus or mentions)
+  const activeAgentId = useMemo<string | null>(() => {
+    if (focus.kind === 'agent') return focus.agentId
+    return null
+  }, [focus])
 
   // Grab the auth user's id once for the composer (uploads go under {userId}/…)
   useEffect(() => {
@@ -160,22 +169,119 @@ export default function ChatPage() {
     return () => clearInterval(t)
   }, [activeRoom, loadMessages])
 
-  // ── Send a message ────────────────────────────────────────────────────────
+  // ── Send a message (TS-017: decoupled + SSE) ─────────────────────────────
+  // Flow: POST user message → open SSE stream → pipe status events → on done, poll reply
   const send = useCallback(
     async (content: string, mentions: string[], attachments: UploadedAttachment[]) => {
       if (!activeRoom) return
       setSending(true)
       setAwaitingReply(true)
       setError(null)
+      setStatusChips([])
       const abort = new AbortController()
       sendAbortRef.current = abort
+
       try {
-        await jsonFetch<{ userMessage: unknown; agentMessage: unknown }>('/api/chat/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ roomId: activeRoom.id, content, mentions, attachments }),
+        // 1) POST the user message (fast — no longer blocks on Hermes)
+        const sendRes = await jsonFetch<{ userMessage: { id: string } | null }>(
+          '/api/chat/send',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ roomId: activeRoom.id, content, mentions, attachments }),
+            signal: abort.signal,
+          },
+        )
+        const msgId = sendRes.userMessage?.id
+        if (!msgId) {
+          setError('Failed to save message')
+          return
+        }
+
+        // 2) Open SSE stream to /api/chat/stream
+        const sseRes = await fetch(`/api/chat/stream?userMessageId=${msgId}`, {
           signal: abort.signal,
         })
+        if (!sseRes.ok) {
+          setError(`SSE stream failed: HTTP ${sseRes.status}`)
+          return
+        }
+        if (!sseRes.body) {
+          setError('SSE stream returned no body')
+          return
+        }
+
+        // 3) Read SSE events from the response body
+        const reader = sseRes.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+
+          // Split on double-newline (SSE event boundary)
+          let sep: number
+          while ((sep = buffer.indexOf('\n\n')) !== -1) {
+            const raw = buffer.slice(0, sep)
+            buffer = buffer.slice(sep + 2)
+
+            // Extract data: lines
+            const dataLines = raw
+              .split('\n')
+              .filter((l) => l.startsWith('data:'))
+              .map((l) => l.slice(5).trim())
+              .join('')
+            if (!dataLines) continue
+
+            try {
+              const event = JSON.parse(dataLines) as {
+                kind: string
+                toolName?: string
+                argsPreview?: string
+                ok?: boolean
+                summary?: string
+                message?: string
+                level?: string
+              }
+
+              // Map SSE events → StatusChipData
+              const chipKind = event.kind === 'tool_call.start'
+                ? 'tool_call.start'
+                : event.kind === 'tool_call.end'
+                  ? 'tool_call.end'
+                  : event.kind === 'notice'
+                    ? 'notice'
+                    : event.kind === 'thinking'
+                      ? 'thinking'
+                      : null
+
+              if (chipKind) {
+                setStatusChips((prev) => [
+                  ...prev,
+                  {
+                    id: `${event.kind}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                    kind: chipKind,
+                    toolName: event.toolName,
+                    argsPreview: event.argsPreview,
+                    summary: event.summary,
+                    message: event.message,
+                    level: event.level,
+                    ts: Date.now(),
+                    done: event.kind === 'tool_call.end',
+                  } as StatusChipData,
+                ])
+              }
+
+              // Stream ended
+              if (event.kind === 'done' || event.kind === 'error') break
+            } catch {
+              // Skip malformed JSON
+            }
+          }
+        }
       } catch (e) {
         if ((e as { name?: string })?.name === 'AbortError') {
           // silent — user pressed Stop
@@ -186,7 +292,8 @@ export default function ChatPage() {
         sendAbortRef.current = null
         setSending(false)
         if (activeRoom) await loadMessages(activeRoom.id, { silent: true })
-        setAwaitingReply(false)
+        // Brief delay so user can see the final status chips before they disappear
+        setTimeout(() => setAwaitingReply(false), 500)
       }
     },
     [activeRoom, loadMessages],
@@ -196,6 +303,7 @@ export default function ChatPage() {
     sendAbortRef.current?.abort()
     setAwaitingReply(false)
     setSending(false)
+    setStatusChips([])
   }, [])
 
   // ── Which departments should show pills / be listed? ───────────────────
@@ -297,6 +405,12 @@ export default function ChatPage() {
             onFocus={setFocus}
           />
 
+          <SessionBar
+            chips={statusChips}
+            agentId={activeAgentId}
+            active={awaitingReply}
+          />
+
           {error && (
             <div className="mx-3 mt-2 rounded-md border border-error/25 bg-error/10 px-3 py-2 text-[12px] text-error md:mx-6 md:mt-3">
               {error}
@@ -306,6 +420,7 @@ export default function ChatPage() {
           <MessageStream
             messages={messages}
             awaitingReply={awaitingReply || messagesLoading}
+            statusChips={statusChips}
             emptyLabel={
               focus.kind === 'workforce'
                 ? 'Nothing yet in Workforce. Say hi — everyone can see this.'

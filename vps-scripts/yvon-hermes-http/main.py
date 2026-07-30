@@ -187,6 +187,11 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
       { "kind": "done",  "response": "..." }   - full response + terminal
       { "kind": "error", "message": "..." }    - fatal error + terminal
       { "kind": "ping" }                       - keepalive (every 15s idle)
+      # TS-017 live status feed:
+      { "kind": "thinking" }                              - model is reasoning
+      { "kind": "tool_call.start", toolName, argsPreview } - tool dispatched
+      { "kind": "tool_call.end",  toolName, ok, summary }  - tool completed
+      { "kind": "notice", level, message }                 - status update
     """
     _prune_idle_agents()
     pooled = _agent_for(req.user_id, req.room_id)
@@ -197,6 +202,28 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
         if not text:
             return
         loop.call_soon_threadsafe(queue.put_nowait, {"kind": "token", "text": text})
+
+    # ── Status callbacks (TS-017: live status feed) ─────────────────────────
+    def on_thinking() -> None:
+        loop.call_soon_threadsafe(queue.put_nowait, {"kind": "thinking"})
+
+    def on_tool_start(name: str, args_preview: str) -> None:
+        loop.call_soon_threadsafe(
+            queue.put_nowait,
+            {"kind": "tool_call.start", "toolName": name, "argsPreview": args_preview},
+        )
+
+    def on_tool_end(name: str, ok: bool, summary: str) -> None:
+        loop.call_soon_threadsafe(
+            queue.put_nowait,
+            {"kind": "tool_call.end", "toolName": name, "ok": ok, "summary": summary},
+        )
+
+    def on_notice(level: str, message: str) -> None:
+        loop.call_soon_threadsafe(
+            queue.put_nowait,
+            {"kind": "notice", "level": level, "message": message},
+        )
 
     # Compose the prompt with routing hints so meta/CLAUDE.md §2 logic in Hermes
     # skills can respect our department/mention conventions.
@@ -214,6 +241,13 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
         try:
             with pooled.lock:  # serialize per-session; AIAgent isn't thread-safe
                 pooled.agent._stream_delta_callback = on_delta  # rebind for this turn
+                # Bind status callbacks — Hermes fires these during agent.chat()
+                # if the AIAgent class supports them (discovered in source).
+                # No-ops silently if the agent doesn't call them.
+                pooled.agent.thinking_callback = on_thinking
+                pooled.agent.tool_start_callback = on_tool_start
+                pooled.agent.tool_complete_callback = on_tool_end
+                pooled.agent.notice_callback = on_notice
                 response = pooled.agent.chat(full_prompt, stream_callback=on_delta)
                 result_holder["response"] = response or ""
         except Exception as exc:  # noqa: BLE001 — surface any agent failure

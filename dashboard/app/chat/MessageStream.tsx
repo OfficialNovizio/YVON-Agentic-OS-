@@ -8,6 +8,7 @@ import { Loader2 } from 'lucide-react'
 import { FLEET } from '@/lib/fleet'
 import type { ChatMessage } from '@/app/api/chat/messages/route'
 import { AttachmentCard } from './AttachmentCard'
+import { StatusChip, type StatusChipData } from './StatusChip'
 
 const FLEET_BY_ID = Object.fromEntries(FLEET.map((a) => [a.id, a]))
 
@@ -37,9 +38,11 @@ interface MessageStreamProps {
   messages: ChatMessage[]
   awaitingReply: boolean
   emptyLabel?: string
+  /** TS-017: live status chips (thinking, tool calls) for the current generation */
+  statusChips?: StatusChipData[]
 }
 
-export function MessageStream({ messages, awaitingReply, emptyLabel }: MessageStreamProps) {
+export function MessageStream({ messages, awaitingReply, emptyLabel, statusChips }: MessageStreamProps) {
   const endRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -62,6 +65,15 @@ export function MessageStream({ messages, awaitingReply, emptyLabel }: MessageSt
         {messages.map((m) => (
           <MessageRow key={m.id} m={m} />
         ))}
+        {statusChips && statusChips.length > 0 && (
+          <li className="pl-11">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {statusChips.map((chip) => (
+                <StatusChip key={chip.id} chip={chip} />
+              ))}
+            </div>
+          </li>
+        )}
         {awaitingReply && (
           <li className="flex items-center gap-2 pl-11 text-[12px] text-on-surface-variant/70">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
