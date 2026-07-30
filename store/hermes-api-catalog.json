@@ -1,0 +1,376 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "hermes_version": "0.16.0",
+  "hermes_release": "2026.6.5",
+  "hermes_upstream": "3705625b",
+  "openapi_source": "GET http://127.0.0.1:9119/openapi.json (on VPS after `hermes dashboard`)",
+  "captured_at": "2026-07-30",
+  "captured_by": "TS-013 WI-0.5 discovery",
+  "total_endpoints": 176,
+  "notes": [
+    "Hermes dashboard is DESIGNED for local-only access. CORS is restricted to localhost origins; PTY WebSocket explicitly rejects non-loopback peers even though uvicorn binds 127.0.0.1.",
+    "Chat via the dashboard = PTY WebSocket to a spawned `hermes --tui` binary. No JSON send-a-message endpoint exists.",
+    "The AIAgent Python class lives at /usr/local/lib/hermes-agent/run_agent.py — this is what our wrapper (TS-013 WI-2) will import.",
+    "For team-chat access from Vercel: TS-013 builds a small FastAPI adapter that imports AIAgent, exposes /v1/chat/stream (SSE), runs alongside (not replacing) Hermes's own dashboard.",
+    "Hermes's own state.db is NOT the source of truth for our team chat — our Supabase chat_messages table (with RLS) is. Hermes is used purely as the agent runtime."
+  ],
+  "wiring_status": {
+    "in_use_by_dashboard": [],
+    "planned_ts_013": [
+      "our wrapper (POST /v1/chat/stream — new, not Hermes)",
+      "GET /api/status — health check for the wrapper's Hermes availability"
+    ],
+    "future_candidates": {
+      "TS-014 (foundry/mcp wire-up)": [
+        "GET /api/mcp/catalog",
+        "GET/POST /api/mcp/servers",
+        "PUT /api/mcp/servers/{name}/enabled",
+        "POST /api/mcp/servers/{name}/test"
+      ],
+      "TS-015 (task-board Hermes-native)": [
+        "GET /api/plugins/kanban/board",
+        "GET/POST /api/plugins/kanban/boards",
+        "POST /api/plugins/kanban/tasks",
+        "PATCH /api/plugins/kanban/tasks/{task_id}"
+      ],
+      "TS-016 (foundry/skills wire-up)": [
+        "GET /api/skills",
+        "PUT /api/skills/toggle",
+        "GET /api/skills/hub/search",
+        "POST /api/skills/hub/install"
+      ],
+      "TS-017 (session viewer / activity feed)": [
+        "GET /api/sessions",
+        "GET /api/sessions/{session_id}/messages",
+        "GET /api/sessions/stats"
+      ]
+    }
+  },
+  "categories": {
+    "auth": {
+      "description": "Hermes's own session-token auth (loopback). We don't use these — dashboard has Supabase auth.",
+      "endpoints": [
+        { "method": "GET", "path": "/api/auth/me", "summary": "current user" },
+        { "method": "GET", "path": "/api/auth/providers", "summary": "list auth providers" },
+        { "method": "POST", "path": "/api/auth/ws-ticket", "summary": "mint WebSocket ticket for PTY" }
+      ]
+    },
+    "status_health": {
+      "description": "Basic health checks. Used by our wrapper to verify Hermes is up.",
+      "endpoints": [
+        { "method": "GET", "path": "/api/status", "summary": "no-auth health" },
+        { "method": "GET", "path": "/api/system/stats", "summary": "cpu/mem/disk usage" },
+        { "method": "GET", "path": "/api/logs", "summary": "recent logs" }
+      ]
+    },
+    "sessions_history": {
+      "description": "Chat history stored in state.db. READ-ONLY for our purposes — team chat writes to Supabase, not here.",
+      "endpoints": [
+        { "method": "GET", "path": "/api/sessions", "summary": "list sessions" },
+        { "method": "GET", "path": "/api/sessions/{session_id}", "summary": "session detail" },
+        { "method": "GET", "path": "/api/sessions/{session_id}/messages", "summary": "messages in a session" },
+        { "method": "GET", "path": "/api/sessions/{session_id}/latest-descendant", "summary": "resume threading" },
+        { "method": "GET", "path": "/api/sessions/{session_id}/export", "summary": "export session" },
+        { "method": "PATCH", "path": "/api/sessions/{session_id}", "summary": "rename session" },
+        { "method": "DELETE", "path": "/api/sessions/{session_id}", "summary": "delete session" },
+        { "method": "GET", "path": "/api/sessions/search", "summary": "search across sessions" },
+        { "method": "GET", "path": "/api/sessions/stats", "summary": "stats" },
+        { "method": "POST", "path": "/api/sessions/bulk-delete", "summary": "bulk delete" },
+        { "method": "POST", "path": "/api/sessions/prune", "summary": "prune old" },
+        { "method": "GET", "path": "/api/sessions/empty/count", "summary": "count empty sessions" },
+        { "method": "DELETE", "path": "/api/sessions/empty", "summary": "delete empty sessions" }
+      ]
+    },
+    "mcp": {
+      "description": "MCP server management. TS-014 will surface this in /foundry/mcp.",
+      "endpoints": [
+        { "method": "GET", "path": "/api/mcp/catalog", "summary": "browse available MCP servers" },
+        { "method": "POST", "path": "/api/mcp/catalog/install", "summary": "install from catalog" },
+        { "method": "GET", "path": "/api/mcp/servers", "summary": "list installed MCP servers" },
+        { "method": "POST", "path": "/api/mcp/servers", "summary": "add server" },
+        { "method": "DELETE", "path": "/api/mcp/servers/{name}", "summary": "remove server" },
+        { "method": "PUT", "path": "/api/mcp/servers/{name}/enabled", "summary": "enable/disable" },
+        { "method": "POST", "path": "/api/mcp/servers/{name}/test", "summary": "smoke-test" }
+      ]
+    },
+    "skills": {
+      "description": "Skill management + hub. TS-016 will surface in /foundry/skills.",
+      "endpoints": [
+        { "method": "GET", "path": "/api/skills", "summary": "list installed skills" },
+        { "method": "PUT", "path": "/api/skills/toggle", "summary": "enable/disable a skill" },
+        { "method": "GET", "path": "/api/skills/hub/scan", "summary": "scan hub" },
+        { "method": "GET", "path": "/api/skills/hub/search", "summary": "search hub" },
+        { "method": "GET", "path": "/api/skills/hub/sources", "summary": "list sources" },
+        { "method": "GET", "path": "/api/skills/hub/preview", "summary": "preview a hub skill" },
+        { "method": "POST", "path": "/api/skills/hub/install", "summary": "install from hub" },
+        { "method": "POST", "path": "/api/skills/hub/update", "summary": "update installed" },
+        { "method": "POST", "path": "/api/skills/hub/uninstall", "summary": "uninstall" }
+      ]
+    },
+    "kanban": {
+      "description": "Hermes-native kanban board. TS-015 could wire to our /task-board.",
+      "endpoints": [
+        { "method": "GET", "path": "/api/plugins/kanban/board", "summary": "current board" },
+        { "method": "GET", "path": "/api/plugins/kanban/boards", "summary": "list boards" },
+        { "method": "POST", "path": "/api/plugins/kanban/boards", "summary": "create board" },
+        { "method": "DELETE", "path": "/api/plugins/kanban/boards/{slug}", "summary": "delete board" },
+        { "method": "PATCH", "path": "/api/plugins/kanban/boards/{slug}", "summary": "update board" },
+        { "method": "POST", "path": "/api/plugins/kanban/boards/{slug}/switch", "summary": "switch active board" },
+        { "method": "POST", "path": "/api/plugins/kanban/tasks", "summary": "create task" },
+        { "method": "POST", "path": "/api/plugins/kanban/tasks/bulk", "summary": "bulk create" },
+        { "method": "GET", "path": "/api/plugins/kanban/tasks/{task_id}", "summary": "task detail" },
+        { "method": "PATCH", "path": "/api/plugins/kanban/tasks/{task_id}", "summary": "update task" },
+        { "method": "DELETE", "path": "/api/plugins/kanban/tasks/{task_id}", "summary": "delete task" },
+        { "method": "POST", "path": "/api/plugins/kanban/tasks/{task_id}/comments", "summary": "comment" },
+        { "method": "POST", "path": "/api/plugins/kanban/tasks/{task_id}/decompose", "summary": "AI decompose" },
+        { "method": "POST", "path": "/api/plugins/kanban/tasks/{task_id}/specify", "summary": "AI specify" },
+        { "method": "POST", "path": "/api/plugins/kanban/tasks/{task_id}/reassign", "summary": "reassign" },
+        { "method": "POST", "path": "/api/plugins/kanban/tasks/{task_id}/reclaim", "summary": "reclaim" },
+        { "method": "GET", "path": "/api/plugins/kanban/tasks/{task_id}/log", "summary": "activity log" },
+        { "method": "GET", "path": "/api/plugins/kanban/tasks/{task_id}/attachments", "summary": "attachments" },
+        { "method": "POST", "path": "/api/plugins/kanban/tasks/{task_id}/attachments", "summary": "add attachment" },
+        { "method": "GET", "path": "/api/plugins/kanban/attachments/{attachment_id}", "summary": "download attachment" },
+        { "method": "DELETE", "path": "/api/plugins/kanban/attachments/{attachment_id}", "summary": "delete attachment" },
+        { "method": "GET", "path": "/api/plugins/kanban/assignees", "summary": "list assignees" },
+        { "method": "GET", "path": "/api/plugins/kanban/workers/active", "summary": "active workers" },
+        { "method": "GET", "path": "/api/plugins/kanban/runs/{run_id}", "summary": "run detail" },
+        { "method": "POST", "path": "/api/plugins/kanban/runs/{run_id}/terminate", "summary": "terminate run" },
+        { "method": "GET", "path": "/api/plugins/kanban/runs/{run_id}/inspect", "summary": "inspect run" },
+        { "method": "GET", "path": "/api/plugins/kanban/stats", "summary": "board stats" },
+        { "method": "GET", "path": "/api/plugins/kanban/diagnostics", "summary": "diagnostics" },
+        { "method": "GET", "path": "/api/plugins/kanban/config", "summary": "config" },
+        { "method": "POST", "path": "/api/plugins/kanban/dispatch", "summary": "dispatch work" },
+        { "method": "GET", "path": "/api/plugins/kanban/home-channels", "summary": "home channels" },
+        { "method": "GET", "path": "/api/plugins/kanban/orchestration", "summary": "orchestration" },
+        { "method": "PUT", "path": "/api/plugins/kanban/orchestration", "summary": "update orchestration" },
+        { "method": "GET", "path": "/api/plugins/kanban/profiles", "summary": "profiles" },
+        { "method": "PATCH", "path": "/api/plugins/kanban/profiles/{profile_name}", "summary": "update profile" },
+        { "method": "POST", "path": "/api/plugins/kanban/profiles/{profile_name}/describe-auto", "summary": "AI describe" },
+        { "method": "POST", "path": "/api/plugins/kanban/links", "summary": "add link" },
+        { "method": "DELETE", "path": "/api/plugins/kanban/links", "summary": "remove link" }
+      ]
+    },
+    "profiles": {
+      "description": "Hermes profiles (per-persona configs).",
+      "endpoints": [
+        { "method": "GET", "path": "/api/profiles", "summary": "list profiles" },
+        { "method": "POST", "path": "/api/profiles", "summary": "create profile" },
+        { "method": "GET", "path": "/api/profiles/active", "summary": "active profile" },
+        { "method": "POST", "path": "/api/profiles/active", "summary": "set active" },
+        { "method": "GET", "path": "/api/profiles/sessions", "summary": "sessions per profile" },
+        { "method": "DELETE", "path": "/api/profiles/{name}", "summary": "delete profile" },
+        { "method": "PATCH", "path": "/api/profiles/{name}", "summary": "rename" },
+        { "method": "POST", "path": "/api/profiles/{name}/describe-auto", "summary": "AI describe" },
+        { "method": "PUT", "path": "/api/profiles/{name}/description", "summary": "set description" },
+        { "method": "PUT", "path": "/api/profiles/{name}/model", "summary": "set default model" },
+        { "method": "POST", "path": "/api/profiles/{name}/open-terminal", "summary": "open terminal" },
+        { "method": "GET", "path": "/api/profiles/{name}/setup-command", "summary": "setup command" },
+        { "method": "GET", "path": "/api/profiles/{name}/soul", "summary": "get SOUL.md" },
+        { "method": "PUT", "path": "/api/profiles/{name}/soul", "summary": "update SOUL.md" }
+      ]
+    },
+    "gateway_messaging": {
+      "description": "Telegram/Discord/WhatsApp/Weixin gateway management.",
+      "endpoints": [
+        { "method": "POST", "path": "/api/gateway/start", "summary": "start gateway service" },
+        { "method": "POST", "path": "/api/gateway/stop", "summary": "stop gateway" },
+        { "method": "POST", "path": "/api/gateway/restart", "summary": "restart gateway" },
+        { "method": "GET", "path": "/api/messaging/platforms", "summary": "list configured platforms" },
+        { "method": "PUT", "path": "/api/messaging/platforms/{platform_id}", "summary": "update platform config" },
+        { "method": "POST", "path": "/api/messaging/platforms/{platform_id}/test", "summary": "smoke-test platform" },
+        { "method": "POST", "path": "/api/messaging/telegram/onboarding/start", "summary": "start TG onboarding" },
+        { "method": "GET", "path": "/api/messaging/telegram/onboarding/{pairing_id}", "summary": "onboarding state" },
+        { "method": "DELETE", "path": "/api/messaging/telegram/onboarding/{pairing_id}", "summary": "cancel onboarding" },
+        { "method": "POST", "path": "/api/messaging/telegram/onboarding/{pairing_id}/apply", "summary": "apply onboarding" }
+      ]
+    },
+    "webhooks": {
+      "description": "Dynamic webhook subscriptions — event-driven agent activation.",
+      "endpoints": [
+        { "method": "GET", "path": "/api/webhooks", "summary": "list webhooks" },
+        { "method": "POST", "path": "/api/webhooks", "summary": "create webhook" },
+        { "method": "DELETE", "path": "/api/webhooks/{name}", "summary": "remove webhook" },
+        { "method": "PUT", "path": "/api/webhooks/{name}/enabled", "summary": "enable/disable" }
+      ]
+    },
+    "cron": {
+      "description": "Cron job management.",
+      "endpoints": [
+        { "method": "GET", "path": "/api/cron/jobs", "summary": "list jobs" },
+        { "method": "POST", "path": "/api/cron/jobs", "summary": "create job" },
+        { "method": "GET", "path": "/api/cron/jobs/{job_id}", "summary": "job detail" },
+        { "method": "PUT", "path": "/api/cron/jobs/{job_id}", "summary": "update job" },
+        { "method": "DELETE", "path": "/api/cron/jobs/{job_id}", "summary": "delete job" },
+        { "method": "POST", "path": "/api/cron/jobs/{job_id}/pause", "summary": "pause" },
+        { "method": "POST", "path": "/api/cron/jobs/{job_id}/resume", "summary": "resume" },
+        { "method": "POST", "path": "/api/cron/jobs/{job_id}/trigger", "summary": "run now" },
+        { "method": "GET", "path": "/api/cron/jobs/{job_id}/runs", "summary": "run history" },
+        { "method": "GET", "path": "/api/cron/delivery-targets", "summary": "delivery targets" }
+      ]
+    },
+    "config_env": {
+      "description": "Config + secrets management.",
+      "endpoints": [
+        { "method": "GET", "path": "/api/config", "summary": "get config" },
+        { "method": "PUT", "path": "/api/config", "summary": "update config" },
+        { "method": "GET", "path": "/api/config/raw", "summary": "raw yaml" },
+        { "method": "PUT", "path": "/api/config/raw", "summary": "set raw yaml" },
+        { "method": "GET", "path": "/api/config/defaults", "summary": "defaults" },
+        { "method": "GET", "path": "/api/config/schema", "summary": "schema" },
+        { "method": "GET", "path": "/api/env", "summary": "list env" },
+        { "method": "PUT", "path": "/api/env", "summary": "set env" },
+        { "method": "DELETE", "path": "/api/env", "summary": "delete env" },
+        { "method": "POST", "path": "/api/env/reveal", "summary": "reveal (rate-limited)" }
+      ]
+    },
+    "credentials_oauth": {
+      "description": "Pooled credentials + OAuth providers.",
+      "endpoints": [
+        { "method": "GET", "path": "/api/credentials/pool", "summary": "list pool" },
+        { "method": "POST", "path": "/api/credentials/pool", "summary": "add to pool" },
+        { "method": "DELETE", "path": "/api/credentials/pool/{provider}/{index}", "summary": "remove entry" },
+        { "method": "GET", "path": "/api/providers/oauth", "summary": "list OAuth providers" },
+        { "method": "DELETE", "path": "/api/providers/oauth/{provider_id}", "summary": "revoke provider" },
+        { "method": "POST", "path": "/api/providers/oauth/{provider_id}/start", "summary": "start OAuth flow" },
+        { "method": "POST", "path": "/api/providers/oauth/{provider_id}/submit", "summary": "submit OAuth" },
+        { "method": "GET", "path": "/api/providers/oauth/{provider_id}/poll/{session_id}", "summary": "poll OAuth" },
+        { "method": "DELETE", "path": "/api/providers/oauth/sessions/{session_id}", "summary": "cancel OAuth session" },
+        { "method": "POST", "path": "/api/providers/validate", "summary": "validate creds" }
+      ]
+    },
+    "model_ai": {
+      "description": "Model selection + info.",
+      "endpoints": [
+        { "method": "GET", "path": "/api/model/info", "summary": "current model" },
+        { "method": "GET", "path": "/api/model/options", "summary": "available models" },
+        { "method": "GET", "path": "/api/model/recommended-default", "summary": "recommended" },
+        { "method": "GET", "path": "/api/model/auxiliary", "summary": "auxiliary models" },
+        { "method": "POST", "path": "/api/model/set", "summary": "set model assignment" }
+      ]
+    },
+    "memory": {
+      "description": "Hermes memory system.",
+      "endpoints": [
+        { "method": "GET", "path": "/api/memory", "summary": "get memory" },
+        { "method": "PUT", "path": "/api/memory/provider", "summary": "set memory provider" },
+        { "method": "POST", "path": "/api/memory/reset", "summary": "reset memory" }
+      ]
+    },
+    "tools_toolsets": {
+      "description": "Toolset management.",
+      "endpoints": [
+        { "method": "GET", "path": "/api/tools/toolsets", "summary": "list toolsets" },
+        { "method": "PUT", "path": "/api/tools/toolsets/{name}", "summary": "update toolset" },
+        { "method": "GET", "path": "/api/tools/toolsets/{name}/config", "summary": "toolset config" },
+        { "method": "PUT", "path": "/api/tools/toolsets/{name}/env", "summary": "set env" },
+        { "method": "PUT", "path": "/api/tools/toolsets/{name}/provider", "summary": "set provider" },
+        { "method": "POST", "path": "/api/tools/toolsets/{name}/post-setup", "summary": "post-setup hook" }
+      ]
+    },
+    "ops": {
+      "description": "Operations: backup, doctor, hooks, debug.",
+      "endpoints": [
+        { "method": "POST", "path": "/api/ops/backup", "summary": "backup" },
+        { "method": "GET", "path": "/api/ops/checkpoints", "summary": "list checkpoints" },
+        { "method": "POST", "path": "/api/ops/checkpoints/prune", "summary": "prune checkpoints" },
+        { "method": "POST", "path": "/api/ops/config-migrate", "summary": "migrate config" },
+        { "method": "POST", "path": "/api/ops/debug-share", "summary": "debug share bundle" },
+        { "method": "POST", "path": "/api/ops/doctor", "summary": "doctor" },
+        { "method": "POST", "path": "/api/ops/dump", "summary": "dump state" },
+        { "method": "POST", "path": "/api/ops/hooks", "summary": "create hook" },
+        { "method": "GET", "path": "/api/ops/hooks", "summary": "list hooks" },
+        { "method": "DELETE", "path": "/api/ops/hooks", "summary": "delete hook" },
+        { "method": "POST", "path": "/api/ops/import", "summary": "import" },
+        { "method": "POST", "path": "/api/ops/prompt-size", "summary": "measure prompt size" },
+        { "method": "POST", "path": "/api/ops/security-audit", "summary": "security audit" }
+      ]
+    },
+    "curator_pairing": {
+      "description": "Curator (auto skill/plugin curation) + device pairing.",
+      "endpoints": [
+        { "method": "GET", "path": "/api/curator", "summary": "curator state" },
+        { "method": "PUT", "path": "/api/curator/paused", "summary": "pause/resume curator" },
+        { "method": "POST", "path": "/api/curator/run", "summary": "run curator" },
+        { "method": "GET", "path": "/api/pairing", "summary": "pairing state" },
+        { "method": "POST", "path": "/api/pairing/approve", "summary": "approve pairing" },
+        { "method": "POST", "path": "/api/pairing/clear-pending", "summary": "clear pending" },
+        { "method": "POST", "path": "/api/pairing/revoke", "summary": "revoke pairing" }
+      ]
+    },
+    "dashboard_admin": {
+      "description": "Hermes dashboard admin (fonts, themes, plugins).",
+      "endpoints": [
+        { "method": "GET", "path": "/api/dashboard/font", "summary": "current font" },
+        { "method": "PUT", "path": "/api/dashboard/font", "summary": "set font" },
+        { "method": "GET", "path": "/api/dashboard/themes", "summary": "themes" },
+        { "method": "PUT", "path": "/api/dashboard/theme", "summary": "set theme" },
+        { "method": "GET", "path": "/api/dashboard/plugins", "summary": "list dashboard plugins" },
+        { "method": "GET", "path": "/api/dashboard/plugins/hub", "summary": "plugin hub" },
+        { "method": "GET", "path": "/api/dashboard/plugins/rescan", "summary": "rescan plugins" },
+        { "method": "POST", "path": "/api/dashboard/plugins/{name}/visibility", "summary": "set visibility" },
+        { "method": "PUT", "path": "/api/dashboard/plugin-providers", "summary": "update plugin providers" },
+        { "method": "POST", "path": "/api/dashboard/agent-plugins/install", "summary": "install agent plugin" },
+        { "method": "DELETE", "path": "/api/dashboard/agent-plugins/{name}", "summary": "uninstall" },
+        { "method": "POST", "path": "/api/dashboard/agent-plugins/{name}/enable", "summary": "enable" },
+        { "method": "POST", "path": "/api/dashboard/agent-plugins/{name}/disable", "summary": "disable" },
+        { "method": "POST", "path": "/api/dashboard/agent-plugins/{name}/update", "summary": "update" }
+      ]
+    },
+    "achievements_plugin": {
+      "description": "Hermes achievements plugin.",
+      "endpoints": [
+        { "method": "GET", "path": "/api/plugins/hermes-achievements/achievements", "summary": "list achievements" },
+        { "method": "GET", "path": "/api/plugins/hermes-achievements/recent-unlocks", "summary": "recent unlocks" },
+        { "method": "POST", "path": "/api/plugins/hermes-achievements/rescan", "summary": "rescan" },
+        { "method": "POST", "path": "/api/plugins/hermes-achievements/reset-state", "summary": "reset" },
+        { "method": "GET", "path": "/api/plugins/hermes-achievements/scan-status", "summary": "scan status" },
+        { "method": "GET", "path": "/api/plugins/hermes-achievements/sessions/{session_id}/badges", "summary": "session badges" }
+      ]
+    },
+    "audio_media": {
+      "description": "TTS/STT + media catalog.",
+      "endpoints": [
+        { "method": "POST", "path": "/api/audio/speak", "summary": "TTS" },
+        { "method": "POST", "path": "/api/audio/transcribe", "summary": "STT" },
+        { "method": "GET", "path": "/api/audio/elevenlabs/voices", "summary": "ElevenLabs voices" },
+        { "method": "GET", "path": "/api/media", "summary": "media catalog" }
+      ]
+    },
+    "actions_analytics": {
+      "description": "Actions + analytics.",
+      "endpoints": [
+        { "method": "GET", "path": "/api/actions/{name}/status", "summary": "action status" },
+        { "method": "GET", "path": "/api/analytics/models", "summary": "model analytics" },
+        { "method": "GET", "path": "/api/analytics/usage", "summary": "usage analytics" }
+      ]
+    },
+    "portal_update": {
+      "description": "Nous Portal + self-update.",
+      "endpoints": [
+        { "method": "GET", "path": "/api/portal", "summary": "portal state" },
+        { "method": "POST", "path": "/api/hermes/update", "summary": "run update" },
+        { "method": "GET", "path": "/api/hermes/update/check", "summary": "check for updates" }
+      ]
+    },
+    "auth_web_pages": {
+      "description": "Dashboard-served HTML/auth pages (not JSON API).",
+      "endpoints": [
+        { "method": "GET", "path": "/login", "summary": "login page HTML" },
+        { "method": "GET", "path": "/auth/login", "summary": "OAuth login redirect" },
+        { "method": "GET", "path": "/auth/callback", "summary": "OAuth callback" },
+        { "method": "POST", "path": "/auth/logout", "summary": "logout" },
+        { "method": "POST", "path": "/auth/password-login", "summary": "password login" },
+        { "method": "GET", "path": "/assets/{filename}.css", "summary": "static CSS" },
+        { "method": "GET", "path": "/dashboard-plugins/{plugin_name}/{file_path}", "summary": "plugin assets" },
+        { "method": "GET", "path": "/{full_path}", "summary": "SPA catch-all" }
+      ]
+    },
+    "websockets": {
+      "description": "WebSocket routes — not in OpenAPI, discovered from source. Auth via /api/auth/ws-ticket.",
+      "endpoints": [
+        { "method": "WS", "path": "/api/pty", "summary": "PTY bridge — spawns `hermes --tui` in a POSIX PTY, forwards bytes. LOOPBACK-ONLY BY DESIGN. Auth: ?token=<session_token> or ?ticket=<minted>." },
+        { "method": "WS", "path": "/api/ws", "summary": "Event stream WebSocket — dashboard-wide events (mentioned in web_server.py comment as 'the dashboard's own Chat tab drives the agent over /api/ws + /api/pty')." }
+      ]
+    }
+  }
+}
