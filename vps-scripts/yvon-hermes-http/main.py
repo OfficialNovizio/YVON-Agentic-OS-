@@ -34,8 +34,10 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Optional
 
+import httpx
+
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, Response
 from pydantic import BaseModel, Field
 
 # ── Import Hermes internals ─────────────────────────────────────────────────
@@ -60,6 +62,7 @@ BEARER_TOKEN_PATH = os.environ.get("YVON_HERMES_TOKEN_PATH", "/etc/yvon-hermes/t
 POOL_IDLE_TTL_S = int(os.environ.get("YVON_HERMES_POOL_TTL", "1800"))  # 30 min
 MAX_ITERATIONS = int(os.environ.get("YVON_HERMES_MAX_ITER", "40"))
 STREAM_KEEPALIVE_S = float(os.environ.get("YVON_HERMES_KEEPALIVE", "15"))
+HERMES_API_URL = os.environ.get("HERMES_API_URL", "http://127.0.0.1:9119")
 
 log = logging.getLogger("yvon-hermes-http")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -138,7 +141,10 @@ def _prune_idle_agents() -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     log.info("yvon-hermes-http starting · hermes=%s · pool_ttl=%ss", HERMES_HOME, POOL_IDLE_TTL_S)
+    # HTTP client for proxying to Hermes API
+    _app.state.http_client = httpx.AsyncClient(base_url=HERMES_API_URL, timeout=30.0)
     yield
+    await _app.state.http_client.aclose()
     log.info("yvon-hermes-http shutting down · %d agents in pool", len(_pool))
 
 
@@ -317,3 +323,59 @@ def pool_drop(req: DropRequest) -> JSONResponse:
     with _pool_lock:
         removed = _pool.pop((req.user_id, req.room_id), None) is not None
     return JSONResponse({"dropped": removed})
+
+
+# ── Hermes API proxy (TS-018: full Hermes control) ─────────────────────────
+# Catch-all proxy that forwards ANY /api/* request to Hermes's own API server
+# (127.0.0.1:9119). This exposes all 176 Hermes endpoints to the dashboard
+# through our authenticated wrapper. The dashboard calls /api/hermes/... and we
+# forward to Hermes's /api/... transparently.
+#
+# Security: the Hermes API is local-only (CORS/WebSocket restricted). Our proxy
+# adds bearer-token auth so only authenticated YVON users can reach it.
+
+@app.api_route(
+    "/api/hermes/{path:path}",
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+    dependencies=[Depends(require_bearer)],
+)
+async def proxy_to_hermes(request: Request, path: str) -> Response:
+    """Proxy any /api/hermes/* request to Hermes's own API."""
+    client: httpx.AsyncClient = request.app.state.http_client
+    target_path = f"/api/{path}"
+
+    # Build query string from original request
+    params = dict(request.query_params)
+
+    # Read body if present
+    body = None
+    if request.method in ("POST", "PUT", "PATCH"):
+        body = await request.body()
+
+    # Forward headers (strip host/connection to let httpx set them)
+    headers = {
+        k: v
+        for k, v in request.headers.items()
+        if k.lower() not in ("host", "connection", "content-length", "accept-encoding")
+    }
+
+    try:
+        hermes_resp = await client.request(
+            method=request.method,
+            url=target_path,
+            params=params,
+            headers=headers,
+            content=body,
+        )
+    except httpx.RequestError as exc:
+        log.error("hermes proxy failed for %s: %s", target_path, exc)
+        return JSONResponse(
+            {"error": f"Hermes API unreachable: {exc}"},
+            status_code=503,
+        )
+
+    return Response(
+        content=hermes_resp.content,
+        status_code=hermes_resp.status_code,
+        headers=dict(hermes_resp.headers),
+    )
