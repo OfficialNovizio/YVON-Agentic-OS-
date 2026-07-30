@@ -325,6 +325,73 @@ def pool_drop(req: DropRequest) -> JSONResponse:
     return JSONResponse({"dropped": removed})
 
 
+# ── Whisper transcription (TS-017 WI-5: voice messages) ────────────────────
+# Receives an audio file, pipes it through the local Whisper CLI, returns text.
+import subprocess
+import tempfile
+
+
+class WhisperInput(BaseModel):
+    audio: str  # base64-encoded audio data
+
+
+@app.post("/v1/transcribe", dependencies=[Depends(require_bearer)])
+async def transcribe_audio(request: Request) -> JSONResponse:
+    """Transcribe an audio file using local Whisper installation."""
+    try:
+        form = await request.form()
+        audio_file = form.get("audio")
+        if not audio_file:
+            return JSONResponse({"error": "no audio file provided"}, status_code=400)
+
+        # Read file content
+        content = await audio_file.read()
+
+        # Write to temp file
+        suffix = ".webm"
+        if isinstance(audio_file, type(...)):
+            pass
+        # Try to get filename for extension
+        try:
+            suffix = f".{audio_file.filename.rsplit('.', 1)[-1]}" if hasattr(audio_file, 'filename') and audio_file.filename else ".webm"
+        except Exception:
+            suffix = ".webm"
+
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(content)
+            tmp_path = tmp.name
+
+        # Run whisper CLI
+        result = subprocess.run(
+            ["whisper", tmp_path, "--model", "base", "--output_format", "json", "--language", "en"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+
+        os.unlink(tmp_path)
+
+        if result.returncode != 0:
+            log.error("whisper failed: %s", result.stderr)
+            return JSONResponse({"error": f"whisper failed: {result.stderr[:200]}"}, status_code=500)
+
+        # Parse the JSON output from whisper
+        import json as json_lib
+        try:
+            output = json_lib.loads(result.stdout)
+            text = output.get("text", "")
+        except json_lib.JSONDecodeError:
+            text = result.stdout.strip()
+
+        return JSONResponse({"text": text})
+
+    except subprocess.TimeoutExpired:
+        return JSONResponse({"error": "whisper timed out"}, status_code=504)
+    except Exception as exc:
+        log.exception("transcribe failed")
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
 # ── Hermes API proxy (TS-018: full Hermes control) ─────────────────────────
 # Catch-all proxy that forwards ANY /api/* request to Hermes's own API server
 # (127.0.0.1:9119). This exposes all 176 Hermes endpoints to the dashboard

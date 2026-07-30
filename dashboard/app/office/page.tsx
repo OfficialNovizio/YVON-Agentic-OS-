@@ -13,7 +13,8 @@ import {
   type PointerEvent as RPointerEvent,
 } from 'react'
 import { PageHeader, StatusBadge } from '@/components/ui'
-import { RotateCcw, Users, Activity } from 'lucide-react'
+import { RotateCcw, Users, Activity, Database } from 'lucide-react'
+import { listSessions } from '@/lib/hermes-api'
 import { useLiveData } from '@/lib/use-live-data'
 import { FLEET, FLEET_DEPARTMENTS } from '@/lib/fleet'
 import type { FleetDepartment } from '@/lib/fleet'
@@ -284,6 +285,19 @@ export default function OfficePage() {
   // Dept filter (click room to focus)
   const [focusDept, setFocusDept] = useState<FleetDepartment | null>(null)
 
+  // Hermes live sessions count
+  const [hermesSessions, setHermesSessions] = useState<number | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const sessions = await listSessions({ limit: '1' })
+        if (!cancelled) setHermesSessions(Array.isArray(sessions) ? (sessions as any[]).length : 0)
+      } catch { /* */ }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
   // Team-halo clusters: agents sharing a sessionId
   const teams = useMemo(() => {
     const bySession = new Map<string, OfficeAgent[]>()
@@ -408,6 +422,12 @@ export default function OfficePage() {
         {totals.errored > 0 && (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-error/25 bg-error/10 px-2.5 py-1 text-error">
             <span className="font-mono">{totals.errored}</span> errored
+          </span>
+        )}
+        {hermesSessions !== null && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-400/25 bg-sky-400/10 px-2.5 py-1 text-sky-300">
+            <Database className="h-3 w-3" />
+            <span className="font-mono">{hermesSessions}</span> Hermes sessions
           </span>
         )}
       </div>
