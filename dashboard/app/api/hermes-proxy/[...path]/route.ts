@@ -14,12 +14,15 @@ const HERMES_TOKEN = process.env.HERMES_TOKEN?.trim() ?? ''
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-async function handler(request: NextRequest, { params }: { params: { path: string[] } }) {
+type RouteParams = { params: Promise<{ path: string[] }> }
+
+async function handler(request: NextRequest, { params }: RouteParams) {
   if (!HERMES_BASE || !HERMES_TOKEN) {
     return NextResponse.json({ error: 'Hermes not configured' }, { status: 503 })
   }
 
-  const path = params.path.join('/')
+  const { path: pathParts } = await params
+  const path = pathParts.join('/')
   const targetUrl = `${HERMES_BASE}/api/hermes/${path}`
 
   // Build query string
@@ -43,10 +46,8 @@ async function handler(request: NextRequest, { params }: { params: { path: strin
       body,
     })
 
-    // Read response body
     const responseBody = await response.blob()
 
-    // Forward response headers (selectively)
     const headers: Record<string, string> = {
       'content-type': response.headers.get('content-type') || 'application/json',
     }
