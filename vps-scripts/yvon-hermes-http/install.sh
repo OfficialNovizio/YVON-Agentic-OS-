@@ -105,13 +105,34 @@ cp -f "$SRC_DIR/nginx/hermes.conf" "/etc/nginx/sites-available/${DOMAIN}.conf"
 ln -sf "/etc/nginx/sites-available/${DOMAIN}.conf" "/etc/nginx/sites-enabled/${DOMAIN}.conf"
 mkdir -p /var/www/html  # for ACME challenges before cert is present
 
-# Comment out ssl_certificate lines during first nginx test (before cert exists)
-# certbot will uncomment/rewrite them after issuance.
 if [ ! -d "/etc/letsencrypt/live/${DOMAIN}" ]; then
-  warn "no TLS cert yet — temporarily disabling HTTPS block for the first nginx reload"
-  sed -i '/listen 443/,/^}$/s/^/# /' "/etc/nginx/sites-available/${DOMAIN}.conf"
-  # Un-comment the HTTP block if we accidentally caught it
-  sed -i 's/^# server {/server {/; s/^# \s*listen 80/listen 80/; s/^# \s*listen \[::\]:80/listen [::]:80/' "/etc/nginx/sites-available/${DOMAIN}.conf"
+  warn "no TLS cert yet — deploying HTTP-only config for certbot ACME"
+  cat > "/etc/nginx/sites-available/${DOMAIN}.conf" << NGXHTTP
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${DOMAIN};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8765;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_set_header Connection '';
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
+        proxy_request_buffering off;
+    }
+}
+NGXHTTP
 fi
 
 nginx -t || fail "nginx config invalid"
@@ -123,12 +144,6 @@ if [ ! -d "/etc/letsencrypt/live/${DOMAIN}" ]; then
   certbot --nginx -d "${DOMAIN}" --non-interactive --agree-tos --email "${CERT_EMAIL}" --redirect \
     || fail "certbot failed — check DNS: dig ${DOMAIN} +short (should return 2.25.189.22)"
   ok "TLS cert issued for ${DOMAIN}"
-  # Restore our full config now that certs exist
-  cp -f "$SRC_DIR/nginx/hermes.conf" "/etc/nginx/sites-available/${DOMAIN}.conf"
-  # Point at the freshly-issued cert
-  sed -i "s|# ssl_certificate     |ssl_certificate     |; s|# ssl_certificate_key |ssl_certificate_key |" "/etc/nginx/sites-available/${DOMAIN}.conf"
-  nginx -t && systemctl reload nginx
-  ok "nginx reloaded with TLS"
 else
   ok "TLS cert already present"
 fi
