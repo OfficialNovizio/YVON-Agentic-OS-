@@ -26,6 +26,12 @@ What each of pixel's skills technically needs.
 - Image viewing is required for honest QA — same caveat as atlas/spark: without it, QA is spec-level and says so.
 - No scripts, no web search (OS-level layer).
 
+## Shared OS Tools (inherited, not owned)
+
+| Tool | Purpose | When to use |
+|------|---------|-------------|
+| **Penpot** — see `Shared OS/tools/shared-tool-registry.md` | Open-source design & prototyping platform | When producing design assets, inspecting layouts, or exporting visual components |
+
 ## How to Apply
 
 File I/O + image viewing is the floor; a generation connector is the full capability.

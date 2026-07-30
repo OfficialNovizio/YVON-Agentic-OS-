@@ -32,6 +32,12 @@ What dana needs, and what happens without each. dana's defining constraint: it a
 - The asymmetry is the point: dana is the agent closest to the data and therefore the most restricted from changing it. Reads inform design; writes are always human-executed.
 - New store connectors enter via the stack-profile + config + a store playbook, under a locked plan.
 
+## Shared OS Tools (inherited, not owned)
+
+| Tool | Purpose | When to use |
+|------|---------|-------------|
+| **ScrapeGraphAI** — see `Shared OS/tools/shared-tool-registry.md` | AI-powered structured web data extraction | When extracting structured data from documentation sites, competitor platforms, or public web sources for data modeling and analysis |
+
 ## MCP Marketplace Tools (added 2026-07-14)
 
 | Tool | Source | Purpose | Always-on |

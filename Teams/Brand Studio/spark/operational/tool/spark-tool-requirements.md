@@ -25,6 +25,12 @@ What each of spark's skills technically needs.
 - No scripts, no generation (spark judges; pixel produces), no web search (OS-level layer).
 - The gate log is append-only, following the system-wide ledger discipline.
 
+## Shared OS Tools (inherited, not owned)
+
+| Tool | Purpose | When to use |
+|------|---------|-------------|
+| **Penpot** — see `Shared OS/tools/shared-tool-registry.md` | Open-source design & prototyping platform | When creating prototypes, exploring creative directions, or reviewing visual concepts |
+
 ## How to Apply
 
 Image viewing + file read on the definers' documents + append on the logs is the floor.

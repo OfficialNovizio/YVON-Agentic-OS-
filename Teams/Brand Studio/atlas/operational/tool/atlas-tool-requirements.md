@@ -27,6 +27,12 @@ What each of atlas's skills technically needs. Governance values live in `atlas-
 - Image *generation* is pixel's core need, not atlas's — atlas judges; pixel produces. brand-identity's mockup step is the one place generation helps atlas directly.
 - No scripts, no Python, no web search (OS-level layer). The WCAG contrast math in brand-identity's reference is simple enough to compute in reasoning; a contrast-check script is a plausible future 5.2 proposal if audit volume demands it.
 
+## Shared OS Tools (inherited, not owned)
+
+| Tool | Purpose | When to use |
+|------|---------|-------------|
+| **Penpot** — see `Shared OS/tools/shared-tool-registry.md` | Open-source design & prototyping platform | When creating brand kits, design systems, or prototyping layouts in the browser |
+
 ## How to Apply
 
 File read/write on kit and log locations plus image viewing is the floor for atlas to function as designed.

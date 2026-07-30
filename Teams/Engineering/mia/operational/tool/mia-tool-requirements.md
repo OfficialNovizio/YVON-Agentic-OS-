@@ -33,6 +33,12 @@ What mia needs, and what happens without each. Every external tool call is plan-
 - mia is a primary builder with genuine code write access — every change passes dev's review (incl. integrity checks: mock data, hardcoded brand values), quinn's gate, and aegis for client-security surfaces.
 - Agentation + Reticle/Playwright are proposed connectors (plan §5), surfaced to the operator at deployment; skills degrade to method/manual without them.
 
+## Shared OS Tools (inherited, not owned)
+
+| Tool | Purpose | When to use |
+|------|---------|-------------|
+| **Whisper** — see `Shared OS/tools/shared-tool-registry.md` | Transcribe voice messages in chat UI | When displaying voice messages after AudioRecorder captures them |
+
 ## MCP Marketplace Tools (added 2026-07-14)
 
 | Tool | Source | Purpose | Always-on |

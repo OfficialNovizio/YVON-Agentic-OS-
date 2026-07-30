@@ -32,6 +32,13 @@ What rank needs, and what happens without each. Every external tool call is plan
 - The claude-seo plugin is treated as a dated tool (its SEO facts — INP, schema deprecations — have dates); verify high-stakes facts against current Google guidance (ops's volatility-split discipline).
 - Plugin + Google API creds are proposed connectors surfaced to the operator at deployment (plan §5).
 
+## Shared OS Tools (inherited, not owned)
+
+| Tool | Purpose | When to use |
+|------|---------|-------------|
+| **ScrapeGraphAI** — see `Shared OS/tools/shared-tool-registry.md` | AI-powered web scraping for competitor analysis | When extracting structured SEO data from competitor pages — meta tags, headings, schemas, content structure |
+| **Plausible CE** — see `Shared OS/tools/shared-tool-registry.md` | Self-hosted web analytics | When analyzing traffic sources, page performance, bounce rates, and SEO measurement data |
+
 ## MCP Marketplace Tools (added 2026-07-14)
 
 rank is the department's heaviest consumer of web-scraping and analysis tools. The SEO domain demands competitive intelligence, SERP monitoring, and content extraction that cannot be done without accessing live web content.

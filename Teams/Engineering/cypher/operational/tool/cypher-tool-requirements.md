@@ -36,6 +36,13 @@ What cypher needs, and what happens without each. cypher's needs are unusual: th
 - cypher is the department's highest-privilege-to-do-harm agent and therefore its most constrained: every capability is caged, sandboxed, findings-only, and operator-gated. The asymmetry is intentional.
 - Connector/tool adoption surfaced to the operator at deployment; nothing is granted outside the signed scope + sandbox.
 
+## Shared OS Tools (inherited, not owned)
+
+| Tool | Purpose | When to use |
+|------|---------|-------------|
+| **Agent-Reach** — see `Shared OS/tools/shared-tool-registry.md` | Web access to Twitter/X, Reddit, YouTube, GitHub, RSS — zero API fees | During OSINT/reconnaissance for gathering public information from social media and development platforms |
+| **ScrapeGraphAI** — see `Shared OS/tools/shared-tool-registry.md` | AI-powered web scraping | When extracting structured data from target web pages during recon phase |
+
 ## MCP Marketplace Tools (added 2026-07-14)
 
 | Tool | Source | Purpose | Always-on |

@@ -14,6 +14,10 @@
 - **No write access to production systems, cloud accounts, or identity stores** — warden writes policy and risk records only.
 - **No risk acceptance authority for material risk** — that's the operator's/board's.
 
-## Notes
+## Shared OS Tools (inherited, not owned)
+
+| Tool | Purpose | When to use |
+|------|---------|-------------|
+| **Bitwarden Server** — see `Shared OS/tools/shared-tool-registry.md` | Self-hosted password manager | When designing security policies for fleet credential management, secrets distribution, and access control. Lighter alternative: Vaultwarden |
 - warden is the department's most-watched, least-privileged agent by design; its power is analysis and policy, not action.
 - The GRC pack is a runtime-installed connector (rank/claude-seo pattern), surfaced to the operator per the chosen standard.

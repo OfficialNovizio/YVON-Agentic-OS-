@@ -31,3 +31,10 @@ What raj needs, and what happens without each. Every external tool call is plan-
 
 - raj is a primary builder, so it has genuine code write access — but every change passes dev's review (incl. the integrity checks for agent-authored code), quinn's gate, and aegis for risky surfaces.
 - New infra (queue, telemetry) enters via the stack-profile + config, under a locked plan.
+
+## Shared OS Tools (inherited, not owned)
+
+| Tool | Purpose | When to use |
+|------|---------|-------------|
+| **Whisper** — see `Shared OS/tools/shared-tool-registry.md` | Voice message transcription backend API | When building audio processing endpoints for voice messages in chat |
+| **Cal.diy** — see `Shared OS/tools/shared-tool-registry.md` | Scheduling/booking API | When integrating meeting scheduling into the dashboard |

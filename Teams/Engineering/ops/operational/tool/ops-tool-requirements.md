@@ -32,3 +32,10 @@ What ops needs to operate at full capability, and what happens without each. Eve
 
 - Connector adoption is surfaced to the operator at deployment (plan §5 pattern); every skill degrades to method-only per its fallback section.
 - New tooling enters via a playbook update + this file + config — under a locked plan, never ad hoc.
+
+## Shared OS Tools (inherited, not owned)
+
+| Tool | Purpose | When to use |
+|------|---------|-------------|
+| **Plausible CE** — see `Shared OS/tools/shared-tool-registry.md` | Self-hosted web analytics dashboard | When monitoring traffic, setting up dashboards, or analyzing site performance metrics |
+| **Bitwarden Server** — see `Shared OS/tools/shared-tool-registry.md` | Self-hosted password manager | When managing deployment secrets, API keys, or infrastructure credentials. Lighter alternative: Vaultwarden (single container) |
