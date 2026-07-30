@@ -7,6 +7,7 @@ import { useEffect, useRef } from 'react'
 import { Loader2 } from 'lucide-react'
 import { FLEET } from '@/lib/fleet'
 import type { ChatMessage } from '@/app/api/chat/messages/route'
+import { AttachmentCard } from './AttachmentCard'
 
 const FLEET_BY_ID = Object.fromEntries(FLEET.map((a) => [a.id, a]))
 
@@ -98,9 +99,27 @@ function MessageRow({ m }: { m: ChatMessage }) {
           )}
           <span className="text-[11px] text-on-surface-variant/50">{safeTime(m.createdAt)}</span>
         </div>
-        <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed text-on-surface">
-          {m.content}
-        </p>
+        {m.content && (
+          <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed text-on-surface">
+            {m.content}
+          </p>
+        )}
+        {m.attachments && m.attachments.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {m.attachments.map((a) => (
+              <AttachmentCard
+                key={a.id}
+                id={a.id}
+                storagePath={a.storagePath}
+                filename={a.filename}
+                mimeType={a.mimeType}
+                sizeBytes={a.sizeBytes}
+                durationMs={a.durationMs}
+                waveform={a.waveform}
+              />
+            ))}
+          </div>
+        )}
         {m.mentions.length > 0 && (
           <div className="mt-1 flex flex-wrap gap-1 text-[10px] text-on-surface-variant/60">
             {m.mentions.map((h) => (

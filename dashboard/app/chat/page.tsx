@@ -7,14 +7,17 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Menu, X as CloseIcon } from 'lucide-react'
 import { PageHeader } from '@/components/ui'
 import { NotificationsSetup } from '@/components/NotificationsSetup'
 import { FLEET_DEPARTMENTS } from '@/lib/fleet'
 import type { FleetDepartment } from '@/lib/fleet'
+import { supabaseBrowser } from '@/lib/supabase-browser'
 import { ContextPanel } from './ContextPanel'
 import { PillHeader } from './PillHeader'
 import { MessageStream } from './MessageStream'
 import { Composer } from './Composer'
+import type { UploadedAttachment } from '@/lib/attachments-client'
 import type { ChatRoom } from '@/app/api/chat/rooms/route'
 import type { ChatMessage } from '@/app/api/chat/messages/route'
 
@@ -62,7 +65,21 @@ export default function ChatPage() {
   const [awaitingReply, setAwaitingReply] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string>('')
+  const [mobileRailOpen, setMobileRailOpen] = useState(false)
+  const sendAbortRef = useRef<AbortController | null>(null)
   const lastMessageIdRef = useRef<string | null>(null)
+
+  // Grab the auth user's id once for the composer (uploads go under {userId}/…)
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const supabase = supabaseBrowser()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!cancelled && user) setUserId(user.id)
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   // ── Load rooms once on mount ─────────────────────────────────────────────
   useEffect(() => {
@@ -145,20 +162,28 @@ export default function ChatPage() {
 
   // ── Send a message ────────────────────────────────────────────────────────
   const send = useCallback(
-    async (content: string, mentions: string[]) => {
+    async (content: string, mentions: string[], attachments: UploadedAttachment[]) => {
       if (!activeRoom) return
       setSending(true)
       setAwaitingReply(true)
       setError(null)
+      const abort = new AbortController()
+      sendAbortRef.current = abort
       try {
         await jsonFetch<{ userMessage: unknown; agentMessage: unknown }>('/api/chat/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ roomId: activeRoom.id, content, mentions }),
+          body: JSON.stringify({ roomId: activeRoom.id, content, mentions, attachments }),
+          signal: abort.signal,
         })
       } catch (e) {
-        setError(e instanceof Error ? e.message : String(e))
+        if ((e as { name?: string })?.name === 'AbortError') {
+          // silent — user pressed Stop
+        } else {
+          setError(e instanceof Error ? e.message : String(e))
+        }
       } finally {
+        sendAbortRef.current = null
         setSending(false)
         if (activeRoom) await loadMessages(activeRoom.id, { silent: true })
         setAwaitingReply(false)
@@ -166,6 +191,12 @@ export default function ChatPage() {
     },
     [activeRoom, loadMessages],
   )
+
+  const stopSend = useCallback(() => {
+    sendAbortRef.current?.abort()
+    setAwaitingReply(false)
+    setSending(false)
+  }, [])
 
   // ── Which departments should show pills / be listed? ───────────────────
   const visibleDepartments = useMemo<FleetDepartment[]>(() => {
@@ -190,23 +221,74 @@ export default function ChatPage() {
       ? `Message #${focus.department}…`
       : `Ask @${focus.agentId}…`
 
+  // Wrap setFocus so mobile drawer auto-closes on selection
+  const focusAndClose = useCallback((next: Focus) => {
+    setFocus(next)
+    setMobileRailOpen(false)
+  }, [])
+
   return (
-    <div className="flex h-[calc(100vh-2rem)] flex-col p-2 md:p-4">
-      <PageHeader
-        title="Chat"
-        subtitle="Workforce · Departments · Individual agents. @mention to target."
-      />
+    <div className="flex h-[calc(100vh-1rem)] flex-col p-2 md:h-[calc(100vh-2rem)] md:p-4">
+      {/* Header with mobile hamburger */}
+      <div className="mb-2 flex items-start justify-between gap-2 md:mb-0">
+        <div className="flex flex-1 items-start gap-2">
+          <button
+            onClick={() => setMobileRailOpen(true)}
+            aria-label="Open rooms"
+            className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.02] text-on-surface-variant transition hover:border-white/25 hover:text-on-surface md:hidden"
+          >
+            <Menu className="h-4 w-4" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <PageHeader
+              title="Chat"
+              subtitle="Workforce · Departments · Individual agents. @mention to target."
+            />
+          </div>
+        </div>
+      </div>
 
       <NotificationsSetup />
 
       {/* Main split card */}
       <div className="flex min-h-0 flex-1 gap-0 overflow-hidden rounded-2xl border border-white/[0.10] bg-black/20">
-        {/* Left rail */}
-        <aside className="hidden w-64 shrink-0 border-r border-white/[0.06] md:block">
-          <ContextPanel rooms={rooms} focus={focus} onFocus={setFocus} loading={roomsLoading} />
+        {/* ── Desktop / tablet rail ──────────────────────────────────── */}
+        <aside className="hidden w-56 shrink-0 border-r border-white/[0.06] md:block lg:w-64">
+          <ContextPanel rooms={rooms} focus={focus} onFocus={focusAndClose} loading={roomsLoading} />
         </aside>
 
-        {/* Message pane */}
+        {/* ── Mobile drawer ──────────────────────────────────────────── */}
+        {mobileRailOpen && (
+          <div className="fixed inset-0 z-50 md:hidden">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setMobileRailOpen(false)}
+              aria-hidden
+            />
+            <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-white/[0.10] bg-surface-container">
+              <div className="flex items-center justify-between border-b border-white/[0.06] p-3">
+                <div className="text-[13px] font-semibold text-on-surface">Rooms</div>
+                <button
+                  onClick={() => setMobileRailOpen(false)}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-on-surface-variant hover:bg-white/5 hover:text-on-surface"
+                  aria-label="Close"
+                >
+                  <CloseIcon className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                <ContextPanel
+                  rooms={rooms}
+                  focus={focus}
+                  onFocus={focusAndClose}
+                  loading={roomsLoading}
+                />
+              </div>
+            </aside>
+          </div>
+        )}
+
+        {/* ── Message pane ───────────────────────────────────────────── */}
         <section className="flex min-w-0 flex-1 flex-col bg-black/30">
           <PillHeader
             focus={focus}
@@ -216,7 +298,7 @@ export default function ChatPage() {
           />
 
           {error && (
-            <div className="mx-6 mt-3 rounded-md border border-error/25 bg-error/10 px-3 py-2 text-[12px] text-error">
+            <div className="mx-3 mt-2 rounded-md border border-error/25 bg-error/10 px-3 py-2 text-[12px] text-error md:mx-6 md:mt-3">
               {error}
             </div>
           )}
@@ -237,10 +319,13 @@ export default function ChatPage() {
 
           <Composer
             sending={sending}
-            disabled={!activeRoom}
-            disabledReason={!activeRoom ? 'Loading room…' : undefined}
+            awaitingReply={awaitingReply}
+            disabled={!activeRoom || !userId}
+            disabledReason={!activeRoom ? 'Loading room…' : !userId ? 'Signing in…' : undefined}
             forcedMention={forcedMention}
             placeholder={composerPlaceholder}
+            userId={userId}
+            onStop={stopSend}
             onSend={send}
           />
         </section>

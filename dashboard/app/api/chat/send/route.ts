@@ -1,19 +1,30 @@
-// POST /api/chat/send  body: { roomId, content, mentions? }
-// Inserts the user message via RLS-safe client, calls Hermes for the agent
-// reply, then saves the reply message. Hermes-unconfigured environments fall
-// back to a degrade-loudly placeholder (no crash, no fake reply).
-// Owner: raj · TS-009 Push C1 · TS-013 WI-5 wired Hermes
+// POST /api/chat/send  body: { roomId, content, mentions?, attachments? }
+// Inserts the user message via RLS-safe client, attaches any uploaded files,
+// calls Hermes for the agent reply, then saves the reply message.
+// Owner: raj · TS-009 Push C1 · TS-013 WI-5 Hermes · TS-016 WI-6 attachments
 import { supabaseServer } from '@/lib/supabase-server'
 import { askHermes, hermesConfig } from '@/lib/hermes-client'
 import { sendPush, type PushSubscriptionRow } from '@/lib/push-server'
 import type { WorkspaceKey } from '@/lib/workspaces'
 
-// Match agent handles that appear right after '@'. Handles are lowercase kebab
-// (fleet.ts ids). Anything after '@' up to whitespace / punctuation.
 const MENTION_RE = /@([a-z][a-z0-9-]*)/g
 
+interface IncomingAttachment {
+  storagePath: string
+  filename: string
+  mimeType: string
+  sizeBytes: number
+  durationMs?: number
+  waveform?: number[]
+}
+
 export async function POST(request: Request): Promise<Response> {
-  let body: { roomId?: string; content?: string; mentions?: string[] }
+  let body: {
+    roomId?: string
+    content?: string
+    mentions?: string[]
+    attachments?: IncomingAttachment[]
+  }
   try {
     body = await request.json()
   } catch {
@@ -21,9 +32,10 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const roomId = body.roomId?.trim()
-  const content = body.content?.trim()
-  if (!roomId || !content) {
-    return Response.json({ error: 'roomId and content required' }, { status: 400 })
+  const content = body.content?.trim() ?? ''
+  const attachments = Array.isArray(body.attachments) ? body.attachments.slice(0, 10) : []
+  if (!roomId || (content.length === 0 && attachments.length === 0)) {
+    return Response.json({ error: 'roomId and either content or attachments required' }, { status: 400 })
   }
 
   const supabase = await supabaseServer()
@@ -66,6 +78,28 @@ export async function POST(request: Request): Promise<Response> {
       return Response.json({ error: "you don't have access to this room" }, { status: 403 })
     }
     return Response.json({ error: String((userErr as { message?: string })?.message ?? userErr) }, { status: 500 })
+  }
+
+  const userMessageId = (userMsg as { id: string; created_at: string } | null)?.id
+
+  // 1b) Attach uploaded files to the user message.
+  if (userMessageId && attachments.length > 0) {
+    const rows = attachments.map((a) => ({
+      message_id: userMessageId,
+      uploader_user_id: user.id,
+      storage_path: a.storagePath,
+      filename: a.filename,
+      mime_type: a.mimeType,
+      size_bytes: a.sizeBytes,
+      duration_ms: a.durationMs ?? null,
+      waveform: a.waveform ?? null,
+    }))
+    const { error: attErr } = await supabase.from('chat_attachments').insert(rows)
+    if (attErr) {
+      // Non-fatal — message is saved, just attachments failed. Log the reason.
+      // eslint-disable-next-line no-console
+      console.warn('chat_attachments insert failed:', (attErr as { message?: string })?.message)
+    }
   }
 
   // 2) Call Hermes for the real agent reply. Degrades loudly if not configured.

@@ -8,6 +8,7 @@ rag/core/hermes_memory.py and src/cie/sources/hermes-memory.ts.
 Connected 2026-07-23 (TS-002).
 
 ## Fleet
+- [2026-07-30#loop] Every UI ships MOBILE + TABLET RESPONSIVE from the first commit. Three breakpoints: phone (<768px, rail→drawer, single column, safe-area), tablet (768-1024px, 2-col narrower rail), desktop (≥1024px, full). Test iPhone 15 / iPad / desktop in DevTools before pre-push gate. Playbook §0.9.
 - [2026-07-29#loop] Agent-build kickoff: give the SNAPSHOT only (dept: N agents · leader · one-line mission | agent: N skills X marketplace/Y custom · reports-to). Never info-dump the catalog on entry. Playbook §1.3.
 - [2026-07-29#loop] Marketplace search: run against ALL 3 canonical marketplaces (skillsmp.com, mcpmarket.com, awesomeskill.ai) — not the first that returns a hit. Same rule when the operator provides URLs directly: research every one. Present one table per skill with all candidates + recommendation. Playbook §4.1a.
 - [2026-07-29#loop] Custom skills: plan-then-wait for EACH skill (what/why/how + merge sources if merging + resources). Approval of the custom LIST in §3 is not approval of any DESIGN. Only after all skills done, batch the rest of operational/ in one pass (identity/agent/skill/tool/config) — but logical/ stays deliberate per §8. Playbook §5.4, §5.5.

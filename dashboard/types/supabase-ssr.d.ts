@@ -38,6 +38,20 @@ declare module '@supabase/ssr' {
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     from(table: string): any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    storage: {
+      from(bucket: string): {
+        upload(
+          path: string,
+          file: File | Blob,
+          options?: { contentType?: string; cacheControl?: string; upsert?: boolean }
+        ): Promise<{ data: { path: string } | null; error: { message?: string } | null }>
+        createSignedUrl(
+          path: string,
+          expiresIn: number
+        ): Promise<{ data: { signedUrl: string } | null; error: { message?: string } | null }>
+      }
+    }
   }
 
   export function createBrowserClient(url: string, key: string): AnySupabaseClient

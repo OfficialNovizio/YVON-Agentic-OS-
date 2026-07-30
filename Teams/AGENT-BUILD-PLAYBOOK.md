@@ -42,6 +42,12 @@ These apply across every step below, not just one phase.
 
 **0.7 — No agent finalizes a decision without real logical/numeric backing.**
 
+**0.9 — Every UI is mobile + tablet responsive from the FIRST commit (added 2026-07-30).** Not "we'll polish later." A page/component/modal that only works on a wide desktop is a bug, not "unfinished." The three breakpoints:
+  - **Phone (< 768px)** — single column · rails become slide-in drawers with a hamburger toggle · sticky composers respect iOS safe-area-inset-bottom · every interactive element ≥ 44×44px touch target · no horizontal scroll on the page body (horizontal scroll INSIDE a bounded container is fine — pills, chip strips)
+  - **Tablet (768–1024px)** — 2-column · rails narrower · full desktop shape but touch-friendly spacing
+  - **Desktop (≥ 1024px)** — full pixel-tight desktop layout
+  Tailwind's `md:` prefix is the tablet cutoff (768px); `lg:` is desktop (1024px). Before the pre-push gate, test in Chrome DevTools device toolbar at iPhone 15 (390×844), iPad (820×1180), and desktop widths. If a page renders as a horizontally-scrolling mess at 390px, it's not shippable — go back and add the responsive states. This rule applies to every UI touched — not just new pages.
+
 **0.8 — Toonify before moving to the next agent (added 2026-07-16).** When an agent's build is finalized (all skills built, operational layer complete, logical/book-requirements.md updated), the last step before marking the agent complete is to run TOON conversion on all its .md files. This is non-negotiable — the CIE engine reads .toon files, not raw .md files, for context injection. The procedure:
 
   - Run `node cli/toonify.js --agent <agent-id>` to convert all .md files in that agent's folder to .toon (TOON Claude format).
