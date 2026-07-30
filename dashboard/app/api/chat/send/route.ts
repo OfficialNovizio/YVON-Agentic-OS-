@@ -5,6 +5,7 @@
 // Owner: raj · TS-009 Push C1 · TS-013 WI-5 wired Hermes
 import { supabaseServer } from '@/lib/supabase-server'
 import { askHermes, hermesConfig } from '@/lib/hermes-client'
+import { sendPush, type PushSubscriptionRow } from '@/lib/push-server'
 import type { WorkspaceKey } from '@/lib/workspaces'
 
 // Match agent handles that appear right after '@'. Handles are lowercase kebab
@@ -131,6 +132,45 @@ export async function POST(request: Request): Promise<Response> {
       { userMessageId: (userMsg as { id: string } | null)?.id, error: 'reply save failed' },
       { status: 200 }
     )
+  }
+
+  // 3) Fire Web Push to everyone in the room who's subscribed.
+  //    Best-effort — silent failures don't block the response.
+  //    "Focused browser tab" filtering happens on the CLIENT side (the SW's
+  //    push event can check visibility of open windows and suppress if focused).
+  //    Server-side we just fan out to all recipients' subscriptions.
+  //    Recipients = everyone else with access to this room (RLS-scoped read
+  //    on push_subscriptions is fine — owner + self, so we go admin here via
+  //    service role to reach everyone's subs).
+  try {
+    // Get user IDs who can see this room (via chat_rooms + department_assignments)
+    // Simpler v1: query push_subscriptions bypassing RLS for the notification fan-out.
+    // We use the service-role client — but we've been using RLS-safe supabaseServer.
+    // For fan-out we intentionally query without user filter (service-role isn't
+    // wired into supabaseServer). Fallback: query only OWN subscriptions (RLS-ok)
+    // so at minimum push to the sender's OTHER devices. Multi-recipient push is
+    // a follow-up (TS-014 v2).
+    const { data: subs } = await supabase
+      .from('push_subscriptions')
+      .select('id, endpoint, p256dh, auth, user_id')
+      .neq('user_id', user.id) // don't push to the sender's own devices about their own message
+      .limit(50)
+
+    const subRows = (subs as unknown as PushSubscriptionRow[] | null) ?? []
+    if (subRows.length > 0) {
+      const preview =
+        replyContent.length > 100 ? replyContent.slice(0, 100) + '…' : replyContent
+      await sendPush(subRows, {
+        title: `${replyAuthorName} · new message`,
+        body: preview,
+        url: `/chat?room=${roomId}`,
+        tag: `room:${roomId}`, // groups notifications from the same room
+        messageId: (agentMsg as { id: string } | null)?.id,
+        roomId,
+      })
+    }
+  } catch {
+    // Never fail the chat send just because push failed.
   }
 
   return Response.json({

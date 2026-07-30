@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { PageHeader } from '@/components/ui'
+import { NotificationsSetup } from '@/components/NotificationsSetup'
 import { RoomSwitcher } from './RoomSwitcher'
 import { MessageStream } from './MessageStream'
 import { Composer } from './Composer'
@@ -120,6 +121,8 @@ export default function ChatPage() {
         title="Chat"
         subtitle="Talk to the team. @agent-id to target a specific agent."
       />
+
+      <NotificationsSetup />
 
       <div className="flex min-h-0 flex-1 gap-3 rounded-2xl border border-white/[0.06] bg-black/20">
         {/* Left rail */}
