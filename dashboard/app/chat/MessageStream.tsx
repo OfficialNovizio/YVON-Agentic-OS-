@@ -10,6 +10,20 @@ import type { ChatMessage } from '@/app/api/chat/messages/route'
 
 const FLEET_BY_ID = Object.fromEntries(FLEET.map((a) => [a.id, a]))
 
+// Safe timestamp render — Safari throws "SyntaxError: The string did not match
+// the expected pattern." from Intl.DateTimeFormat when passed Invalid Date.
+// Returns empty string for anything malformed instead of crashing the row.
+function safeTime(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  try {
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  } catch {
+    return ''
+  }
+}
+
 // Color for user avatars (deterministic hash from author id).
 function userColor(id: string): string {
   const palette = ['#6366F1', '#EC4899', '#10B981', '#F59E0B', '#EF4444', '#06B6D4', '#8B5CF6']
@@ -82,9 +96,7 @@ function MessageRow({ m }: { m: ChatMessage }) {
           {isAgent && agent && (
             <span className="text-[11px] text-on-surface-variant/70">{agent.role}</span>
           )}
-          <span className="text-[11px] text-on-surface-variant/50">
-            {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </span>
+          <span className="text-[11px] text-on-surface-variant/50">{safeTime(m.createdAt)}</span>
         </div>
         <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed text-on-surface">
           {m.content}

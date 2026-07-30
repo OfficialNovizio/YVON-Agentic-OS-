@@ -15,6 +15,37 @@ import { Composer } from './Composer'
 import type { ChatRoom } from '@/app/api/chat/rooms/route'
 import type { ChatMessage } from '@/app/api/chat/messages/route'
 
+// Safe JSON fetcher — refuses to parse HTML/text as JSON.
+// Fixes "SyntaxError: The string did not match the expected pattern." in
+// Safari when the server returns HTML (e.g. middleware redirect to /login
+// followed automatically by fetch).
+async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    credentials: 'same-origin',
+    ...init,
+    headers: { Accept: 'application/json', ...(init?.headers || {}) },
+  })
+  if (!res.ok) {
+    // Try to surface the server's error text (JSON preferred)
+    const ct = res.headers.get('content-type') ?? ''
+    if (ct.includes('application/json')) {
+      const body = (await res.json().catch(() => null)) as { error?: string } | null
+      throw new Error(body?.error ?? `HTTP ${res.status}`)
+    }
+    throw new Error(`HTTP ${res.status}`)
+  }
+  const ct = res.headers.get('content-type') ?? ''
+  if (!ct.includes('application/json')) {
+    // Session probably expired and middleware served /login HTML — recover gently.
+    if (res.redirected || res.url.includes('/login')) {
+      window.location.reload()
+      throw new Error('session expired; reloading')
+    }
+    throw new Error(`unexpected content-type: ${ct || 'none'}`)
+  }
+  return (await res.json()) as T
+}
+
 const POLL_INTERVAL_MS = 4000 // will disappear once C3 pushes streaming
 
 export default function ChatPage() {
@@ -33,16 +64,14 @@ export default function ChatPage() {
     let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch('/api/chat/rooms')
-        if (!res.ok) throw new Error(await res.text())
-        const data = (await res.json()) as { rooms: ChatRoom[] }
+        const data = await jsonFetch<{ rooms: ChatRoom[] }>('/api/chat/rooms')
         if (cancelled) return
         setRooms(data.rooms)
         // Default to the whole-team room if present, else first available.
         const first = data.rooms.find((r) => r.kind === 'whole_team') ?? data.rooms[0]
         if (first) setActiveRoomId(first.id)
       } catch (e) {
-        if (!cancelled) setError(String(e))
+        if (!cancelled) setError(e instanceof Error ? e.message : String(e))
       } finally {
         if (!cancelled) setRoomsLoading(false)
       }
@@ -57,13 +86,13 @@ export default function ChatPage() {
     async (roomId: string, opts: { silent?: boolean } = {}) => {
       if (!opts.silent) setMessagesLoading(true)
       try {
-        const res = await fetch(`/api/chat/messages?roomId=${encodeURIComponent(roomId)}`)
-        if (!res.ok) throw new Error(await res.text())
-        const data = (await res.json()) as { messages: ChatMessage[] }
+        const data = await jsonFetch<{ messages: ChatMessage[] }>(
+          `/api/chat/messages?roomId=${encodeURIComponent(roomId)}`
+        )
         setMessages(data.messages)
         lastMessageIdRef.current = data.messages[data.messages.length - 1]?.id ?? null
       } catch (e) {
-        setError(String(e))
+        setError(e instanceof Error ? e.message : String(e))
       } finally {
         if (!opts.silent) setMessagesLoading(false)
       }
@@ -92,17 +121,13 @@ export default function ChatPage() {
       setAwaitingReply(true)
       setError(null)
       try {
-        const res = await fetch('/api/chat/send', {
+        await jsonFetch<{ userMessage: unknown; agentMessage: unknown }>('/api/chat/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ roomId: activeRoomId, content, mentions }),
         })
-        const data = await res.json()
-        if (!res.ok) {
-          throw new Error(data?.error ?? 'send failed')
-        }
       } catch (e) {
-        setError(String(e))
+        setError(e instanceof Error ? e.message : String(e))
       } finally {
         setSending(false)
         // Refetch to pick up user + agent messages

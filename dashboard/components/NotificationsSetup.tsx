@@ -18,6 +18,9 @@ export function NotificationsSetup() {
     if (!isPushSupported()) return
     if (pushPermission() !== 'default') return
     if (typeof window !== 'undefined' && window.localStorage.getItem(DISMISS_KEY) === '1') return
+    // Hide the banner entirely if the server hasn't been configured yet —
+    // clicking Enable would just fail immediately.
+    if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) return
     setVisible(true)
   }, [])
 
