@@ -10,10 +10,13 @@ interface ComposerProps {
   sending: boolean
   disabled?: boolean
   disabledReason?: string
+  /** When set, message is auto-prefixed with @<forcedMention> if not already mentioned. */
+  forcedMention?: string | null
+  placeholder?: string
   onSend: (content: string, mentions: string[]) => Promise<void> | void
 }
 
-export function Composer({ sending, disabled, disabledReason, onSend }: ComposerProps) {
+export function Composer({ sending, disabled, disabledReason, forcedMention, placeholder, onSend }: ComposerProps) {
   const [text, setText] = useState('')
   const [caretPos, setCaretPos] = useState<number | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
@@ -52,10 +55,17 @@ export function Composer({ sending, disabled, disabledReason, onSend }: Composer
   }, [text])
 
   async function submit() {
-    const content = text.trim()
-    if (!content || sending) return
+    const raw = text.trim()
+    if (!raw || sending) return
+    // Auto-prefix @forcedMention if focus is an agent and user didn't already @them
+    let content = raw
+    const finalMentions = new Set(mentions)
+    if (forcedMention && !finalMentions.has(forcedMention)) {
+      content = `@${forcedMention} ${content}`
+      finalMentions.add(forcedMention)
+    }
     try {
-      await onSend(content, Array.from(new Set(mentions)))
+      await onSend(content, Array.from(finalMentions))
       setText('')
     } catch {
       // Parent shows the error; keep the text so the user can retry.
@@ -111,7 +121,7 @@ export function Composer({ sending, disabled, disabledReason, onSend }: Composer
           onKeyDown={onKeyDown}
           disabled={isDisabled}
           rows={2}
-          placeholder="Message the team… Use @agent-id to target a specific agent. Enter to send, Shift+Enter for newline."
+          placeholder={placeholder ?? 'Message the team… Use @agent-id to target a specific agent. Enter to send, Shift+Enter for newline.'}
           className="flex-1 resize-none rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5 text-[13px] leading-relaxed text-on-surface placeholder:text-on-surface-variant/60 focus:border-white/25 focus:outline-none disabled:opacity-50"
         />
         <button

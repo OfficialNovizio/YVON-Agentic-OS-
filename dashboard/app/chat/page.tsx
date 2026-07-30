@@ -1,24 +1,33 @@
-// /chat — Team chat surface. Left rail = rooms (RLS-filtered).
-// Center = message stream. Bottom = composer with @mention autocomplete.
-// Auth-gated by middleware. Real replies land in Push C3 (Hermes wire-up);
-// for now C1's echo responder returns a placeholder so the loop works end-to-end.
+// /chat — Team chat with drill-down.
+//   Workforce → Department → Agent (breadcrumb + pill navigation)
+//   "All assigned" combined chat for BOD members with multiple assigned depts.
+//   Owner sees each BOD member's assigned_scope room; drill-downs are 1:1 rooms.
 //
-// Owner: mia · TS-009 Push C2
+// Owner: mia · TS-015 WI-3
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PageHeader } from '@/components/ui'
 import { NotificationsSetup } from '@/components/NotificationsSetup'
-import { RoomSwitcher } from './RoomSwitcher'
+import { FLEET_DEPARTMENTS } from '@/lib/fleet'
+import type { FleetDepartment } from '@/lib/fleet'
+import { ContextPanel } from './ContextPanel'
+import { PillHeader } from './PillHeader'
 import { MessageStream } from './MessageStream'
 import { Composer } from './Composer'
 import type { ChatRoom } from '@/app/api/chat/rooms/route'
 import type { ChatMessage } from '@/app/api/chat/messages/route'
 
-// Safe JSON fetcher — refuses to parse HTML/text as JSON.
-// Fixes "SyntaxError: The string did not match the expected pattern." in
-// Safari when the server returns HTML (e.g. middleware redirect to /login
-// followed automatically by fetch).
+// ─── Focus state model — drives EVERYTHING in the header + composer ──────
+export type Focus =
+  | { kind: 'workforce' }
+  | { kind: 'department'; department: string }
+  | { kind: 'agent'; department: string; agentId: string }
+  | { kind: 'assigned_scope' }
+
+const POLL_INTERVAL_MS = 4000
+
+// ─── Safe JSON fetcher — refuses to parse HTML/text as JSON (SyntaxError fix) ─
 async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     credentials: 'same-origin',
@@ -26,7 +35,6 @@ async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
     headers: { Accept: 'application/json', ...(init?.headers || {}) },
   })
   if (!res.ok) {
-    // Try to surface the server's error text (JSON preferred)
     const ct = res.headers.get('content-type') ?? ''
     if (ct.includes('application/json')) {
       const body = (await res.json().catch(() => null)) as { error?: string } | null
@@ -36,7 +44,6 @@ async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
   }
   const ct = res.headers.get('content-type') ?? ''
   if (!ct.includes('application/json')) {
-    // Session probably expired and middleware served /login HTML — recover gently.
     if (res.redirected || res.url.includes('/login')) {
       window.location.reload()
       throw new Error('session expired; reloading')
@@ -46,12 +53,10 @@ async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T
 }
 
-const POLL_INTERVAL_MS = 4000 // will disappear once C3 pushes streaming
-
 export default function ChatPage() {
   const [rooms, setRooms] = useState<ChatRoom[]>([])
   const [roomsLoading, setRoomsLoading] = useState(true)
-  const [activeRoomId, setActiveRoomId] = useState<string | null>(null)
+  const [focus, setFocus] = useState<Focus>({ kind: 'workforce' })
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [messagesLoading, setMessagesLoading] = useState(false)
   const [awaitingReply, setAwaitingReply] = useState(false)
@@ -59,7 +64,7 @@ export default function ChatPage() {
   const [error, setError] = useState<string | null>(null)
   const lastMessageIdRef = useRef<string | null>(null)
 
-  // ── Load rooms once on mount ──────────────────────────────────────────────
+  // ── Load rooms once on mount ─────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -67,19 +72,46 @@ export default function ChatPage() {
         const data = await jsonFetch<{ rooms: ChatRoom[] }>('/api/chat/rooms')
         if (cancelled) return
         setRooms(data.rooms)
-        // Default to the whole-team room if present, else first available.
-        const first = data.rooms.find((r) => r.kind === 'whole_team') ?? data.rooms[0]
-        if (first) setActiveRoomId(first.id)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e))
       } finally {
         if (!cancelled) setRoomsLoading(false)
       }
     })()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [])
+
+  // ── Derive the "active" room based on focus + rooms ─────────────────────
+  const activeRoom = useMemo<ChatRoom | null>(() => {
+    if (focus.kind === 'workforce') return rooms.find((r) => r.kind === 'whole_team') ?? null
+    if (focus.kind === 'assigned_scope') return rooms.find((r) => r.kind === 'assigned_scope') ?? null
+    if (focus.kind === 'department')
+      return rooms.find((r) => r.kind === 'department' && r.department === focus.department) ?? null
+    if (focus.kind === 'agent')
+      return rooms.find((r) => r.kind === 'agent' && r.agentId === focus.agentId) ?? null
+    return null
+  }, [focus, rooms])
+
+  // ── When focus is 'agent' but no room exists yet, provision it ──────────
+  useEffect(() => {
+    if (focus.kind !== 'agent') return
+    if (activeRoom) return  // already provisioned
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { room } = await jsonFetch<{ room: ChatRoom }>('/api/chat/rooms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId: focus.agentId }),
+        })
+        if (cancelled) return
+        setRooms((prev) => [...prev, room])
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : String(e))
+      }
+    })()
+    return () => { cancelled = true }
+  }, [focus, activeRoom])
 
   // ── Load + poll messages for the active room ─────────────────────────────
   const loadMessages = useCallback(
@@ -87,7 +119,7 @@ export default function ChatPage() {
       if (!opts.silent) setMessagesLoading(true)
       try {
         const data = await jsonFetch<{ messages: ChatMessage[] }>(
-          `/api/chat/messages?roomId=${encodeURIComponent(roomId)}`
+          `/api/chat/messages?roomId=${encodeURIComponent(roomId)}`,
         )
         setMessages(data.messages)
         lastMessageIdRef.current = data.messages[data.messages.length - 1]?.id ?? null
@@ -97,26 +129,24 @@ export default function ChatPage() {
         if (!opts.silent) setMessagesLoading(false)
       }
     },
-    []
+    [],
   )
 
   useEffect(() => {
-    if (!activeRoomId) return
+    if (!activeRoom) return
     setMessages([])
     lastMessageIdRef.current = null
-    loadMessages(activeRoomId)
-
-    // Polling (temporary — replaced by SSE in C3)
+    loadMessages(activeRoom.id)
     const t = setInterval(() => {
-      if (activeRoomId) loadMessages(activeRoomId, { silent: true })
+      if (activeRoom) loadMessages(activeRoom.id, { silent: true })
     }, POLL_INTERVAL_MS)
     return () => clearInterval(t)
-  }, [activeRoomId, loadMessages])
+  }, [activeRoom, loadMessages])
 
   // ── Send a message ────────────────────────────────────────────────────────
   const send = useCallback(
     async (content: string, mentions: string[]) => {
-      if (!activeRoomId) return
+      if (!activeRoom) return
       setSending(true)
       setAwaitingReply(true)
       setError(null)
@@ -124,59 +154,66 @@ export default function ChatPage() {
         await jsonFetch<{ userMessage: unknown; agentMessage: unknown }>('/api/chat/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ roomId: activeRoomId, content, mentions }),
+          body: JSON.stringify({ roomId: activeRoom.id, content, mentions }),
         })
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
       } finally {
         setSending(false)
-        // Refetch to pick up user + agent messages
-        if (activeRoomId) await loadMessages(activeRoomId, { silent: true })
+        if (activeRoom) await loadMessages(activeRoom.id, { silent: true })
         setAwaitingReply(false)
       }
     },
-    [activeRoomId, loadMessages]
+    [activeRoom, loadMessages],
   )
 
-  const activeRoom = rooms.find((r) => r.id === activeRoomId) ?? null
+  // ── Which departments should show pills / be listed? ───────────────────
+  const visibleDepartments = useMemo<FleetDepartment[]>(() => {
+    const set = new Set<string>()
+    for (const r of rooms) {
+      if (r.kind === 'department' && r.department) set.add(r.department)
+    }
+    return FLEET_DEPARTMENTS.filter((d) => set.has(d))
+  }, [rooms])
+
+  const hasAssignedScope = rooms.some((r) => r.kind === 'assigned_scope')
+
+  // Composer's auto-@mention when focused on an agent
+  const forcedMention = focus.kind === 'agent' ? focus.agentId : null
+
+  const composerPlaceholder =
+    focus.kind === 'workforce'
+      ? 'Message the workforce…'
+      : focus.kind === 'assigned_scope'
+      ? 'Message across all your departments…'
+      : focus.kind === 'department'
+      ? `Message #${focus.department}…`
+      : `Ask @${focus.agentId}…`
 
   return (
     <div className="flex h-[calc(100vh-2rem)] flex-col p-2 md:p-4">
       <PageHeader
         title="Chat"
-        subtitle="Talk to the team. @agent-id to target a specific agent."
+        subtitle="Workforce · Departments · Individual agents. @mention to target."
       />
 
       <NotificationsSetup />
 
-      <div className="flex min-h-0 flex-1 gap-3 rounded-2xl border border-white/[0.06] bg-black/20">
+      {/* Main split card */}
+      <div className="flex min-h-0 flex-1 gap-0 overflow-hidden rounded-2xl border border-white/[0.10] bg-black/20">
         {/* Left rail */}
         <aside className="hidden w-64 shrink-0 border-r border-white/[0.06] md:block">
-          <RoomSwitcher
-            rooms={rooms}
-            activeRoomId={activeRoomId}
-            onSelect={setActiveRoomId}
-            loading={roomsLoading}
-          />
+          <ContextPanel rooms={rooms} focus={focus} onFocus={setFocus} loading={roomsLoading} />
         </aside>
 
-        {/* Center */}
-        <section className="flex min-w-0 flex-1 flex-col">
-          <header className="flex items-center justify-between border-b border-white/[0.06] px-6 py-3">
-            <div>
-              <h2 className="text-[14px] font-semibold text-on-surface">
-                {activeRoom?.label ?? (roomsLoading ? '…' : 'No room')}
-              </h2>
-              {activeRoom?.kind === 'department' && (
-                <p className="text-[11px] text-on-surface-variant/70">
-                  Department room · scoped to assigned members
-                </p>
-              )}
-              {activeRoom?.kind === 'whole_team' && (
-                <p className="text-[11px] text-on-surface-variant/70">Everyone can see this.</p>
-              )}
-            </div>
-          </header>
+        {/* Message pane */}
+        <section className="flex min-w-0 flex-1 flex-col bg-black/30">
+          <PillHeader
+            focus={focus}
+            visibleDepartments={visibleDepartments}
+            hasAssignedScope={hasAssignedScope}
+            onFocus={setFocus}
+          />
 
           {error && (
             <div className="mx-6 mt-3 rounded-md border border-error/25 bg-error/10 px-3 py-2 text-[12px] text-error">
@@ -188,16 +225,22 @@ export default function ChatPage() {
             messages={messages}
             awaitingReply={awaitingReply || messagesLoading}
             emptyLabel={
-              activeRoom
-                ? `Say hi to the team in ${activeRoom.label}. Try “@atlas what would you do here?”`
-                : 'Pick a room from the left.'
+              focus.kind === 'workforce'
+                ? 'Nothing yet in Workforce. Say hi — everyone can see this.'
+                : focus.kind === 'department'
+                ? `Nothing yet in #${focus.department}. Kick things off with a question.`
+                : focus.kind === 'agent'
+                ? `You haven't talked to @${focus.agentId} yet. Ask them something.`
+                : 'Empty. Send a message across your assigned departments.'
             }
           />
 
           <Composer
             sending={sending}
-            disabled={!activeRoomId}
-            disabledReason={!activeRoomId ? 'Pick a room on the left to start.' : undefined}
+            disabled={!activeRoom}
+            disabledReason={!activeRoom ? 'Loading room…' : undefined}
+            forcedMention={forcedMention}
+            placeholder={composerPlaceholder}
             onSend={send}
           />
         </section>
