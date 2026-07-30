@@ -1,0 +1,120 @@
+id: TS-013
+status: approved
+source_message: >
+  "for chat section present me a plan and what you need to connect with hermes
+  which is hosted on the hostinger"  +  (after seeing the hermes-agent TUI screenshot)
+  operator picked Path A: "do it properly, no shortcut" — HTTP-wrap hermes-agent
+  on the Hostinger VPS, dashboard streams via SSE from https://hermes.yvon.in.
+requester: operator
+
+classification:
+  task_type: infra + backend + client_integration
+  departments: [Engineering, Cybersecurity]
+  lead: dev
+  gate_0: true  # structural — new public service, TLS boundary, bearer auth
+  security_review: warden (bearer token handling, RLS still enforced)
+
+discovery:
+  decisions:
+    - subdomain: "hermes.yvon.in → 2.25.189.22 (Hostinger VPS)"
+    - session_model: "session pool keyed by (userId, roomId) — reuse across messages"
+    - hermes_source: "on VPS only — push to private git repo first (WI-1.5)"
+    - transport: "SSE over HTTPS, bearer token in Authorization header"
+    - target_LLM: "deepseek-v4-pro (Nous Research) — already configured in hermes-agent profiles"
+    - shape: "2 pushes — Push A: WI-1..3 (all code, no deploy). Push B: WI-4..6 (operator runs deploy + I wire client)."
+
+work_items:
+  - id: WI-0
+    owner: operator
+    objective: "SSH to VPS + run one discovery command to identify hermes-agent install shape (pip / npm / binary / source dir)"
+    acceptance:
+      - "output of: which hermes; head -3 $(which hermes); ls -la ~/.hermes-agent 2>/dev/null; pip show hermes-agent 2>/dev/null; npm ls -g 2>/dev/null | grep -i hermes"
+
+  - id: WI-1
+    owner: raj
+    objective: "HTTP surface design — POST /v1/chat/stream + /healthz, SSE event shape, bearer auth"
+    produces: [store/tasks/TS-013-api-spec.md]
+    blocked_by: [WI-0]
+    acceptance:
+      - "single doc: endpoint · request body · SSE event schema · error shape · auth · rate-limit"
+      - "matches the (userId, roomId) session-pool decision"
+
+  - id: WI-1.5
+    owner: operator (guided)
+    objective: "Push hermes-agent source to a private git repo (GitHub / Gitea / GitLab — operator picks)"
+    acceptance: ["git remote exists, VPS state pushed, wrapper repo can pull it"]
+
+  - id: WI-2
+    owner: raj
+    objective: "FastAPI wrapper (yvon-hermes-http package on VPS). Session pool by (userId, roomId). Bound to 127.0.0.1:8000. Bearer auth. Streams to SSE."
+    produces:
+      - vps-scripts/yvon-hermes-http/main.py
+      - vps-scripts/yvon-hermes-http/pyproject.toml
+      - vps-scripts/yvon-hermes-http/README.md
+    blocked_by: [WI-1, WI-1.5]
+
+  - id: WI-3
+    owner: ops
+    objective: "Deployment plumbing — systemd unit + nginx reverse-proxy + install.sh"
+    produces:
+      - vps-scripts/yvon-hermes-http/systemd/yvon-hermes-http.service
+      - vps-scripts/yvon-hermes-http/nginx/hermes.conf
+      - vps-scripts/yvon-hermes-http/install.sh
+    blocked_by: [WI-2]
+    acceptance:
+      - "systemd: auto-start on boot, restart on crash, logs to journalctl"
+      - "nginx: TLS via certbot, SSE-friendly (proxy_buffering off, long timeouts)"
+      - "install.sh idempotent — safe to re-run"
+      - "token generated during install, stored at /etc/yvon-hermes/token (0600 root:root)"
+
+  - id: WI-4
+    owner: operator (guided)
+    objective: "DNS + TLS + run install.sh"
+    steps:
+      - "add A-record: hermes.yvon.in → 2.25.189.22 in Vercel DNS (or wherever yvon.in resolves)"
+      - "verify: dig hermes.yvon.in +short → 2.25.189.22"
+      - "scp / git-pull install.sh to VPS"
+      - "sudo bash install.sh — installs deps, sets up service, requests TLS cert"
+      - "sudo systemctl status yvon-hermes-http → active (running)"
+      - "curl -H 'Authorization: Bearer $TOKEN' https://hermes.yvon.in/healthz → 200 {\"ok\":true}"
+    blocked_by: [WI-3]
+
+  - id: WI-5
+    owner: raj + mia
+    objective: "Dashboard Hermes client + swap /api/chat/send echo for real Hermes stream"
+    produces:
+      - dashboard/lib/hermes-client.ts
+      - dashboard/app/api/chat/send/route.ts   # updated: SSE from Hermes back to client
+    env:
+      - HERMES_URL: "https://hermes.yvon.in"
+      - HERMES_TOKEN: "from WI-4 install output — added to Vercel env by operator"
+    blocked_by: [WI-4]
+    acceptance:
+      - "sending a message in /chat streams a real reply from Hermes"
+      - "@mentions route to specific agents; no mention → meta.classify picks"
+      - "network error → chat surfaces 'Hermes unreachable' cleanly; no crash"
+      - "chat UI unchanged — same MessageStream/Composer/RoomSwitcher"
+
+  - id: WI-6
+    owner: quinn
+    objective: "End-to-end verify: gate + browser + rollback plan"
+    blocked_by: [WI-5]
+    acceptance:
+      - "cli/verify-deploy.sh: 0 findings across 8 checks"
+      - "manual: login as novy738 → /chat → send message → real agent replies via streaming"
+      - "manual: login as sagar739 → /chat → whole-team room works; department rooms invisible until assigned"
+      - "rollback tested: setting HERMES_URL to empty falls back to echo responder cleanly"
+
+pushes:
+  A: [WI-0, WI-1, WI-1.5, WI-2, WI-3]  # all code, no live deploy yet
+  B: [WI-4, WI-5, WI-6]                 # operator runs deploy + I wire client
+
+dag:
+  critical_path: [WI-0, WI-1, WI-2, WI-3, WI-4, WI-5, WI-6]
+  parallel: [[WI-1, WI-1.5]]  # can happen in parallel
+
+exit_gate:
+  owner: quinn
+  proof: "novy738 sends 'hi' in /chat → Hermes streams real agent reply within 3s; sagar739 does same in his assigned room; RLS still blocks unassigned rooms; verify-deploy green"
+
+feedback: { outcome: pending }

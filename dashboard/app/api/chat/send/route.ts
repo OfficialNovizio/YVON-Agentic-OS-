@@ -1,8 +1,11 @@
 // POST /api/chat/send  body: { roomId, content, mentions? }
-// Inserts the user message via RLS-safe client, then emits a placeholder agent
-// message. C3 replaces the placeholder with a real Hermes streaming call.
-// Owner: raj · TS-009 Push C1
+// Inserts the user message via RLS-safe client, calls Hermes for the agent
+// reply, then saves the reply message. Hermes-unconfigured environments fall
+// back to a degrade-loudly placeholder (no crash, no fake reply).
+// Owner: raj · TS-009 Push C1 · TS-013 WI-5 wired Hermes
 import { supabaseServer } from '@/lib/supabase-server'
+import { askHermes, hermesConfig } from '@/lib/hermes-client'
+import type { WorkspaceKey } from '@/lib/workspaces'
 
 // Match agent handles that appear right after '@'. Handles are lowercase kebab
 // (fleet.ts ids). Anything after '@' up to whitespace / punctuation.
@@ -64,19 +67,58 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: String((userErr as { message?: string })?.message ?? userErr) }, { status: 500 })
   }
 
-  // 2) Placeholder agent reply — swapped for real Hermes streaming in C3.
-  const replyContent =
-    mentions.length > 0
-      ? `[wired: awaiting Hermes] mentions=${mentions.join(', ')} — agent will respond once Hermes is connected.`
-      : `[wired: awaiting Hermes] meta.classify would pick the right department leader here; Hermes will stream the response.`
+  // 2) Call Hermes for the real agent reply. Degrades loudly if not configured.
+  const cfg = hermesConfig()
+  let replyContent: string
+  let replyAuthorId: string
+  let replyAuthorName: string
+
+  if (!cfg.configured) {
+    replyContent =
+      `[Hermes not configured — set HERMES_URL + HERMES_TOKEN in Vercel env vars. ` +
+      `See vps-scripts/yvon-hermes-http/install.sh output for the values.]`
+    replyAuthorId = 'system'
+    replyAuthorName = 'system'
+  } else {
+    // Look up the room's workspace for context routing (yvon-os / novizio / …)
+    const { data: room } = await supabase
+      .from('chat_rooms')
+      .select('kind, department')
+      .eq('id', roomId)
+      .single()
+    const roomRow = room as unknown as { kind?: string; department?: string } | null
+    // For now the chat lives in YVON OS workspace (Command Center). Brand rooms
+    // would set workspace to their brand key.
+    const workspace: WorkspaceKey = 'yvon-os'
+
+    const hermes = await askHermes({
+      message: content,
+      userId: user.id,
+      roomId,
+      workspace,
+      mentions,
+    })
+
+    if (hermes.ok) {
+      replyContent = hermes.response || '[agent returned empty response]'
+      // Pick author from mentions[0], else "meta" (router agent alias)
+      replyAuthorId = mentions[0] ?? 'meta'
+      replyAuthorName = mentions[0] ?? 'meta'
+    } else {
+      // Loud, honest failure — don't fake a reply.
+      replyContent = `[Hermes error] ${hermes.error}`
+      replyAuthorId = 'system'
+      replyAuthorName = 'system'
+    }
+  }
 
   const { data: agentMsg, error: agentErr } = await supabase
     .from('chat_messages')
     .insert({
       room_id: roomId,
       author_kind: 'agent',
-      author_id: mentions[0] ?? 'meta',
-      author_name: mentions[0] ?? 'meta',
+      author_id: replyAuthorId,
+      author_name: replyAuthorName,
       content: replyContent,
       mentions: [],
     })
