@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# install.sh — deploy yvon-hermes-http on the Hostinger VPS.
+# install.sh — deploy yvon-hermes-http on the VPS.
 # Idempotent: safe to re-run to update.
 #
 # Prereqs (run these MANUALLY before this script if not already done):
-#   * DNS A-record: hermes.yvon.in → 2.25.189.22
+#   * DNS A-record: hermes.yvon.in → <VPS_IP>  (point at this box's public IP)
 #   * Ubuntu 22.04+ with Python 3.11+ (we use system Python for the wrapper venv)
 #
 # What this does:
@@ -39,9 +39,11 @@ CERT_EMAIL="${YVON_HERMES_EMAIL:-chat.gpt73890@gmail.com}"
 # ── 1. Copy source into /opt/yvon-hermes-http ──────────────────────────────
 step "1. copy source to $DEST_DIR"
 mkdir -p "$DEST_DIR"
-cp -f "$SRC_DIR/main.py" "$DEST_DIR/main.py"
-cp -f "$SRC_DIR/pyproject.toml" "$DEST_DIR/pyproject.toml"
-cp -f "$SRC_DIR/README.md" "$DEST_DIR/README.md" 2>/dev/null || true
+if [ "$SRC_DIR" != "$DEST_DIR" ]; then
+  cp -f "$SRC_DIR/main.py" "$DEST_DIR/main.py"
+  cp -f "$SRC_DIR/pyproject.toml" "$DEST_DIR/pyproject.toml"
+  cp -f "$SRC_DIR/README.md" "$DEST_DIR/README.md" 2>/dev/null || true
+fi
 ok "sources copied"
 
 # ── 2. venv + deps ──────────────────────────────────────────────────────────
@@ -142,7 +144,7 @@ ok "nginx reloaded"
 step "6b. request TLS certificate (if not present)"
 if [ ! -d "/etc/letsencrypt/live/${DOMAIN}" ]; then
   certbot --nginx -d "${DOMAIN}" --non-interactive --agree-tos --email "${CERT_EMAIL}" --redirect \
-    || fail "certbot failed — check DNS: dig ${DOMAIN} +short (should return 2.25.189.22)"
+    || fail "certbot failed — check DNS: dig ${DOMAIN} +short (should return this box's public IP)"
   ok "TLS cert issued for ${DOMAIN}"
 else
   ok "TLS cert already present"

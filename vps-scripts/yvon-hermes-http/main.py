@@ -49,6 +49,50 @@ HERMES_HOME = os.environ.get("HERMES_HOME", "/usr/local/lib/hermes-agent")
 if HERMES_HOME not in sys.path:
     sys.path.insert(0, HERMES_HOME)
 
+# ── Model default ──────────────────────────────────────────────────────────
+# AIAgent does NOT read model.default from config.yaml — self.model comes only
+# from the constructor arg. Read the configured default here and pass it down.
+_HERMES_CONFIG_PATH = os.environ.get("HERMES_CONFIG_PATH", "/root/.hermes/config.yaml")
+
+
+def _load_hermes_model_default() -> str:
+    """Return the model.default string from Hermes config, or empty string."""
+    try:
+        with open(_HERMES_CONFIG_PATH, "r", encoding="utf-8") as fh:
+            import yaml  # local import — only needed here
+
+            cfg = yaml.safe_load(fh)
+        model_cfg = (cfg or {}).get("model") or {}
+        return str(model_cfg.get("default") or "").strip()
+    except Exception:
+        return ""
+
+
+HERMES_MODEL_DEFAULT = _load_hermes_model_default()
+
+
+def _load_hermes_provider_default() -> str:
+    """Return the model.provider string from Hermes config, or empty string."""
+    try:
+        with open(_HERMES_CONFIG_PATH, "r", encoding="utf-8") as fh:
+            import yaml  # local import — only needed here
+
+            cfg = yaml.safe_load(fh)
+        model_cfg = (cfg or {}).get("model") or {}
+        return str(model_cfg.get("provider") or "").strip()
+    except Exception:
+        return ""
+
+
+HERMES_PROVIDER_DEFAULT = _load_hermes_provider_default()
+log = logging.getLogger("yvon-hermes-http")
+if HERMES_MODEL_DEFAULT or HERMES_PROVIDER_DEFAULT:
+    log.info(
+        "hermes config: model.default=%s provider=%s",
+        HERMES_MODEL_DEFAULT,
+        HERMES_PROVIDER_DEFAULT,
+    )
+
 try:
     from run_agent import AIAgent  # type: ignore[import-not-found]
 except ImportError as exc:  # pragma: no cover — surfaces during deploy issues
@@ -114,6 +158,8 @@ def _agent_for(user_id: str, room_id: str) -> PooledAgent:
             # stable session id so conversation state persists.
             agent = AIAgent(
                 session_id=f"web-{user_id}-{room_id}",
+                model=HERMES_MODEL_DEFAULT or None,
+                provider=HERMES_PROVIDER_DEFAULT or None,
                 max_iterations=MAX_ITERATIONS,
                 quiet_mode=True,
                 save_trajectories=False,
@@ -200,7 +246,19 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
       { "kind": "notice", level, message }                 - status update
     """
     _prune_idle_agents()
-    pooled = _agent_for(req.user_id, req.room_id)
+    try:
+        pooled = _agent_for(req.user_id, req.room_id)
+    except Exception as exc:  # noqa: BLE001 — agent init failures must surface to client
+        log.exception("agent init failed for user=%s room=%s", req.user_id, req.room_id)
+        msg = f"agent init failed: {exc}"
+        return StreamingResponse(
+            iter([f"data: {json.dumps({'kind': 'error', 'message': msg})}\n\n"]),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache, no-transform",
+                "X-Accel-Buffering": "no",
+            },
+        )
     queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
     loop = asyncio.get_running_loop()
 
@@ -210,7 +268,9 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
         loop.call_soon_threadsafe(queue.put_nowait, {"kind": "token", "text": text})
 
     # ── Status callbacks (TS-017: live status feed) ─────────────────────────
-    def on_thinking() -> None:
+    # Hermes may pass an argument (status/phase string) to these callbacks
+    # depending on version — accept *args so we're version-tolerant.
+    def on_thinking(*_args: Any) -> None:
         loop.call_soon_threadsafe(queue.put_nowait, {"kind": "thinking"})
 
     def on_tool_start(name: str, args_preview: str) -> None:

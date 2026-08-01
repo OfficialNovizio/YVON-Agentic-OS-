@@ -1,13 +1,14 @@
 // app/api/ventures-health/route.ts — v6
 // OS agents (no venture param) → aggregate all projects from VPS
 // Venture agents (?venture=novizio) → per-project from VPS
-// VPS: http://2.25.189.22:4201 — real metrics from Hermes state.db
+// VPS: configured via VPS_METRICS_URL (domain-wrapped, e.g. https://metrics.yvon.in)
+//      — real metrics from Hermes state.db. Set the env var; unset → graceful offline.
 
 import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
-const VPS_URL = process.env.VPS_METRICS_URL || 'http://2.25.189.22:4201'
+const VPS_URL = process.env.VPS_METRICS_URL || ''
 
 interface VpsMetrics {
   tokens_total: number; cost_total: number; sessions: number

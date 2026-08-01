@@ -12,11 +12,13 @@ This playbook is self-contained — it doesn't assume you have access to any oth
 
 These apply across every step below, not just one phase.
 
-**0.1 — Before building anything, tell the person WHAT, WHY, and HOW — then wait for approval.** This is not optional and not a one-time thing at the start of the project — it happens before every single artifact, every time:
-  - **What** you're about to build (the specific file/skill/section, named plainly).
+**0.1 — Before ANY work, analyze and present your understanding — then wait for approval.** This is not optional and not a one-time thing at the start of the project — it happens before every single artifact, every time:
+  - **What** you're about to build (every request to DO something — research, build, search, integrate, or restructure. The only exception is a direct factual question. The rule was broken on 2026-07-14 when the user sent 7 skill links and the agent launched search calls without first analyzing and presenting a plan.).
   - **Why** this particular approach/source/design (the reasoning, the source URL if applicable, what problem it solves).
   - **How** you'll build it (the method, structure, or steps you'll follow).
-  Only after laying this out do you ask for sign-off, and only after getting it do you write anything. Never jump straight to writing a file. This applies to every buildable artifact without exception: skills, identity docs, operational subfolder content, agent.md, department workflow files, scripts — not just the big stuff.
+  Only after laying this out do you ask for sign-off, and only after getting it do you write anything. Ask for sign-off before writing anything. This applies to every buildable artifact without exception: skills, identity docs, operational subfolder content, agent.md, department workflow files, scripts — not just work. Present first, work second.
+
+	**0.1a — What/Why/How for artifact building.** Before writing any file: What is it (name, path, type), Why this approach (source, design decision), How you'll structure it (sections, functions, tests). This is the final check before putting bytes on disk — a subset of the broader analysis rule above. This applies to every buildable artifact without exception: skills, identity docs, operational subfolder content, agent.md, department workflow files, scripts — not just the big stuff.
 
 **0.2 — One artifact at a time, hard stop after each.** Build exactly one skill (or one identity doc, or one operational subfolder's content) at a time, present it, and wait for review before starting the next — even if several items were already approved together in one round of questions. Approval to build several things ≠ approval to batch-build them. This is the single most important rule in this playbook, alongside 0.1 — it was violated once during development of this playbook's process (three skills written in one pass instead of one at a time) and corrected immediately after. Don't repeat that mistake.
 
@@ -30,7 +32,31 @@ These apply across every step below, not just one phase.
 
 **0.5 — Don't invent values.** If a number, contact, threshold, or fact isn't known, don't make one up and present it as real. Either ask for the real value, or build a placeholder template with clear fill-in-later fields and say so explicitly.
 
-**0.6 — No agent finalizes a decision without real logical/numeric backing.** The `logical/` folder isn't a nice-to-have extension — it's where an agent's actual formulas live, and an agent must not present a decision, ranking, or recommendation as settled using reasoning or qualitative judgment alone when a real formula for that domain exists (or should exist) in `logical/`. Two consequences:
+**0.6 — Triple-counter verify every response you give (added 2026-07-15, revised 2026-07-16).** This is NOT a user-facing step that requires permission. It runs silently before every response leaves you. The user should never need to ask for verification — it is baked into how you think. The three checks are:
+
+	  1. **Source check:** Does every assertion trace to a real book, standard, or file in this project? If I said "Kahneman says X" — did I cite the chapter and page? If I said "this formula gives 14.4" — did I compute it or just guess? Remove anything that fails this check.
+	  2. **Logic check:** Does the reasoning hold? If I claim "this script covers all edge cases" — did I actually test those edge cases? If I claim "X is fully covered by Y script" — did I cross-check the function list in Y against the needs in X? A claim that passes source check but fails logic check is still wrong.
+	  3. **Consistency check:** Does this answer match what I said earlier in this conversation? If I said "3 scripts needed" ten minutes ago and now I say "2 scripts needed" — why the change? If the change is real, state it explicitly. If I can't explain the difference, re-check.
+
+	This applies to every response — research results, script outputs, book-mapping plans, agent analysis. The only exception is a direct question where the answer is a single known fact. The triple counter ensures that what enters the conversation has been self-audited before the user has to audit it. **The user should never need to ask for verification, a 3-attempt search, or a script test — these are built into how you operate, not gated behind permission. Run them silently and present the results, not the process.**
+
+**0.7 — No agent finalizes a decision without real logical/numeric backing.**
+
+**0.9 — Every UI is mobile + tablet responsive from the FIRST commit (added 2026-07-30).** Not "we'll polish later." A page/component/modal that only works on a wide desktop is a bug, not "unfinished." The three breakpoints:
+  - **Phone (< 768px)** — single column · rails become slide-in drawers with a hamburger toggle · sticky composers respect iOS safe-area-inset-bottom · every interactive element ≥ 44×44px touch target · no horizontal scroll on the page body (horizontal scroll INSIDE a bounded container is fine — pills, chip strips)
+  - **Tablet (768–1024px)** — 2-column · rails narrower · full desktop shape but touch-friendly spacing
+  - **Desktop (≥ 1024px)** — full pixel-tight desktop layout
+  Tailwind's `md:` prefix is the tablet cutoff (768px); `lg:` is desktop (1024px). Before the pre-push gate, test in Chrome DevTools device toolbar at iPhone 15 (390×844), iPad (820×1180), and desktop widths. If a page renders as a horizontally-scrolling mess at 390px, it's not shippable — go back and add the responsive states. This rule applies to every UI touched — not just new pages.
+
+**0.8 — Toonify before moving to the next agent (added 2026-07-16).** When an agent's build is finalized (all skills built, operational layer complete, logical/book-requirements.md updated), the last step before marking the agent complete is to run TOON conversion on all its .md files. This is non-negotiable — the CIE engine reads .toon files, not raw .md files, for context injection. The procedure:
+
+  - Run `node cli/toonify.js --agent <agent-id>` to convert all .md files in that agent's folder to .toon (TOON Claude format).
+  - Verify: the agent now has `.toon` files alongside every `.md` file. If a `.md` file has no `.toon` equivalent, CIE cannot read it — the agent's context is incomplete.
+  - A `.toon` file gets ~80-87% token savings vs raw Markdown on Claude models. Without toonification, the agent burns 5× more tokens to deliver the same context — or more likely, receives NO context because CIE prefers the compressed format.
+  - The toonify CLI runs automatically: `node cli/toonify.js --all` converts ALL agent .md files. Run this after building multiple agents or departments.
+  - A stale `.toon` file is automatically detected and rebuilt — toonify checks mtime and only reconverts when the source `.md` is newer. (Renumbered from §0.6, 2026-07-15). The `logical/` folder isn't a nice-to-have extension — it's where an agent's actual formulas live, and an agent must not present a decision, ranking, or recommendation as settled using reasoning or qualitative judgment alone when a real formula for that domain exists (or should exist) in `logical/`. Two consequences:
+	  - **If a relevant logical skill already exists**, run the actual numbers through it before finalizing — don't approximate with reasoning when a real formula is available.
+	  - **If no logical skill exists yet for that domain** (the normal state until a book is provided, per section 8), the agent must say so explicitly — flag the output as reasoning-based and not formula-verified, rather than presenting qualitative judgment with the confidence of a computed number. A 1-5 rubric score dressed up in a table is not the same thing as a real formula, and should not be presented as if it were. The `logical/` folder isn't a nice-to-have extension — it's where an agent's actual formulas live, and an agent must not present a decision, ranking, or recommendation as settled using reasoning or qualitative judgment alone when a real formula for that domain exists (or should exist) in `logical/`. Two consequences:
   - **If a relevant logical skill already exists**, run the actual numbers through it before finalizing — don't approximate with reasoning when a real formula is available.
   - **If no logical skill exists yet for that domain** (the normal state until a book is provided, per section 8), the agent must say so explicitly — flag the output as reasoning-based and not formula-verified, rather than presenting qualitative judgment with the confidence of a computed number. A 1-5 rubric score dressed up in a table is not the same thing as a real formula, and should not be presented as if it were.
 
@@ -41,6 +67,10 @@ These apply across every step below, not just one phase.
 **1.1 — Pick the department.** Suggest the next department in the build order and ask the person to confirm (or pick a different one). Don't assume the previously-used order still applies without asking.
 
 **1.2 — Pick the agent within that department.** List the agents in that department (from the org chart / catalog) and ask which one to start with.
+
+**1.3 — Kickoff snapshot only, no info dump (added 2026-07-29).** When opening work on a new department or new agent, give the operator the end-to-end snapshot they need to decide, and stop. Not the full history, not the full catalog wall — the operator will ask for depth on the things they care about.
+  - **New department:** name · N agents · leader (name + role) · one-line mission. That's it.
+  - **New agent:** name · role · department · N total skills (X marketplace / Y custom) · reports-to. Don't paste the full skill list yet — that opens in §2's discussion.
 
 Don't move past this step until both are confirmed.
 
@@ -60,11 +90,15 @@ Once the skill list is settled, split it into two buckets:
 
 **Default to marketplace first, every time.** This is now a standing rule, not a per-agent question — real, sourced skills are cheaper to verify and faster to get right than something built from scratch, so exhaust the marketplace search before starting custom work. Only skip straight to custom if the skill list discussion in section 2 already made clear nothing marketplace-sourced could plausibly fit.
 
+**3.1 — Report the marketplace/custom split up front (added 2026-07-29).** After sorting, tell the operator the counts and the specifics before touching any file: `X marketplace, Y custom`, with each skill named in its bucket. Marketplace items include the source URL discovered under §4.1a's three-marketplace search. Wait for approval on the split before proceeding — reshuffling one marketplace pick into a custom (or the reverse) is much cheaper here than after files are written.
+
 ---
 
 ## 4. Build Marketplace Skills (one at a time)
 
 **4.1 — Search by purpose, not by name.** The catalog's skill names are often aspirational — a real skill with that exact name frequently doesn't exist. Search skillsmp.com, mcpmarket.com, and awesomeskill.ai for what the skill's *purpose* reflects, not a literal name match.
+
+**4.1a — Search all three marketplaces, not just one (added 2026-07-29).** The three canonical marketplaces (skillsmp.com, mcpmarket.com, awesomeskill.ai) each surface different skills. For every skill purpose, run the search against **all three** — not the first that returns a hit. Present findings as one table per skill: `source · candidate · fit · url`. Include your recommendation (highlight one row) but show every candidate so the operator can pick differently or pull two for a merge. If the operator gave URLs directly, research every one of them — not the first that looked promising.
 
 **4.2 — Compare candidates.** If more than one skill fits, compare them honestly. Either pick the single best fit, or — if several are each good on different terms — plan to pull and merge them. (Note: a merge is no longer a pure marketplace copy — it becomes a custom skill, see 4.6.)
 
@@ -104,6 +138,16 @@ Custom skills need the most involvement and the most research. Before drafting a
 **5.2 — Discuss tool needs.** If the skill would benefit from external data access ("map access" — i.e. a data source/connector) or needs a Python script (for multi-step math, scoring, or anything better done in code than reasoning), raise it explicitly and get agreement before building. If a script is approved, write it, test it with sample input, and confirm it actually runs correctly before presenting the skill as done.
 
 **5.3 — One skill, then stop.** Same as marketplace: build, present, wait for review.
+
+**5.4 — For each custom skill: plan then wait — including merges (added 2026-07-29).** Before writing any custom skill, present its own plan block and stop:
+  - **What** the skill is
+  - **Why** it's needed (the specific gap that marketplace couldn't fill)
+  - **How** it will work at a high level
+  - **If merging from marketplace sources:** list every source, what each contributes, why merging them into one custom skill is the right shape (vs. keeping them separate). Include the resource links for each source so the operator sees the ingredients, not just the recipe.
+  - **Resources** (URLs, references, related skills)
+  Then WAIT for approval on THAT specific skill before writing a byte. Repeat per skill — even if the operator pre-approved the full custom list in §3. Approval of the *list* is not approval of any *design*.
+
+**5.5 — After all skills done, complete the operational layer in one pass — except logical (added 2026-07-29).** Once every skill (marketplace + custom) is built and approved, fill in ALL remaining `operational/` subfolders (identity, agent, skill, tool, config) in a single pass — do NOT gate each subfolder individually. The one-at-a-time discipline (§0.2) applies to *skills* because they are designed artifacts; operational subfolders are configuration and plumbing, and grinding them one-by-one adds ceremony without adding safety. **`logical/` is the sole exception** — it stays a deliberate, book-grounded phase per §8, with its own plan-then-approve rhythm and full-book reads (see §8.12–8.13).
 
 ---
 
@@ -272,6 +316,19 @@ Build each logical artifact with the same discipline as a custom skill (introduc
 
 	  The litmus for book URLs: Can the operator click one link and see the actual book page (not a summary, not a blog about it)? If no single page exists for a free book, link to the chapter index. The URL must let the operator verify the book is real.
 
+	**8.12 — Book + scripts + resources presented together (added 2026-07-29).** When recommending books for a domain, always present a single bundle and stop:
+	  - **Candidate books** (3–5 preferred), each with author + one-sentence credential (Nobel laureate, Harvard prof, foundational text, etc.) + why it's relevant to this agent's judgments.
+	  - **For each book, the specific Python scripts it would generate** — e.g. "Kahneman → prospect-theory scorer, anchoring-bias detector, availability-heuristic weight." The operator sees the deliverables, not just the reading list.
+	  - **Open-source URL wherever one exists** — publisher page, Project Gutenberg, archive.org, Google Books, OpenStax, author's university page, Creative Commons repositories. Run the §8.8a three-attempt search *before* presenting; do not lead with "please provide the PDF."
+	  - **PAYWALL flag only after the three-attempt search has been exhausted** and logged in book-requirements.md. Only then is it acceptable to ask the operator to place the file in `Agents/_books/`.
+	  - Only permitted authors: recognized, peer-reviewed, established — old editions are fine when the source is authentic (foundational texts don't expire); no random self-published titles.
+	  Present, then wait for the operator to pick the book(s) or provide alternatives. On approval, §8.13's whole-book rule kicks in.
+
+	**8.13 — Never a summary, ever — full read OR ToC-guided full-section read (added 2026-07-29).** After a book is approved, load the actual full text. **No summaries, no cheat sheets, no blog posts about the book — no matter the token cost.** Two acceptable read modes:
+	  - **Full linear read** — start to finish. Default.
+	  - **ToC-guided smart read** — when the book is large: pull the Table of Contents first, identify the exact sections that map to the scripts being built, jump to those sections directly. Then read those sections **IN FULL**, not from a digest.
+	  What is banned, always: getAbstract, Blinkist, Shortform, Four Minute Books, book-review blogs, Wikipedia summaries of the book, "chapter summary in 10 bullet points" pages, or ANY third-party interpretation as substitute source (§8.10 already bans these; §8.13 reinforces that even under token pressure the answer is ToC-jump, never digest). The output must be a script that gives ~99% deterministic strict results — that only happens when the source material is read in its native form, not filtered through a summarizer's judgment.
+
 ---
 
 ## 9. agent.md
@@ -311,10 +368,15 @@ fulfills_catalog_entry: <original catalog name, if it maps to one>
 assigned_agent: <agent-name> (<Department> / <role>)
 portable: true|false                        # flag any remaining hardcoded specifics
 date_added: <date>
+# yvon-compile metadata (see §14) — required for marketplace copies, optional
+# overrides for custom skills whose sections already carry this information:
+tier: 1|2|3|4                               # 1 router · 2 advisory · 3 config-dependent · 4 build/exec
+description: "<one line with routing hints>"
+triggers: [phrase one, phrase two, ...]
 ---
 ```
 
-Body structure for custom skills: Introduction, Purpose, When to Use, Structure/Protocol, Instructions (phase by phase), Output Format, Principles, Fallback, Boundaries with Other Skills. Marketplace copies keep the source's own structure, with a comment block up top explaining why it was selected and what catalog entry it fulfills.
+Body structure for custom skills: Introduction, Purpose, When to Use, Structure/Protocol, Instructions (phase by phase), Output Format, Principles, Fallback, Boundaries with Other Skills. **These headings are parsed by the compiler (§14) — use them exactly**; a skill with creative headings compiles hollow. Marketplace copies keep the source's own structure, with a comment block up top explaining why it was selected and what catalog entry it fulfills — and receive the compile metadata keys above in frontmatter only (body stays verbatim).
 
 ---
 
@@ -322,7 +384,7 @@ Body structure for custom skills: Introduction, Purpose, When to Use, Structure/
 
 If you only remember one ordering, remember this:
 
-1. Department → 2. Agent → 3. Discuss skill list → 4. Sort marketplace/custom, **default to marketplace first** → 5. Marketplace skills (search by purpose, present sources, **stop**, then copy, one at a time) → 6. Custom skills (discuss design + tools/scripts, build one at a time) → 7. Identity (leader agent only, one persona) → 8. Operational — **check which of the five subfolders actually apply to this agent, prioritize the most load-bearing one first, skip any that would come out empty**, build one at a time, each with a pre-build discussion → 9. Logical **placeholder** (record the flagged 0.6 judgments + candidate book — see §8's two-touch note) → 10. agent.md (kept current throughout) → 11. Department workflow file (only once the whole department is done) → repeat for the next agent.
+1. Department → 2. Agent → 3. Discuss skill list → 4. Sort marketplace/custom, **default to marketplace first** → 5. Marketplace skills (search by purpose, present sources, **stop**, then copy, one at a time) → 6. Custom skills (discuss design + tools/scripts, build one at a time) → 7. Identity (leader agent only, one persona) → 8. Operational — **check which of the five subfolders actually apply to this agent, prioritize the most load-bearing one first, skip any that would come out empty**, build one at a time, each with a pre-build discussion → 9. Logical **placeholder** (record the flagged 0.6 judgments + candidate book — see §8's two-touch note) → 10. agent.md (kept current throughout) → 11. Department workflow file (only once the whole department is done) → **12. Compile + reindex (§14): `node cli/skillgen.js <agent>` — zero FILL_INs — then `cd rag && python3 core/chunkify.py --all`; add the routing row to root `CLAUDE.md` §2** → repeat for the next agent.
 
 **Skills come first; logical is a later pass.** You cannot ground judgments that don't exist yet — a skill defines the decisions the agent makes, and only then can §8 know what needs a formula. So during the build, logical is just a placeholder (step 9). The real grounding — Step-Zero classification, extraction, and A/B/C/D artifacts — runs later, when a source book arrives, across every agent that book touches (see §8 and `LOGICAL-SYNTHESIS-PLAN.md`). The one exception: if the source is already in hand at build time, the script can be built *with* the skill (per 5.2), the way van Westendorp and risk-score scripts were.
 
@@ -340,6 +402,7 @@ At every arrow: present what's about to be built, wait for approval, build exact
   - **Shared skills** — cross-agent capabilities: `verification-before-completion`, `web-search`, `memory-practices`, and similar. Built once, cited by every agent that needs them.
   - **Shared scripts** — a script used fleet-wide lives in `Shared OS/` and is cited by the many skills that call it, rather than duplicated into each.
   - **Shared logical scripts** — the highest-leverage case (see §8.7 and §13.5): a book used by many agents is extracted once as a Python script in `Shared OS/logical/`; agents import from there. The scripts are pure formula libraries — no .md reference files. Extract once, import many.
+  - **Shared plugins & tools** — any installed plugin, npm package, CLI, MCP server, or external skill that more than one agent uses (see §13.6). Installed once, registered under Shared OS, cited by every agent that reaches for it — never re-installed or re-documented per agent.
 
 **13.3 — How an agent uses it.** At build time, when a skill would benefit from something that's really cross-agent, do NOT build it locally (§7's rule). Instead: (a) confirm whether the shared capability exists in `Shared OS/` yet; (b) if it does, cite it from the agent's operational `skill/` file as an inherited dependency; (c) if it doesn't yet, note it as a dependency on the shared layer so it's built there once and inherited — never quietly reproduced inside the agent.
 
@@ -353,3 +416,96 @@ At every arrow: present what's about to be built, wait for approval, build exact
   - **Books produce scripts or cited .md files.** The synthesis pipeline (§8.3) produces Python scripts with self-tests for anything with formulas (Routes A/B/C). Route D (practitioner-operator wisdom, §8.9) may produce a cited .md file instead — qualitative extracts with chapter/page references. The script IS the documentation for mathematical extractions — inline docstrings carry book/section/page citations.
   - **Cross-agent scripts don't get copied.** If vista's roadmap-sync needs forecasting formulas, it imports `Shared OS/logical/forecasting.py` — it does not get its own copy. This is the same rule as §13.1 applied to the logical layer.
   - **Shared OS/logical/ is the system of record.** When a script is updated (bug fix, new edition of the book), every agent that imports it gets the fix automatically. This was the original intent of §8.7's "extract once, cite many" — now enforced at the file level.
+
+**13.6 — Shared plugins/tools live under Shared OS, installed once (added 2026-07-20).** The moment a plugin or tool is used by **two or more agents**, it is a Shared OS asset, not an agent-local one. Same rule as §13.1 applied to installed tooling: install once, register centrally, cite by reference — installing the same tool into each agent means N copies to version, patch, and drift.
+
+  - **The trigger.** If exactly one agent uses a tool, it may stay noted in that agent's operational `tool/<agent>-tool-requirements.md`. The instant a second agent needs it, it moves to the shared layer and both agents cite it there. Multi-agent from the start → goes straight to Shared OS.
+  - **Where it's registered.** A shared tool is recorded once in `Shared OS/tools/shared-tool-registry.md` — one row per tool: name, version, install command, install location (repo path or global), which agents consume it, and the one-line purpose. relay's MCP tool-registry remains the system of record for **MCP servers specifically**; the shared-tool registry covers everything else (plugins, npm dev-deps, CLIs, external skills) and points to relay for the MCP rows.
+  - **Install location, not per-agent.** Runtime tooling installs to its natural home (e.g. a project `package.json` dev-dep, a repo `.claude/skills/` copy, or a global plugin), never duplicated into an agent folder. Agents reference the shared install path.
+  - **How an agent uses it.** The agent's operational `tool/` file names the dependency as inherited — e.g. *"Shared OS tool (inherited, not owned): impeccable — Teams/Shared OS/skills/impeccable + `impeccable` CLI; see Shared OS/tools/shared-tool-registry.md."* The capability is real; the ownership is central.
+  - **One-time human steps stay visible.** If a tool needs a step that can't be scripted into the repo (a plugin that self-installs into the harness, a browser-deps download requiring root), record that step once in the registry so every consuming agent inherits the same instruction instead of rediscovering it.
+  - **Worked example.** impeccable (atlas, spark, pixel, mia), Playwright (quinn, mia, nova), and agentation (mia, quinn) are each multi-agent → each is a Shared OS tool: installed once in `dashboard/` / the repo `.claude/skills/`, registered in the shared-tool registry, cited by every consuming agent's `tool/` file. None is re-installed per agent.
+
+**13.7 — Every script lives in Shared OS; grep before writing a new one (added 2026-07-29).** All scripts (Python, shell, JS) generated for any agent go into `Shared OS/scripts/` (or `Shared OS/logical/` for logical extractions per §13.5) and are LINKED from the agent's `custom/*/scripts/` or `logical/`, never inlined per-agent. **Before writing a new script, grep `Shared OS/` for anything that already satisfies the need** — even partially. If a partial match exists, extend or wrap it instead of creating a parallel implementation. State the scan result in the pre-build check:
+  - `Shared OS scan: found N candidates → chose <path> (extending / wrapping / reusing as-is)` OR
+  - `Shared OS scan: no match — new script needed at Shared OS/scripts/<name>.py`
+  This applies even to one-off scripts — nothing about "one-off" predicts future reuse better than "grep first." Every agent inheriting the script gets bug fixes and improvements automatically; parallel copies drift silently until someone notices they've diverged.
+
+---
+
+## 14. The Compile Layer (added 2026-07-20)
+
+Teams/ is the single source of truth; `dist/skills/` is compiled, disposable output. The compiler (`cli/skillgen.js`) reads each agent's sources and emits runtime skills with uniform frontmatter, tier-matched preambles (scope announcement, ground rules, config checks, retrieval), Voice from identity, and a Completion postamble that logs outcomes to `store/telemetry/`. Template + preamble fragments live in `Shared OS/skills/skill-template/`.
+
+**14.1 — Never edit dist/. Never put compiled files in Teams/.** dist/ is overwritten on every compile. Compiled copies inside Teams/ would double-index in the RAG store and create false Gate-3 conflicts. Edit the source, recompile.
+
+**14.2 — Exact headings are contract.** The compiler parses `## Purpose`, `## When to Use`, `## Structure / Protocol`, `## Output Format` literally (§11). Marketplace copies are exempt (their whole body compiles as protocol) but must carry the compile metadata keys in frontmatter: `tier`, `description`, `triggers`.
+
+**14.3 — Tier declaration.** `tier:` in source frontmatter wins; omitted → custom=3, marketplace=2. Tiers: 1 router (scope+log) · 2 advisory (+ground rules, confusion protocol) · 3 config-dependent (+loud `<FILL_IN>` detection) · 4 build/exec (+CAOS retrieval, TASK-SPEC slice, owns-paths).
+
+**14.4 — Tool-requirements table format is fixed.** `| Skill | Required | Optional | Source line |`, the Skill cell matching the skill's directory name (a parenthetical suffix is tolerated). Recognized phrases: "File read", "File write", "File read/write", "Python/shell execution", "web search", "second model". Anything else compiles as a loud `FILL_IN` tools entry — which means the skill ships without its tools until the table is fixed.
+
+**14.5 — Routing files end with the machine-readable block.** Every `operational/skill/<agent>-skill-routing.md` closes with a fenced yaml block opening `# yvon-compile:` listing each skill's `handoffs:` line. Prose above stays canonical for humans; the block is what compiles exactly. Without it the compiler falls back to line-matching heuristics — working, but luck.
+
+**14.6 — Identity compiles from `## Core Traits`.** Department-leader-only rule unchanged (§7). That exact heading in the identity file is what becomes the compiled Voice section across all the leader's skills.
+
+**14.7 — Config `<FILL_IN>`s are debts.** Tier-3+ preambles announce every unfilled config field on every invocation until it is filled or marked `n/a` with a one-line reason. Do not ship an agent and forget its config.
+
+**14.8 — The build loop ends with compile + reindex + toonify.** After any change to a skill, routing, tool, or identity file: `node cli/skillgen.js <agent>` and confirm zero unresolved placeholders and no unexpected FILL_INs, then `cd rag && python3 core/chunkify.py --all` so retrieval indexes the new source, then `node cli/toonify.js --agent <agent-id>` per §0.8 so CIE can read the updated sources. A skill that has not compiled clean is not built (this extends the §12 checklist).
+
+**14.9 — New department checklist.** Department folder + `DEPARTMENT-WORKFLOW.md` + standard agent structure (§6) as before, PLUS: a routing row in root `CLAUDE.md` §2 (an agent missing from the rail is invisible at runtime), and if the department leader holds identity, the `## Core Traits` heading per 14.6.
+
+**14.10 — Orchestration touchpoints.** Multi-agent work routes through meta's `task-dispatch` skill: discovery once, work items as contracts (consumes/produces/owns_paths), DAG not blind-parallel, per-item FAST/BALANCE budgets, sharding (a worker sees only its slice). Spec instances live in `store/tasks/` per `TEMPLATE.yaml`. Compiled skills log invocations and outcomes automatically; honest `partial`/`blocked` outcomes are how anneal improves your skill later — a false "done" poisons the loop.
+
+---
+
+## 15. Metrics & Health (added 2026-07-20)
+
+What "performing well" means, what to measure, which tools measure it, and the exact commands. Builders' duty is small: log honest outcomes, keep compile and config debt at zero. The measurement machinery below does the rest — gauge measures, anneal proposes (Monday scheduled run), the operator approves.
+
+**15.1 — Per-skill runtime metrics.** Source: `store/telemetry/skill-invocations.jsonl` — every compiled skill logs an invocation event (preamble) and a completion event with outcome `done | partial | blocked` (postamble). What the numbers mean:
+
+  - **Invocations high, completions `partial`/`blocked`** → the skill's protocol is broken or its config is unfilled. Anneal finding: fix the source.
+  - **Never invoked** → trigger problem (description/triggers don't match how the operator actually asks) or dead weight. Anneal finding: rewrite triggers or retire.
+  - **Completion ratio trend** is the skill's health line over weeks — visible per agent on the dashboard `/agents` page.
+  - Honest `partial`/`blocked` outcomes are how skills improve; a false `done` poisons the loop (§14.10).
+
+**15.2 — Retrieval metrics.** Source: chunk quality scores in the vector store, updated by the feedback loop (`quality_new = quality_old × 0.95 + outcome × 0.05`). If an agent's sources never surface in retrieval, the content is unreachable no matter how good it is — check after every chunkify rebuild that the agent's key files appear for its own domain queries (retriever test, command below). The agent bonus (+0.15 for own files) makes an agent's skills compete with book wisdom — if they still don't surface, triggers/content need work.
+
+**15.3 — Quality evaluation.** Three layers, in order of formality:
+
+  - **Acceptance criteria** — per work item in the TASK-SPEC (`acceptance:` list). gauge sets the bar; quinn (or the department's verifier) holds the exit gate. Nothing ships on self-assessment.
+  - **LLM-as-judge** — `rag/eval/judge.py` scores an output on 6 metrics; `rag/eval/flywheel.py` runs the 5-stage improvement loop (score → cluster failures → propose → retest). A department isn't "done" until its skills have been through at least one judged run.
+  - **Field monitoring** — `rag/monitor/watcher.py` watches for attractors (over-retrieved chunks), degradation, coverage gaps, and drift; `rag/monitor/improver.py` runs the weekly analyze → propose → sandbox-test → deploy cycle for pipeline settings (auto-deploys only if all tests pass; anything failing → hold + report).
+
+**15.4 — Mechanical health checks.** Run these; do not eyeball:
+
+  - **Compile cleanliness** — zero unresolved placeholders, no unexpected FILL_IN tool entries (skillgen prints per skill).
+  - **Config debt** — count of `<FILL_IN>` fields per agent config; announced by every tier-3+ preamble, shown fleet-wide on `/agents`. Debt of 0 or explicit `n/a` is the only acceptable steady state.
+  - **Toonify coverage** — every .md has a .toon (§0.8) or CIE reads nothing.
+  - **Index freshness** — chunks.json rebuilt after any source change (§14.8); stale index = agents reasoning on old versions of their own skills.
+  - **Fleet pulse** — `yvon doctor` for the all-up check; `verify-caos.py --quick` for the pipeline end-to-end.
+
+**15.5 — Capabilities & command reference (verified against the CLIs):**
+
+| Capability | Command | What it tells you |
+|---|---|---|
+| Fleet health check | `node cli/yvon.js doctor` | All-up ✅/❌ across engine components |
+| List the fleet | `node cli/yvon.js agents` | 46 agents × 7 departments roster |
+| Knowledge graphs | `node cli/yvon.js graph` | Rebuilds code + Teams graph reports |
+| Live dashboard | `node cli/yvon.js dashboard` (or `cd dashboard && npm run dev`) | Brands, `/agents` observability, Monitor |
+| Compile an agent's skills | `node cli/skillgen.js <agent>` | Per-skill tier/version/tools + FILL_IN warnings |
+| Rebuild the index | `cd rag && python3 core/chunkify.py --all` (`--status` to inspect) | Chunk counts per file; index freshness |
+| Retrieval spot-check | `cd rag && python3 -c "...retrieve('<task>', agent_id='<a>', agent_dept='<d>')..."` (full snippet in root `CLAUDE.md` §4) | Which sources actually surface for a query |
+| Pipeline end-to-end | `python3 cli/verify-caos.py --quick` | 5-point smoke: retrieval, injection, formulas, feedback |
+| Full test suite | `npm test` / `cd rag && python3 test_runner.py` | 285+ tests across 15 modules |
+| Judge an output | `cd rag && python3 eval/judge.py --grade <json>` (`--test` self-tests) | 6-metric quality score |
+| Improvement flywheel | `cd rag && python3 eval/flywheel.py` | Score → cluster failures → propose → retest |
+| Field monitor report | `cd rag && python3 monitor/watcher.py --report` | Attractors, degradation, coverage gaps, drift |
+| Weekly self-improvement | `cd rag && python3 monitor/improver.py --run` | Pipeline-setting proposals; sandbox-tested deploys |
+| Feedback loop ops | `cd rag && python3 core/feedback.py <cmd>` | Log/inspect outcome-driven quality updates |
+| TOON compression | `node cli/toonify.js --agent <agent-id>` | .toon coverage for CIE (§0.8) |
+| Telemetry raw | `cat store/telemetry/skill-invocations.jsonl` | Every invocation + outcome, JSONL |
+| Weekly improvement review | scheduled task `yvon-anneal-weekly` (Mon 9am) | anneal's evidence-based proposals, `store/telemetry/anneal-report-<date>.md` |
+
+**15.6 — Reading the numbers is a role, not a habit.** gauge owns thresholds and benchmarks; anneal owns proposals from evidence; scout owns replacing weak skills with better sourced ones; meta approves structural changes; the operator approves everything that touches a source file. A builder who ships a skill, watches its first week of telemetry, and files one honest observation has done their part.

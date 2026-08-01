@@ -14,5 +14,5 @@
 | [Shared OS](Shared%20OS/) | — | 35 logical scripts + verification skill (shared by all agents) |
 | [Books](Books/) | — | Reference library |
 
-**Agent build playbook:** [AGENT-BUILD-PLAYBOOK.md](AGENT-BUILD-PLAYBOOK.md)  
+**Agent build playbook:** [AGENT-BUILD-PLAYBOOK.md](../docs/AGENT-BUILD-PLAYBOOK.md)  
 **Master structure:** [VYON_Master_Structure.html](VYON_Master_Structure.html) — design reference (may not reflect current 46-agent implementation)

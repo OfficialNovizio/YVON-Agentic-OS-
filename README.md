@@ -87,14 +87,10 @@ YVON-Engine/
 │   ├── components/                # Reusable (Sidebar, BrandCard, MetricCard)
 │   └── lib/                       # Types + API integration
 │
-├── docs/                          # Architecture documentation
-│   ├── 4LAYER.md                  # Multi-tenant architecture
-│   ├── DASHBOARD.md               # Dashboard design
-│   ├── FULL.md                    # Full project architecture
-│   ├── GOOGLE_PATTERNS.md         # Google agents-cli integration
-│   ├── HARNESS.md                 # Harness architecture
-│   ├── WORK_TREE.md               # Complete work tree with fallbacks
-│   └── CODE_STRUCTURE.md          # Code organization plan
+├── docs/                          # Documentation (consolidated 2026-07-30)
+│   ├── MASTER.md                  # Single source of truth — PART 0-7 + APPX A-C
+│   ├── AGENT-BUILD-PLAYBOOK.md    # How to build an agent + §0 ground rules
+│   └── SESSION-HANDOUT.md         # Living session handoff
 │
 ├── cli/                           # CLI tools (yvon.js, toonify.js)
 ├── dist/                          # Compiled TypeScript
@@ -416,15 +412,28 @@ node cli/yvon.js graph     # Generate knowledge graph reports
 
 ## Architecture Docs
 
-| Document | Content |
-|----------|---------|
-| `docs/4LAYER.md` | Multi-tenant architecture for YVON + AgentX |
-| `docs/DASHBOARD.md` | Dashboard design with Engineering agent review |
-| `docs/FULL.md` | Complete project architecture |
-| `docs/GOOGLE_PATTERNS.md` | Google agents-cli pattern integration |
-| `docs/HARNESS.md` | 5-gate harness architecture plan |
-| `docs/WORK_TREE.md` | Complete work tree with 11 layers and fallbacks |
-| `docs/CODE_STRUCTURE.md` | Code organization and restructuring plan |
+All architecture lives in **one document**: [`docs/MASTER.md`](docs/MASTER.md).
+The nine separate docs were consolidated on 2026-07-30 after a section-level
+coverage check confirmed MASTER contained every section and body of each.
+
+| Section | Content |
+|---------|---------|
+| `PART 0` | **Orientation** — micro→macro, the life of a message, `[built]` status markers |
+| `PART 1` | Full project architecture — fleet, agent structure, skills, CIE, TOON |
+| `PART 2` | Harness — 5-gate verification, data flow, delegation, citations |
+| `PART 3` | Unified production pipeline — strategy routing, benchmarks |
+| `PART 4` | Complete work tree — 11 layers, fallback matrix, test suite |
+| `PART 5` | 4-layer multi-tenant architecture — Core → Agent → Integration → SaaS |
+| `PART 6` | **TASK-SPEC template** — the task state machine (`store/tasks/`) |
+| `PART 7` | **Unified workflow blueprint** — 5 execution scenarios + sandbox-first flow |
+| `APPX A` | Code structure refactor plan |
+| `APPX B` | Google agents-cli pattern integration |
+| `APPX C` | Dashboard two-tier design |
+
+| Other doc | Content |
+|-----------|---------|
+| `docs/AGENT-BUILD-PLAYBOOK.md` | How to build an agent + the §0 ground rules |
+| `docs/SESSION-HANDOUT.md` | Living session handoff |
 
 ---
 

@@ -2,7 +2,7 @@
 
 FastAPI wrapper exposing Hermes's `AIAgent` as an SSE-streaming HTTP endpoint.
 
-**Runs on the Hostinger VPS. Nginx puts TLS + `hermes.yvon.in` in front. Dashboard on Vercel talks to it via `POST /v1/chat/stream`.**
+**Runs on the VPS. Nginx puts TLS + `hermes.yvon.in` in front. Dashboard on Vercel talks to it via `POST /v1/chat/stream`.**
 
 ## Architecture
 

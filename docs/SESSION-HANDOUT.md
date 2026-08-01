@@ -1,253 +1,556 @@
-# Session Handout — Chat + Hermes + PWA + Attachments
+# YVON — Session Handout & Persistent Backlog
 
-*Written: 2026-07-30 · Session length: ~48 hrs (multi-day). This is the full record of what shipped, what's staged, what's blocked on the operator, and what the next session should pick up.*
+*Last rewritten: 2026-08-01 · Repo: `main @ 14f3b02` + uncommitted migration fixes · Operator: Novy*
 
----
+> **This file is the durable memory of the project.** In-session task lists are ephemeral and
+> die with the session — anything that must survive lives here. It is written to be
+> **self-contained and exportable**: a fresh session, a different AI, or a human should be
+> able to read only this file and know what to do next.
 
-## 1. TL;DR — read this if nothing else
-
-**Shipped (in this repo, gate-verified, committed):**
-
-- Full chat surface with drill-down (Workforce → Department → Agent)
-- Password auth (3 seeded BOD accounts)
-- Whole dashboard behind auth
-- Hermes wrapper for the Hostinger VPS (`vps-scripts/yvon-hermes-http/`)
-- File uploads + voice messages + cancel-generation button
-- Mobile + tablet + desktop responsive layout
-- PWA install + Web Push notifications
-- Deploy gate (`cli/verify-deploy.sh`) with 8 static checks
-- Automated deploy loop (`cli/deploy.sh`)
-- Full Hermes v0.16.0 API catalog (176 endpoints, categorized)
-- 8 new playbook rules including responsive-by-default (§0.9)
-
-**Blocked on operator (won't work until you do these):**
-
-1. **DNS**: A-record `hermes.yvon.in → 2.25.189.22` in GoDaddy (added but propagating)
-2. **VPS install**: `scp` + `bash install.sh` on Hostinger VPS
-3. **Vercel env vars**: `HERMES_URL`, `HERMES_TOKEN` (from install.sh output), plus `VAPID_*` keys
-4. **Push deploy**: `cli/deploy.sh` from the repo root
-
-**Not yet built (TS-017):** Claude-style live status feed ("atlas is thinking…", tool-call chips). Waits on the Hermes wrapper being alive.
+> **Read order for a fresh session:** `CLAUDE.md` (the rail) → **this file** → `docs/MASTER.md`
+> PART 0 (orientation — jump via its line index, never read it whole).
 
 ---
 
-## 2. What shipped this session, in order
+## Table of contents
 
-| # | TASK-SPEC | What it does | Commit |
-|---|---|---|---|
-| 1 | Sidebar segregation | YVON OS = fleet control plane; brands = content only. No cross-workspace section cloning. | `ee5b71b` |
-| 2 | TS-011 · Foundry | Skill Workshop → Foundry. Hub landing + 6 sub-routes (skills, tools, mcp, training, rag, harness). 5 are functional stubs citing their source-of-truth files. | `93184e1` |
-| 3 | TS-010 · Office rebuild | Isometric floor plan for the real 46-agent fleet across 7 real Teams/ departments. Live status ring, team-halo for co-agents, right-side info drawer. Then zoom + dept-focus + click-outside + subtle bob animation. | `cbbf0e9`, `cc2bb51` |
-| 4 | TS-009 Push A · /agents fleet directory | Replaced the broken "ToonGine not detected" venture-health page with a searchable directory of all 46 agents. | `e63103e` |
-| 5 | TS-009 Push B · auth + chat schema | Supabase magic-link auth (later swapped for username+password), 3 BOD accounts, `chat_rooms` + `chat_messages` + `department_assignments`, RLS via `can_see_room()`. | `d3391ad` |
-| 6 | TS-006 · Deploy gate v1 | `cli/verify-deploy.sh` — 6 static checks (undeclared imports, bare supabase.select, Promise.all arity, dup next.config, cron limit, .gitignore hygiene). `.git/hooks/pre-push` installs from `cli/install-hooks.sh`. Catches every deploy failure we hit as a regression test. | `e2b0896` |
-| 7 | Deploy fixes 1–5 | Next 15/React 19 upgrade, missing runtime deps, bare `supabase.select`, `Promise.all` arity, undefined `deltaSources`. Each shipped as a targeted fix + gate-check extension. | `65aaa07` … `212f61c` |
-| 8 | TS-006 v2 · tsc-if-available | 7th gate check: run `tsc --noEmit` when `dashboard/node_modules/.bin/tsc` exists. Caught 4 more real bugs before the next deploy would have. | `6fb9828` |
-| 9 | TS-007 · Post-push Vercel loop | `cli/vercel-watch.sh` polls Vercel CLI for the current commit's deploy; `cli/vercel-classify.sh` matches known failure classes; `cli/deploy.sh` is gate → push → watch → classify. Closed the workflow gap where external systems' failures had to be relayed manually. | `139bb00`, `300b264` |
-| 10 | Edge middleware fix + gate v3 | Split Supabase middleware helper (Edge-runtime safe). New check: middleware.ts's transitive imports must not include `next/headers` or Node builtins. Regression test: reintroduced the bug → gate flagged with the exact import chain. | `edc6a4e`, `ca55f42` |
-| 11 | Whole-dashboard auth | Middleware flipped from `PROTECTED = ['/chat','/settings']` allowlist to `PUBLIC = ['/login']` allowlist. Everything else requires session. | `d3f0663` |
-| 12 | Standalone /login shell | `Shell` short-circuits for `/login` and `/auth/*` — no sidebar or workspace switcher behind the login card. | `a031c1b` |
-| 13 | Username+password auth | Dropped magic-link. `novy738 / sagar739 / amit740`, seeded via `dashboard/supabase/scripts/seed-bod-users.sql` (passwords NOT in git — replace `REPLACE_ME` locally and run in Studio SQL editor). Allowlist trigger blocks any other email from creating a profile. | `e5b108a` |
-| 14 | Playbook rules v1 | Seven new rules for agent-build flow: kickoff snapshot, research all 3 marketplaces, plan-per-custom-skill, batch operational after skills, book+scripts+URLs bundled, never summaries (ToC-jump full-read), Shared OS scan before writing scripts. | `9f6e8e1` |
-| 15 | TS-013 · Hermes HTTP wrapper | FastAPI wrapper on VPS importing Hermes's `AIAgent` class. Session pool by (user_id, room_id). SSE at `/v1/chat/stream`. systemd + nginx + install.sh + certbot. Dashboard `lib/hermes-client.ts` + `/api/chat/send` calls Hermes; graceful degrade if env unset. | `486398e` |
-| 16 | Hermes API catalog | `store/hermes-api-catalog.json` — 176 endpoints across 22 categories with wiring-status plan (TS-014 through TS-017 mapped). | `1926ecb` |
-| 17 | TS-014 · PWA + Web Push | `manifest.ts` + `icon.tsx` + `apple-icon.tsx` (auto-generated Y-gradient icons), Service Worker (`public/sw.js`) with push + click handlers, VAPID-backed push server, subscription API, `NotificationsSetup` banner on `/chat`. Fires push to recipients after Hermes reply. | `422ed34` |
-| 18 | Chat robustness | Safari `SyntaxError: The string did not match the expected pattern.` from `res.json()` on HTML → new `jsonFetch<T>()` helper checks Content-Type + soft-reloads on `/login` redirect. `safeTime()` guards Invalid Date rows. `NotificationsSetup` hides itself when VAPID key missing. | `cc9670b` |
-| 19 | TS-015 · Chat redesign | Rename to **Workforce**. Left rail = Context / My Departments / Recent (last 5 agents). Pill navigator + breadcrumb + back button. Drill-down: Workforce → Dept pills → Agent pills. Real DB rooms per (user, agent). `can_see_room()` extended for personal rooms. Better visible surfaces (borders + contrast). | `b50098f` |
-| 20 | Playbook §0.9 + TS-016 | Standing rule: every UI mobile+tablet+desktop responsive from the first commit. TS-016: file uploads (multi, 25MB, 10 per message), voice messages (webm/opus + 32-bar waveform + level meter + timer), cancel/stop button (aborts SSE + resets Composer). Mobile drawer for the rail. iOS safe-area. | `6f44484` |
-
----
-
-## 3. Blocked-on-operator checklist
-
-These four items are the ONLY things standing between the current code state and a fully-working `/chat` with real Hermes agents replying to team members on their phones.
-
-### A. DNS — `hermes.yvon.in → 2.25.189.22`
-
-- **Where:** GoDaddy → Manage DNS for `yvon.in` → Add record
-- **Type:** A · **Name:** `hermes` · **IPv4:** `2.25.189.22` · **TTL:** shortest available (4 hours in your account is fine)
-- **Verify:** `dig hermes.yvon.in +short` should return `2.25.189.22`
-
-### B. Hermes wrapper install on VPS
-
-Once dig confirms DNS:
-
-```bash
-# From your Mac
-cd /Users/novysingh/StudioProjects/Agents
-scp -r vps-scripts/yvon-hermes-http root@2.25.189.22:/tmp/
-
-# SSH to VPS
-ssh root@2.25.189.22
-cd /tmp/yvon-hermes-http
-bash install.sh
-```
-
-The script prints `HERMES_URL` and `HERMES_TOKEN` at the end — copy those two values.
-
-### C. Vercel env vars
-
-Vercel Dashboard → **yvon-agentic-os** → Settings → Environment Variables. Add for **Production + Preview**:
-
-| Name | Value |
+| § | Section |
 |---|---|
-| `HERMES_URL` | `https://hermes.yvon.in` |
-| `HERMES_TOKEN` | *(from install.sh output)* |
-| `VAPID_PUBLIC_KEY` | *(from `npx web-push generate-vapid-keys` — run once on Mac)* |
-| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | *(same public key — client-side reads this one)* |
-| `VAPID_PRIVATE_KEY` | *(from same command)* |
-| `VAPID_SUBJECT` | `mailto:chat.gpt73890@gmail.com` |
+| 1 | Current state (verified) |
+| 2 | **PRIORITY 0 — do these first** |
+| 3 | The core finding — why nothing follows the workflow |
+| 4 | VPS — measured state + upgrade options |
+| 5 | **The 7 tools — full spec, repos, install commands, placement** |
+| 6 | Tool overlap analysis (new vs already installed) |
+| 7 | **Decision log — every question asked and answered** |
+| 8 | Full backlog (V / T / A / E tracks) |
+| 9 | Corrections & known errors |
+| 10 | Known gaps (unchanged from before) |
+| 11 | Key files and commands |
 
-### D. Deploy
+---
 
-```bash
-cd /Users/novysingh/StudioProjects/Agents
-cli/deploy.sh
+## 1. Current state (verified on disk 2026-07-31)
+
+**Repo:** `main @ 14f3b02` — "feat: wire all Foundry pages, Task Board, Office, Voice Transcription to Hermes API"
+
+The 2026-07-30 Notion/design-token redesign was **rolled back in full**. `dashboard/` is
+byte-identical to `14f3b02`. The UI is the original dark Material-3 theme.
+
+**Uncommitted right now** — docs consolidation (2026-07-31) + migration fixes (2026-08-01):
+
+```
+ M CLAUDE.md · README.md · Teams/README.md · docs/MASTER.md · docs/SESSION-HANDOUT.md
+ M docs/AGENT-BUILD-PLAYBOOK.md          (moved from Teams/, now the sole copy, 511 lines / 11 §0 rules)
+ D Teams/AGENT-BUILD-PLAYBOOK.md(+.toon) (the stale 355-line / 8-rule fork — deleted)
+ D docs/{4LAYER,ARCHITECTURE,BENCHMARK_REPORT,CODE_STRUCTURE,DASHBOARD,Engineering_Review,
+     FULL,GOOGLE_PATTERNS,HARNESS,PIPELINE_FINAL,WORK_TREE,YVON-OS-IMPORT-ANALYSIS}.md
+ D docs/archive/**                        (all 7 files)
+?? cli/toc.py                             (new — MASTER.md index generator)
+?? vps-scripts/MIGRATE-TO-CONTABO.md      (new — migration runbook, Contabo IP filled in)
+ M vps-scripts/yvon-hermes-http/main.py   (pass model+provider to AIAgent · surface agent-init errors as SSE)
+ M vps-scripts/yvon-hermes-http/install.sh (skip copy step when already in dest dir)
+ M vps-scripts/yvon-hermes-http/systemd/yvon-hermes-http.service (Hermes venv uvicorn · logs write path)
+ M vps-scripts/yvon-hermes-http/README.md (Hostinger → VPS)
+ M dashboard/app/api/ventures-health/route.ts (VPS_METRICS_URL env-only — no hardcoded IP)
+ M dashboard/.env.local.example          (document HERMES_URL/HERMES_TOKEN/VPS_METRICS_URL)
 ```
 
-Runs 8-check pre-push gate → pushes to `origin/main` → polls Vercel → classifies any failure.
+**Committed and working:**
 
-**Expected end state after all 4 steps:**
-- Sign in at `yvon.in/login` as `novy738`
-- `/chat` renders with Workforce room + department rooms + Recent section
-- Send `@atlas hey` → real Hermes reply via SSE streams back within a second
-- Close tab, send yourself another message → browser push notification arrives
-- On iPhone: open `yvon.in` → Share → **Add to Home Screen** → open the installed PWA → same experience with iOS push
+| Area | State |
+|---|---|
+| Chat surface, drill-down (Workforce → Dept → Agent) | committed |
+| Password auth, 3 BOD accounts, whole dashboard gated | committed |
+| Hermes HTTP wrapper `vps-scripts/yvon-hermes-http/` | in repo (`main.py` · `install.sh` · `nginx` · `systemd`) |
+| File uploads · voice messages · cancel-generation | committed |
+| PWA + Web Push (`app/manifest.ts` · `public/sw.js` · `lib/push-server.ts`) | committed |
+| Deploy gate `cli/verify-deploy.sh` (8 checks) + `cli/deploy.sh` | committed, **passing 8/8** |
+| Hermes API catalog `store/hermes-api-catalog.json` | 176 endpoints |
 
----
+**Docs work completed this session (uncommitted):**
 
-## 4. Ready to build next (TS-017)
+1. Rollback of the failed redesign — 72 files restored from `14f3b02`
+2. **`docs/` consolidated 15 → 3 files.** `MASTER.md` = PART 0–8 + APPX A–C (~5,100 lines)
+3. **PART 0 — Orientation**, merged from `ARCHITECTURE.md` (was **0% covered** by MASTER — a genuinely different doc, not a duplicate)
+4. **PART 8 — Enforcement** written (transition conditions, gate map, hook spec, `cli/task.sh` spec, tool→gate bindings). Status **`[planned]` — nothing enforces yet**
+5. **`cli/toc.py`** — generates + self-verifies the line-numbered index in MASTER.md. Idempotent. Re-run after any hand-edit
+6. All dangling doc references fixed repo-wide (`CLAUDE.md` ×4, `README.md` ×12, `Teams/README.md`)
 
-**Claude-style live status feed** — the last piece of the "chat behaves like Hermes" vision. This one waits on the wrapper being alive because it modifies the SSE event schema on both sides.
+Deletion was gated: a section-level coverage check proved every H2–H4 heading **and** a
+180-char body sample of each deleted file existed in the merged MASTER. 16/16 PASS.
 
-**What it adds:**
-- Extend `vps-scripts/yvon-hermes-http/main.py` to emit richer SSE events using Hermes's own callback hooks (`AIAgent.__init__` already accepts `thinking_callback`, `tool_start_callback`, `tool_complete_callback`, `stream_delta_callback`, `interim_assistant_callback`, `status_callback`, `notice_callback` — all discovered in the source)
-- New event kinds emitted alongside `token` / `done`:
-  - `{ kind: 'thinking' }` while the model is reasoning
-  - `{ kind: 'tool_call.start', name, args_preview }`
-  - `{ kind: 'tool_call.end', name, ok, summary }`
-  - `{ kind: 'notice', level, message }`
-- Dashboard `MessageStream` renders inline status chips: `atlas · thinking…` / `running git log` / `reading plan.md`
-- Chip animations pulse while active; solidify + collapse when done
-
-**Estimated size:** 1 push. About 6 files touched (Hermes wrapper main.py, hermes-client.ts, MessageStream.tsx, new StatusChip.tsx, small type updates).
-
-**Depends on:** the Hermes wrapper being deployed (blocked-on-operator §3).
-
----
-
-## 5. Other candidates (not committed to yet)
-
-Ranked by impact per hour. Pick whichever feels right when TS-017 lands.
-
-1. **TS-018 · Foundry sub-routes wire-up** — `store/hermes-api-catalog.json` maps every stub in `/foundry/*` to real Hermes endpoints. `mcp`, `skills`, `training`, `harness` each become live. About 4–5 pushes, one per sub-route. Very high impact — replaces stubs with real functionality.
-2. **TS-019 · Task Board on Hermes Kanban** — Hermes has 30+ kanban endpoints (`/api/plugins/kanban/*`). Our `/task-board` currently shows a static demo. Wire it. AI decompose/specify/reassign for free.
-3. **TS-020 · Office live activity** — `/office` currently shows all 46 agents idle. Wire `agent_sessions` inserts (either from Hermes sessions or our own `chat_messages` inserts) → agents light up green when working, halos form when they share a session. Uses the `/api/office` endpoint that already exists — just needs a data feed.
-4. **Amit + Sagar dept assignment UI** — `Settings → Departments`. Owner-only. Grid of 7 depts × 3 people, click cell to reassign. Uses `department_assignments` table already in the DB. TS-009 WI-4 was scoped for this.
-5. **Notification triggers beyond chat** — currently only chat replies fire push. Extending to overnight briefs, decision-queue additions, security alerts.
-6. **Voice → text transcription** — auto-transcribe voice messages via OpenAI Whisper or Hermes's `/api/audio/transcribe`. Text shows alongside the waveform.
-7. **File preview inline** — currently non-image files show as download cards. Adding PDF preview, code-file syntax highlighting.
-8. **Recent list smart-ordering** — currently orders 1:1 rooms by creation date. Should order by last-message-time.
+**Hostinger → Contabo migration: COMPLETE (2026-08-01).** Chat / transcribe / hermes-proxy all
+live on Contabo `169.58.107.148` via `hermes.yvon.in` (BigRock DNS flipped, verified via `dig`).
+GPT-5.6 Luna verified streaming end-to-end (`curl` + live dashboard deploy). Fresh re-provision —
+no data was copied off the old box. See §4 for the config that made it work, and
+`vps-scripts/MIGRATE-TO-CONTABO.md` for the runbook. Still open: commit fixes, rotate exposed
+keys, verify the :9119 Hermes API, metrics service, decommission Hostinger (§2).
 
 ---
 
-## 6. Key files to know
+## 2. PRIORITY 0 — do these first
 
-### Deploy loop + gate
-- `cli/verify-deploy.sh` — 8-check pre-push gate. Extend with new checks whenever a new failure class escapes.
-- `cli/vercel-classify.sh` — matches Vercel failure logs to known classes. Same rule: extend on new classes.
-- `cli/deploy.sh` — gate → push → watch → classify. Use this instead of raw `git push`.
-- `cli/install-hooks.sh` — installs `.git/hooks/pre-push` to auto-run the gate. Run once per clone.
+**In order.**
 
-### Chat
-- `dashboard/app/chat/page.tsx` — Focus state model, jsonFetch helper, mobile drawer, cancel/stop wiring
-- `dashboard/app/chat/ContextPanel.tsx` — left rail (Context · My Departments · Recent)
-- `dashboard/app/chat/PillHeader.tsx` — pill navigator + breadcrumb + back
-- `dashboard/app/chat/Composer.tsx` — textarea + @mention + attachment picker + audio recorder + send/stop
-- `dashboard/app/chat/AttachmentCard.tsx` — image / audio-with-waveform / file renderers
-- `dashboard/app/chat/AudioRecorder.tsx` — mic button + level meter + timer
-- `dashboard/app/chat/MessageStream.tsx` — message rows + attachments + safeTime()
+1. **M1 — Commit the migration fixes** (§1 uncommitted list). The repo must match the working
+   box: `main.py` (model+provider → AIAgent), `install.sh` (dest-dir guard), systemd unit
+   (Hermes venv + logs path), routes. Run `bash cli/verify-deploy.sh` first.
 
-### Auth
-- `dashboard/app/login/page.tsx` — username + password
-- `dashboard/lib/supabase-server.ts` — RSC/route-handler client (Node)
-- `dashboard/lib/supabase-browser.ts` — client-side
-- `dashboard/middleware.ts` — inline Supabase (Edge-safe)
-- `dashboard/supabase/scripts/seed-bod-users.sql` — rotation template. Never commit real passwords.
+2. **M2 — Rotate exposed keys.** `OPENAI_API_KEY` appeared in chat + lives in the systemd
+   drop-in and Vercel env; `KREA_API_KEY` also appeared in chat. Regenerate at
+   platform.openai.com, update `/etc/systemd/system/yvon-hermes-http.service.d/override.conf`
+   and Vercel, restart + retest chat.
 
-### Hermes integration
-- `vps-scripts/yvon-hermes-http/` — the wrapper (main.py + systemd + nginx + install.sh)
-- `dashboard/lib/hermes-client.ts` — dashboard SSE client
-- `dashboard/app/api/chat/send/route.ts` — orchestrates: save user msg + attach files + call Hermes + save reply + fan-out push
-- `store/hermes-api-catalog.json` — 176-endpoint reference; use for future integrations
+3. **M3 — Verify the Hermes API server on `127.0.0.1:9119`** — `hermes dashboard` must run on
+   Contabo; it powers the wrapper's `/api/hermes/*` proxy (Foundry, Task Board, Office). This
+   was NOT verified during migration — chat works via `AIAgent` import regardless.
 
-### Push notifications
-- `dashboard/app/manifest.ts` + `app/icon.tsx` + `app/apple-icon.tsx` — PWA
-- `dashboard/public/sw.js` — service worker
-- `dashboard/lib/push-server.ts` + `dashboard/lib/push-client.ts` — VAPID + subscribe flow
-- `dashboard/app/api/push/subscribe/route.ts` — subscription persistence
+4. **M4 — Decommission Hostinger** after ≥ 1 week of green: cancel the plan, remove old
+   A-records (BigRock), drop the old token/keys from Vercel.
 
-### Storage
-- `dashboard/lib/attachments-client.ts` — file upload to Supabase Storage
-- `dashboard/lib/audio-recorder.ts` — MediaRecorder wrapper with waveform sampling
+5. **E1 — `cli/task.sh`** — no VPS dependency.
 
-### Playbook + memory
-- `Teams/AGENT-BUILD-PLAYBOOK.md` — every rule established this session is in here with dated tags
-- `store/hermes/MEMORY.md` — fleet-wide lessons pushed for future sessions to inherit
+6. **A1 — `cli/agent-compile.py`, compile ONE agent for review** — no VPS dependency.
 
 ---
 
-## 7. Supabase state (project `cjjllgexiecesgwenpph`)
+## 3. The core finding — why nothing follows the workflow
 
-**Auth users (3):**
-- `novy738@yvon.internal` — role: owner
-- `sagar739@yvon.internal` — role: bod_member
-- `amit740@yvon.internal` — role: bod_member
+Diagnosed this session, with evidence:
 
-**Tables added this session:**
-| Table | Migration | Purpose |
+1. **`.claude/agents/` does not exist.** All 46 agent folders (27–35 files each) are
+   **uninvocable**. They are documentation that one model reads and roleplays. This is the
+   root cause of "single stream, no working structure" — there is no mechanism.
+   *An agent = the whole folder* (`agent.md` + `identity/` + `custom/` + `marketplace/` +
+   `operational/{agent,commands,principles,skill,tool}/` + `logical/`), not just `agent.md`.
+
+2. **The protocol already exists and was abandoned.** `MASTER.md` PART 6 defines a real state
+   machine (`draft → discovery → approved → executing → gated → done`, with
+   `discovery: BLOCKING`). PART 7 defines five execution scenarios. `store/tasks/` holds
+   **TS-001…TS-013** with genuine exit-gate proofs.
+   **TS-014 / TS-015 / TS-016 do not exist** — yet the old handout listed them as shipped.
+   That is the exact abandonment point. **8 of 11** records are still stuck at `approved`.
+
+3. **Nothing reads any of it.** The only live hook is `yvon-retrieve.sh`, which injects
+   context but gates nothing. `verify-deploy.sh` — which *is* wired to a blocking point —
+   has held every regression class it encodes.
+   > **A rule with a checker is a rail. A rule in prose is a suggestion.**
+
+4. **Parallelism was planned, never executed.** TS-001/002/003/005/010 have populated
+   `dag.parallel`, with the correct safety rule already written:
+   *"disjoint write paths → safe parallel"*. It ran serially because one context can't fan out.
+
+5. **Intra-agent routing already documented.** All 46 agents document handoff in
+   `operational/skill/<agent>-skill-routing.md`. marcus has an explicit DAG:
+   `vision-exploration → okr-cascade → venture-priority-matrix → decision-critic`.
+   The knowledge exists; it is not machine-readable and nothing enforces it.
+
+---
+
+## 4. VPS — migrated to Contabo (2026-08-01)
+
+**Was:** Hostinger, `2.25.189.22`, $18/mo, 1 core / 3.8 GiB / 48 GB, zero swap (measured
+2026-07-31 — the reason for the upgrade: any two of {reticle, crawl4ai, strix} would OOM and
+take `next-server` or `hermes gateway` down).
+
+**Now:** Contabo VPS 20 — `169.58.107.148` (hostname `vmi3479143`), 6 vCPU / 12 GB / 100 GB
+NVMe / ~$7. Ubuntu 24.04, system Python 3.12.3; Hermes venv = Python 3.11.15; nginx 1.24.0 +
+certbot (TLS for `hermes.yvon.in`, cert expires 2026-10-30, auto-renew via certbot timer).
+
+**Migration:** performed 2026-08-01, **fresh re-provision — zero data copied off Hostinger**
+(runbook: `vps-scripts/MIGRATE-TO-CONTABO.md`). DNS at **BigRock** repointed
+`hermes.yvon.in → 169.58.107.148` (verified via `dig`). Vercel `HERMES_TOKEN` updated to the
+new bearer token; `HERMES_URL=https://hermes.yvon.in` unchanged; dashboard redeployed live.
+
+**Key config on the new box (all operator-verified):**
+- Hermes installed via official installer (`hermes-agent.nousresearch.com/install.sh`), lives
+  at `/usr/local/lib/hermes-agent/` **with its own venv** (`venv/bin/python`, Python 3.11.15).
+- Model: **`gpt-5.6-luna`** · provider: **`openai`** (NOT `openai-api` — an invalid ID that
+  empties the model; §9) · reasoning effort: **high**.
+- Wrapper at `/opt/yvon-hermes-http`; systemd unit runs **Hermes's venv uvicorn**
+  (`/usr/local/lib/hermes-agent/venv/bin/uvicorn`), `ReadWritePaths` includes
+  `/usr/local/lib/hermes-agent/logs`, hardening directives commented out
+  (`226/NAMESPACE` on Contabo's LXC), drop-in `override.conf` holds `OPENAI_API_KEY` — **rotate
+  it, it was exposed in chat** (§2 M2).
+- DeepSeek fully removed (`.env` + override) — operator chose OpenAI-only.
+
+**Remaining unknown:** the **port-4201 metrics service** (ventures-health) existed only on
+Hostinger, wrapped behind a domain the operator owns. It does NOT exist on Contabo —
+ventures-health may show offline until the service is identified/recreated (§8 V5).
+
+---
+
+## 5. The 7 tools — full spec
+
+**Operator decision: install ALL 7, but ONLY when first needed** (not pre-emptively).
+Register with bindings now so the registry is honest.
+
+### 5.1 reticle — in-loop verification ★ highest value
+
+| | |
+|---|---|
+| **Repo** | https://github.com/reticlehq/reticle |
+| **Package** | `@reticlehq/core` (npm) |
+| **Licence** | **Apache-2.0** (SDK: browser/protocol/react/babel-plugin/next) · **FSL-1.1-ALv2** (server/CLI/MCP) · **Enterprise licence** (`packages/server/src/ee/` — paid key in prod) |
+| **Purpose** | Instruments a running app and reads *the program* — network, store state, custom signals, console, React commit stream. Returns pass/fail **with `file:line` to fix**. MCP server. |
+| **Placement** | **Mac** (dev machine) — it verifies a dev server while an agent codes |
+| **Install** | `npm i -D @reticlehq/core` then `claude mcp add reticle -s user -- npx @reticlehq/core mcp` (restart Claude Code after) |
+| **Alt install** | Paste to agent: `Follow https://raw.githubusercontent.com/reticlehq/reticle/main/SKILL.md` |
+| **App wiring** | `if (import.meta.env.DEV) reticle.connect({ session: 'my-app' })` — dev-only, tree-shaken from prod |
+| **Gate binding** | quinn's **VERIFY** gate (edit-time). Blocking for UI work |
+| **Status** | ✗ not installed · **cited as a gate in 4 agent docs already** (see T2) |
+
+**Benchmarks (their committed harness, `pnpm bench`):** 50/52 injected regressions caught
+(Playwright-script 38) · 0 false positives · ~47 tokens to re-run a 4-flow suite vs ~120,000
+LLM re-drive (**2,574×**) · 0% flake on deterministic replay · 16 flows across 8 leased
+contexts in 5.2 s vs 35.4 s serial (**6.78×**).
+
+**Why it matters most:** it is precisely the tool that would have caught this session's
+failure. The redesign was verified via compiled CSS and `tsc` and declared done — the app was
+never opened. Reticle's stated purpose is *"your agent says done without ever opening the
+app."* Its lease pool is also the parallel-agent verification layer the new architecture needs.
+
+**warden review: PASS, conditional** —
+(a) never enable `packages/server/src/ee/`;
+(b) grep the production Vercel bundle for `reticle` to prove the SDK is tree-shaken;
+(c) TIER-1 `quarantine.sh` + egress check on the daemon (vendor claims dev-only, localhost-only, no telemetry — verify, don't trust);
+(d) relay registers the **MCP server**, not the shared tool registry;
+(e) it injects a Babel/Vite plugin (build-chain modification) — aegis should review the diff.
+**No AgentX conflict:** FSL restricts offering Reticle *itself* as a hosted service, which you are not doing.
+
+### 5.2 strix — autonomous security agents
+
+| | |
+|---|---|
+| **Repo** | https://github.com/usestrix/strix |
+| **Package** | `strix-agent` (PyPI) |
+| **Licence** | **Apache-2.0** |
+| **Purpose** | Autonomous AI pentest agents. Full HTTP proxy, browser automation, terminal, Python runtime, recon, static+dynamic analysis. "Graph of agents" — parallel specialised agents |
+| **Placement** | **VPS, on-demand only** — never a resident service |
+| **Install** | `curl -sSL https://strix.ai/install | bash` |
+| **Config** | `export STRIX_LLM="anthropic/claude-sonnet-4-6"` + `export LLM_API_KEY=...` |
+| **Requires** | **Docker** (pulls a sandbox image on first run) + an LLM API key |
+| **Gate binding** | Security gate — cypher (Red Team, caged) |
+| **Status** | ✗ not installed. **Blocked on V1** (disk at 80%, image is multi-GB) |
+
+**Overlap: zero.** There is currently **no security testing tool at all** in the registry —
+cypher is a role with no weapon.
+**Charter fit is exact:** SECURITY-CHARTER Rail 4 requires cypher to attack only
+operator-signed in-scope targets, in-sandbox, findings-only. Strix is Docker-sandboxed,
+scope-flagged, and outputs findings + PoCs.
+**Cheaper alternative to consider:** their GitHub Actions workflow runs it on PRs on GitHub's
+runners — zero VPS cost, and gates code before merge.
+
+### 5.3 taste-skill — frontend design quality skills
+
+| | |
+|---|---|
+| **Repo** | https://github.com/Leonxlnx/taste-skill |
+| **Licence** | **MIT** |
+| **Purpose** | 13 portable Agent Skills for frontend design quality. Dials: `DESIGN_VARIANCE` / `MOTION_INTENSITY` / `VISUAL_DENSITY` (1–10) |
+| **Placement** | **Mac** — markdown skill files, zero runtime |
+| **Install (all)** | `npx skills add https://github.com/Leonxlnx/taste-skill` |
+| **Install (one)** | `npx skills add https://github.com/Leonxlnx/taste-skill --skill "design-taste-frontend"` |
+| **Gate binding** | Generation-time guidance for mia/atlas (advisory, not a gate) |
+| **Status** | ✗ not installed |
+
+**Skills (install name):** `design-taste-frontend` (v2 default) · `design-taste-frontend-v1` ·
+`gpt-taste` · `image-to-code` · `redesign-existing-projects` · `high-end-visual-design` ·
+`full-output-enforcement` · `minimalist-ui` · `industrial-brutalist-ui` ·
+`stitch-design-taste` · `imagegen-frontend-web` · `imagegen-frontend-mobile` · `brandkit`
+
+**Recommended subset:** `design-taste-frontend` + `redesign-existing-projects`.
+Skip `stitch-design-taste` (duplicates **getdesign**) and the image-gen skills unless needed.
+**Honest caveat:** taste-skill would **not** have prevented this session's failure — that was
+a dangling token bridge and zero browser verification, a mechanical bug, not a taste deficit.
+
+### 5.4 page-agent — in-page GUI agent
+
+| | |
+|---|---|
+| **Repo** | https://github.com/alibaba/page-agent |
+| **Package** | `page-agent` (npm) |
+| **Licence** | **MIT** |
+| **Purpose** | In-page JS GUI agent. Natural language → DOM actions. No extension, no Python, no headless browser. Text-based DOM, no screenshots. Optional Chrome extension + MCP server |
+| **Placement** | **Dashboard `dependencies`** — it ships to your users' browsers |
+| **Install** | `npm install page-agent` |
+| **Usage** | `new PageAgent({ model, baseURL, apiKey, language })` then `await agent.execute('Click the login button')` |
+| **Gate binding** | **Product feature, not a gate** |
+| **Status** | ✗ not installed |
+
+**Category note:** the README states *"designed for client-side web enhancement, not
+server-side automation."* Use cases are SaaS AI copilot, smart form filling, accessibility.
+This is something you **ship inside the YVON dashboard for BOD users**, not a tool agents use
+to build. **Derived from browser-use** (already registered) — same DOM processing and prompts.
+
+### 5.5 crawl4ai — scraping for RAG
+
+| | |
+|---|---|
+| **Repo** | https://github.com/unclecode/crawl4ai |
+| **Package** | `crawl4ai` (PyPI) |
+| **Licence** | **Apache-2.0** |
+| **Purpose** | JS-rendered crawling → clean markdown for the RAG chunker. No API key |
+| **Placement** | **VPS** — server-side crawling |
+| **Install** | `pip install crawl4ai && crawl4ai-setup` (installs Playwright browsers) · MCP: `crawl4ai --mcp` |
+| **Gate binding** | Research phase (`discovery`) — dana, rank, scout |
+| **Status** | ✗ not installed (already in registry). **Blocked on V1** — ~300 MB deps + browsers |
+
+### 5.6 playwright — release gate
+
+| | |
+|---|---|
+| **Repo** | https://github.com/microsoft/playwright |
+| **Package** | `@playwright/test` **^1.61.1** |
+| **Licence** | **Apache-2.0** |
+| **Placement** | **Mac** + CI |
+| **Install** | `npm i -D @playwright/test && npx playwright install chromium firefox webkit` |
+| **Gate binding** | quinn's **RELEASE** gate (`npm run test:e2e`) |
+| **Status** | **✓ installed** in root `node_modules` — but **bound to nothing** |
+
+### 5.7 agentation — visual feedback input
+
+| | |
+|---|---|
+| **Repo** | https://github.com/benjitaylor/agentation |
+| **Package** | `agentation` **^3.0.2** |
+| **Licence** | **PolyForm Shield 1.0.0** ← **not an OSS licence** |
+| **Purpose** | Human clicks an element in the running app → structured selector + notes back to the agent. Opposite direction to reticle |
+| **Placement** | **Dashboard `devDependencies`** |
+| **Install** | `npm install agentation -D` |
+| **Gate binding** | Feedback input during `executing` (not a gate) |
+| **Status** | **✓ installed** |
+
+### 5.8 Placement summary
+
+| Tool | Mac | Dashboard deps | Dashboard devDeps | VPS |
+|---|:--:|:--:|:--:|:--:|
+| reticle | ● | | | |
+| playwright | ● | | | |
+| taste-skill | ● | | | |
+| page-agent | | ● | | |
+| agentation | | | ● | |
+| crawl4ai | | | | ● |
+| strix | | | | ● on-demand |
+
+---
+
+## 6. Tool overlap analysis
+
+**Already installed (root `node_modules`, verified):** `impeccable` ^3.2.1 ·
+`@playwright/test` ^1.61.1 · `agentation` ^3.0.2 · `@dietrichgebert/ponytail` ^4.8.4
+**Registered but not importable in the build sandbox:** crawl4ai · browser-use ·
+ScrapeGraphAI · OpenSandbox (registry notes these as operator-machine installs)
+
+| New tool | Overlaps with | Verdict |
 |---|---|---|
-| `profiles` | 100 | 1:1 with auth.users. Role. |
-| `chat_rooms` | 101 | Whole-team + 7 department seeds; extended in 104 for agent + assigned_scope |
-| `chat_messages` | 101 | Message stream, RLS via can_see_room() |
-| `department_assignments` | 101 | Which BOD member owns each department (all 7 → Novy initially) |
-| `push_subscriptions` | 103 | Web Push per user × device |
-| `chat_attachments` | 105 | Files/images/voice; linked to messages via cascade |
-
-**Storage buckets:**
-- `chat-uploads` (private, 25 MB cap, RLS by folder = user id)
-
-**RLS helpers:**
-- `is_owner()` — is caller Novy?
-- `can_see_room(uuid)` — visibility rule for all chat surfaces
-- `handle_new_user()` — allowlist-gated profile creation
-- `seed_owner_assignments()` — auto-assigns all 7 depts to owner
+| **reticle** | Playwright | **Complementary.** Vendor: *"Playwright gates releases. Reticle gates edits."* Reticle needs an SDK in an app you own; Playwright drives any site, other engines, true pixels. **Keep both** |
+| **strix** | nothing | **Pure gap-fill.** No security tool exists today |
+| **taste-skill** | impeccable, getdesign | **Partial.** impeccable = deterministic *detectors* (objective, blocks CI); getdesign = *reference* DESIGN.md; taste-skill = *generation* guidance (subjective). Complementary, but `stitch-design-taste` duplicates getdesign and `redesign-existing-projects` overlaps impeccable `/audit`+`/polish` |
+| **page-agent** | browser-use | **Derived from it.** Different category — product feature vs build tool |
+| **crawl4ai** | ScrapeGraphAI | **Mild.** crawl4ai = key-free bulk → markdown; ScrapeGraphAI = LLM-driven NL extraction. crawl4ai is the cheaper default |
+| **playwright** | — | already installed |
+| **agentation** | — | already installed, opposite direction to reticle |
 
 ---
 
-## 8. Known gaps / not blockers
+## 7. Decision log — every question asked and answered
 
-- **`hermes-agent` is not in a git repo** — lives on VPS only. If you want reproducible re-installs on a new VPS, `git init` inside `/usr/local/lib/hermes-agent/` and push to a private GitHub repo. Not urgent — the wrapper (`vps-scripts/yvon-hermes-http/`) IS in git.
-- **VAPID keys aren't set yet** — TS-014 push code ships but silently no-ops without keys. Zero cost setup, ~5 minutes.
-- **`OPERATOR_KEY` env var is unused** — old middleware referenced it before we switched to Supabase auth. Safe to delete from env if it's still there.
-- **Empty state in `/office`** — all 46 agents show idle. Once `agent_sessions` gets real rows (either from Hermes-driven activity or manual inserts for testing), the office lights up automatically. No code fix needed, just data.
-- **`Task Board` is a static demo** — until TS-019 wires it to Hermes Kanban, it doesn't reflect real state.
-- **Foundry sub-routes are stubs** — until TS-018 wires them.
-- **Hermes-agent is 18 commits behind upstream** — noted by `hermes --version`. Safe to leave; `hermes update` when convenient.
-- **Passwords shared in this chat** — rotate the 3 BOD passwords in `seed-bod-users.sql` (locally, don't commit) and re-run in Studio SQL editor.
+### Design decisions (made, then **rolled back** — kept for if the redesign is retried)
+
+| # | Question | Decision |
+|---|---|---|
+| D1 | Theme target | **Ship both light + dark, light default** |
+| D2 | Rebuild scope | **Full dashboard token migration** |
+| D3 | Verification bar | **Full: impeccable zero-drift + Playwright real-render + no hardcoded brand values** |
+| D4 | Handling design gaps in DESIGN.md | **atlas proposes 2–3 options with sources → operator picks → mia builds** |
+| D5 | Dark-mode pastel tints | **Deepen** (as Notion's own product does) |
+| D6 | Chat bubbles | **Lavender user / gray agent** (softer) |
+| D7 | 46 agent colours | **Remap to the 9 Notion database-property colours** |
+| D8 | Workspace accent | **Retint through the Notion palette** |
+
+### Architecture & process decisions (**active**)
+
+| # | Question | Decision |
+|---|---|---|
+| A1 | Where does the build-time protocol live? | **Inside `MASTER.md`** — became **PART 8** (PART 6 and 7 were already taken by TASK-SPEC and the Workflow Blueprint) |
+| A2 | How hard should enforcement be? | **Hard block via `PreToolUse` hooks** |
+| A3 | Tool scope for this pass | **Protocol first, bind tools after** · *"present me plan before doing it"* |
+| A4 | Docs with unique content | **Merge as Appendices A/B/C in MASTER.md** |
+| A5 | SESSION-HANDOUT.md | **Keep it, rewrite at end of session** (this file) |
+| A6 | Agent → subagent compilation | **Compile ONE agent first, operator reviews, then the rest** |
+| A7 | Where does the per-agent work tree live? | **New file `operational/worktree/<agent>-worktree.yaml`** |
+| A8 | Tool research | **Deep research all 7 repos, compare against installed, then install** |
+| A9 | Which tools to install | **All 7, including page-agent** |
+| A10 | reticle licence | **Flag + review before install** (warden review done — §5.1) |
+| A11 | Where do tools install | **VPS** — but check memory first (led to the V1 blocker) |
+| A12 | strix install timing | **Install all tools only when needed, not before** |
+| A13 | VPS | **Upgrade first**, suggest affordable alternatives (§4) |
+| A14 | VPS migration | **Fresh re-provision on Contabo** (no VPS data copied) — runbook `vps-scripts/MIGRATE-TO-CONTABO.md` |
+| A15 | Default model after migration | **OpenAI `gpt-5.6-luna`** (provider `openai`) — operator picked OpenAI over DeepSeek; DeepSeek removed |
+
+### Standing definitions established
+
+- **"Agent" means the whole folder**, not `agent.md`. For marcus that is all 27 files.
+- **Parallel-safety rule** (already the convention in TS-001): agents may run in parallel
+  **only when their `owns_paths` are disjoint**.
+- **Gate rule:** *"a gate that is installed but not wired to a blocking point does not exist."*
+- **Registry rule:** adding a tool row without a gate binding is incomplete — that is how
+  `reticle` became fictional.
 
 ---
 
-## 9. How to continue in a fresh session
+## 8. Full backlog
 
-If starting a new agent session, the first three actions:
+Dependency order: `M1`→`M2`→`M3`→`M4` (post-migration) · `A1`+`A2` block `A3` · `E1` blocks `E3`/`E4`.
 
-1. **Read `store/hermes/MEMORY.md`** — every rule from this session's playbook updates is there as a Hermes lesson so it inherits automatically.
-2. **Read this file** — you're doing that.
-3. **Check `cli/deploy.sh` runs green** — if not, run `bash cli/verify-deploy.sh` locally to see what regressed.
+### V — Infrastructure (blocking)
 
-Then pick from §4 or §5 based on operator's ask, follow the rail (§0.1 present-before-build, §1.3 kickoff snapshot, §5.4 plan-per-custom-artifact), and land through the deploy loop.
+| # | Task | Notes |
+|---|---|---|
+| **V1** | ~~Upgrade the VPS~~ | **DONE 2026-08-01** — Contabo VPS 20, `169.58.107.148`. §4 |
+| **V2** | ~~VPS relief on Hostinger~~ | **OBSOLETE** — old box being decommissioned |
+| **V3** | ~~Audit cal.com / next-server~~ | **OBSOLETE** — no longer migrating the old box |
+| **V4** | Decommission Hostinger | After ≥ 1 week green (§2 M4): cancel, remove old A-records, drop old token |
+| **V5** | Identify/recreate the 4201 metrics service on Contabo | ventures-health offline until done; wrapped-domain name known only to operator |
+
+### T — Tools (register now, install on demand)
+
+| # | Task | Notes |
+|---|---|---|
+| **T1** | Register all 7 with gate bindings | Add `INSTALLED` (yes/no/on-demand) + `LICENCE` columns to `Teams/Shared OS/tools/shared-tool-registry.md` |
+| **T2** | **Resolve the `reticle` phantom** | Cited as quinn's browser gate in **4 agent docs**; never installed or registered. Install, or strike the references |
+| **T3** | Add `LICENCE` column to the registry | `agentation` = PolyForm Shield (installed, **not OSS**) · `reticle` server = FSL-1.1-ALv2 · `reticle ee/` = paid key in prod |
+
+### A — Agent architecture
+
+| # | Task | Notes |
+|---|---|---|
+| **A1** | `cli/agent-compile.py` — **compile ONE agent, review, then the rest** | `Teams/<Dept>/<agent>/` → `.claude/agents/<agent>.md`: frontmatter (`name` · `description`=routing triggers · `tools` allowlist · `model`) + compiled body (agent.md + identity + principles + skill-routing + config) |
+| **A2** | `operational/worktree/<agent>-worktree.yaml` | `consumes` · `skill_chain` · `tools` · `owns_paths` · `produces` · `handoff` · `escalates_to`. Derived from the prose already in `*-skill-routing.md` + `*-tool-requirements.md` |
+| **A3** | Parallel orchestration | Dept lead fans out `dag.parallel` items as **concurrent** Task invocations in one message. Only when `owns_paths` are disjoint |
+
+**Target `worktree.yaml` shape:**
+```yaml
+agent: mia
+dept: Engineering
+consumes:     [design-tokens@atlas, api-contract@raj]
+skill_chain:  [design-tokens, impeccable-shape, ui-accessibility-standards,
+               impeccable-audit, frontend-verification, frontend-performance]
+tools:        [impeccable, playwright, reticle, agentation]
+owns_paths:   [dashboard/app/**, dashboard/components/**]
+produces:     ui-build
+handoff:      quinn
+escalates_to: dev
+```
+
+### E — Enforcement (MASTER PART 8 §8.8 rollout order)
+
+| # | Task | Notes |
+|---|---|---|
+| **E1** | `cli/task.sh` — 8 commands | `new/discover/approve/start/gate/done/status/validate`. `validate` exits 1 so the deploy gate can call it. No blocking yet |
+| **E2** | Backfill TS-014/015/016, close the 8 stuck at `approved` | Make the ledger honest **before** enforcement turns on |
+| **E3** | `task validate` as check 9 in `verify-deploy.sh` | **First blocking point.** Push-time only |
+| **E4** | `.claude/hooks/yvon-gate.sh` warn+log → blocking | `PreToolUse` on Write/Edit. One session warn-mode to calibrate always-allowed paths. Add `SessionStart` rail re-injection (fixes context decay) |
+| **E5** | Wire `impeccable` + browser gate as **blocking** for UI work | Both installed, bound to nothing. Their absence let the broken redesign ship |
+
+**Definition of done for the whole push:** a `Write` to `dashboard/` with no active approved
+TASK-SPEC is **refused**, and the refusal names the exact command to fix it.
 
 ---
 
-*End of handout. Total commits this session: ~30 across chat, auth, deploy tooling, playbook rules, and Hermes integration. Everything is on `origin/main`.*
+## 9. Corrections & known errors (recorded so they aren't repeated)
+
+1. **"There is no task-execution workflow"** — **wrong.** MASTER PART 6 + PART 7 already
+   define one; I truncated a `grep` and missed them. The problem is enforcement, not absence.
+2. **"Contabo uses standard SSD, not NVMe"** — **likely wrong.** A later source states all
+   Contabo VPS plans run AMD CPUs and NVMe. Verify on Contabo's own spec page.
+3. **"9 of 11 records stuck at approved"** — actual count is **8**. Corrected in PART 8.
+4. **Uncommitted Notion work was lost.** A prior session's uncommitted theme migration
+   (ThemeContext, ThemeToggle, `notion-*` classes in globals.css, DESIGN.md) was overwritten
+   during the rollback. `git stash` **failed silently** because the sandbox could not remove
+   `.git/index.lock`. `dashboard/components/ThemeToggle.tsx` and `dashboard/lib/ThemeContext.tsx`
+   survive as untracked orphans. Recovery, if wanted: editor Local History or Time Machine.
+5. **`.git/index.lock` left behind** by that failed stash. If git says *"another git process
+   seems to be running"*: `rm -f .git/index.lock`.
+6. **`provider: openai-api` is not a valid Hermes provider ID** — canonical is `openai`.
+   `normalize_model_for_provider` empties the model for unrecognized provider IDs → requests
+   went out with `"model": ""` → HTTP 400 "you must provide a model parameter". Hours of
+   debugging traced to this one string.
+7. **`AIAgent` does NOT read `config.yaml`** for model/provider — `self.model` comes only from
+   constructor args. The wrapper MUST pass `model=` + `provider=` explicitly (fixed in
+   `main.py` — reads `model.default`/`model.provider` from Hermes config itself).
+8. **OpenAI model ID on this key is `gpt-5.6-luna`**, not the catalog's
+   `databricks-gpt-5-6-luna`. Also: gpt-5.6 rejects `max_tokens` — use `max_completion_tokens`.
+9. **Systemd hardening breaks under Contabo's LXC** — `status=226/NAMESPACE` with
+   `ProtectSystem=strict` + `ReadOnlyPaths`. Hardening commented out in the unit; service runs
+   fine unhardened.
+10. **install.sh's copy step fails when run inside the dest dir** (`cp: same file` + `set -e`
+    bails) — fixed with a dir guard. Also on a fresh box install.sh silently skipped nginx
+    (apt race with unattended-upgrades) — nginx/certbot had to be installed manually, and
+    certbot's generated config must NOT be overwritten with the template afterwards (removes
+    `ssl_certificate` lines → nginx won't start).
+11. **Hermes ships its own venv** (`/usr/local/lib/hermes-agent/venv/`) — point the wrapper's
+    uvicorn there instead of fighting missing deps in a second venv.
+12. **Stale `models_dev_cache.json`** can pin an old provider — deleting it forces a rebuild.
+13. **The wrapper now surfaces agent-init errors as SSE `error` events** instead of a bare
+    `Internal Server Error` — no more blind debugging (§1, `main.py` change).
+
+---
+
+## 10. Known gaps (unchanged)
+
+- **VAPID keys not set** — push code ships but silently no-ops
+- **DNS** `hermes.yvon.in → 169.58.107.148` (BigRock) — **verified** 2026-08-01
+- **Vercel env** `HERMES_URL` / `HERMES_TOKEN` — updated for Contabo, deploy live; `VAPID_*` still unverified
+- **`hermes-agent` not in git** — still VPS-only on Contabo. The wrapper (`vps-scripts/`) *is* in git
+- **Hermes API server `127.0.0.1:9119`** — must run (`hermes dashboard`); powers the `/api/hermes/*` proxy (Foundry/Task Board/Office). **Unverified on Contabo** (§2 M3)
+- **4201 metrics service** — existed only on Hostinger, wrapped behind the operator's domain; not on Contabo → ventures-health may show offline (§8 V5)
+- **`OPERATOR_KEY`** unused since the Supabase auth switch — safe to delete
+- **`/office`** shows all 46 agents idle until `agent_sessions` gets rows
+- **Task Board** is a static demo · **Foundry sub-routes** are stubs
+- **3 BOD passwords were shared in chat** — rotate via `dashboard/supabase/scripts/seed-bod-users.sql` (never commit real values)
+- **`OPENAI_API_KEY` + `KREA_API_KEY` exposed in chat** — rotate; OpenAI key also lives in the systemd drop-in + Vercel env (§2 M2)
+- **`node cli/yvon.js agents`** is a stub — prints "Run: npx yvon init"
+
+---
+
+## 11. Key files and commands
+
+| What | Where |
+|---|---|
+| Session rail (read every session) | `CLAUDE.md` |
+| Architecture, single source of truth | `docs/MASTER.md` — PART 0–8 + APPX A–C |
+| Task state machine | `docs/MASTER.md` PART 6 · records in `store/tasks/` |
+| Execution scenarios + sandbox-first | `docs/MASTER.md` PART 7 (§7.7) |
+| Enforcement spec | `docs/MASTER.md` PART 8 |
+| Agent build process + §0 ground rules | `docs/AGENT-BUILD-PLAYBOOK.md` (511 lines, 11 §0 rules) |
+| Security rails (senior to all agents) | `Teams/Engineering/SECURITY-CHARTER.md` |
+| Shared tool registry | `Teams/Shared OS/tools/shared-tool-registry.md` |
+| Department sequencing | `Teams/<Dept>/DEPARTMENT-WORKFLOW.md` |
+| Migration runbook (Contabo, filled in) | `vps-scripts/MIGRATE-TO-CONTABO.md` |
+
+```bash
+# Regenerate the MASTER.md line index after any hand-edit
+python3 cli/toc.py            # write
+python3 cli/toc.py --check    # verify only, exit 1 on drift
+
+# Jump to a MASTER.md section instead of reading 5,100 lines
+grep -n '^### PART' docs/MASTER.md
+sed -n '4170,4380p' docs/MASTER.md
+
+# Deploy gate (8 checks) — must be green before push
+bash cli/verify-deploy.sh
+bash cli/deploy.sh            # gate → push → watch Vercel → classify
+
+# CAOS end-to-end check
+python3 cli/verify-caos.py --quick
+
+# Quarantine any new external tool BEFORE it enters the repo (§7.7 TIER-1)
+bash cli/quarantine.sh <name> <git|npm> <source>
+```
+
+---
+
+*End of handout. This file is the persistent backlog — update it before ending any session.*

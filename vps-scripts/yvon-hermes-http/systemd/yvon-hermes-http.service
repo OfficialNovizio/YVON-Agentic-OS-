@@ -11,7 +11,8 @@ WorkingDirectory=/opt/yvon-hermes-http
 Environment="HERMES_HOME=/usr/local/lib/hermes-agent"
 Environment="YVON_HERMES_TOKEN_PATH=/etc/yvon-hermes/token"
 Environment="PYTHONUNBUFFERED=1"
-ExecStart=/opt/yvon-hermes-http/venv/bin/uvicorn main:app \
+# Use Hermes's own venv — it contains AIAgent + all runtime deps (python-dotenv etc.)
+ExecStart=/usr/local/lib/hermes-agent/venv/bin/uvicorn main:app \
     --host 127.0.0.1 \
     --port 8765 \
     --log-level info \
@@ -26,8 +27,8 @@ TimeoutStopSec=15
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=false
-ReadWritePaths=/root/.hermes /var/log
-ReadOnlyPaths=/usr/local/lib/hermes-agent /etc/yvon-hermes
+ReadWritePaths=/root/.hermes /var/log /usr/local/lib/hermes-agent/logs
+ReadOnlyPaths=/etc/yvon-hermes
 PrivateTmp=true
 ProtectKernelTunables=true
 ProtectKernelModules=true

@@ -22,7 +22,7 @@ CLASSIFY the task
 ```
 
 Never skip DISCOVER. Never batch artifacts. Never invent values
-(`Teams/AGENT-BUILD-PLAYBOOK.md` §0.5 — ask, or leave an explicit `<FILL_IN>`).
+(`docs/AGENT-BUILD-PLAYBOOK.md` §0.5 — ask, or leave an explicit `<FILL_IN>`).
 
 ---
 
@@ -61,7 +61,7 @@ sequenced by **dev**.
 
 ## 3. Interaction Contract (non-negotiable)
 
-From `Teams/AGENT-BUILD-PLAYBOOK.md` — these rules are senior to speed:
+From `docs/AGENT-BUILD-PLAYBOOK.md` — these rules are senior to speed:
 
 - **§0.1 — Present before building.** Before ANY artifact: What you'll build, Why this
   approach (with source URLs), How you'll structure it. Then WAIT for sign-off.
@@ -96,7 +96,7 @@ for c in r.optimized.selected_chunks: print(c.get('source_file','?'))
 
 Use the returned chunks (agent skills, dept docs, book wisdom) as build context. Honor
 conflict flags ("⚠️ Agent must reconcile"). Full pipeline reference: `README.md`,
-`docs/HARNESS.md`. End-to-end check: `python3 cli/verify-caos.py --quick`.
+`docs/MASTER.md` PART 2 (Harness). End-to-end check: `python3 cli/verify-caos.py --quick`.
 
 ---
 
@@ -115,9 +115,16 @@ conflict flags ("⚠️ Agent must reconcile"). Full pipeline reference: `README
 
 | What | Where |
 |---|---|
-| Build process + ground rules | `Teams/AGENT-BUILD-PLAYBOOK.md` |
+| Build process + ground rules | `docs/AGENT-BUILD-PLAYBOOK.md` |
+| **Task state machine (TASK-SPEC)** | `docs/MASTER.md` PART 6 · records in `store/tasks/` |
+| **Execution scenarios (A–E) + sandbox-first** | `docs/MASTER.md` PART 7 |
+| **Enforcement — gates, hooks, transitions** | `docs/MASTER.md` PART 8 |
 | Dept sequencing | `Teams/<Dept>/DEPARTMENT-WORKFLOW.md` |
 | Cross-agent skills + logic scripts | `Teams/Shared OS/` |
 | Security rails (senior to all agents) | `Teams/Engineering/SECURITY-CHARTER.md` |
-| Architecture docs | `docs/ARCHITECTURE.md` (unified; deep-dives in `docs/archive/`) |
+| Architecture (single source of truth) | `docs/MASTER.md` — PART 0 orientation, 1–8, APPX A–C |
+
+> **`docs/MASTER.md` is ~5,100 lines — never read it whole.** It opens with a
+> line-numbered index; find your section there, then `sed -n 'START,ENDp'` just that
+> range. Regenerate the index after any hand-edit: `python3 cli/toc.py` (`--check` verifies).
 | Fleet CLI | `node cli/yvon.js doctor|agents|graph` |

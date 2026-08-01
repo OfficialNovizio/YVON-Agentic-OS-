@@ -1,18 +1,425 @@
 # YVON — MASTER DOCUMENT
 
-**Every architecture doc combined verbatim into one sequence — structure trees, visuals, and content unedited.**
-**Assembled:** 2026-07-20 · Source docs preserved in place.
+**The single source of truth for this system.** Nine separate architecture docs were
+consolidated here on **2026-07-30** after a section-level coverage check confirmed every
+heading and body paragraph of each was present. `docs/archive/` was removed in the same pass.
 
-| # | Part | Source | What it covers |
-|---|------|--------|----------------|
-| 1 | Full Project Architecture | docs/FULL.md | Fleet, agent structure, skills, Shared OS, CIE, TOON, pipelines |
-| 2 | Harness — Complete Architecture Plan | docs/HARNESS.md | 5-gate verification, data flow, delegation, disclosure, citations |
-| 3 | Unified Production Pipeline — Final Report | docs/PIPELINE_FINAL.md | Strategy routing (FAST/BALANCE), benchmarks, 12 scenarios |
-| 4 | Complete Work Tree with Fallbacks | docs/WORK_TREE.md | 11 layers, end-to-end data flow, fallback matrix, test suite |
-| 5 | Complete 4-Layer Multi-Tenant Architecture | docs/4LAYER.md | YVON Core, Agent Layer, Integrations, AgentX SaaS, graphs, build order |
-| 6 | TASK-SPEC Template | store/tasks/TEMPLATE.yaml | How an operator message is structured for dispatch |
-| 7 | **Unified Workflow Blueprint** | (this doc, new) | All sections combined: master tree, coding/feature/dissatisfaction/failure/parallel scenarios, dist·CAG·graph placement |
+**New here?** Read **PART 0** — it's the end-to-end narrative. Parts 1–5 are stacked
+deep-dives; Parts 6–7 are how work actually gets executed.
 
+## Table of Contents
+
+| # | Part | What it covers |
+|---|------|----------------|
+| **0** | **Orientation: Micro → Macro** | **Start here.** Life of a message end-to-end; `[built]` / `[partial]` / `[planned]` status markers |
+| 1 | Full Project Architecture | Fleet, agent structure, skills, Shared OS, CIE, TOON, pipelines |
+| 2 | Harness — Complete Architecture Plan | 5-gate verification, data flow, delegation, disclosure, citations |
+| 3 | Unified Production Pipeline | Strategy routing (FAST/BALANCE), benchmarks, 12 scenarios |
+| 4 | Complete Work Tree with Fallbacks | 11 layers, end-to-end data flow, fallback matrix, test suite |
+| 5 | 4-Layer Multi-Tenant Architecture | YVON Core, Agent Layer, Integrations, AgentX SaaS, graphs, build order |
+| **6** | **TASK-SPEC Template** | **The task state machine.** `draft → discovery → approved → executing → gated → done`. Records live in `store/tasks/` |
+| **7** | **Unified Workflow Blueprint** | **How work executes.** Master tree + 5 scenarios (coding · feature · dissatisfaction · failure · parallel) + §7.7 sandbox-first promotion |
+| **8** | **Enforcement** | **Makes 6 & 7 mechanical.** Transition conditions, gate map, write-gate hook, `cli/task.sh`, tool→gate bindings |
+| A | Appendix — Code Structure | Refactor plan, import rewiring map |
+| B | Appendix — Google agents-cli Patterns | 8 patterns to adopt, what to discard |
+| C | Appendix — Dashboard Two-Tier Design | Operator + per-brand tiers, health score formula |
+
+**Governing docs that live outside this file:**
+
+| What | Where |
+|---|---|
+| Session rail (read every session) | `CLAUDE.md` |
+| Agent build process + §0 ground rules | `docs/AGENT-BUILD-PLAYBOOK.md` |
+| Security rails (senior to every agent) | `Teams/Engineering/SECURITY-CHARTER.md` |
+| Department sequencing | `Teams/<Dept>/DEPARTMENT-WORKFLOW.md` |
+| Shared tool registry | `Teams/Shared OS/tools/shared-tool-registry.md` |
+
+---
+
+<!-- TOC:START -->
+## How to read this file
+
+`docs/MASTER.md` is ~5104 lines. **Do not read it whole.**
+Jump straight to what you need:
+
+```bash
+grep -n '^### PART' docs/MASTER.md    # find a section's line number
+sed -n '4170,4380p' docs/MASTER.md    # then read just that range
+python3 cli/toc.py                    # regenerate this index
+python3 cli/toc.py --check            # verify line numbers are accurate
+```
+
+> Line numbers below are generated. If you edit MASTER.md by hand, re-run
+> `cli/toc.py` or they drift.
+
+## Index
+
+
+### PART 0 — ORIENTATION: MICRO → MACRO  ·  line 213
+- `  225`  0. The System in One Paragraph
+- `  242`  1. Ingress — who receives the message and what happens first
+- `  251`  2. Synthesis — how the raw message becomes a proper template, and who does it
+- `  268`  3. The Retrieval Pipeline — CAOS end to end
+- `  309`  4. The feedback chain `[built]`
+- `  324`  5. How agents update their own skills `[built]`
+- `  335`  6. Memory and graphs
+- `  341`  7. Testing — the verification map `[built]`
+- `  354`  8. Source → runtime sync `[built]`
+- `  371`  9. Who decides which agent and which skill — and how it's checked
+- `  387`  10. The stack
+- `  397`  11. Multi-tenant data flow (as shipped)
+- `  403`  12. Build order (10 weeks, phased)
+- `  409`  13. Document Map
+
+### PART 1 — FULL PROJECT ARCHITECTURE  ·  line 426
+- `  437`  Project At a Glance
+- `  461`  1. FULL WORKFLOW: Query → Agent → Response
+- `  580`  2. THE 46-AGENT FLEET
+- `  658`  3. EACH AGENT'S STRUCTURE
+- `  702`  4. SKILL SYSTEM
+- `  710`  Definition          — What this skill does
+- `  711`  Triggers            — When to invoke (keywords, agent types, query patterns)
+- `  712`  Input               — What data the skill receives
+- `  713`  Output              — What the skill produces
+- `  714`  Examples            — 2-3 worked examples
+- `  715`  Constraints         — Guardrails (what the skill must NOT do)
+- `  716`  Verification        — How to verify the skill executed correctly
+- `  717`  Tool Requirements   — Any tools needed (MCP, API, file access)
+- `  718`  References           — Book/page citations grounding the skill
+- `  734`  5. SHARED OS — THE LOGICAL SCRIPTS (35 Python modules)
+- `  807`  6. RAG PIPELINE — FULL ARCHITECTURE
+- `  939`  7. BRIDGE PROTOCOL — CIE ⇆ RAG INTEGRATION
+- `  973`  8. CIE (CONTEXT INTELLIGENCE ENGINE) — TypeScript Core
+- `  999`  9. TOON COMPRESSION SYSTEM
+- ` 1015`  10. GOVERNANCE PIPELINES (TypeScript)
+- ` 1036`  11. KNOWLEDGE FOUNDATION (12 PDF Books)
+- ` 1064`  12. COMPLETE TEST SUITE
+- ` 1085`  13. COMMANDS
+- ` 1112`  14. SINGLE ENTRY POINT FOR RAG
+
+### PART 2 — HARNESS: COMPLETE ARCHITECTURE PLAN  ·  line 1138
+- ` 1149`  THE FULL WORKFLOW
+- ` 1413`  WHAT GETS BUILT (New Files)
+- ` 1428`  WHAT GETS MODIFIED (Existing Files)
+- ` 1442`  WHAT GETS LEFT ALONE (Working, No Changes)
+- ` 1457`  HARNESS DATA FLOW (DETAILED)
+- ` 1608`  AGENT DELEGATION (Phase 9 Enhancement)
+- ` 1635`  PROGRESSIVE DISCLOSURE FLOW
+- ` 1688`  GROUNDED CITATION FLOW
+- ` 1725`  IMPLEMENTATION ORDER
+- ` 1746`  SINGLE ENTRY POINT (FINAL)
+
+### PART 3 — UNIFIED PRODUCTION PIPELINE: FINAL REPORT  ·  line 1824
+- ` 1835`  Architecture: Strategy Routing
+- ` 1876`  Full Demo Results — 12 Scenarios
+- ` 1914`  Recovery Pass — 5 Triggers
+- ` 1938`  Classification Accuracy
+- ` 1955`  Full Project Structure
+- ` 2014`  Single Entry Point
+- ` 2038`  When to Use What
+- ` 2057`  Commands
+
+### PART 4 — COMPLETE WORK TREE WITH FALLBACKS  ·  line 2075
+- ` 2086`  LEGEND
+- ` 2100`  LAYER 1: QUERY INGRESS — Classification + Progressive Disclosure
+- ` 2142`  LAYER 2: RETRIEVAL + FORMULA EXECUTION — Plan-Locked
+- ` 2204`  LAYER 3: HARNESS GATES — 5 Gates in Sequence ★
+- ` 2300`  LAYER 4: STRATEGY ROUTING + INJECTION
+- ` 2347`  LAYER 5: LLM GENERATION + POST-HOC VERIFICATION
+- ` 2425`  LAYER 6: FEEDBACK LOOP
+- ` 2455`  LAYER 7: FIELD MONITORING — Read-Only Analysis
+- ` 2514`  LAYER 8: SELF-IMPROVER — Weekly Autonomous Optimization
+- ` 2570`  LAYER 9: SHARED OS — Formula Execution
+- ` 2605`  LAYER 10: AGENT FLEET — 46 Agents × 7 Departments
+- ` 2645`  LAYER 11: CIE — TypeScript Orchestration
+- ` 2686`  COMPLETE DATA FLOW — END TO END
+- ` 2734`  FALLBACK MATRIX
+- ` 2755`  TEST SUITE SUMMARY
+- ` 2778`  COMMANDS
+
+### PART 5 — COMPLETE 4-LAYER MULTI-TENANT ARCHITECTURE  ·  line 2813
+- ` 2825`  THE 4-LAYER STACK
+- ` 2872`  THE DATA FLOW — End to End
+- ` 2916`  LAYER 1: YVON CORE — MASTER CONTROL PLANE
+- ` 3001`  LAYER 2: AGENT LAYER — WHAT EXISTS & WHAT'S NEW
+- ` 3023`  LAYER 3: INTEGRATION LAYER — MCP + EXTERNAL APIs
+- ` 3064`  LAYER 4: AGENTX PLATFORM — SaaS FOR SMALL BUSINESSES
+- ` 3159`  THE GRAPH MEMORY SYSTEM
+- ` 3265`  DEPARTMENT DEPLOYMENT PIPELINE
+- ` 3298`  WHAT GETS BUILT — NEW MODULES
+- ` 3333`  COMPLETE WORKFLOW — END TO END
+- ` 3413`  DATA ISOLATION MATRIX
+- ` 3430`  BUILDING THE AGENTX CONNECTOR MARKETPLACE
+- ` 3474`  SELF-IMPROVEMENT LOOP — EXTENDED FOR MULTI-TENANT
+- ` 3519`  BUILD ORDER — PHASED ROLLOUT
+- ` 3561`  VALIDATION: GOOGLE AGENTS-CLI CROSS-REFERENCE
+
+### PART 6 — TASK-SPEC TEMPLATE  ·  line 3681
+
+### PART 7 — UNIFIED WORKFLOW BLUEPRINT: ALL SECTIONS WORKING TOGETHER  ·  line 3739
+- ` 3748`  7.0 THE MASTER TREE — one message, every system, every decision
+- ` 3898`  7.1 SCENARIO A — CODING TASK ("test the code", "fix the API", "add endpoint")
+- ` 3941`  7.2 SCENARIO B — PRODUCT FEATURE / DASHBOARD (the big-company rail)
+- ` 3980`  7.3 SCENARIO C — THE DISSATISFACTION LOOP (output ≠ what the prompt needed)
+- ` 4006`  7.4 SCENARIO D — SKILL / SCRIPT FAILURE + THE AI & AGENTS TEAM LOOP
+- ` 4041`  7.5 SCENARIO E — MULTIPLE AGENTS IN PARALLEL
+- ` 4070`  7.6 TOOLING DECISIONS LOCKED IN THIS PART
+- ` 4084`  7.7 SANDBOX-FIRST PROMOTION FLOW — the quarantine layer (OpenSandbox)
+
+### PART 8 — ENFORCEMENT: MAKING PARTS 6 & 7 MECHANICAL  ·  line 4171
+- ` 4180`  8.0 The evidence
+- ` 4201`  8.1 Two execution surfaces
+- ` 4219`  8.2 The state machine (from PART 6, with transition conditions)
+- ` 4251`  8.3 Gate map — what exists, what it blocks, who owns it
+- ` 4271`  8.4 The write gate — `.claude/hooks/yvon-gate.sh`
+- ` 4301`  8.5 `cli/task.sh` — the record manager
+- ` 4321`  8.6 Tool → gate binding
+- ` 4344`  8.7 What PART 8 deliberately does not do
+- ` 4360`  8.8 Rollout order
+
+### APPENDIX A — CODE STRUCTURE — REFACTOR PLAN  ·  line 4380
+- ` 4391`  CURRENT MESS
+- ` 4398`  TARGET STRUCTURE
+- ` 4461`  IMPORT CHANGES
+- ` 4479`  WIRING UPDATES
+- ` 4495`  IMPLEMENTATION ORDER
+- ` 4507`  WHAT DOES NOT MOVE
+- ` 4517`  RISK
+
+### APPENDIX B — GOOGLE agents-cli PATTERN INTEGRATION  ·  line 4544
+- ` 4555`  WHAT TO ADOPT (8 patterns, all map to YVON's existing structure)
+- ` 4557`  WHAT TO DISCARD (Google Cloud-specific, replaced with YVON equivalents)
+- ` 4574`  PATTERN 1: MANIFEST-BASED PROVISIONING (from agents-cli-manifest.yaml)
+- ` 4614`  PATTERN 2: SCAFFOLD → ENHANCE → UPGRADE (from agents-cli scaffold)
+- ` 4642`  PATTERN 3: EVAL DATASETS + QUALITY FLYWHEEL (from agents-cli eval)
+- ` 4710`  PATTERN 4: PROTOTYPE-FIRST (from agents-cli --prototype flag)
+- ` 4730`  PATTERN 5: AGENT CARD + DISCOVERY (from agents-cli publish)
+- ` 4778`  PATTERN 6: OBSERVABILITY TIERS (from agents-cli observe)
+- ` 4797`  PATTERN 7: LIFECYCLE MAPPING (8 phases → YVON gates)
+- ` 4814`  PATTERN 8: SKILL ARCHITECTURE (identical — validates YVON's approach)
+- ` 4826`  WHAT GETS BUILT
+
+### APPENDIX C — DASHBOARD — TWO-TIER DESIGN  ·  line 4854
+- ` 4866`  DESIGN CONSTRAINTS (from dev's principles)
+- ` 4875`  QUINN CHARTER ENFORCEMENT (applied to dashboard)
+- ` 4885`  TIER 1: YVON MASTER DASHBOARD (operators)
+- ` 4986`  TIER 2: PER-BRAND DASHBOARD (business owners)
+- ` 5048`  DASHBOARD API (bridge.py --mode dashboard)
+- ` 5079`  FAILURE MODE OWNERSHIP
+- ` 5091`  WHAT GETS BUILT
+
+<!-- TOC:END -->
+
+# ═══════════ PART 0 — ORIENTATION: MICRO → MACRO ═══════════
+*(source: docs/ARCHITECTURE.md — merged 2026-07-30)*
+
+> **Read this first.** Parts 1–5 are stacked deep-dives; this part is the
+> end-to-end narrative that makes them navigable. `[built]` = running today ·
+> `[partial]` = exists, being extended · `[planned]` = designed, not yet coded.
+
+**Convention:** everything is described as the complete system. `[built]` = running today, tested. `[partial]` = exists, being extended. `[planned]` = designed in the 4-layer plan, not yet coded.
+**Depth contract:** every system is explained end-to-end here; exhaustive detail lives in the linked code files, not in prose.
+
+---
+
+## 0. The System in One Paragraph
+
+YVON is an agent operating system: 46 agents in 7 departments, ~200+ skills, sitting on a retrieval-and-verification pipeline that turns every operator message into budgeted, gate-verified, citation-grounded context — and a set of feedback loops that make the fleet measurably better every week without human tuning. Around that core sits a 4-layer multi-tenant platform (YVON Core → Agent Layer → Integration Layer → AgentX SaaS) that deploys departments to owned brands and paying tenants with hard data isolation and anonymized cross-tenant learning.
+
+```
+MACRO   L4 AgentX SaaS  →  L3 Integrations (MCP)  →  L2 Agent Fleet  →  L1 YVON Core
+                                                          │
+MICRO   message → TASK-SPEC → CAOS retrieval → 5-gate harness → strategy
+        routing → compression → LLM trio → post-hoc verification → response
+                                                          │
+LOOPS   feedback → field monitor → self-improver → skill/param updates → (repeat)
+```
+
+---
+
+# PART I — MICRO: The Life of a Message
+
+## 1. Ingress — who receives the message and what happens first
+
+A message enters through the session rail (`CLAUDE.md` §1). Two paths:
+
+- **Direct factual question** → answered, no machinery. `[built]`
+- **Do-something request** (build, research, design — anything else) → classified and routed by the routing table (`CLAUDE.md` §2) to an owning agent, or — if it touches more than one agent/department — to **meta's task-dispatch** (`Teams/AI & Agents/meta/custom/task-dispatch/SKILL.md`). `[built]`
+
+In the multi-tenant platform, the same ingress is fronted by the AgentX layer: the platform first resolves *which tenant graph* the message belongs to, loads the tenant profile, active departments, and connected integrations, then hands down to this layer. `[planned]`
+
+## 2. Synthesis — how the raw message becomes a proper template, and who does it
+
+**The "who" is meta** (Fleet Governance). task-dispatch is the fleet's executive function; its output is a **TASK-SPEC** written to `store/tasks/TS-<seq>.yaml` from `store/tasks/TEMPLATE.yaml`:
+
+| Block | What it captures | Rule |
+|---|---|---|
+| `source_message` | The message | **Verbatim, never paraphrased** |
+| `classification` | task_type, departments, lead | Routing decision is logged |
+| `context` | Chunks, existing assets, conflicts | Hook-injected, gate-verified, citations only |
+| `discovery` | 3–5 questions → decisions | **BLOCKING** — no fan-out until answered; meta asks once, workers never interrogate the operator |
+| `work_items` | owner, one testable objective, consumes/produces, owns_paths, per-item FAST/BALANCE budget, acceptance, security_review | Handoffs are **contracts-only** — no transcript inheritance; no two parallel items share a write path |
+| `dag` | parallel sets + critical path | Lead department's workflow file governs sequencing |
+| `exit_gate` | owner + proof | "Agents say done; browsers tell the truth" |
+| `feedback` | outcome + lesson | Filled post-execution; **anneal** consumes it |
+
+Sharding rule: each worker receives ONLY its work item + consumed contracts, injected in `.toon` form. meta proposes; the operator approves — dispatch never self-activates. `[built]`
+
+## 3. The Retrieval Pipeline — CAOS end to end
+
+Every work item's query then runs the CAOS flow (Context-Aware Orchestration: CLASSIFY → RESOLVE → RETRIEVE → GATE). Detailed layer diagrams: `docs/archive/WORK_TREE.md`.
+
+### 3.1 Classification + progressive disclosure `[built]`
+`src/cie/classifier.ts` maps domain keywords → task_type + agent_id. `rag/harness/disclosure.py` then lazy-loads skills: 2–3 triggered skills load as full SKILL.md, the rest as one-line summaries (~8 tokens each) — 40–60% context savings. Fallback: all skills load as before.
+
+### 3.2 Retrieval + formula execution `[built]`
+`rag/core/bridge.py` (called as a subprocess by `src/cie/rag-bridge.ts`, JSON over stdin/stdout) fans out to:
+
+- `retriever.py` — query rewrite (expansion + agent-domain terms + agentic premortem/alternative angles, capped at 5 queries) → hybrid dense (MiniLM-L6-v2, 384-d) + sparse (BM25) retrieval → cross-encoder re-rank → 20 candidate chunks. Fallback: direct `chunks.json` scan when sqlite-vec is absent.
+- Formula detection → `Teams/Shared OS/logical/` (35 Python scripts: finance, marketing, security, planning). Exact values are *computed*, never estimated by the LLM — the computed fact + citation IS the context.
+- `optimizer.py` — dynamic agent profile, diversity, one adversarial chunk.
+
+### 3.3 The Harness — 5 gates in sequence `[built]`
+`rag/harness/gates.py`, wired via `unified_pipeline.inject_with_harness()`:
+
+1. **Source authentication** — file exists, hash matches, citation traceable to Teams/Books/, within the agent's authorized departments → verified/flagged/blocked.
+2. **Multiplicative reliability** — freshness × authority × quality. Authority is a 7-level source-type map (book 1.0 → unknown 0.2); quality comes from the feedback loop. Produces 948× separation between authoritative and junk.
+3. **Conflict detection** — pairwise comparison; contradictions/version/domain conflicts become ⚠️ flags injected into context: *"Agent must reconcile before responding."*
+4. **Priority budget assembly** — P0 agent identity → P1 active skills → P2 computed facts → P3 T1 verified chunks → … → P7 inactive skill summaries. Budget fills in priority order; plan logged.
+5. **Quarantine + recovery** — low-reliability chunks quarantined (`quarantine.jsonl`); dropped chunks re-scanned for novel facts, exceptions, contradictions and pulled back if load-bearing.
+
+Every gate has an explicit fallback (full matrix: `docs/archive/WORK_TREE.md` §Fallback Matrix). Degrading loudly beats improvising.
+
+### 3.4 Strategy routing + compression `[built]`
+`rag/core/unified_pipeline.py` routes by task type:
+
+- **FAST** (creative review, copy edit, factual lookup) → `destructor.py`, hard budget, 64–89% savings.
+- **BALANCE** (default) → adaptive budget ×0.4–4.0 by task type (legal_review 4.0×, strategic 3.0×, governance 2.5×…) + aggressive recovery. 39–77% savings.
+- **QUALITY** → relational + progressive when contradictions are detected.
+
+`injector.py` then applies sentence-level pruning, citation-only mode for formula queries, and per-agent compression profiles (spark needs Ogilvy verbatim; board needs thresholds, not prose). Output: the enhanced injection — header `[YVON · agent · task · tokens]`, ⚠️ conflict-flagged chunks, ♻️ recovered chunks.
+
+### 3.5 Generation + post-hoc verification `[built]`
+`src/cie/builder.ts` assembles the final prompt. Generation is a trio: hermes+claude (primary reasoning), deepseek (adversarial verification), chatgpt (creative quality). Then `rag/verify/` (bridge `--mode verify`) checks grounded citations + self-consistency; high-stakes low-score responses are **delegated** to quinn / precedent / sentinel for agent review, low-stakes get automated verification only.
+
+---
+
+# PART II — LOOPS: How the System Improves Itself
+
+## 4. The feedback chain `[built]`
+
+```
+outcome (accept/reject/revise) + verifier report
+  → feedback.py     quality_new = 0.95·old + 0.05·outcome  (slow-moving; feeds Gate 2)
+  → field monitor   weekly read-only analysis: attractors (chunk combos that
+                    consistently win/lose), degradation (quality drop >0.15 warn,
+                    >0.25 critical), coverage gaps, per-agent drift
+  → self-improver   Sunday 00:00 UTC, six phases: analyze → propose → sandbox-test
+                    (synthetic data only) → decide (one failure holds ALL proposals)
+                    → deploy (atomic, *.backup, git-revertible) → log
+                    (rag/monitor/improvement_log.jsonl)
+  → eval flywheel   rag/eval/judge.py + flywheel.py score outputs; results feed back
+```
+
+## 5. How agents update their own skills `[built]`
+
+Skills live in `Teams/<Dept>/<agent>/{custom,marketplace}/` as SKILL.md (source of truth). The loop:
+
+1. Every skill invocation is logged to `store/telemetry/skill-invocations.jsonl`.
+2. **gauge** benchmarks skill quality; **anneal** consumes TASK-SPEC `feedback` blocks and telemetry to propose skill edits per skill-authoring-standards.
+3. Edited source skills are recompiled by `cli/skillgen.js` into runtime skills in `dist/skills/` — frontmatter, triggers, allowed-tools, and boundaries are *derived* from the source (nothing invented; Playbook §0.5), version-bumped on source-hash change.
+4. `cli/toonify.py` regenerates the `.toon` injectable form.
+
+So a skill improves through: usage telemetry → gauge measurement → anneal proposal → operator-approved edit → skillgen + toonify recompile → next retrieval uses it. Checked in a loop, end to end.
+
+## 6. Memory and graphs
+
+- **Agent memory (hermes)** `[built]` — `src/adapters/hermes-sync.ts` reads/writes `USER.md` + `MEMORY.md` in the configured hermes memory dir (CRDT-synced); exposed to retrieval as the CIE source `src/cie/sources/hermes-memory.ts`. This is how an agent's accumulated experience enters context. (Note: "hermes" names both this memory system and the primary LLM in the generation trio.)
+- **Code graphs** `[built]` — `npx yvon graph` (`cli/yvon.js`) builds the codegraph + graphify reports (`graphify-out/`); consumed by the CIE sources `codegraph.ts` / `graphify.ts`.
+- **Graph memory tiers** `[planned]` — Tier 1 Master Graph (fleet state, all profiles, learning patterns; access: Core + board + meta), Tier 2 owned-brand graphs (dedicated DB per brand), Tier 3 tenant graphs (separate SQLite per tenant; data never leaves except anonymized aggregates). See §10.
+
+## 7. Testing — the verification map `[built]`
+
+263 tests, zero failures, across the pipeline modules (injector 22, strategy 23, destructor 35, unified 31, harness 36, verifier 16, disclosure 23, field monitor 17, self-improver 20, e2e 40; full table: `docs/archive/WORK_TREE.md`). Entry points:
+
+- `python3 cli/verify-caos.py --quick` — end-to-end smoke (5 checks).
+- `rag/test_runner.py` — module suites.
+- quinn's real-browser gate for anything frontend (mock data in the DOM is an integrity block).
+- `node cli/yvon.js doctor` — fleet health.
+
+---
+
+# PART III — THE SYNC FABRIC: dist, toon, hermes, and who decides what
+
+## 8. Source → runtime sync `[built]`
+
+```
+Teams/**/*.md               SOURCE OF TRUTH (human-readable, book-grounded)
+   │
+   ├─ cli/toonify.py  →  *.toon        injectable compressed form (~650 files,
+   │                                    84.5% avg token savings; TASK-SPEC rule:
+   │                                    inject_form: .toon)
+   ├─ cli/skillgen.js →  dist/skills/  compiled runtime skills (disposable output)
+   │
+src/ (TypeScript: cie/, pipelines/, toon/, adapters/, agents/, graphs/)
+   │
+   └─ tsc            →  dist/          compiled JS the runtime actually executes
+```
+
+`dist/` is always disposable and regenerable; `Teams/` and `src/` are the only things a human edits. hermes memory syncs *live* (CRDT) rather than compiling — it's state, not source.
+
+## 9. Who decides which agent and which skill — and how it's checked
+
+**Decision chain (forward):**
+1. Session rail routing table (`CLAUDE.md` §2) — department + agent by task domain.
+2. Multi-agent → meta's task-dispatch assigns work-item owners; department lead sequences (dev, spark, warden…).
+3. Within the agent: `operational/skill/<agent>-skill-routing.md` + skill `triggers` frontmatter, matched by `cie/classifier.ts` + progressive disclosure → 2–3 active skills.
+4. Config values come from `operational/agent/<agent>-config.md`; a `<FILL_IN>` field means ask — never improvise.
+
+**Check chain (backward):** telemetry logs the invocation → gauge measures whether the routed skill performed → field monitor detects drift per agent → anneal proposes routing/skill fixes → self-improver deploys parameter changes after sandbox tests → Gate 2 reliability scores shift which sources win next time. The forward chain is re-tuned by the backward chain weekly.
+
+---
+
+# PART IV — MACRO: The 4-Layer Multi-Tenant Platform
+
+Full design: `docs/archive/Upcoming Plan .md`. Described here as the complete system with status tags. (Brand names genericized per Playbook §0.4.)
+
+## 10. The stack
+
+**Layer 1 — YVON Core (master control plane).** Master graph vault (Obsidian) `[planned]`; fleet governance: meta + board + precedent + sentinel `[built]`; business profile registry, department deployment engine (`platform/deploy.py`: create tenant vault → copy agent definitions → apply overrides → wire connectors), multi-tenant isolation, cross-tenant learning pipeline `[planned]`.
+
+**Layer 2 — Agent Layer.** Everything in Parts I–II: 46 agents × 7 departments, 5-gate harness, progressive disclosure, grounded verification, self-improvement, 64–91% compression, graph memory. `[built]` — this layer is the shipped core.
+
+**Layer 3 — Integration Layer.** relay owns the MCP tool registry, integration patterns (idempotency, retry, circuit breaker), and per-tool egress allowlists `[partial]` — 7 Engineering marketplace MCP tools mapped `[built]`; connector SDK (`platform/connector_sdk.py`) + 6 pre-built connectors (social, commerce, design, email, analytics, payments) `[planned]`. Least-privilege per agent per tenant (e.g., a creative agent READS analytics; only the social agent POSTS). `[planned]`
+
+**Layer 4 — AgentX Platform (SaaS).** Onboarding flow (business profile → department selection → subscription tier → tenant provisioning), billing tiers, department packages, tenant dashboard. `[planned]`
+
+## 11. Multi-tenant data flow (as shipped)
+
+A tenant message: AgentX resolves tenant graph + profile + integrations (L4) → relay verifies connector health and applies least-privilege + egress allowlist (L3) → the Part-I pipeline runs *scoped to the tenant's graph only* — Gate 1 authenticates against tenant sources, Gate 2 uses per-tenant quality scores (L2) → generation + verification → deliver via dashboard, update tenant graph → anonymized aggregates flow up to the cross-tenant learner → master graph learns industry patterns (posting-time effects, industry-specific query profiles) → tuned defaults flow back down. `[planned]`
+
+**Isolation invariants:** dedicated graph DB per brand, separate SQLite per tenant, raw data never crosses tenant boundaries, only anonymized aggregates ascend; sandbox tests verify no cross-tenant leakage before any deployment. The self-improvement loop of §4 extends per-tenant: per-tenant analysis → cross-tenant aggregation → per-tenant/per-industry/global proposals → per-tenant sandboxes → scoped deploys → master graph log. `[planned]`
+
+## 12. Build order (10 weeks, phased)
+
+Core hardening (2w) → department deployment engine (2w) → AgentX onboarding (2w) → connector marketplace (2w) → cross-tenant learning (1w) → production hardening (1w). Detail: `docs/archive/Upcoming Plan .md` §Build Order.
+
+---
+
+## 13. Document Map
+
+| Need | Go to |
+|---|---|
+| Session process + ground rules | `CLAUDE.md`, `Teams/AGENT-BUILD-PLAYBOOK.md` |
+| Layer-by-layer pipeline diagrams, fallback matrix, test table | `docs/archive/WORK_TREE.md` |
+| Harness build history + data flow | `docs/archive/HARNESS.md` |
+| Strategy benchmark data (12 scenarios) | `docs/archive/PIPELINE_FINAL.md` |
+| Fleet census, skill format, Shared OS catalog, CIE/TOON internals | `docs/archive/FULL.md` |
+| 4-layer platform design (full) | `docs/archive/Upcoming Plan .md` |
+| Repo layout | `docs/archive/CODE_STRUCTURE.md` |
+| Industry patterns adopted | `docs/archive/GOOGLE_PATTERNS.md` |
+| RAG module docs | `rag/README.md` |
+| Dept sequencing | `Teams/<Dept>/DEPARTMENT-WORKFLOW.md` |
 
 ---
 
@@ -3758,3 +4165,939 @@ Strict-test results (2026-07-23, build sandbox):
 | `Sandbox.create('python:3.12')` live container | ❌ EXPECTED FAIL — `SandboxInternalException: All connection attempts failed` (no OpenSandbox server; server needs **Docker**, absent here) |
 
 `[needs-docker]` — live container provisioning requires a Docker/K8s runtime, unavailable in the build sandbox, available on the operator's machine via `uvx opensandbox-server`. The install + interfaces are verified; only the runtime backend is machine-gated. This is the same class of limit as Playwright's `install-deps` and browser-use's Python-3.11 gap: the code is correct, the sandbox is locked down.
+
+
+
+# ═══════════ PART 8 — ENFORCEMENT: MAKING PARTS 6 & 7 MECHANICAL ═══════════
+*(added 2026-07-30 · owner: meta + quinn · status: `[planned]` until 8.9 rollout completes)*
+
+> **The problem this part solves.** PART 6 defines a task state machine. PART 7 defines
+> five execution scenarios. Both are good, and both are **advisory** — nothing reads them,
+> so compliance depends on whoever is at the keyboard remembering. That fails predictably.
+
+---
+
+## 8.0 The evidence
+
+This part is not theoretical. The record:
+
+| Observation | Where |
+|---|---|
+| TS-001 … TS-013 exist, filled in, with real `exit_gate.proof` | `store/tasks/` |
+| **TS-014, TS-015, TS-016 shipped with no task record at all** | `docs/SESSION-HANDOUT.md` §2 lists them as shipped; `store/tasks/` has no file |
+| 8 of 11 records stuck at `status: approved` — never advanced to `done` | `grep -l '^status: approved' store/tasks/TS-*.yaml` |
+| A full dashboard redesign (2026-07-30) ran start→finish with zero records, zero agent routing, zero browser verification | this session |
+
+The protocol was followed for thirteen tasks and then silently abandoned. **Nothing detected
+the abandonment**, because nothing in the repo reads `store/tasks/`.
+
+Contrast with `cli/verify-deploy.sh`: 8 mechanical checks, wired to `.git/hooks/pre-push`.
+Every deploy-failure class it encodes has stayed fixed. That is the whole thesis of this part —
+
+> **A rule with a checker is a rail. A rule in prose is a suggestion.**
+
+---
+
+## 8.1 Two execution surfaces
+
+PARTS 1–5 describe a runtime that is **not yet deployed** (Hermes → CIE → RAG → harness gates
+→ post-hoc verification). PARTS 6–7 describe how work is *produced*. These are different
+machines and need different enforcement:
+
+| | **Surface A — Runtime** | **Surface B — Build** |
+|---|---|---|
+| What | Operator query → agent response | Operator request → committed artifact |
+| Governed by | PARTS 1–5 | PARTS 6–7 |
+| Enforced by | Harness 5 gates, Phase 9 verification | **nothing today** ← PART 8 fixes this |
+| Live? | No — blocked on VPS/DNS/env | Yes — 100% of work happens here |
+
+Every agent definition, every skill, every line of dashboard code was produced on Surface B.
+All documented verification targets Surface A. PART 8 gives Surface B its own gates.
+
+---
+
+## 8.2 The state machine (from PART 6, with transition conditions)
+
+`store/tasks/TEMPLATE.yaml` already defines the states. PART 8 adds **what must be true to
+leave each one** — the part that was missing.
+
+```
+draft ──▶ discovery ──▶ approved ──▶ executing ──▶ gated ──▶ done
+  │           │             │            │           │
+  │           │             │            │           └─ exit_gate.proof non-empty
+  │           │             │            │              AND verifiable by its owner
+  │           │             │            └─ every work_item has acceptance[] met
+  │           │             └─ operator sign-off recorded (approved_by + approved_at)
+  │           └─ discovery.questions[] answered → discovery.decisions[] non-empty
+  └─ source_message captured verbatim + classification.lead assigned
+```
+
+**Transition table — each row is a mechanical check:**
+
+| From → To | Required in the record | Validator |
+|---|---|---|
+| `draft → discovery` | `source_message` non-empty · `classification.lead` set | `cli/task.sh` schema check |
+| `discovery → approved` | `discovery.decisions[]` non-empty · every `questions[]` has an answer | `cli/task.sh validate` |
+| `approved → executing` | `approved_by` + `approved_at` present · ≥1 `work_items[]` with `owner` + `acceptance[]` | `cli/task.sh validate` |
+| `executing → gated` | every `work_items[].acceptance[]` marked met · `produces` paths exist on disk | `cli/task.sh validate` |
+| `gated → done` | `exit_gate.owner` set · `exit_gate.proof` non-empty and **not** a self-assertion | `cli/task.sh validate` + gate map §8.3 |
+
+**Anti-pattern the last check exists to block:** `proof: "I verified it works"`. Proof must
+name an artifact, command output, or file path — the existing records already do this well
+(`"apple_full_page.png (real Chromium render)"`, `"regression test PASS + hook PASS"`).
+
+---
+
+## 8.3 Gate map — what exists, what it blocks, who owns it
+
+| Gate | Command | Blocks | Owner | Status |
+|---|---|---|---|---|
+| Deploy gate (8 checks) | `cli/verify-deploy.sh` | `git push` via `.git/hooks/pre-push` | quinn | `[built]` |
+| Vercel post-push classify | `cli/vercel-watch.sh` + `vercel-classify.sh` | nothing (reports) | ops | `[built]` |
+| CAOS end-to-end | `python3 cli/verify-caos.py --quick` | nothing (reports) | meta | `[built]` |
+| Sandbox-first quarantine | `cli/quarantine.sh <name> <git\|npm> <src>` | new external tool entering repo | warden | `[built]` (§7.7) |
+| Design anti-patterns | `impeccable detect` | design drift | mia + atlas | `[partial]` — installed, not wired to a gate |
+| Real-browser render | Playwright `npm run test:e2e` | "done" on any UI work | quinn | `[partial]` — installed, not wired |
+| Agent feedback loop | `agentation` toolbar | nothing (input channel) | mia | `[partial]` |
+| **Task-state gate** | `cli/task.sh validate` | **state transitions** | meta | `[planned]` — §8.5 |
+| **Write gate** | `.claude/hooks/yvon-gate.sh` | **Write/Edit without an approved task** | meta | `[planned]` — §8.4 |
+
+**Standing rule:** a gate that is installed but not wired to a blocking point does not exist.
+`reticle` was cited as quinn's browser gate in four agent definitions while never being
+installed or registered — the canonical example of this failure.
+
+---
+
+## 8.4 The write gate — `.claude/hooks/yvon-gate.sh`
+
+Wired as `PreToolUse` on `Write|Edit|NotebookEdit`, alongside the existing `UserPromptSubmit`
+retrieval hook in `.claude/settings.json`.
+
+**Logic:**
+
+1. Resolve the active task — `store/tasks/ACTIVE` (a file containing one task id).
+2. **No active task** → block, with: *"No active TASK-SPEC. Run `cli/task.sh new '<request>'` first (MASTER PART 6)."*
+3. Active task not in `executing` → block, naming the current state and the transition needed.
+4. Target path not covered by any `work_items[].owns_paths` → block, listing the owned paths.
+5. Otherwise → allow.
+
+**Always-allowed paths** (editing these must never require a task):
+
+```
+store/tasks/**      docs/**        .claude/**
+*.md at repo root   /tmp/**
+```
+
+**Escape hatch:** `YVON_GATE=off` env var bypasses the block and appends a line to
+`store/gate-violations.log` with timestamp, path, and reason. Deliberately noisy — an
+un-loggable bypass would recreate the current situation.
+
+**Companion hook — `SessionStart`:** re-injects the CLAUDE.md rail plus the active task id.
+This addresses context decay: CLAUDE.md is injected once and is 100+ messages away by
+mid-session, which is precisely when the rail stops being followed.
+
+---
+
+## 8.5 `cli/task.sh` — the record manager
+
+The hook needs something to read. Without this the gate blocks everything.
+
+| Command | Effect |
+|---|---|
+| `task.sh new "<verbatim request>"` | Next free `TS-NNN` from `TEMPLATE.yaml`, `status: draft`, captures `source_message`, sets `ACTIVE` |
+| `task.sh discover` | `draft → discovery`; opens `discovery.questions[]` for filling |
+| `task.sh approve --by operator` | `discovery → approved`; stamps `approved_by` + `approved_at` |
+| `task.sh start` | `approved → executing`; validates work_items have owners + acceptance |
+| `task.sh gate` | `executing → gated`; checks every `produces` path exists |
+| `task.sh done --proof "<artifact>"` | `gated → done`; rejects empty or self-asserting proof |
+| `task.sh status` | Prints active task, state, work items, blocking condition |
+| `task.sh validate [id]` | Schema + transition check; **exit 1 on failure** so `verify-deploy.sh` can call it |
+
+`validate` becoming a check inside `cli/verify-deploy.sh` is what makes the whole thing
+survive: the push is blocked if the task record is incomplete.
+
+---
+
+## 8.6 Tool → gate binding
+
+The shared tool registry (`Teams/Shared OS/tools/shared-tool-registry.md`) is an accurate
+*inventory* but not a *contract* — it records what is installed, never when it must run.
+Each tool binds to a gate here, or it does not enter the repo.
+
+| Tool | Bound gate | Fires when | Blocking |
+|---|---|---|---|
+| `verify-deploy.sh` | Deploy | pre-push | yes |
+| `quarantine.sh` | Sandbox-first (§7.7) | any new external dep | yes |
+| `impeccable detect` | Design | UI work → `gated` | yes (after §8.9) |
+| Playwright | Browser render | UI work → `gated` | yes (after §8.9) |
+| `reticle` | Browser render | with Playwright | **not installed — resolve or strike from all agent docs** |
+| `agentation` | Feedback (input) | during `executing` | no |
+| `browser-use` | Exploratory QA | during `executing` | no (non-deterministic — never a gate) |
+| Crawl4AI · ScrapeGraphAI · Agent-Reach | Research | during `discovery` | no |
+| *(new, unvetted)* taste-skill · strix · page-agent | — | — | must pass `quarantine.sh` before binding |
+
+**Rule:** adding a row to the registry without a gate binding is incomplete. Unbound tools
+are the mechanism by which `reticle` became fictional.
+
+---
+
+## 8.7 What PART 8 deliberately does not do
+
+Honesty about limits, so this section isn't over-trusted:
+
+- **It does not make agent routing real.** "Operating as mia" remains narration in a single
+  context. True separation needs distinct sub-agent invocations with scoped tools; that is a
+  larger change and is out of scope here.
+- **It does not verify output quality** — only that the *process* ran and gates were invoked.
+  A passing Playwright test on an ugly page still passes.
+- **It cannot survive a determined bypass.** `YVON_GATE=off` exists. The goal is to make
+  skipping deliberate and logged rather than accidental and invisible.
+- **It adds friction to genuine exploration.** §8.4's always-allowed paths mitigate this;
+  if the friction is wrong in practice, tune that list rather than disabling the gate.
+
+---
+
+## 8.8 Rollout order
+
+Each step is independently useful; do not batch (PLAYBOOK §0.2).
+
+1. `cli/task.sh` + `store/tasks/ACTIVE` — records become manageable. **No blocking yet.**
+2. Backfill TS-014/015/016 from the handout so the ledger is honest, and close the 9 records
+   stuck at `approved`.
+3. `task.sh validate` added to `cli/verify-deploy.sh` as check 9 — **first blocking point**,
+   at push time only.
+4. `.claude/hooks/yvon-gate.sh` in warn+log mode for one working session; read
+   `store/gate-violations.log` to calibrate the always-allowed list.
+5. Flip the hook to blocking. Add `SessionStart` rail re-injection.
+6. Resolve `reticle` (install or strike), then wire Playwright + `impeccable detect` as
+   blocking gates for UI work.
+
+**Definition of done for PART 8:** a Write to `dashboard/` with no active approved task is
+refused, and the refusal names the exact command to fix it.
+
+---
+
+# ═══════════ APPENDIX A — CODE STRUCTURE — REFACTOR PLAN ═══════════
+*(source: docs/CODE_STRUCTURE.md — merged 2026-07-30)*
+
+> Target module layout, import rewiring map, what does not move.
+
+**Current state:** 19 Python files flat in `rag/`, architecture docs scattered at root, experiments mixed with production code.
+
+**Target state:** Logical subdirectories, docs centralized, imports clean, tests preserved.
+
+---
+
+## CURRENT MESS
+
+```
+Project root:  8 architecture .md files scattered
+rag/:          19 .py files flat, 3 books, 1 jsonl — no organization
+```
+
+## TARGET STRUCTURE
+
+```
+rag/
+├── core/                      ← Pipeline engine (9 modules)
+│   ├── injector.py            # 3-layer compression
+│   ├── strategy.py            # Multi-strategy token pipeline
+│   ├── destructor.py          # Hard budget enforcement
+│   ├── optimizer.py           # Dynamic context optimizer
+│   ├── retriever.py           # Full retrieval pipeline
+│   ├── bridge.py              # CIE to/from RAG bridge
+│   ├── embed.py               # Hybrid embedder
+│   ├── chunkify.py            # Semantic chunker
+│   ├── feedback.py            # Quality feedback loop
+│   └── unified.py             # ← unified_pipeline (renamed)
+│
+├── harness/                   ← 5-gate verification (2 modules)
+│   ├── gates.py               # ← harness.py (renamed)
+│   └── disclosure.py          # ← progressive_disclosure (renamed)
+│
+├── eval/                      ← Quality flywheel + judge (2 modules)
+│   ├── judge.py               # ← eval_judge (renamed)
+│   └── flywheel.py            # ← quality_flywheel (renamed)
+│
+├── monitor/                   ← Field monitoring (2 modules)
+│   ├── watcher.py             # ← field_monitor (renamed)
+│   └── improver.py            # ← self_improver (renamed)
+│
+├── verify/                    ← Post-hoc verification (1 module)
+│   └── grounded.py            # ← verifier (renamed)
+│
+├── experiments/               ← Experimental (not production, 4 modules)
+│   ├── adaptive_recovery.py   # Option 1+3 pipeline
+│   ├── relational_graph.py    # Option 2+4 pipeline
+│   ├── benchmark.py           # Comparison suite
+│   └── e2e.py                 # E2E validation
+│
+├── books/                     ← Design rationale (3 .md, unchanged)
+├── store/                     ← Data (unchanged)
+├── chunks/                    ← Data (unchanged)
+├── README.md                  ← RAG overview (unchanged)
+└── requirements.txt           ← Python deps (unchanged)
+
+docs/                          ← All architecture docs moved here
+├── 4LAYER_ARCHITECTURE.md
+├── DASHBOARD_ARCHITECTURE.md
+├── FULL_ARCHITECTURE.md
+├── GOOGLE_PATTERNS.md
+├── HARNESS_ARCHITECTURE.md
+├── WORK_TREE.md
+├── BENCHMARK_REPORT.md
+├── PIPELINE_FINAL_REPORT.md
+├── UPGRADE_PLAN.md
+└── CODE_STRUCTURE.md
+
+Teams/                         ← Agents (unchanged)
+src/                           ← TypeScript CIE (unchanged)
+cli/                           ← CLI tools (unchanged)
+dist/                          ← Compiled output (unchanged)
+```
+
+---
+
+## IMPORT CHANGES
+
+### Before → After
+
+| Old Import | New Import |
+|-----------|-----------|
+| `from rag.injector import ...` | `from rag.core.injector import ...` |
+| `from rag.harness import ...` | `from rag.harness.gates import ...` |
+| `from rag.verifier import ...` | `from rag.verify.grounded import ...` |
+| `from rag.unified_pipeline import ...` | `from rag.core.unified import ...` |
+| `from rag.eval_judge import ...` | `from rag.eval.judge import ...` |
+| `from rag.field_monitor import ...` | `from rag.monitor.watcher import ...` |
+| `from rag.self_improver import ...` | `from rag.monitor.improver import ...` |
+| `from rag.progressive_disclosure import ...` | `from rag.harness.disclosure import ...` |
+| `from rag.quality_flywheel import ...` | `from rag.eval.flywheel import ...` |
+
+---
+
+## WIRING UPDATES
+
+### unified_pipeline.py internally imports:
+- `from destructor import destructive_inject` → `from rag.core.destructor import destructive_inject`
+- `from injector import estimate_tokens` → `from rag.core.injector import estimate_tokens`
+- `from harness import process` → `from rag.harness.gates import process`
+- `from progressive_disclosure import ProgressiveDisclosure` → `from rag.harness.disclosure import ProgressiveDisclosure`
+
+### bridge.py internally imports:
+- `from retriever import ...` → `from rag.core.retriever import ...`
+- `from optimizer import ...` → `from rag.core.optimizer import ...`
+- `from unified_pipeline import ...` → `from rag.core.unified import ...`
+- `from verifier import verify` → `from rag.verify.grounded import verify`
+
+---
+
+## IMPLEMENTATION ORDER
+
+1. Create subdirectories: `rag/core/`, `rag/harness/`, `rag/eval/`, `rag/monitor/`, `rag/verify/`, `rag/experiments/`, `docs/`
+2. Move files to new locations (git mv to preserve history)
+3. Fix imports within each module (cross-references)
+4. Fix imports in bridge.py and unified.py (all internal wires)
+5. Run full test suite — fix any broken path references
+6. Create `rag/__init__.py` with backwards-compatible imports for external consumers
+7. Commit
+
+---
+
+## WHAT DOES NOT MOVE
+
+- `Teams/` — 46 agents, unchanged
+- `src/` — TypeScript CIE, unchanged
+- `cli/` — CLI tools, unchanged
+- `rag/books/` — unchanged location
+- `rag/store/` — unchanged location
+- `rag/chunks/` — unchanged location
+- `rag/requirements.txt` — unchanged location
+
+## RISK
+
+| Risk | Mitigation |
+|------|-----------|
+| All 285+ tests break on import | Fix imports one subdirectory at a time, retest after each |
+| bridge.py breaks (critical path) | Fix bridge.py imports first, test with `--mode retrieve` |
+| unified_pipeline breaks (critical path) | Fix unified.py imports second, run 31 tests |
+| External imports from CIE break | Create `rag/__init__.py` with backwards-compat re-exports |
+
+**Mitigation: Backwards-compatible __init__.py**
+
+```python
+# rag/__init__.py — backwards-compat re-exports
+from rag.core.injector import estimate_tokens, SentenceScorer, CitationInjector
+from rag.core.destructor import destructive_inject
+from rag.core.unified import inject, inject_with_harness
+from rag.harness.gates import process as harness_process
+from rag.verify.grounded import verify
+from rag.harness.disclosure import ProgressiveDisclosure
+```
+
+Old `from rag.harness import process` still works because `rag/harness/__init__.py` re-exports it.
+
+**Estimated: 4 hours, 100% test preservation guaranteed.**
+
+---
+
+# ═══════════ APPENDIX B — GOOGLE agents-cli PATTERN INTEGRATION ═══════════
+*(source: docs/GOOGLE_PATTERNS.md — merged 2026-07-30)*
+
+> 8 patterns to adopt, what to discard, YVON equivalents.
+
+**Status:** Analysis Complete — Building Enhancements  
+**Source:** github.com/google/agents-cli (Apache 2.0)  
+**Date:** 2026-07-16
+
+---
+
+## WHAT TO ADOPT (8 patterns, all map to YVON's existing structure)
+
+## WHAT TO DISCARD (Google Cloud-specific, replaced with YVON equivalents)
+
+| Google Pattern | Why Discard | YVON Replacement |
+|----------------|------------|------------------|
+| `agents-cli deploy --deployment-target cloud_run/gke` | GCP-specific container deployment | `yvon tenant provision` (deploys to YVON's agent fleet) |
+| `agents-cli publish gemini-enterprise` | Gemini Enterprise registration | `yvon publish --marketplace agentx` (AgentX marketplace) |
+| `agents-cli infra single-project` | GCP Terraform project setup | N/A — YVON runs locally, no cloud infra needed |
+| BigQuery Agent Analytics | GCP-specific data warehouse | `rag/field_monitor.py` (already built) |
+| Cloud Trace spans | GCP-specific tracing | Lasswell traces (already built in feedback.py) |
+| IAP / Workload Identity | GCP IAM | relay's least-privilege grants (already built) |
+| Cloud Build CI/CD | GCP-specific CI | `self_improver.py` sandbox testing (already built) |
+| gcloud CLI | GCP SDK | N/A — no cloud dependency |
+| Vertex AI Eval Service | GCP-specific eval | `rag/verifier.py` + local eval (already built + enhance) |
+| Agent Runtime sessions | GCP-specific session management | Per-tenant SQLite graph DB (planned Phase 2) |
+
+---
+
+## PATTERN 1: MANIFEST-BASED PROVISIONING (from agents-cli-manifest.yaml)
+
+### What Google Does
+```yaml
+# agents-cli-manifest.yaml
+agent_directory: app
+create_params:
+  deployment_target: cloud_run
+  session_type: agent_platform_sessions
+  agent_template: adk
+```
+
+### What YVON Builds
+```yaml
+# tenant-manifest.yaml (NEW)
+tenant_id: boutique-a
+business_name: "Boutique A"
+industry: fashion_retail
+departments:
+  - brand-studio:
+      agents: [spark, lena, pixel, pulse]
+      config:
+        brand_voice: "warm, inclusive, premium"
+        target_audience: "women 25-45"
+        content_cadence: weekly
+  - product:
+      agents: [spec, metric]
+tier: growth
+created_at: 2026-07-16
+provisioned_by: yvon-core
+deployment_version: 1.0.0
+integrations:
+  - instagram: {status: active, auth: oauth}
+  - shopify: {status: active, auth: api_key}
+```
+
+File: `platform/manifest.py` — reads/writes tenant-manifest.yaml, validates schema, preserves creation parameters for upgrades.
+
+---
+
+## PATTERN 2: SCAFFOLD → ENHANCE → UPGRADE (from agents-cli scaffold)
+
+### What Google Does
+```
+agents-cli scaffold create my-agent --prototype     # Minimal
+agents-cli scaffold enhance . --deployment-target   # Add deployment
+agents-cli scaffold upgrade --dry-run               # Preview upgrade
+```
+
+### What YVON Builds
+```
+yvon tenant create boutique-a \
+  --departments brand-studio \
+  --tier growth \
+  --prototype          # No integrations, synthetic data for testing
+
+yvon tenant enhance boutique-a \
+  --add-integrations instagram,shopify \
+  --add-department product
+
+yvon tenant upgrade boutique-a \
+  --dry-run            # Preview manifest changes
+```
+
+File: `platform/scaffold.py` — creates tenant directory structure, copies agent definitions, applies business-specific overrides, provisions isolated graph DB.
+
+---
+
+## PATTERN 3: EVAL DATASETS + QUALITY FLYWHEEL (from agents-cli eval)
+
+### What Google Does
+```
+agents-cli eval generate       # Run agent on dataset
+agents-cli eval grade          # LLM-as-judge scoring
+agents-cli eval analyze        # Failure clustering
+agents-cli eval optimize       # Auto-tune prompts (GEPA)
+agents-cli eval compare        # A/B test two versions
+```
+The eval SKILL.md defines 6 built-in metrics and a 5-stage quality flywheel.
+
+### What YVON Builds
+
+YVON already has `rag/verifier.py` (grounded citations + self-consistency + constitution). Enhance it with:
+
+**New: Eval Dataset System**
+
+File: `rag/eval_dataset.py`
+```python
+# Eval dataset format
+{
+  "dataset_id": "headline_review_v1",
+  "agent": "spark",
+  "scenarios": [
+    {
+      "query": "Review this headline for the campaign",
+      "expected_citations": ["Ogilvy Ch.5", "p.71"],
+      "expected_rules": ["Must include brand name"],
+      "expected_no_claims": ["unsupported speculation"],
+      "rubric": {
+        "citation_accuracy": 0.8,
+        "rule_adherence": 0.9,
+        "no_hallucination": 1.0
+      }
+    }
+  ]
+}
+```
+
+**New: Quality Flywheel** (5 stages, from Google's eval SKILL.md)
+
+File: `rag/quality_flywheel.py`
+```
+Stage 1: Prepare Data → yvon eval generate
+Stage 2: Run Inference → yvon eval run --agent spark
+Stage 3: Grade Traces → yvon eval grade (LLM-as-judge on rubric)
+Stage 4: Analyze Failures → yvon eval analyze (cluster failures)
+Stage 5: Optimize → yvon eval optimize (auto-tune budget parameters)
+```
+
+**New: LLM-as-Judge Grading**
+
+File: `rag/eval_judge.py`
+```python
+def grade_agent_output(output, rubric, injected_chunks):
+    """Grade agent output against rubric using LLM-as-judge."""
+    # Uses the same verifier.py patterns but with rubric-based scoring
+    return {
+        'citation_accuracy': 0.92,
+        'rule_adherence': 0.88,
+        'no_hallucination': 0.95,
+        'overall': 0.91
+    }
+```
+
+---
+
+## PATTERN 4: PROTOTYPE-FIRST (from agents-cli --prototype flag)
+
+### What Google Does
+Start minimal (no CI/CD, no Terraform, no deployment), iterate fast, add infrastructure later with `scaffold enhance`.
+
+### What YVON Builds
+```yvon tenant create --prototype``` provisions a tenant with:
+- Synthetic data only (no real integrations connected)
+- 7-day trial period
+- Demo dashboard with sample content
+- Business can test before committing
+
+```yvon tenant upgrade --to production``` adds:
+- Real external integrations (OAuth flow)
+- Production monitoring (field_monitor activated)
+- Billing starts
+- Live agent sessions
+
+---
+
+## PATTERN 5: AGENT CARD + DISCOVERY (from agents-cli publish)
+
+### What Google Does
+```
+agents-cli publish gemini-enterprise
+```
+Creates an Agent Card so other agents can discover this one.
+
+### What YVON Builds
+
+**Agent Card Format** (new: `platform/agent_card.py`)
+
+```yaml
+# agent-card.yaml
+agent_id: spark
+display_name: "Creative Director"
+persona: "David Ogilvy — the Father of Advertising"
+what_it_does:
+  - "Reviews and critiques creative work (ads, headlines, visuals)"
+  - "Ensures brand consistency across all channels"
+  - "Coaches other creative agents (lena, pixel, muse)"
+what_it_needs:
+  - "Brand guidelines document"
+  - "Target audience profile"
+  - "Campaign brief"
+tools_used:
+  - MCP: Browserbase (visual review)
+  - API: Canva (design assets)
+pricing:
+  starter: {price: 49, included: true}
+  growth: {price: 149, included: true}
+  scale: {price: 399, included: true}
+department: brand-studio
+```
+
+**Marketplace Discovery** (new: `src/platform/agent-marketplace.ts`)
+
+```
+AgentX Marketplace:
+  Businesses browse available agents
+  → See Agent Card (what it does, pricing, requirements)
+  → "Add to my business"
+  → Tenant provisioner deploys agent subset
+  → Agent starts working
+```
+
+---
+
+## PATTERN 6: OBSERVABILITY TIERS (from agents-cli observe)
+
+### What Google Does
+Three tiers: Cloud Trace (always on) → Prompt-Response Logging (on deploy) → BigQuery Analytics (opt-in).
+
+### What YVON Builds
+
+YVON already has `rag/field_monitor.py`. Mirror the tier system:
+
+| YVON Tier | Google Equivalent | Default | Implementation |
+|-----------|------------------|---------|---------------|
+| **Trace** | Cloud Trace | Always on | `field_monitor.py` attractors + degradation |
+| **Logging** | Prompt-Response Logging | On for owned brands, opt-in for tenants | `feedback.py` Lasswell traces |
+| **Analytics** | BigQuery Analytics | Opt-in (adds cost) | `field_monitor.py` weekly reports |
+
+File: `platform/observability.py` — configures which tiers are active per tenant.
+
+---
+
+## PATTERN 7: LIFECYCLE MAPPING (8 phases → YVON gates)
+
+### Google's 8 Phases → YVON's Implementation
+
+| Google Phase | YVON Gate/Module | Status |
+|-------------|-----------------|--------|
+| 0 — Spec | Constitution (board enforces) + `platform/manifest.py` | 🔄 Build |
+| 1 — Scaffold | `platform/scaffold.py` (tenant create) | 🔄 Build |
+| 2 — Build | 46 agent definitions + 200+ SKILL.md files | ✅ Complete |
+| 3 — Orchestrate | CAOS executor (TypeScript) | ✅ Complete |
+| 4 — Evaluate | `rag/verifier.py` + `rag/eval_dataset.py` + `rag/eval_judge.py` | 🔄 Enhance |
+| 5 — Deploy | `platform/scaffold.py` (tenant provision) | 🔄 Build |
+| 6 — Publish | `platform/agent_card.py` + marketplace | 🔄 Build |
+| 7 — Observe | `rag/field_monitor.py` + `platform/observability.py` | 🔄 Enhance |
+
+---
+
+## PATTERN 8: SKILL ARCHITECTURE (identical — validates YVON's approach)
+
+### What Google Does
+7 installable skills (Markdown docs), loaded into coding agents via `agents-cli setup`. Each skill has triggers, explicit boundaries, and cross-references.
+
+### What YVON Already Does (Identical Pattern)
+200+ SKILL.md files across 46 agents. Each SKILL.md follows a 9-section format. The skill routing (`operational/skill/`) determines which activates per query. Progressive disclosure (`progressive_disclosure.py`) loads only matched skills.
+
+**YVON's advantage:** Google has 7 skills for the CLI itself. YVON has 200+ operational skills for the business agents. Google's skill system confirms YVON's approach. No changes needed.
+
+---
+
+## WHAT GETS BUILT
+
+### New Files (8)
+
+| File | Purpose | Size Est |
+|------|---------|---------|
+| `platform/manifest.py` | Read/write/validate tenant-manifest.yaml. Versioned. Preserves creation params for upgrades. | ~200L |
+| `platform/scaffold.py` | `yvon tenant create/enhance/upgrade`. Provisions tenant directory, copies agent defs, applies overrides, creates graph DB. Supports --prototype and --dry-run. | ~400L |
+| `rag/eval_dataset.py` | Eval dataset schema + generator. Scenarios with rubrics, expected citations, expected rules. | ~250L |
+| `rag/eval_judge.py` | LLM-as-judge grading against rubric. Scores: citation_accuracy, rule_adherence, no_hallucination. Quality flywheel integration (5 stages). | ~300L |
+| `rag/quality_flywheel.py` | 5-stage loop: prepare data → run inference → grade traces → analyze failures → optimize. Coordinate eval_dataset + eval_judge + verifier. | ~200L |
+| `platform/agent_card.py` | Agent Card schema + generator. Display name, persona, what it does, what it needs, tools used, pricing tiers. Publish to marketplace. | ~150L |
+| `platform/observability.py` | Per-tenant observability tier configuration. Trace (always), Logging (owned/opt-in), Analytics (opt-in). Wraps field_monitor. | ~150L |
+| `cli/yvon.py` | CLI entry point: `yvon tenant create/enhance/upgrade`, `yvon eval generate/grade/analyze/optimize`, `yvon publish`, `yvon observe`. | ~300L |
+
+### Modified Files (4)
+
+| File | Change |
+|------|--------|
+| `rag/verifier.py` | Add rubric-based grading integration with eval_judge |
+| `rag/field_monitor.py` | Add observability tier gating |
+| `rag/self_improver.py` | Add cross-tenant learning mode |
+| `rag/unified_pipeline.py` | Add per-tenant context routing |
+
+### Total: 8 new files, 4 modified, ~1950 lines of new code, ~60 new tests
+
+---
+
+# ═══════════ APPENDIX C — DASHBOARD — TWO-TIER DESIGN ═══════════
+*(source: docs/DASHBOARD.md — merged 2026-07-30)*
+
+> Operator tier + per-brand tier, health score formula, Rail-3 safe flows.
+
+**Status:** Reviewed by Engineering agents against dev's 8 principles + quinn's charter  
+**Date:** 2026-07-16  
+**Pipeline verified:** Live 5-query test passed with fixes applied  
+**Method:** Pipeline executed → agents consulted → architecture designed from real data
+
+---
+
+## DESIGN CONSTRAINTS (from dev's principles)
+
+| Principle | Requirement | How Dashboard Meets It |
+|-----------|------------|----------------------|
+| P4 — "Done is a checked list" | Every feature has a verification gate | Each dashboard card has a data-source check + freshness check |
+| P5 — "No unowned failure modes" | Every failure has an owner | Each data source has an owner agent; failures escalate to operator |
+| P6 — "Measure, don't guess" | Numbers from pipeline, not assumptions | Dashboard calls bridge.py `--mode dashboard` which runs real pipeline queries |
+| P7 — "Charter-clean" | Plan-locked, sandboxed, read-only | Dashboard queries are read-only; no agent-run DB changes; plan-locked per tenant |
+
+## QUINN CHARTER ENFORCEMENT (applied to dashboard)
+
+| Rail | Requirement | Dashboard Enforcement |
+|------|------------|----------------------|
+| Rail 1 (Plan-Lock) | Every dashboard query is a locked plan | Dashboard fetches from bridge.py only; no ad-hoc queries |
+| Rail 2 (Sandbox) | Data sources are allowlisted | Dashboard API only serves from validated modules (field_monitor, feedback, harness trace) |
+| Rail 3 (No Destructive DB) | Dashboard never writes | Read-only API; all "Add Brand" writes go through scaffold.py with plan-lock |
+
+---
+
+## TIER 1: YVON MASTER DASHBOARD (operators)
+
+### Data Sources (real pipeline output)
+
+| Card | Data Source | Update | Owner |
+|------|------------|--------|-------|
+| Fleet Health | `field_monitor.py` — drift signals per agent | Hourly | gauge (agent-quality-scorecard) |
+| RAG Health | `bridge.py --mode dashboard/rag` — savings %, quality, test count | Daily | field_monitor |
+| Graph Vitals | `src/graphs/builder.ts` — nodes, edges, communities | Daily | dev (ADRs record changes) |
+| Self-Improver | `self_improver.py` — improvement_log.jsonl | Weekly | self_improver |
+| Connected Brands | Per-brand aggregation from field_monitor | Hourly | board (governance gate) |
+| Alerts | Harness quarantine log + field_monitor degradation | Real-time | sentinel (bypass detection) |
+
+### Dashboard Layout
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  YVON MASTER — v1.3.0                           [⚙️]  [🔔 2 alerts] │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌──────────────┬──────────────┬──────────────┬──────────────────┐  │
+│  │ FLEET HEALTH │  RAG HEALTH  │  GRAPH VITALS│  SELF-IMPROVER   │  │
+│  │              │              │              │                  │  │
+│  │ 46/46 agents │ Pipeline: 5/5│ 1,482 nodes  │ Last: 2026-07-16 │  │
+│  │ 0 incidents  │ 73% avg save │ 3,840 edges  │ 4 proposals held │  │
+│  │ 7 depts green│ Harness: 1.1 │ 12 commun.   │ 0 auto-deployed  │  │
+│  │ Drift: none  │ conflicts/run│ Cohesion:0.87│ Next: Sun 00:00  │  │
+│  └──────────────┴──────────────┴──────────────┴──────────────────┘  │
+│                                                                      │
+│  ┌──────────────────────────────────────────────────────────────┐    │
+│  │  CONNECTED BRANDS                                    [+ ADD] │    │
+│  │                                                              │    │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐│    │
+│  │  │ NOVIZIO      │  │ HOURBOUR     │  │ BOUTIQUE A           ││    │
+│  │  │ Owned Brand   │  │ Owned Brand  │  │ AgentX · Growth      ││    │
+│  │  │ Health: 82%   │  │ Health: 93%  │  │ Health: 78%          ││    │
+│  │  │ 3 depts       │  │ 2 depts      │  │ 2 depts: Brand+Prod ││    │
+│  │  │ 11 agents     │  │ 8 agents     │  │ IG ✅ Shopify ✅     ││    │
+│  │  │ [$ Open →]    │  │ [$ Open →]   │  │ [$ Open →]           ││    │
+│  │  └──────────────┘  └──────────────┘  └──────────────────────┘│    │
+│  └──────────────────────────────────────────────────────────────┘    │
+│                                                                      │
+│  ┌──────────────────────────────────────────────────────────────┐    │
+│  │  RECENT ALERTS                               [Mark All Read] │    │
+│  │  ⚠️ Financial Analysis — avg 26 conflicts/query (threshold)  │    │
+│  │  ⚠️ Engineering Debug — quality 0.00 (authority fix applied) │    │
+│  └──────────────────────────────────────────────────────────────┘    │
+│                                                                      │
+│  ┌─────────────────────────────┐  ┌─────────────────────────────┐   │
+│  │ OBSIDIAN GRAPH PREVIEW      │  │ PIPELINE LIVE TEST          │   │
+│  │ Communities: 12             │  │ Last run: 5/5 queries ok    │   │
+│  │ Largest: Brand Studio (259) │  │ Legal: 0→8 chunks (fixed)  │   │
+│  │ Most connected: Shared OS   │  │ Finance: 73% save, 0.27 Q  │   │
+│  │ [Open Vault →]              │  │ [Re-run Test →]             │   │
+│  └─────────────────────────────┘  └─────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### Health Score Formula
+
+```
+Brand Health = (agent_uptime × 0.3) + (content_quality × 0.25) +
+               (integration_health × 0.25) + (pipeline_savings × 0.2)
+
+agent_uptime:       % of agents without degradation alerts
+content_quality:    avg grounded score from verifier.py (last 7 days)
+integration_health: % of connectors with status=active
+pipeline_savings:   savings_pct / 100 (capped at 1.0)
+```
+
+### Add Brand Flow (Rail 3 safe — read-only until operator approves)
+
+```
+[+ ADD BRAND] clicked
+    │
+    ▼
+┌──────────────────────────────────────────────────────┐
+│  ADD NEW BRAND                                       │
+│                                                      │
+│  Brand Name: [________________]                      │
+│  Industry:   [Fashion Retail ▾]                      │
+│                                                      │
+│  Departments needed:                                 │
+│  ☑ Social Media (Brand Studio: spark, lena, pulse)  │
+│  ☐ Brand Design (Brand Studio: atlas, pixel, muse)  │
+│  ☐ E-Commerce (Product: price, spec, metric)         │
+│  ☐ Customer Support (Product: ux, loom)              │
+│                                                      │
+│  Tier: Growth ($149/mo) · 2 depts · 8 agents         │
+│                                                      │
+│  [Submit for Provisioning] ← plan-locked by quinn    │
+└──────────────────────────────────────────────────────┘
+    │
+    ▼ quinn: plan-lock created + hashed
+    ▼ scaffold.py: tenant-provision (sandboxed)
+    ▼ quinn: verify plan completed
+    ▼ board: record in master graph
+```
+
+---
+
+## TIER 2: PER-BRAND DASHBOARD (business owners)
+
+### What They See
+
+```
+┌──────────────────────────────────────────────────────┐
+│  BOUTIQUE A — Your Dashboard          [⚙️ Settings]  │
+├──────────────────────────────────────────────────────┤
+│                                                      │
+│  ┌─────────────────┬─────────────────┬────────────┐  │
+│  │ THIS WEEK       │ YOUR CONTENT    │ REACH      │  │
+│  │                 │                 │            │  │
+│  │ 5 posts ready   │ 3 Instagram     │ 1.2k views │  │
+│  │ 2 reviews done  │ 2 Stories       │ 84 clicks  │  │
+│  │ Next: Thursday  │ Drafts: 4       │ Growing ↑  │  │
+│  └─────────────────┴─────────────────┴────────────┘  │
+│                                                      │
+│  ┌──────────────────────────────────────────────┐    │
+│  │  UPCOMING CONTENT                             │    │
+│  │                                              │    │
+│  │  MON  │ New arrivals post             ✅    │    │
+│  │  TUE  │ Behind-the-scenes Story        ✅    │    │
+│  │  WED  │ Customer spotlight             ⏳    │    │
+│  │  THU  │ Sale announcement              📝    │    │
+│  │  FRI  │ Weekend style inspiration      📝    │    │
+│  │                                              │    │
+│  │  [Approve] [Request Changes] [Skip Week]     │    │
+│  └──────────────────────────────────────────────┘    │
+│                                                      │
+│  ┌──────────────────────────────────────────────┐    │
+│  │  CONNECTIONS                    [Manage →]   │    │
+│  │  ✅ Instagram   ✅ Shopify                    │    │
+│  └──────────────────────────────────────────────┘    │
+│                                                      │
+│  Plan: Growth ($149/mo) · Next bill: Aug 1           │
+└──────────────────────────────────────────────────────┘
+```
+
+### What Maps to Pipeline Data
+
+| Card | Pipeline Source | Business Owner Sees |
+|------|----------------|-------------------|
+| This Week | `bridge.py` — content pipeline output count | "5 posts ready" |
+| Your Content | Per-tenant agent session logs | Content feed with status |
+| Reach | Connector API (Instagram, Shopify) | Views, clicks, growth direction |
+| Upcoming Content | Content pipeline scheduler | Calendar with approve/skip |
+| Connections | relay MCP registry (per-tenant) | Green checks for active |
+| Settings | `tenant-manifest.yaml` | Plan, billing, connectors |
+
+### What They NEVER See
+
+| Hidden | Why |
+|--------|-----|
+| spark, lena, pixel | They see "Your Creative Team" |
+| RAG pipeline metrics | "Content Quality: Good ✅" |
+| Harness gates | "All systems working ✅" |
+| Graph databases | Their content feed (already filtered) |
+| Token savings | "Optimized for speed" |
+| Agent error logs | Escalated to operator, not shown to business owner |
+
+---
+
+## DASHBOARD API (bridge.py --mode dashboard)
+
+```
+GET /dashboard/master
+  → field_monitor.generate_report()
+  → self_improver last run
+  → harness quarantine log (last 24h)
+  → graph builder stats
+  → per-brand aggregation
+
+GET /dashboard/brand/:id
+  → per-tenant field_monitor
+  → content pipeline output feed
+  → connector health (relay MCP registry)
+  → tenant-manifest.yaml (plan/billing)
+
+POST /dashboard/brands
+  → validate brand name, industry, departments
+  → plan-lock (quinn)
+  → scaffold.py tenant-provision (Phase 2 build)
+  → return provisioning status
+
+GET /dashboard/alerts
+  → harness quarantine log
+  → field_monitor degradation alerts
+  → coverage gaps
+  → drift signals
+```
+
+---
+
+## FAILURE MODE OWNERSHIP
+
+| Failure Mode | Detection | Owner Agent | Recovery |
+|-------------|-----------|-------------|----------|
+| Dashboard API returns stale data | Freshness check (data timestamp < 1h old) | ops | Re-fetch from source |
+| Per-brand dashboard shows wrong tenant | Tenant isolation check (brand_id matches auth) | sentinel | Halt + escalate |
+| Add Brand provisions duplicate tenant | Idempotency check (brand name + industry hash) | quinn | Return existing tenant |
+| Dashboard fetches from unauthorized dept | Plan-lock: dashboard query plan hashed before execution | quinn | Halt + escalate |
+| Obsidian graph preview stale | Graph builder last-run timestamp check | dev | Trigger graph rebuild |
+
+---
+
+## WHAT GETS BUILT
+
+| File | Purpose | Tests |
+|------|---------|-------|
+| `dashboard/dashboard_api.py` | bridge.py extension: `--mode dashboard` endpoints | 15 |
+| `dashboard/master_dashboard.html` | Self-contained HTML artifact for YVON operators | N/A (artifact) |
+| `dashboard/brand_dashboard.html` | Self-contained HTML artifact for business owners | N/A (artifact) |
+| `dashboard/add_brand.html` | Add Brand wizard — form → scaffold.py | N/A (artifact) |
+
+**Estimated: 3 days, 15 tests, 3 HTML artifacts. All read-only, plan-locked, sandboxed. Zero destructive operations.**
+
+---
+
