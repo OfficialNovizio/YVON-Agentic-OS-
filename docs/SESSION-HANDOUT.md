@@ -126,15 +126,24 @@ keys, verify the :9119 Hermes API, metrics service, decommission Hostinger (§2)
      returned EMPTY → Hermes dashboard API may not be running despite M3 marked done
      (`ss -tlnp | grep 9119`).
 
-2. **E1 — `cli/task.sh`** (8 commands) — no VPS dependency. Blocks E3/E4.
+2. **E2 — Backfill/close the legacy ledger.** `cli/task.sh validate` (now built, E1 done)
+   FAILS on **12 legacy records** (TS-001…013): `approved` with no `approved_by`, and TS-006/007
+   `done` with empty/self-asserting `exit_gate.proof`. Backfill these (or re-drive via task.sh)
+   so the ledger is honest **before** E3 wires `validate` into the deploy gate. This is now the
+   concrete next step — validate surfaces exactly which records and why.
 
-3. **A1 — `cli/agent-compile.py`, compile ONE agent for review** — no VPS dependency.
+3. **E3 — wire `task.sh validate` into `verify-deploy.sh`** as the first blocking point — only
+   after E2 (else every push blocks on the 12 legacy fails).
 
 4. **V5 — Identify/recreate the 4201 metrics service on Contabo** — ventures-health shows
    offline until done; the wrapped-domain name is known only to the operator.
 
 **Done, for the record (was P0):** M1 commit migration fixes · M2 rotate `OPENAI_API_KEY` +
-`KREA_API_KEY` · M3 verify Hermes API `:9119` · M4 decommission Hostinger.
+`KREA_API_KEY` · M3 verify Hermes API `:9119` · M4 decommission Hostinger ·
+**T1–T3 Tools track** (all 7 tools installed + registry rewritten, commit `ed237df`) ·
+**A1** (`cli/agent-compile.py` built; all **46 agents compiled** to `.claude/agents/` — the
+`.claude/agents/` gap from §3 is closed) · **E1** (`cli/task.sh` + `task.py` record manager,
+8 commands, state machine + guards, lifecycle-tested; `validate` exits 1 for the gate).
 
 ---
 
@@ -442,15 +451,15 @@ Dependency order: `M1`→`M2`→`M3`→`M4` (post-migration) · `A1`+`A2` block 
 
 | # | Task | Notes |
 |---|---|---|
-| **T1** | Register all 7 with gate bindings | Add `INSTALLED` (yes/no/on-demand) + `LICENCE` columns to `Teams/Shared OS/tools/shared-tool-registry.md` |
-| **T2** | **Resolve the `reticle` phantom** | Cited as quinn's browser gate in **4 agent docs**; never installed or registered. Install, or strike the references |
-| **T3** | Add `LICENCE` column to the registry | `agentation` = PolyForm Shield (installed, **not OSS**) · `reticle` server = FSL-1.1-ALv2 · `reticle ee/` = paid key in prod |
+| **T1** | ~~Register all 7 with gate bindings~~ | **DONE 2026-08-01** — registry rewritten with placement map + `INSTALLED`/`LICENCE` columns; all 7 verified installed (§2, commit `ed237df`) |
+| **T2** | ~~Resolve the `reticle` phantom~~ | **DONE 2026-08-01** — reticle installed (`dashboard/node_modules/@reticlehq/core` 2.2.1) + MCP registered (`~/.claude.json`) + registry row |
+| **T3** | ~~Add `LICENCE` column~~ | **DONE 2026-08-01** — LICENCE column live (agentation=PolyForm Shield, reticle=Apache/FSL/EE, playwright/crawl4ai/strix=Apache-2.0, …) |
 
 ### A — Agent architecture
 
 | # | Task | Notes |
 |---|---|---|
-| **A1** | `cli/agent-compile.py` — **compile ONE agent, review, then the rest** | `Teams/<Dept>/<agent>/` → `.claude/agents/<agent>.md`: frontmatter (`name` · `description`=routing triggers · `tools` allowlist · `model`) + compiled body (agent.md + identity + principles + skill-routing + config) |
+| **A1** | ~~`cli/agent-compile.py` — compile agents~~ | **DONE 2026-08-01** — compiler built; mia reviewed then **all 46 compiled** to `.claude/agents/`. Frontmatter (`name`·`description`=triggers·`tools` allowlist; `model` omitted when config has none) + compiled body. Re-run `python3 cli/agent-compile.py --all` after source edits. Open follow-up: pin `model` per agent in config; review derived tool allowlists |
 | **A2** | `operational/worktree/<agent>-worktree.yaml` | `consumes` · `skill_chain` · `tools` · `owns_paths` · `produces` · `handoff` · `escalates_to`. Derived from the prose already in `*-skill-routing.md` + `*-tool-requirements.md` |
 | **A3** | Parallel orchestration | Dept lead fans out `dag.parallel` items as **concurrent** Task invocations in one message. Only when `owns_paths` are disjoint |
 
@@ -472,8 +481,8 @@ escalates_to: dev
 
 | # | Task | Notes |
 |---|---|---|
-| **E1** | `cli/task.sh` — 8 commands | `new/discover/approve/start/gate/done/status/validate`. `validate` exits 1 so the deploy gate can call it. No blocking yet |
-| **E2** | Backfill TS-014/015/016, close the 8 stuck at `approved` | Make the ledger honest **before** enforcement turns on |
+| **E1** | ~~`cli/task.sh` — 8 commands~~ | **DONE 2026-08-01** — `cli/task.sh` + `cli/task.py` (no pyyaml); state machine + transition guards; `validate` exits 1. Lifecycle-tested. No blocking yet (E3) |
+| **E2** | Close the legacy ledger (validate FAILS on 12 records) | **Now concrete** — `task.sh validate` flags TS-001…013: `approved` w/o `approved_by`; TS-006/007 `done` w/ empty/self-asserting `exit_gate.proof`. Backfill or re-drive before E3 |
 | **E3** | `task validate` as check 9 in `verify-deploy.sh` | **First blocking point.** Push-time only |
 | **E4** | `.claude/hooks/yvon-gate.sh` warn+log → blocking | `PreToolUse` on Write/Edit. One session warn-mode to calibrate always-allowed paths. Add `SessionStart` rail re-injection (fixes context decay) |
 | **E5** | Wire `impeccable` + browser gate as **blocking** for UI work | Both installed, bound to nothing. Their absence let the broken redesign ship |
