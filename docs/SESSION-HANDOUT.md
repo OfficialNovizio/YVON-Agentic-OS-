@@ -1,6 +1,6 @@
 # YVON — Session Handout & Persistent Backlog
 
-*Last rewritten: 2026-08-01 · Repo: `main @ 14f3b02` + uncommitted migration fixes · Operator: Novy*
+*Last updated: 2026-08-01 (M1–M4 closed) · Repo: `main @ 7e9d69b` — migration fixes committed & pushed · Operator: Novy*
 
 > **This file is the durable memory of the project.** In-session task lists are ephemeral and
 > die with the session — anything that must survive lives here. It is written to be
@@ -30,14 +30,16 @@
 
 ---
 
-## 1. Current state (verified on disk 2026-07-31)
+## 1. Current state (verified on disk 2026-08-01)
 
-**Repo:** `main @ 14f3b02` — "feat: wire all Foundry pages, Task Board, Office, Voice Transcription to Hermes API"
+**Repo:** `main @ 7e9d69b` — "feat: Contabo migration fixes + docs consolidation".
+**Working tree clean, pushed to origin.** M1 (commit migration fixes) is DONE — all the
+files that were uncommitted below are now in `7e9d69b`. Prior HEAD was `14f3b02`.
 
 The 2026-07-30 Notion/design-token redesign was **rolled back in full**. `dashboard/` is
 byte-identical to `14f3b02`. The UI is the original dark Material-3 theme.
 
-**Uncommitted right now** — docs consolidation (2026-07-31) + migration fixes (2026-08-01):
+**Landed in `7e9d69b`** (was the uncommitted set — kept here as the changelog):
 
 ```
  M CLAUDE.md · README.md · Teams/README.md · docs/MASTER.md · docs/SESSION-HANDOUT.md
@@ -55,6 +57,22 @@ byte-identical to `14f3b02`. The UI is the original dark Material-3 theme.
  M dashboard/app/api/ventures-health/route.ts (VPS_METRICS_URL env-only — no hardcoded IP)
  M dashboard/.env.local.example          (document HERMES_URL/HERMES_TOKEN/VPS_METRICS_URL)
 ```
+
+**Tool layer installed (2026-08-01).** All 7 target tools live: reticle + page-agent
+(`dashboard/node_modules`), taste-skill (12 skills, `.agents/skills/`), playwright + agentation
+(root + dashboard `node_modules`), and on the VPS via `vps-scripts/install-tools.sh` —
+crawl4ai (`crwl`), browser-use, scrapegraphai, agent-reach, strix (`strix-agent 1.4.1`, reuses
+Hermes's OpenAI key). On-demand Docker services (localstack, vaultwarden ready; plausible/
+cal-com/penpot/appflowy needs-config) now live under `Teams/Shared OS/tools/<name>/`, managed
+by `cli/tool.sh up|down|status`. The old command-only stub folders were deleted; the registry
+(`shared-tool-registry.md`) is rewritten with a placement map + INSTALLED/LICENCE columns.
+
+**M1–M4 all reported DONE by operator (2026-08-01):** migration fixes committed (M1);
+`OPENAI_API_KEY` + `KREA_API_KEY` rotated (M2); Hermes API `:9119` verified (M3);
+Hostinger decommissioned (M4). ⚠️ M4 was executed ~1 day after cutover, not after the
+`≥ 1 week green` hold — and the Hostinger `config.yaml` (the only record of that box's
+Hermes skills/tools/MCP) was never in git, so it is now likely unrecoverable. See the
+new **Hermes tool-parity** open item in §2.
 
 **Committed and working:**
 
@@ -91,27 +109,32 @@ keys, verify the :9119 Hermes API, metrics service, decommission Hostinger (§2)
 
 ## 2. PRIORITY 0 — do these first
 
-**In order.**
+**M1–M4 are DONE (2026-08-01).** The migration-critical block is closed. New top of stack:
 
-1. **M1 — Commit the migration fixes** (§1 uncommitted list). The repo must match the working
-   box: `main.py` (model+provider → AIAgent), `install.sh` (dest-dir guard), systemd unit
-   (Hermes venv + logs path), routes. Run `bash cli/verify-deploy.sh` first.
+1. **H1 — Hermes tool-parity: LARGELY RESOLVED 2026-08-01.** Captured the live Contabo
+   `config.yaml` → committed as `vps-scripts/hermes-config.contabo.yaml` (git-tracked inventory,
+   no secrets). **Verdict: Contabo is a STOCK Hermes install with the full default builtin
+   toolset** (bfl, browser, clarify, code_execution, computer_use, context_engine, cronjob,
+   delegation, file, image_gen, memory, session_search, skills, terminal, todo, tts, video,
+   video_gen, vision, web; +spotify plugin; image_gen=krea/krea-2-medium; web=ddgs). **All 7
+   external §5 tools were never installed on Hostinger either — nothing external is missing.**
+   Two follow-ups remain open:
+   - **H1a — inventory `/root/.hermes/skills/`** (the only real parity surface left; a custom
+     skill could have existed on Hostinger). `ls -la /root/.hermes/skills/`.
+   - **H1b — reconcile two discrepancies the capture exposed** (see §9 #14/#15):
+     `provider: openai-api` on the box vs handout's "openai"; and `:9119/openapi.json`
+     returned EMPTY → Hermes dashboard API may not be running despite M3 marked done
+     (`ss -tlnp | grep 9119`).
 
-2. **M2 — Rotate exposed keys.** `OPENAI_API_KEY` appeared in chat + lives in the systemd
-   drop-in and Vercel env; `KREA_API_KEY` also appeared in chat. Regenerate at
-   platform.openai.com, update `/etc/systemd/system/yvon-hermes-http.service.d/override.conf`
-   and Vercel, restart + retest chat.
+2. **E1 — `cli/task.sh`** (8 commands) — no VPS dependency. Blocks E3/E4.
 
-3. **M3 — Verify the Hermes API server on `127.0.0.1:9119`** — `hermes dashboard` must run on
-   Contabo; it powers the wrapper's `/api/hermes/*` proxy (Foundry, Task Board, Office). This
-   was NOT verified during migration — chat works via `AIAgent` import regardless.
+3. **A1 — `cli/agent-compile.py`, compile ONE agent for review** — no VPS dependency.
 
-4. **M4 — Decommission Hostinger** after ≥ 1 week of green: cancel the plan, remove old
-   A-records (BigRock), drop the old token/keys from Vercel.
+4. **V5 — Identify/recreate the 4201 metrics service on Contabo** — ventures-health shows
+   offline until done; the wrapped-domain name is known only to the operator.
 
-5. **E1 — `cli/task.sh`** — no VPS dependency.
-
-6. **A1 — `cli/agent-compile.py`, compile ONE agent for review** — no VPS dependency.
+**Done, for the record (was P0):** M1 commit migration fixes · M2 rotate `OPENAI_API_KEY` +
+`KREA_API_KEY` · M3 verify Hermes API `:9119` · M4 decommission Hostinger.
 
 ---
 
@@ -412,7 +435,7 @@ Dependency order: `M1`→`M2`→`M3`→`M4` (post-migration) · `A1`+`A2` block 
 | **V1** | ~~Upgrade the VPS~~ | **DONE 2026-08-01** — Contabo VPS 20, `169.58.107.148`. §4 |
 | **V2** | ~~VPS relief on Hostinger~~ | **OBSOLETE** — old box being decommissioned |
 | **V3** | ~~Audit cal.com / next-server~~ | **OBSOLETE** — no longer migrating the old box |
-| **V4** | Decommission Hostinger | After ≥ 1 week green (§2 M4): cancel, remove old A-records, drop old token |
+| **V4** | ~~Decommission Hostinger~~ | **DONE 2026-08-01** (operator). ⚠️ done ~1 day post-cutover, not after ≥1 week green; old `config.yaml` not captured → see §2 H1 |
 | **V5** | Identify/recreate the 4201 metrics service on Contabo | ventures-health offline until done; wrapped-domain name known only to operator |
 
 ### T — Tools (register now, install on demand)
@@ -496,6 +519,18 @@ TASK-SPEC is **refused**, and the refusal names the exact command to fix it.
 12. **Stale `models_dev_cache.json`** can pin an old provider — deleting it forces a rebuild.
 13. **The wrapper now surfaces agent-init errors as SSE `error` events** instead of a bare
     `Internal Server Error` — no more blind debugging (§1, `main.py` change).
+14. **⚠️ OPEN — `provider: openai-api` vs `openai`.** The live Contabo `config.yaml` (captured
+    2026-08-01) uses `provider: openai-api` + `base_url: https://api.openai.com/v1`, and chat
+    is operator-verified working. This **contradicts** correction #6 above, which called
+    `openai-api` invalid and said the winning value was `openai`. Empirically `openai-api` +
+    explicit `base_url` works. Likely #6 is stale (it may describe a mid-debug state, or bare
+    `openai` routes via OAuth while `openai-api` is the direct-key path). **Do not edit #6
+    until a live test settles it** — send one message, confirm 200 + non-empty tokens.
+15. **⚠️ OPEN — `:9119/openapi.json` returned EMPTY on 2026-08-01.** `curl` to the Hermes
+    dashboard API on the box produced an empty body (JSON decode failed at char 0), implying
+    nothing is serving `:9119` — yet M3 ("verify Hermes API :9119") was marked done. The
+    `/api/hermes/*` proxy (Foundry / Task Board / Office) depends on this. Re-verify with
+    `ss -tlnp | grep 9119`; if down, start `hermes dashboard` and re-confirm M3.
 
 ---
 

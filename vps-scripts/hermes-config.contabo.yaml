@@ -1,0 +1,117 @@
+# Hermes agent config — CAPTURED from Contabo (169.58.107.148 / vmi3479143)
+# ---------------------------------------------------------------------------
+# Captured: 2026-08-01 · Source: /root/.hermes/config.yaml on the live box.
+# Purpose: git-tracked inventory of Hermes's tool/skill/MCP surface so the
+#          installed toolset is never again knowable only from a server that
+#          might be decommissioned (Hostinger's copy was lost — see
+#          docs/SESSION-HANDOUT.md §2 H1 / §9).
+#
+# This file is a RECORD, not the live config. It contains NO secrets — model
+# API keys live in /root/.hermes/.env, not here. Do not deploy this file;
+# the box's own installer + hand edits are authoritative.
+#
+# KNOWN DISCREPANCIES vs handout (reconcile, do not blindly trust this record):
+#   - model.provider = "openai-api" here, but handout §4/§9#6 claim the working
+#     value is "openai" and call "openai-api" invalid. Live box works with
+#     "openai-api" + base_url, so §9#6 is likely stale. Confirm before editing.
+#   - :9119 openapi.json returned EMPTY on 2026-08-01 → Hermes dashboard API
+#     may not be running despite M3 being marked done. Verify `ss -tlnp | grep 9119`.
+#
+# TOOL INVENTORY SUMMARY (see platform_toolsets / known_builtin_toolsets below):
+#   Active CLI builtins: bfl, browser, clarify, code_execution, computer_use,
+#     context_engine, cronjob, delegation, file, image_gen, memory,
+#     session_search, skills, terminal, todo, tts, video, video_gen, vision, web
+#   Plugin toolsets: spotify (cli)
+#   image_gen: krea / krea-2-medium   ·   web backend: ddgs   ·   use_gateway: false everywhere
+#   All external §5 tools (reticle/strix/crawl4ai/page-agent/taste-skill) = NOT installed (never were).
+#   Custom skills: inventory /root/.hermes/skills/ separately — not represented in this file.
+# ---------------------------------------------------------------------------
+model:
+  default: gpt-5.6-luna
+  provider: openai-api      # ⚠️ see discrepancy note in header vs handout §9#6
+  base_url: https://api.openai.com/v1
+database:
+  journal_mode: wal
+agent:
+  max_turns: 150
+  verbose: false
+  reasoning_effort: high
+  # personalities: 17 built-in personas (helpful/concise/technical/creative/teacher/
+  #   kawaii/catgirl/pirate/shakespeare/surfer/noir/uwu/philosopher/hype) — stock defaults, omitted here.
+terminal:
+  backend: local
+  cwd: .
+  timeout: 180
+  home_mode: auto
+  container_cpu: 1
+  container_memory: 5120
+  container_disk: 51200
+  container_persistent: true
+  docker_mount_cwd_to_workspace: false
+  lifetime_seconds: 300
+web:
+  backend: ddgs
+  use_gateway: false
+browser:
+  inactivity_timeout: 120
+  cloud_provider: local
+  use_gateway: false
+tool_loop_guardrails:
+  warnings_enabled: true
+  hard_stop_enabled: false
+  warn_after: { exact_failure: 2, same_tool_failure: 3, idempotent_no_progress: 2 }
+  hard_stop_after: { exact_failure: 5, same_tool_failure: 8, idempotent_no_progress: 5 }
+compression:
+  enabled: true
+  threshold: 0.5
+  target_ratio: 0.2
+  protect_last_n: 20
+  protect_first_n: 3
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+  memory_char_limit: 2200
+  user_char_limit: 1375
+delegation:
+  max_iterations: 50
+skills:
+  creation_nudge_interval: 15
+code_execution:
+  timeout: 300
+  max_tool_calls: 50
+stt:
+  enabled: true
+  language: en
+  local: { model: base }
+  openai: { model: whisper-1 }
+image_gen:
+  provider: krea
+  use_gateway: false
+  model: krea-2-medium
+telemetry:
+  shared_metrics: { enabled: false }
+_config_version: 33
+platform_toolsets:
+  cli: [bfl, browser, clarify, code_execution, computer_use, context_engine,
+        cronjob, delegation, file, image_gen, memory, session_search, skills,
+        terminal, todo, tts, video, video_gen, vision, web]
+  telegram: [hermes-telegram]
+  discord: [hermes-discord]
+  whatsapp: [hermes-whatsapp]
+  slack: [hermes-slack]
+  signal: [hermes-signal]
+  homeassistant: [hermes-homeassistant]
+  qqbot: [hermes-qqbot]
+  yuanbao: [hermes-yuanbao]
+  teams: [hermes-teams]
+  google_chat: [hermes-google_chat]
+known_plugin_toolsets:
+  cli: [spotify]
+known_builtin_toolsets:
+  cli: [bfl, browser, clarify, code_execution, computer_use, context_engine,
+        cronjob, delegation, discord, discord_admin, file, homeassistant,
+        image_gen, memory, session_search, skills, spotify, stt, terminal,
+        todo, tts, video, video_gen, vision, web, x_search, yuanbao]
+# Security (defaults, commented in live config): secret redaction ON,
+#   tirith pre-exec scanning ON when binary present.
+# Fallback model: not configured (commented out in live config).

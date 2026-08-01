@@ -1,0 +1,17 @@
+# LocalStack — local AWS emulator (Mac dev, on-demand).
+# Managed by cli/tool.sh: `cli/tool.sh up localstack` / `down localstack`.
+# NOT started by default and NO restart policy — it only runs while you're
+# testing an AWS integration, then you stop it. Nothing resident.
+services:
+  localstack:
+    image: localstack/localstack:latest
+    container_name: yvon-localstack
+    ports:
+      - "4566:4566"            # single edge port for all AWS services
+    environment:
+      - SERVICES=s3,sqs,dynamodb,lambda   # trim/extend to what you actually test
+      - DEBUG=0
+      - PERSISTENCE=0          # ephemeral; set 1 to keep state across restarts
+    volumes:
+      - "./.data:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"

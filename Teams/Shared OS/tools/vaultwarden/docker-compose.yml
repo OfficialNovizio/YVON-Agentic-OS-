@@ -1,0 +1,21 @@
+# Vaultwarden — self-hosted secrets vault (Bitwarden-compatible, ~256MB).
+# Managed by cli/tool.sh: `cli/tool.sh up vaultwarden`.
+# Unlike the dev tools, a vault is meant to STAY UP (restart: unless-stopped),
+# but it's still one small container you start once. Put a TLS reverse proxy
+# (nginx/caddy) in front of :8080 — Bitwarden clients require HTTPS.
+#
+# Setup:  cp .env.example .env  &&  edit .env  (never commit .env)
+services:
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: yvon-vaultwarden
+    restart: unless-stopped
+    environment:
+      - DOMAIN=${VW_DOMAIN}              # e.g. https://vault.yourdomain
+      - ADMIN_TOKEN=${VW_ADMIN_TOKEN}    # protects the /admin panel
+      - SIGNUPS_ALLOWED=false            # invite-only; flip true briefly to create your first user
+      - WEBSOCKET_ENABLED=true
+    volumes:
+      - ./data:/data                     # vault DB + attachments; back this up
+    ports:
+      - "8080:80"                        # local only — front it with TLS proxy

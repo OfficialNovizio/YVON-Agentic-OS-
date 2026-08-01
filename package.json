@@ -28,6 +28,7 @@
     "dev": "tsc --watch",
     "test": "python3 rag/test_runner.py",
     "test:full": "python3 rag/test_runner.py",
+    "test:e2e": "npm --prefix dashboard run test:e2e",
     "prepublishOnly": "npm run build",
     "prepare": "npm run build"
   },

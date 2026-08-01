@@ -3,7 +3,10 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * Playwright config — quinn's release gate.
  * "Agents say done; browsers tell the truth."
- * Cross-browser (Chromium + Firefox + WebKit) per the approved 3-browser scope.
+ * Chromium-only scope (2026-08-01): the dashboard is internal/BOD-gated and the
+ * scraping stack (Crawl4AI/browser-use/ScrapeGraphAI) also drives Chromium, so
+ * one engine does double duty. Re-enable firefox/webkit below if a public,
+ * cross-browser surface ships. Install: `npx playwright install chromium`.
  * Boots the Next.js dev server, runs critical-flow E2E in tests/e2e/.
  */
 export default defineConfig({
@@ -19,8 +22,9 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+    // Cross-browser — re-enable + `npx playwright install firefox webkit` when a public surface ships:
+    // { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    // { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
   webServer: {
     command: 'npm run dev',

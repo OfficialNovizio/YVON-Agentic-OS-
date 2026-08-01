@@ -30,3 +30,10 @@ node_modules
 # TypeScript incremental build cache
 *.tsbuildinfo
 **/tsconfig.tsbuildinfo
+
+# On-demand tool runtime (cli/tool.sh) — commit compose + .env.example only.
+# Tool config now lives under Teams/Shared OS/tools/<name>/; secrets/data/clones never do.
+Teams/Shared OS/tools/**/.env
+Teams/Shared OS/tools/**/data/
+Teams/Shared OS/tools/**/.data/
+Teams/Shared OS/tools/**/upstream/

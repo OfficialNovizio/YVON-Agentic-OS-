@@ -6,6 +6,7 @@ import { WorkspaceProvider } from '@/lib/WorkspaceContext'
 import { Shell } from '@/components/Shell'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { RegisterServiceWorker } from '@/components/RegisterServiceWorker'
+import AgentationToolbar from '@/components/AgentationToolbar'
 
 export const metadata: Metadata = {
   title: 'YVON OS · Mission Control',
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </ErrorBoundary>
         </WorkspaceProvider>
         <RegisterServiceWorker />
+        <AgentationToolbar />
         <Analytics />
         <SpeedInsights />
       </body>
