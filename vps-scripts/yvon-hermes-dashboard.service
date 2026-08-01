@@ -1,0 +1,32 @@
+# Hermes Dashboard API — serves 127.0.0.1:9119, powers the wrapper's /api/hermes/* proxy
+# (Foundry / Task Board / Office). Loopback-only by design (CORS localhost; PTY rejects
+# non-loopback). Install: see vps-scripts/MIGRATE-TO-CONTABO.md / the header below.
+#
+#   scp vps-scripts/yvon-hermes-dashboard.service root@169.58.107.148:/etc/systemd/system/
+#   ssh root@169.58.107.148
+#   pkill -f 'hermes dashboard'                 # stop the manual `&` instance first
+#   which hermes                                 # confirm the path below (adjust if different)
+#   systemctl daemon-reload
+#   systemctl enable --now yvon-hermes-dashboard
+#   systemctl status yvon-hermes-dashboard --no-pager && ss -tlnp | grep 9119
+[Unit]
+Description=Hermes Dashboard API (127.0.0.1:9119) — backs /api/hermes/* proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Environment=HOME=/root
+WorkingDirectory=/root
+# `hermes dashboard` rebuilds the web UI (~2s) then serves on :9119. Verify the binary
+# path with `which hermes` — if pipx/venv-scoped, point ExecStart at that absolute path.
+ExecStart=/usr/local/bin/hermes dashboard
+Restart=always
+RestartSec=5
+TimeoutStartSec=120
+# Hardening intentionally OFF — Contabo's LXC returns status=226/NAMESPACE under
+# ProtectSystem=strict + ReadOnlyPaths (handout §9 #9). Runs fine unhardened.
+
+[Install]
+WantedBy=multi-user.target

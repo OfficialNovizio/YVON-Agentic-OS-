@@ -120,12 +120,13 @@ keys, verify the :9119 Hermes API, metrics service, decommission Hostinger (§2)
      Since chat works, `openai-api` is the CORRECT value; §9 #6's "invalid" claim was wrong
      (corrected in §9 #14).
 
-2. **M3-REDO — Hermes dashboard API `:9119` is DOWN (confirmed 2026-08-01).** `ss -tlnp | grep
-   9119` → nothing listening. M3 was marked done but the API isn't running, so the wrapper's
-   `/api/hermes/*` proxy (Foundry / Task Board / Office) has no backend. Chat is unaffected
-   (uses `AIAgent` import, not `:9119`), and those pages are stubs/demos — so low-urgency, but
-   real. Fix: start `hermes dashboard` on `127.0.0.1:9119` and make it a systemd unit so it
-   survives reboot. Then re-confirm.
+2. **M3-REDO — Hermes dashboard API `:9119`.** Was DOWN (confirmed 2026-08-01). `hermes
+   dashboard` verified working (builds web UI ~2s → `HERMES_DASHBOARD_READY port=9119`), but a
+   manual `&` instance dies on logout. **Systemd unit written:
+   `vps-scripts/yvon-hermes-dashboard.service`** — install it (steps in the file header:
+   scp → `systemctl enable --now yvon-hermes-dashboard`), verify `ss -tlnp | grep 9119`, then
+   M3 closes. Low-urgency (chat unaffected; the proxied Foundry/Task Board/Office pages are
+   stubs), but the unit makes it persistent across reboot.
 
 3. **E2 — Backfill/close the legacy ledger.** `cli/task.sh validate` (now built, E1 done)
    FAILS on **12 legacy records** (TS-001…013): `approved` with no `approved_by`, and TS-006/007
