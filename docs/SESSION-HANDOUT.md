@@ -111,31 +111,32 @@ keys, verify the :9119 Hermes API, metrics service, decommission Hostinger (§2)
 
 **M1–M4 are DONE (2026-08-01).** The migration-critical block is closed. New top of stack:
 
-1. **H1 — Hermes tool-parity: LARGELY RESOLVED 2026-08-01.** Captured the live Contabo
-   `config.yaml` → committed as `vps-scripts/hermes-config.contabo.yaml` (git-tracked inventory,
-   no secrets). **Verdict: Contabo is a STOCK Hermes install with the full default builtin
-   toolset** (bfl, browser, clarify, code_execution, computer_use, context_engine, cronjob,
-   delegation, file, image_gen, memory, session_search, skills, terminal, todo, tts, video,
-   video_gen, vision, web; +spotify plugin; image_gen=krea/krea-2-medium; web=ddgs). **All 7
-   external §5 tools were never installed on Hostinger either — nothing external is missing.**
-   Two follow-ups remain open:
-   - **H1a — inventory `/root/.hermes/skills/`** (the only real parity surface left; a custom
-     skill could have existed on Hostinger). `ls -la /root/.hermes/skills/`.
-   - **H1b — reconcile two discrepancies the capture exposed** (see §9 #14/#15):
-     `provider: openai-api` on the box vs handout's "openai"; and `:9119/openapi.json`
-     returned EMPTY → Hermes dashboard API may not be running despite M3 marked done
-     (`ss -tlnp | grep 9119`).
+1. **H1 — Hermes tool-parity: FULLY RESOLVED 2026-08-01.** Contabo is a STOCK Hermes install
+   (full default builtin toolset; inventory committed at `vps-scripts/hermes-config.contabo.yaml`).
+   - **H1a DONE** — `/root/.hermes/skills/` holds the **bundled/stock skill set** (apple, github,
+     research, software-development, creative, productivity, … + `.bundled_manifest`, all at
+     install time). No custom Hostinger skill existed → nothing lost. Parity confirmed.
+   - **H1b provider DONE** — the live, chat-working box runs `provider: openai-api` + base_url.
+     Since chat works, `openai-api` is the CORRECT value; §9 #6's "invalid" claim was wrong
+     (corrected in §9 #14).
 
-2. **E2 — Backfill/close the legacy ledger.** `cli/task.sh validate` (now built, E1 done)
+2. **M3-REDO — Hermes dashboard API `:9119` is DOWN (confirmed 2026-08-01).** `ss -tlnp | grep
+   9119` → nothing listening. M3 was marked done but the API isn't running, so the wrapper's
+   `/api/hermes/*` proxy (Foundry / Task Board / Office) has no backend. Chat is unaffected
+   (uses `AIAgent` import, not `:9119`), and those pages are stubs/demos — so low-urgency, but
+   real. Fix: start `hermes dashboard` on `127.0.0.1:9119` and make it a systemd unit so it
+   survives reboot. Then re-confirm.
+
+3. **E2 — Backfill/close the legacy ledger.** `cli/task.sh validate` (now built, E1 done)
    FAILS on **12 legacy records** (TS-001…013): `approved` with no `approved_by`, and TS-006/007
    `done` with empty/self-asserting `exit_gate.proof`. Backfill these (or re-drive via task.sh)
    so the ledger is honest **before** E3 wires `validate` into the deploy gate. This is now the
    concrete next step — validate surfaces exactly which records and why.
 
-3. **E3 — wire `task.sh validate` into `verify-deploy.sh`** as the first blocking point — only
+4. **E3 — wire `task.sh validate` into `verify-deploy.sh`** as the first blocking point — only
    after E2 (else every push blocks on the 12 legacy fails).
 
-4. **V5 — Identify/recreate the 4201 metrics service on Contabo** — ventures-health shows
+5. **V5 — Identify/recreate the 4201 metrics service on Contabo** — ventures-health shows
    offline until done; the wrapped-domain name is known only to the operator.
 
 **Done, for the record (was P0):** M1 commit migration fixes · M2 rotate `OPENAI_API_KEY` +
@@ -528,18 +529,14 @@ TASK-SPEC is **refused**, and the refusal names the exact command to fix it.
 12. **Stale `models_dev_cache.json`** can pin an old provider — deleting it forces a rebuild.
 13. **The wrapper now surfaces agent-init errors as SSE `error` events** instead of a bare
     `Internal Server Error` — no more blind debugging (§1, `main.py` change).
-14. **⚠️ OPEN — `provider: openai-api` vs `openai`.** The live Contabo `config.yaml` (captured
-    2026-08-01) uses `provider: openai-api` + `base_url: https://api.openai.com/v1`, and chat
-    is operator-verified working. This **contradicts** correction #6 above, which called
-    `openai-api` invalid and said the winning value was `openai`. Empirically `openai-api` +
-    explicit `base_url` works. Likely #6 is stale (it may describe a mid-debug state, or bare
-    `openai` routes via OAuth while `openai-api` is the direct-key path). **Do not edit #6
-    until a live test settles it** — send one message, confirm 200 + non-empty tokens.
-15. **⚠️ OPEN — `:9119/openapi.json` returned EMPTY on 2026-08-01.** `curl` to the Hermes
-    dashboard API on the box produced an empty body (JSON decode failed at char 0), implying
-    nothing is serving `:9119` — yet M3 ("verify Hermes API :9119") was marked done. The
-    `/api/hermes/*` proxy (Foundry / Task Board / Office) depends on this. Re-verify with
-    `ss -tlnp | grep 9119`; if down, start `hermes dashboard` and re-confirm M3.
+14. **✅ RESOLVED — `provider: openai-api` is CORRECT (not #6's "invalid").** The live box runs
+    `provider: openai-api` + base_url and chat works end-to-end (operator-confirmed 2026-08-01).
+    So correction #6 above is **wrong** — `openai-api` is the working direct-API provider ID;
+    do not "fix" it to `openai`. #6 likely described a transient mid-debug state.
+15. **✅ CONFIRMED — `:9119` is DOWN (not just empty).** `ss -tlnp | grep 9119` → nothing
+    listening (2026-08-01). M3 was marked done but the Hermes dashboard API isn't running; the
+    `/api/hermes/*` proxy (Foundry / Task Board / Office) has no backend. Chat unaffected. Fix =
+    start `hermes dashboard` on `:9119` + systemd unit for persistence → then re-close M3. See §2.
 
 ---
 
