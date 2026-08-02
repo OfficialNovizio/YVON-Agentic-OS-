@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """graph-build.py — compile the Graph-Brain feed for the dashboard (G2, first cut).
 
-Emits dashboard/public/brain-graph.json:
-  worlds      — the hub of brains (YVON master + owned brands + AgentX factory + client slots)
-  worldEdges  — YVON → world, AgentX → client
-  yvon        — YVON's inner brain: departments (lobes), agents (from worktrees),
-                System nodes (RAG/CIE/CAOS/TOON/harness from MASTER), dependency edges
+Emits dashboard/public/brain-graph.json = YVON's real brain ONLY:
+  departments — the 7 real departments (lobes)
+  systems     — System nodes (RAG/CIE/CAOS/TOON/harness) from MASTER
+  nodes       — the 46 real agents (from worktrees)
+  edges       — real dependency edges (consumes/handoff/related)
 
-Only YVON is populated today; brand/client worlds are honest placeholders until each gets a
-Node-Zero graph. Re-run after worktree edits. No values invented.
+No brands/clients are emitted — they don't exist yet. When a brand/client gets a real Node-Zero
+graph, add it here (never before). Re-run after worktree edits. No values invented.
 """
 from __future__ import annotations
 import json, re
@@ -28,20 +28,6 @@ def sc(t, k):
     m = re.search(rf"^{re.escape(k)}:\s*(.+?)\s*(?:#.*)?$", t, re.M)
     return m.group(1).strip().strip('"').strip("'") if m else ""
 
-
-# ── worlds: the hub of brains (whiteboard) ──────────────────────────────────
-WORLDS = [
-    {"id": "yvon", "name": "YVON", "kind": "master", "tagline": "shared brain · agents · skills · systems · lessons", "populated": True},
-    {"id": "novizio", "name": "Novizio", "kind": "brand", "tagline": "owned brand · isolated data", "populated": False},
-    {"id": "hourbour", "name": "Hourbour", "kind": "brand", "tagline": "owned brand · isolated data", "populated": False},
-    {"id": "upcoming", "name": "Upcoming Brand", "kind": "slot", "tagline": "growth slot", "populated": False},
-    {"id": "agentx", "name": "AgentX", "kind": "factory", "tagline": "SaaS factory · spawns tenants", "populated": False},
-]
-CLIENTS = [{"id": f"c{i}", "name": f"Client {i}", "kind": "client", "parent": "agentx",
-            "tagline": "tenant · isolated", "populated": False} for i in range(1, 7)]
-WORLDS += CLIENTS
-WORLD_EDGES = [{"from": "yvon", "to": w["id"]} for w in WORLDS if w["id"] not in ("yvon",) and w.get("parent") != "agentx"] \
-    + [{"from": "agentx", "to": c["id"]} for c in CLIENTS]
 
 # ── YVON systems (MASTER organs — the brain regions §3) ─────────────────────
 SYSTEMS = [
@@ -79,12 +65,11 @@ def build_yvon():
 
 
 def main():
-    graph = {"worlds": WORLDS, "worldEdges": WORLD_EDGES, "yvon": build_yvon()}
+    graph = build_yvon()   # YVON's real brain only — no invented brands/clients
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(graph), encoding="utf-8")
-    y = graph["yvon"]
-    print(f"✓ {OUT.relative_to(ROOT)} — worlds:{len(WORLDS)} · yvon: {len(y['nodes'])} agents, "
-          f"{len(y['systems'])} systems, {len(y['edges'])} edges, {len(y['departments'])} depts")
+    print(f"✓ {OUT.relative_to(ROOT)} — {len(graph['nodes'])} agents, "
+          f"{len(graph['systems'])} systems, {len(graph['edges'])} edges, {len(graph['departments'])} depts")
 
 
 if __name__ == "__main__":
