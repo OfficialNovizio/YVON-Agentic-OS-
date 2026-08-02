@@ -1,0 +1,19 @@
+# AUTHORED exemplar (A2 v2, reviewed) — mia. Others are cli/worktree-gen.py scaffolds.
+# The worktree is the agent's run contract + the graph/subway source + the parallel-safety key.
+agent: mia
+dept: Engineering
+role: Frontend Web
+consumes: [design-tokens@atlas, api-contract@raj]   # atlas = brand-kit source; raj = API contracts
+skill_chain: [design-tokens, ui-accessibility-standards, frontend-verification, frontend-performance]
+tools: [Read, Write, Edit, Bash, Grep, Glob]
+owns_paths: [dashboard/app/**, dashboard/components/**]   # disjoint write paths → safe parallel (A3)
+produces: ui-build
+handoff: [quinn]              # hands the build to quinn's browser gate
+escalates_to: dev            # dept leader holds the identity + review
+related: [atlas, raj, quinn, rank, ops, aegis]
+verify:
+  self: [frontend-verification, verification-before-completion]   # self-check in the sandbox box first
+  gate: quinn                # then a DIFFERENT agent does final verification (browsers tell the truth)
+sandbox:
+  tier: auto                 # auto → quarantine.sh (TIER-1) · high → OpenSandbox (TIER-2)
+  risk: low

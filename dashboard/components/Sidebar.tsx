@@ -57,6 +57,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Chat', href: '/chat', icon: 'forum' },
       { label: 'Agents', href: '/agents', icon: 'smart_toy' },
       { label: 'Org Chart', href: '/org-chart', icon: 'account_tree' },
+      { label: 'Graph Memory', href: '/brain', icon: 'hub' },
       { label: 'Office', href: '/office', icon: 'apartment' },
       { label: 'Foundry', href: '/foundry', icon: 'science' },
     ],

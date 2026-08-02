@@ -1,0 +1,19 @@
+# COMPILED scaffold by cli/worktree-gen.py — verify the <FILL_IN> fields by hand.
+# The worktree is the agent's run contract + the graph/subway source + the parallel-safety key.
+agent: ops
+dept: Engineering
+role: DevOps & Reliability — production owner, the safety net
+consumes: []            # <FILL_IN> contracts needed, e.g. design-tokens@atlas
+skill_chain: [platform-playbooks, release-discipline, maintenance-hygiene, incident-response]
+tools: [Read, Write, Edit, Bash, Grep, Glob]
+owns_paths: []          # <FILL_IN> disjoint write paths → enables safe parallel (A3)
+produces: ""            # <FILL_IN> the artifact this emits
+handoff: []             # <FILL_IN> agents this hands to (verify.gate below is the seed)
+escalates_to: ""        # <FILL_IN>
+related: [aegis, board, dana, dev, quinn]   # agents referenced in routing — edge seed for the graph
+verify:
+  self: [verification-before-completion]
+  gate: quinn
+sandbox:
+  tier: auto            # auto → quarantine.sh (TIER-1) · high → OpenSandbox (TIER-2)
+  risk: low

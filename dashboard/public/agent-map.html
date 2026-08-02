@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>YVON Fleet Map — 46 agents · 7 departments</title>
+<style>
+  :root{--bg:#0a0c12;--panel:#12151f;--line:#252a38;--txt:#e7ebf3;--dim:#8b93a7;
+    --d0:#8b5cf6;--d1:#ec4899;--d2:#ef4444;--d3:#3b82f6;--d4:#f59e0b;--d5:#14b8a6;--d6:#22c55e;}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+    font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  #wrap{position:relative;width:100%;height:100vh;overflow:hidden}
+  svg{width:100%;height:100%;display:block;cursor:grab}
+  svg.drag{cursor:grabbing}
+  .edge{stroke:var(--line);fill:none}
+  .edge.hot{stroke:#5b6478;stroke-width:1.6}
+  .agent{cursor:pointer;transition:r .12s}
+  .alabel{font-size:10px;fill:var(--dim);pointer-events:none;opacity:0}
+  .agent:hover+.alabel,.alabel.show{opacity:1}
+  .hublabel{font-size:12.5px;font-weight:700;letter-spacing:.04em;fill:var(--txt);pointer-events:none}
+  .hubsub{font-size:9.5px;fill:var(--dim);pointer-events:none}
+  .dim{opacity:.12}
+  #core text{fill:#fff}
+  header{position:absolute;top:14px;left:16px;z-index:5}
+  header h1{margin:0;font-size:15px;font-weight:700}
+  header p{margin:2px 0 0;font-size:11.5px;color:var(--dim)}
+  #search{position:absolute;top:14px;right:16px;z-index:5;background:var(--panel);border:1px solid var(--line);
+    color:var(--txt);border-radius:9px;padding:8px 12px;font-size:12.5px;width:200px;outline:none}
+  #search::placeholder{color:var(--dim)}
+  #legend{position:absolute;bottom:14px;left:16px;z-index:5;display:flex;gap:12px;flex-wrap:wrap;
+    background:rgba(18,21,31,.7);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+  .lg{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim)}
+  .lg i{width:10px;height:10px;border-radius:50%;display:inline-block}
+  #panel{position:absolute;top:0;right:-360px;width:340px;height:100%;background:var(--panel);
+    border-left:1px solid var(--line);z-index:6;transition:right .22s;padding:22px 20px;overflow:auto}
+  #panel.open{right:0}
+  #panel .close{position:absolute;top:14px;right:16px;cursor:pointer;color:var(--dim);font-size:18px}
+  #panel .dept{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+  #panel h2{margin:6px 0 2px;font-size:24px;text-transform:capitalize}
+  #panel .role{color:var(--dim);font-size:13px;margin-bottom:4px}
+  #panel .badge{display:inline-block;font-size:10.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--dim);margin-top:6px}
+  #panel h3{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:20px 0 8px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font-size:11.5px;padding:5px 10px;border-radius:8px;background:#1a1f2c;border:1px solid var(--line)}
+  .chip.tool{background:transparent}
+  #hint{position:absolute;bottom:14px;right:16px;font-size:10.5px;color:var(--dim);z-index:5}
+</style></head>
+<body><div id="wrap">
+  <header><h1>YVON Fleet Map</h1><p>46 agents · 7 departments · click a node for skills &amp; tools</p></header>
+  <input id="search" placeholder="Search agent or skill…">
+  <svg id="svg"><g id="scene"></g></svg>
+  <div id="legend"></div>
+  <div id="hint">scroll to zoom · drag to pan</div>
+  <aside id="panel"><span class="close" onclick="closePanel()">×</span><div id="pbody"></div></aside>
+</div>
+<script>
+const DATA={"AI & Agents": [{"name": "anneal", "role": "", "skills": ["prompt-context-engineering", "self-annealing-loop", "skill-lifecycle", "skill-quality-audit"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "edge", "role": "", "skills": ["landscape-assets", "pilot-spec-handoff", "tech-adoption-criteria", "watchlist-discipline"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "forge", "role": "", "skills": ["benchmarking-discipline", "degradation-diagnosis", "model-technique-registry", "technique-adoption"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "gauge", "role": "", "skills": ["agent-quality-scorecard", "degradation-routing", "fleet-health-report", "llm-ops-basics"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "meta", "role": "", "skills": ["agent-architecture-standards", "fleet-governance", "fleet-registry", "skill-authoring-standards", "task-dispatch"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "proto", "role": "", "skills": ["agent-prototype-kit", "eval-first-design", "promote-or-archive-verdict", "rapid-prototyping-method"], "tools": ["Read", "Grep", "Glob"], "builder": false}, {"name": "relay", "role": "", "skills": ["egress-allowlist-authoring", "integration-patterns", "least-privilege-grants", "mcp-tool-registry"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "scout", "role": "", "skills": ["adopt-reject-registry", "ecosystem-scanning", "marketplace-skill-scouting", "tool-evaluation-intake"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}], "Brand Studio": [{"name": "atlas", "role": "Art Director", "skills": ["brand-guidelines", "design-reference-library", "multi-brand-system"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "kai", "role": "Analyst", "skills": ["brand-context", "marketing-dashboards"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "lena", "role": "Brand Voice", "skills": ["humanic-writing", "voice-guides"], "tools": ["Read", "Grep", "Glob"], "builder": false}, {"name": "muse", "role": "Ideation", "skills": ["concept-library"], "tools": ["Read", "Grep", "Glob"], "builder": false}, {"name": "nate", "role": "Growth", "skills": ["experiment-backlog"], "tools": ["Read", "Grep", "Glob"], "builder": false}, {"name": "pixel", "role": "Production", "skills": ["asset-pipeline", "image-style-guide"], "tools": ["Read", "Grep", "Glob"], "builder": false}, {"name": "pulse", "role": "Social Media", "skills": ["community-engagement", "social-content-calendar"], "tools": ["Read", "Grep", "Glob"], "builder": false}, {"name": "rio", "role": "Ads", "skills": ["ad-platform-mechanics", "ad-thresholds"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "spark", "role": "Creative Director", "skills": ["coherence-qa"], "tools": ["Read", "Grep", "Glob"], "builder": false}, {"name": "tempo", "role": "Audio Branding", "skills": ["sound-identity", "usage-licensing"], "tools": ["Read", "Grep", "Glob"], "builder": false}, {"name": "weave", "role": "Storytelling", "skills": ["brand-story-arcs"], "tools": ["Read", "Grep", "Glob"], "builder": false}], "Cybersecurity": [{"name": "bastion", "role": "", "skills": ["cloud-posture", "hardening-baselines", "infra-vuln-management", "network-security"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "cortex", "role": "", "skills": ["security-incident-response", "security-monitoring"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "keyring", "role": "", "skills": ["access-reviews", "identity-lifecycle", "privileged-access-management", "secrets-governance"], "tools": ["Read", "Grep", "Glob"], "builder": false}, {"name": "veil", "role": "", "skills": ["breach-notification", "data-loss-prevention"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "warden", "role": "", "skills": ["risk-register", "security-exception-process", "security-policy-framework", "third-party-risk"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}], "Engineering": [{"name": "aegis", "role": "Application Security (defense)", "skills": ["secure-code-review", "verified-patching", "vuln-pipeline"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "axiom", "role": "Algorithms & Data Structures", "skills": ["algorithm-review", "complexity-analysis", "dsa-design-records", "performance-profiling"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "cypher", "role": "Adversary / Red Team (offense) \u2014 caged", "skills": ["attack-playbooks", "caged-scope", "continuous-attack-loop", "findings-report"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "dana", "role": "Data Architecture", "skills": ["data-modeling", "datastore-selection", "db-performance", "migration-discipline"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "dev", "role": "Lead Developer", "skills": ["architecture-decisions", "code-review-standards", "delivery-governance", "stack-profile"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "mia", "role": "Frontend Web", "skills": ["design-tokens", "frontend-performance", "frontend-verification", "ui-accessibility-standards"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "nova", "role": "Mobile", "skills": ["app-store-release-discipline", "mobile-app-architecture", "mobile-verification", "offline-sync-discipline"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "ops", "role": "DevOps & Reliability \u2014 production owner, the safety net", "skills": ["incident-response", "maintenance-hygiene", "platform-playbooks", "release-discipline"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "quinn", "role": "QA \u2014 blocking gate + Security Charter control point", "skills": ["browser-verification", "charter-enforcement", "regression-map", "test-strategy"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "raj", "role": "Backend & APIs", "skills": ["api-standards", "backend-observability", "data-access-discipline", "service-patterns"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "rank", "role": "Technical SEO", "skills": ["claude-seo-integration", "seo-ownership-boundary", "structured-data-geo", "technical-seo-execution"], "tools": ["Read", "Grep", "Glob"], "builder": false}], "Executive Office": [{"name": "echo", "role": "Investor Relations", "skills": ["investor-update-template", "pitch-framework", "pitch-narrative"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "marcus", "role": "Orchestrator", "skills": ["decision-critic", "okr-cascade", "venture-priority-matrix"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "vista", "role": "Roadmap Lead", "skills": ["roadmap-sync"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}], "Governance": [{"name": "board", "role": "Governance Gate", "skills": ["constitution-enforcement", "fiduciary-guard", "risk-assessment-matrix", "strategic-veto"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "precedent", "role": "Institutional Memory", "skills": ["case-law-method", "consistency-check", "ruling-log"], "tools": ["Read", "Grep", "Glob"], "builder": false}, {"name": "sentinel", "role": "Compliance Monitor", "skills": ["constitution-watch", "gate-bypass-detection"], "tools": ["Read", "Grep", "Glob"], "builder": false}], "Product": [{"name": "loom", "role": "", "skills": ["assumption-mapping", "experiment-discipline", "experiment-registry", "pmf-scorecard"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "metric", "role": "", "skills": ["experiment-instrumentation", "funnel-instrumentation", "metrics-governance", "product-metrics-spec"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "price", "role": "", "skills": ["packaging-tiers", "price-change-governance", "pricing-experiment-discipline", "pricing-research"], "tools": ["Read", "Grep", "Glob"], "builder": false}, {"name": "spec", "role": "", "skills": ["acceptance-criteria-handoff", "backlog-rules", "opportunity-assessment", "prd-discipline"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}, {"name": "ux", "role": "", "skills": ["research-repository", "study-design", "synthesis-discipline", "voice-of-customer-intake"], "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"], "builder": true}]};
+const DCOL=['--d0','--d1','--d2','--d3','--d4','--d5','--d6'];
+const css=getComputedStyle(document.documentElement);
+const col=i=>css.getPropertyValue(DCOL[i]).trim();
+const W=1200,H=820,cx=W/2,cy=H/2,R1=250;
+const svg=document.getElementById('svg'),scene=document.getElementById('scene');
+svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+const depts=Object.keys(DATA);
+let nodes=[],edges=[];
+depts.forEach((d,i)=>{
+  const a=(i/depts.length)*Math.PI*2-Math.PI/2;
+  const hx=cx+Math.cos(a)*R1, hy=cy+Math.sin(a)*R1;
+  const hub={id:'hub-'+i,type:'hub',x:hx,y:hy,dept:d,di:i};
+  nodes.push(hub); edges.push([cx,cy,hx,hy,i,null]);
+  const ags=DATA[d], n=ags.length, spread=Math.min(Math.PI*0.95,0.4+n*0.13);
+  ags.forEach((ag,j)=>{
+    const t=n===1?0:(j/(n-1)-0.5), aa=a+t*spread, ring=j%2?165:120;
+    const ax=hx+Math.cos(aa)*ring, ay=hy+Math.sin(aa)*ring;
+    const node={id:ag.name,type:'agent',x:ax,y:ay,dept:d,di:i,data:ag};
+    nodes.push(node); edges.push([hx,hy,ax,ay,i,ag.name]);
+  });
+});
+function svgEl(t,at){const e=document.createElementNS('http://www.w3.org/2000/svg',t);for(const k in at)e.setAttribute(k,at[k]);return e;}
+// edges
+edges.forEach(([x1,y1,x2,y2,di,aid])=>{const l=svgEl('line',{x1,y1,x2,y2,class:'edge'});l.dataset.di=di;if(aid)l.dataset.aid=aid;scene.appendChild(l);});
+// core glow + node
+scene.appendChild(svgEl('circle',{cx,cy,r:74,fill:col(3),opacity:.06}));
+const core=svgEl('g',{id:'core'});
+core.appendChild(svgEl('circle',{cx,cy,r:48,fill:'#12151f',stroke:col(3),'stroke-width':2}));
+const c1=svgEl('text',{x:cx,y:cy-4,'text-anchor':'middle','font-size':15,'font-weight':700});c1.textContent='YVON Core';
+const c2=svgEl('text',{x:cx,y:cy+14,'text-anchor':'middle','font-size':10,fill:'#8b93a7'});c2.textContent='master brain';
+core.append(c1,c2);scene.appendChild(core);
+// hubs + agents
+nodes.forEach(nd=>{
+  const c=col(nd.di);
+  if(nd.type==='hub'){
+    scene.appendChild(svgEl('circle',{cx:nd.x,cy:nd.y,r:15,fill:c,opacity:.9}));
+    const lx=nd.x, ly=nd.y + (nd.y<cy?-24:32);
+    const t1=svgEl('text',{x:lx,y:ly,'text-anchor':'middle',class:'hublabel'});t1.textContent=nd.dept;
+    const t2=svgEl('text',{x:lx,y:ly+13,'text-anchor':'middle',class:'hubsub'});t2.textContent=DATA[nd.dept].length+' agents';
+    scene.append(t1,t2);
+  }else{
+    const cir=svgEl('circle',{cx:nd.x,cy:nd.y,r:7,fill:nd.data.builder?c:'#12151f',stroke:c,'stroke-width':1.8,class:'agent'});
+    cir.dataset.aid=nd.id;cir.dataset.di=nd.di;
+    cir.addEventListener('click',e=>{e.stopPropagation();openPanel(nd);});
+    cir.addEventListener('mouseenter',()=>hot(nd.id,true));
+    cir.addEventListener('mouseleave',()=>hot(nd.id,false));
+    const lab=svgEl('text',{x:nd.x,y:nd.y-11,'text-anchor':'middle',class:'alabel'});lab.textContent=nd.id;lab.dataset.lab=nd.id;
+    scene.append(cir,lab);
+  }
+});
+function hot(aid,on){
+  scene.querySelectorAll('.edge').forEach(l=>l.classList.toggle('hot',on&&l.dataset.aid===aid));
+  const lab=scene.querySelector(`[data-lab="${aid}"]`);if(lab)lab.classList.toggle('show',on);
+}
+// legend
+const lg=document.getElementById('legend');
+depts.forEach((d,i)=>{const s=document.createElement('span');s.className='lg';s.innerHTML=`<i style="background:${col(i)}"></i>${d}`;lg.appendChild(s);});
+const bf=document.createElement('span');bf.className='lg';bf.innerHTML='<i style="background:#fff"></i>filled = builder · ring = advisory';lg.appendChild(bf);
+// panel
+function openPanel(nd){
+  const a=nd.data,c=col(nd.di);
+  document.getElementById('pbody').innerHTML=
+    `<div class="dept" style="color:${c}">${nd.dept}</div>
+     <h2>${nd.id}</h2>
+     <div class="role">${a.role||'—'}</div>
+     <span class="badge">${a.builder?'Builder · repo write':'Advisory · read-only'}</span>
+     <h3>Skills (${a.skills.length})</h3>
+     <div class="chips">${a.skills.map(s=>`<span class="chip">${s}</span>`).join('')||'<span class="role">—</span>'}</div>
+     <h3>Tools</h3>
+     <div class="chips">${a.tools.map(t=>`<span class="chip tool">${t}</span>`).join('')}</div>`;
+  document.getElementById('panel').classList.add('open');
+}
+function closePanel(){document.getElementById('panel').classList.remove('open');}
+svg.addEventListener('click',closePanel);
+// search
+document.getElementById('search').addEventListener('input',e=>{
+  const q=e.target.value.trim().toLowerCase();
+  scene.querySelectorAll('.agent').forEach(cir=>{
+    const nd=nodes.find(n=>n.id===cir.dataset.aid);
+    const hit=!q||nd.id.toLowerCase().includes(q)||nd.data.skills.some(s=>s.toLowerCase().includes(q));
+    cir.classList.toggle('dim',!hit);
+  });
+});
+// zoom + pan
+let z=1,ox=0,oy=0,drag=false,sx,sy;
+function apply(){scene.setAttribute('transform',`translate(${ox},${oy}) scale(${z})`);}
+svg.addEventListener('wheel',e=>{e.preventDefault();const f=e.deltaY<0?1.1:.9;z=Math.max(.5,Math.min(3,z*f));apply();},{passive:false});
+svg.addEventListener('mousedown',e=>{drag=true;svg.classList.add('drag');sx=e.clientX-ox;sy=e.clientY-oy;});
+window.addEventListener('mousemove',e=>{if(!drag)return;ox=e.clientX-sx;oy=e.clientY-sy;apply();});
+window.addEventListener('mouseup',()=>{drag=false;svg.classList.remove('drag');});
+</script></body></html>

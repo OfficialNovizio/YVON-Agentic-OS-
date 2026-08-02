@@ -334,6 +334,12 @@ So a skill improves through: usage telemetry → gauge measurement → anneal pr
 
 ## 6. Memory and graphs
 
+> **Graph-Brain design of record (G-track):** `docs/GRAPH-BRAIN-DESIGN.md` — the full design for
+> the hub-of-brains, four-memory (CLS) model, node/edge schema, memory management (keep/forget),
+> query design, cross-brain learning, and the two engines: **graphify** (deterministic structure +
+> Obsidian export + self-build) and **turbovec** (fuzzy episodic recall + allowlist isolation). The
+> tiers below are the storage model; that doc is how it is built.
+
 - **Agent memory (hermes)** `[built]` — `src/adapters/hermes-sync.ts` reads/writes `USER.md` + `MEMORY.md` in the configured hermes memory dir (CRDT-synced); exposed to retrieval as the CIE source `src/cie/sources/hermes-memory.ts`. This is how an agent's accumulated experience enters context. (Note: "hermes" names both this memory system and the primary LLM in the generation trio.)
 - **Code graphs** `[built]` — `npx yvon graph` (`cli/yvon.js`) builds the codegraph + graphify reports (`graphify-out/`); consumed by the CIE sources `codegraph.ts` / `graphify.ts`.
 - **Graph memory tiers** `[planned]` — Tier 1 Master Graph (fleet state, all profiles, learning patterns; access: Core + board + meta), Tier 2 owned-brand graphs (dedicated DB per brand), Tier 3 tenant graphs (separate SQLite per tenant; data never leaves except anonymized aggregates). See §10.
