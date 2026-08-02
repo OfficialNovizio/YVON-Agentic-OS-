@@ -1,160 +1,259 @@
-// /brain — Graph Memory. Dependency/impact view of the agent fleet.
-// Departments as layers, worktree edges as directional flow. Click an agent to
-// trace what it depends on (consumes) and what it feeds (handoff) — the blast radius.
-// Data: dashboard/public/fleet-graph.json (built by cli/fleet-graph.py from worktrees).
-// Owner: mia · G-track (Brain tab, v1)
+// /brain — Graph Memory. Two levels: a hub of brains (worlds) you zoom into,
+// and each brain's inner graph (Node-Zero core, department lobes, agents, systems,
+// dependency edges). Glowing Bifrost connections. Data: public/brain-graph.json
+// (cli/graph-build.py). Owner: mia · G-track (G2+G5).
 'use client'
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { PageHeader } from '@/components/ui'
 
-type GNode = { id: string; dept: string; role: string; skills: string[]; tools: string[]; builder: boolean; produces: string; gate: string }
-type GEdge = { from: string; to: string; kind: 'consumes' | 'handoff' | 'related' }
-type Graph = { departments: string[]; nodes: GNode[]; edges: GEdge[] }
+type World = { id: string; name: string; kind: string; tagline: string; populated: boolean; parent?: string }
+type Sys = { id: string; type: string; region: string; desc: string }
+type GNode = { id: string; type: string; dept: string; role: string; skills: string[]; tools: string[]; builder: boolean; produces: string }
+type Edge = { from: string; to: string; kind: string }
+type Graph = { worlds: World[]; worldEdges: { from: string; to: string }[]; yvon: { departments: string[]; systems: Sys[]; nodes: GNode[]; edges: Edge[] } }
 
 const DCOL: Record<string, string> = {
   'AI & Agents': '#8b5cf6', 'Brand Studio': '#ec4899', 'Cybersecurity': '#ef4444',
-  'Engineering': '#3b82f6', 'Executive Office': '#f59e0b', 'Governance': '#14b8a6', 'Product': '#22c55e',
+  'Engineering': '#38bdf8', 'Executive Office': '#f59e0b', 'Governance': '#2dd4bf', 'Product': '#22c55e',
 }
-const KIND: Record<string, string> = { consumes: '#3b82f6', handoff: '#22c55e', related: '#33384a' }
-
-const W = 1280, TOP = 96, ROW = 60, MARGIN = 70
+const WCOL: Record<string, string> = { master: '#8b5cf6', brand: '#f59e0b', factory: '#a78bfa', client: '#d97706', slot: '#64748b' }
+const KIND: Record<string, string> = { consumes: '#38bdf8', handoff: '#22c55e', related: '#2b3040' }
+const W = 1300, H = 860
 
 export default function BrainPage() {
   const [g, setG] = useState<Graph | null>(null)
-  const [sel, setSel] = useState<string | null>(null)
+  const [mode, setMode] = useState<'worlds' | 'brain'>('worlds')
+  const [sel, setSel] = useState<string | null>(null)     // selected agent (brain) or world
   const [q, setQ] = useState('')
 
-  useEffect(() => { fetch('/fleet-graph.json').then(r => r.json()).then(setG).catch(() => setG(null)) }, [])
+  useEffect(() => { fetch('/brain-graph.json').then(r => r.json()).then(setG).catch(() => setG(null)) }, [])
 
-  const { pos, H } = useMemo(() => {
-    const pos: Record<string, { x: number; y: number; dept: string }> = {}
-    if (!g) return { pos, H: 600 }
-    const depts = g.departments
-    const colW = (W - 2 * MARGIN) / depts.length
-    let maxRows = 0
-    depts.forEach((d, ci) => {
-      const ags = g.nodes.filter(n => n.dept === d).sort((a, b) => a.id.localeCompare(b.id))
-      maxRows = Math.max(maxRows, ags.length)
-      ags.forEach((n, ri) => { pos[n.id] = { x: MARGIN + colW * ci + colW / 2, y: TOP + ri * ROW, dept: d } })
+  // ── worlds layout ──────────────────────────────────────────────────────
+  const worlds = useMemo(() => {
+    const pos: Record<string, { x: number; y: number; w: World }> = {}
+    if (!g) return pos
+    const cx = W / 2, cy = H * 0.4, R = 250
+    const ring: Record<string, [number, number]> = { novizio: [cx, cy - R], hourbour: [cx + R, cy - 10], upcoming: [cx - R, cy - 10], agentx: [cx, cy + R] }
+    g.worlds.forEach(w => {
+      if (w.id === 'yvon') pos[w.id] = { x: cx, y: cy, w }
+      else if (ring[w.id]) pos[w.id] = { x: ring[w.id][0], y: ring[w.id][1], w }
     })
-    return { pos, H: TOP + maxRows * ROW + 40 }
+    const clients = g.worlds.filter(w => w.parent === 'agentx')
+    const ax = pos['agentx']
+    clients.forEach((c, i) => {
+      const t = clients.length === 1 ? 0 : (i / (clients.length - 1) - 0.5)
+      pos[c.id] = { x: (ax?.x ?? cx) + t * 520, y: (ax?.y ?? cy) + 150, w: c }
+    })
+    return pos
   }, [g])
 
-  const focus = useMemo(() => {
-    if (!g || !sel) return null
-    const up = g.edges.filter(e => e.to === sel && e.kind !== 'related').map(e => ({ id: e.from, kind: e.kind }))
-    const down = g.edges.filter(e => e.from === sel && e.kind !== 'related').map(e => ({ id: e.to, kind: e.kind }))
-    const rel = g.edges.filter(e => e.kind === 'related' && (e.from === sel || e.to === sel)).map(e => (e.from === sel ? e.to : e.from))
-    const active = new Set<string>([sel, ...up.map(x => x.id), ...down.map(x => x.id), ...rel])
-    return { up, down, rel, active }
-  }, [g, sel])
+  // ── brain (yvon) layout ────────────────────────────────────────────────
+  const brain = useMemo(() => {
+    const pos: Record<string, { x: number; y: number; dept?: string }> = {}
+    if (!g) return { pos, H2: H }
+    const cx = W / 2, cy = H / 2, depts = g.yvon.departments
+    const Rd = 250
+    depts.forEach((d, ci) => {
+      const a = (ci / depts.length) * Math.PI * 2 - Math.PI / 2
+      const hx = cx + Math.cos(a) * Rd, hy = cy + Math.sin(a) * Rd
+      pos['dept:' + d] = { x: hx, y: hy, dept: d }
+      const ags = g.yvon.nodes.filter(n => n.dept === d).sort((x, y) => x.id.localeCompare(y.id))
+      const spread = Math.min(Math.PI * 0.9, 0.4 + ags.length * 0.12)
+      ags.forEach((n, j) => {
+        const t = ags.length === 1 ? 0 : (j / (ags.length - 1) - 0.5)
+        const aa = a + t * spread, r = j % 2 ? 150 : 108
+        pos[n.id] = { x: hx + Math.cos(aa) * r, y: hy + Math.sin(aa) * r, dept: d }
+      })
+    })
+    g.yvon.systems.forEach((s, i) => {
+      const a = (i / g.yvon.systems.length) * Math.PI * 2 - Math.PI / 2
+      pos['sys:' + s.id] = { x: cx + Math.cos(a) * 92, y: cy + Math.sin(a) * 92 }
+    })
+    return { pos, H2: H }
+  }, [g])
+
+  // zoom/pan
+  const [z, setZ] = useState(1); const [ox, setOx] = useState(0); const [oy, setOy] = useState(0)
+  const [drag, setDrag] = useState<{ x: number; y: number } | null>(null)
+  const resetView = () => { setZ(1); setOx(0); setOy(0) }
 
   if (!g) return (
-    <div className="p-8">
-      <PageHeader title="Graph Memory" subtitle="Dependency & impact map of the fleet" />
-      <p className="text-on-surface-variant mt-6 text-sm">No graph data. Run <code className="px-1 rounded bg-surface-container">python3 cli/fleet-graph.py</code> to build <code>public/fleet-graph.json</code>.</p>
-    </div>
+    <div className="p-8"><PageHeader title="Graph Memory" subtitle="Loading the brain…" />
+      <p className="text-on-surface-variant mt-6 text-sm">No data — run <code className="px-1 rounded bg-surface-container">python3 cli/graph-build.py</code>.</p></div>
   )
 
-  const selNode = sel ? g.nodes.find(n => n.id === sel) : null
-  const dim = (id: string) => (focus && !focus.active.has(id) ? 0.14 : 1)
+  const selAgent = mode === 'brain' && sel ? g.yvon.nodes.find(n => n.id === sel) : null
+  const selWorld = mode === 'worlds' && sel ? g.worlds.find(w => w.id === sel) : null
+  const focus = selAgent ? new Set<string>([sel!,
+    ...g.yvon.edges.filter(e => (e.from === sel || e.to === sel) && e.kind !== 'related').flatMap(e => [e.from, e.to])]) : null
 
   return (
-    <div className="relative p-6">
-      <PageHeader title="Graph Memory" subtitle={`${g.nodes.length} agents · ${g.departments.length} departments · click an agent to trace impact`} />
+    <div className="relative p-6 select-none">
+      <style>{`
+        @keyframes bpulse{0%,100%{opacity:.35}50%{opacity:.9}}
+        @keyframes bdash{to{stroke-dashoffset:-24}}
+        .glowpulse{animation:bpulse 2.6s ease-in-out infinite}
+        .bifrost{stroke-dasharray:2 6;animation:bdash 1.1s linear infinite}
+      `}</style>
+      <PageHeader title="Graph Memory"
+        subtitle={mode === 'worlds' ? 'The hub of brains — click YVON to enter its graph' : 'YVON brain — click an agent to trace its dependencies'} />
 
       <div className="mt-4 flex items-center gap-3 flex-wrap">
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search agent or skill…"
-          className="bg-surface-container border border-outline/30 rounded-lg px-3 py-2 text-sm w-64 outline-none" />
-        <div className="flex items-center gap-4 text-xs text-on-surface-variant">
-          <span className="flex items-center gap-1"><i className="inline-block w-3 h-0.5" style={{ background: KIND.consumes }} />consumes →</span>
-          <span className="flex items-center gap-1"><i className="inline-block w-3 h-0.5" style={{ background: KIND.handoff }} />handoff →</span>
-          <span className="flex items-center gap-1"><i className="inline-block w-2 h-2 rounded-full bg-white" />filled = builder</span>
+        {mode === 'brain' && <button onClick={() => { setMode('worlds'); setSel(null); resetView() }}
+          className="text-xs px-3 py-1.5 rounded-lg bg-surface-container border border-outline/30 hover:border-primary">← worlds</button>}
+        {mode === 'brain' && <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search agent or skill…"
+          className="bg-surface-container border border-outline/30 rounded-lg px-3 py-1.5 text-sm w-56 outline-none" />}
+        <div className="flex items-center gap-4 text-xs text-on-surface-variant ml-auto">
+          {mode === 'brain' && <>
+            <span className="flex items-center gap-1"><i className="inline-block w-3 h-0.5" style={{ background: KIND.consumes }} />consumes</span>
+            <span className="flex items-center gap-1"><i className="inline-block w-3 h-0.5" style={{ background: KIND.handoff }} />handoff</span>
+          </>}
+          <button onClick={resetView} className="hover:text-primary">reset view</button>
         </div>
-        {sel && <button onClick={() => setSel(null)} className="text-xs text-primary ml-auto">clear focus</button>}
       </div>
 
-      <div className="mt-4 overflow-auto rounded-xl border border-outline/20 bg-surface-container-low">
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 900 }}>
-          {/* department headers */}
-          {g.departments.map((d, ci) => {
-            const colW = (W - 2 * MARGIN) / g.departments.length
-            const x = MARGIN + colW * ci + colW / 2
-            return <text key={d} x={x} y={54} textAnchor="middle" fontSize={12.5} fontWeight={700} fill={DCOL[d]}>{d}</text>
-          })}
-          {/* edges */}
-          {g.edges.map((e, i) => {
-            const a = pos[e.from], b = pos[e.to]
-            if (!a || !b) return null
-            const opacity = focus ? (focus.active.has(e.from) && focus.active.has(e.to) && (e.kind !== 'related') ? 0.9 : 0.05) : (e.kind === 'related' ? 0.12 : 0.5)
-            const mx = (a.x + b.x) / 2
-            return <path key={i} d={`M${a.x},${a.y} C${mx},${a.y} ${mx},${b.y} ${b.x},${b.y}`}
-              fill="none" stroke={KIND[e.kind]} strokeWidth={e.kind === 'related' ? 1 : 1.8} opacity={opacity}
-              markerEnd={e.kind !== 'related' ? `url(#arr-${e.kind})` : undefined} />
-          })}
+      <div className="mt-4 overflow-hidden rounded-2xl border border-outline/20"
+        style={{ background: 'radial-gradient(120% 90% at 50% 40%, #0e1220 0%, #080a12 70%)' }}>
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full"
+          style={{ minHeight: 520, cursor: drag ? 'grabbing' : 'grab' }}
+          onWheel={e => { const f = e.deltaY < 0 ? 1.1 : 0.9; setZ(v => Math.max(0.5, Math.min(3, v * f))) }}
+          onMouseDown={e => setDrag({ x: e.clientX - ox, y: e.clientY - oy })}
+          onMouseMove={e => { if (drag) { setOx(e.clientX - drag.x); setOy(e.clientY - drag.y) } }}
+          onMouseUp={() => setDrag(null)} onMouseLeave={() => setDrag(null)}
+          onClick={() => setSel(null)}>
           <defs>
+            <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur stdDeviation="3.2" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
             {['consumes', 'handoff'].map(k => (
-              <marker key={k} id={`arr-${k}`} markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-                <path d="M0,0 L6,3 L0,6 z" fill={KIND[k]} />
-              </marker>
+              <marker key={k} id={`a-${k}`} markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill={KIND[k]} /></marker>
             ))}
           </defs>
-          {/* nodes */}
-          {g.nodes.map(n => {
-            const p = pos[n.id]; if (!p) return null
-            const c = DCOL[n.dept]
-            const hit = !q || n.id.includes(q.toLowerCase()) || n.skills.some(s => s.includes(q.toLowerCase()))
-            const o = (q && !hit) ? 0.12 : dim(n.id)
-            return (
-              <g key={n.id} opacity={o} style={{ cursor: 'pointer' }} onClick={() => setSel(n.id === sel ? null : n.id)}>
-                <circle cx={p.x} cy={p.y} r={8} fill={n.builder ? c : 'var(--md-sys-color-surface-container, #12151f)'} stroke={c} strokeWidth={sel === n.id ? 3 : 1.8} />
-                <text x={p.x} y={p.y + 20} textAnchor="middle" fontSize={10.5} fill="currentColor" className="text-on-surface">{n.id}</text>
-              </g>
-            )
-          })}
+          <g transform={`translate(${ox},${oy}) scale(${z})`}>
+            {mode === 'worlds' ? <Worlds g={g} pos={worlds} sel={sel} setSel={setSel} enter={() => { setMode('brain'); setSel(null) }} />
+              : <Brain g={g} pos={brain.pos} sel={sel} setSel={setSel} focus={focus} q={q} />}
+          </g>
         </svg>
       </div>
 
-      {/* detail panel */}
-      {selNode && focus && (
-        <aside className="fixed top-0 right-0 h-full w-[360px] bg-surface-container border-l border-outline/30 p-6 overflow-auto z-50 shadow-xl">
-          <button onClick={() => setSel(null)} className="absolute top-4 right-5 text-on-surface-variant">✕</button>
-          <div className="text-xs font-bold tracking-wider uppercase" style={{ color: DCOL[selNode.dept] }}>{selNode.dept}</div>
-          <h2 className="text-2xl font-semibold capitalize mt-1">{selNode.id}</h2>
-          <div className="text-on-surface-variant text-sm">{selNode.role || '—'}</div>
-          <span className="inline-block text-[11px] px-2 py-0.5 rounded-full border border-outline/40 text-on-surface-variant mt-2">
-            {selNode.builder ? 'Builder · repo write' : 'Advisory · read-only'}
-          </span>
-
-          <Section title={`Depends on (${focus.up.length})`}>
-            {focus.up.length ? focus.up.map(u => <Chip key={u.id} onClick={() => setSel(u.id)} label={`${u.id}`} sub={u.kind} />) : <Empty />}
-          </Section>
-          <Section title={`Hands to (${focus.down.length})`}>
-            {focus.down.length ? focus.down.map(d => <Chip key={d.id} onClick={() => setSel(d.id)} label={d.id} sub={d.kind} />) : <Empty />}
-          </Section>
-          <Section title={`Skills (${selNode.skills.length})`}>
-            {selNode.skills.length ? selNode.skills.map(s => <span key={s} className="text-[11.5px] px-2.5 py-1 rounded-lg bg-surface-container-high border border-outline/20">{s}</span>) : <Empty />}
-          </Section>
-          <Section title="Tools">
-            {selNode.tools.map(t => <span key={t} className="text-[11.5px] px-2.5 py-1 rounded-lg border border-outline/20">{t}</span>)}
-          </Section>
-          {selNode.produces && <p className="text-xs text-on-surface-variant mt-4">produces <b>{selNode.produces}</b> · verify gate <b>{selNode.gate || '—'}</b></p>}
-        </aside>
+      {/* panels */}
+      {selWorld && (
+        <Panel onClose={() => setSel(null)} color={WCOL[selWorld.kind]} dept={selWorld.kind} title={selWorld.name} sub={selWorld.tagline}>
+          {selWorld.populated
+            ? <button onClick={() => { setMode('brain'); setSel(null) }} className="mt-4 text-sm px-3 py-1.5 rounded-lg bg-primary/20 border border-primary/50">Enter this brain →</button>
+            : <p className="text-sm text-on-surface-variant mt-3">Node-Zero not created yet. This brain fills in once its <code>company.md / voice.md / STATE.md</code> exist (G0) and graphify indexes them.</p>}
+        </Panel>
+      )}
+      {selAgent && focus && (
+        <Panel onClose={() => setSel(null)} color={DCOL[selAgent.dept]} dept={selAgent.dept} title={selAgent.id} sub={selAgent.role || '—'}>
+          <span className="inline-block text-[11px] px-2 py-0.5 rounded-full border border-outline/40 text-on-surface-variant mt-2">{selAgent.builder ? 'Builder · repo write' : 'Advisory · read-only'}</span>
+          <Sec title={`Depends on`}><Deps items={depEdges(g, selAgent.id, 'in')} onPick={setSel} /></Sec>
+          <Sec title={`Hands to`}><Deps items={depEdges(g, selAgent.id, 'out')} onPick={setSel} /></Sec>
+          <Sec title={`Skills (${selAgent.skills.length})`}>{selAgent.skills.map(s => <span key={s} className="text-[11.5px] px-2.5 py-1 rounded-lg bg-surface-container-high border border-outline/20">{s}</span>)}</Sec>
+          <Sec title="Tools">{selAgent.tools.map(t => <span key={t} className="text-[11.5px] px-2.5 py-1 rounded-lg border border-outline/20">{t}</span>)}</Sec>
+          {selAgent.produces && <p className="text-xs text-on-surface-variant mt-4">produces <b>{selAgent.produces}</b></p>}
+        </Panel>
       )}
     </div>
   )
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+// ── Worlds view ────────────────────────────────────────────────────────────
+function Worlds({ g, pos, sel, setSel, enter }: { g: Graph; pos: Record<string, { x: number; y: number; w: World }>; sel: string | null; setSel: (s: string | null) => void; enter: () => void }) {
+  return <>
+    {g.worldEdges.map((e, i) => {
+      const a = pos[e.from], b = pos[e.to]; if (!a || !b) return null
+      const mx = (a.x + b.x) / 2
+      return <path key={i} d={`M${a.x},${a.y} C${mx},${a.y} ${mx},${b.y} ${b.x},${b.y}`} fill="none"
+        stroke={a.w.populated && b.w.populated ? '#8b5cf6' : '#3a4155'} strokeWidth={1.4} opacity={0.5}
+        className="bifrost" filter="url(#glow)" />
+    })}
+    {Object.values(pos).map(({ x, y, w }) => {
+      const c = WCOL[w.kind], big = w.id === 'yvon', r = big ? 54 : w.kind === 'factory' ? 34 : w.parent ? 16 : 30
+      return (
+        <g key={w.id} style={{ cursor: 'pointer' }}
+          onClick={ev => { ev.stopPropagation(); w.id === 'yvon' ? enter() : setSel(w.id) }}>
+          {w.populated && <circle cx={x} cy={y} r={r + 10} fill={c} opacity={0.12} className="glowpulse" filter="url(#glow)" />}
+          <circle cx={x} cy={y} r={r} fill={w.populated ? c : '#12151f'} stroke={c} strokeWidth={sel === w.id ? 3 : 1.8} opacity={w.populated ? 0.95 : 0.8} filter={w.populated ? 'url(#glow)' : undefined} />
+          <text x={x} y={big ? y - 4 : y + r + 15} textAnchor="middle" fontSize={big ? 15 : 12} fontWeight={700} fill="#e7ebf3">{w.name}</text>
+          {big && <text x={x} y={y + 14} textAnchor="middle" fontSize={9} fill="#aab2c5">master brain</text>}
+        </g>
+      )
+    })}
+  </>
+}
+
+// ── Brain view (YVON inner) ─────────────────────────────────────────────────
+function Brain({ g, pos, sel, setSel, focus, q }: { g: Graph; pos: Record<string, { x: number; y: number; dept?: string }>; sel: string | null; setSel: (s: string | null) => void; focus: Set<string> | null; q: string }) {
+  const cx = W / 2, cy = H / 2
+  const ql = q.trim().toLowerCase()
+  return <>
+    {/* edges */}
+    {g.yvon.edges.map((e, i) => {
+      const a = pos[e.from], b = pos[e.to]; if (!a || !b) return null
+      const on = focus ? (focus.has(e.from) && focus.has(e.to) && e.kind !== 'related') : false
+      const op = focus ? (on ? 0.95 : 0.04) : (e.kind === 'related' ? 0.1 : 0.4)
+      const mx = (a.x + b.x) / 2
+      return <path key={i} d={`M${a.x},${a.y} C${mx},${a.y} ${mx},${b.y} ${b.x},${b.y}`} fill="none"
+        stroke={KIND[e.kind]} strokeWidth={on ? 2.2 : 1.3} opacity={op}
+        markerEnd={e.kind !== 'related' ? `url(#a-${e.kind})` : undefined}
+        filter={on ? 'url(#glow)' : undefined} className={on ? 'bifrost' : undefined} />
+    })}
+    {/* Node-Zero core */}
+    <circle cx={cx} cy={cy} r={62} fill="#8b5cf6" opacity={0.08} className="glowpulse" filter="url(#glow)" />
+    <circle cx={cx} cy={cy} r={44} fill="#0e1220" stroke="#8b5cf6" strokeWidth={2} filter="url(#glow)" />
+    <text x={cx} y={cy - 4} textAnchor="middle" fontSize={13} fontWeight={700} fill="#fff">YVON Core</text>
+    <text x={cx} y={cy + 12} textAnchor="middle" fontSize={8.5} fill="#aab2c5">Node Zero · systems</text>
+    {/* systems ring */}
+    {g.yvon.systems.map(s => { const p = pos['sys:' + s.id]; if (!p) return null
+      return <g key={s.id}><circle cx={p.x} cy={p.y} r={6} fill="#8b5cf6" opacity={0.8} />
+        <text x={p.x} y={p.y - 9} textAnchor="middle" fontSize={8} fill="#aab2c5">{s.id}</text></g> })}
+    {/* department hubs */}
+    {g.yvon.departments.map(d => { const p = pos['dept:' + d]; if (!p) return null; const c = DCOL[d]
+      return <g key={d}><circle cx={p.x} cy={p.y} r={16} fill={c} opacity={0.9} filter="url(#glow)" />
+        <text x={p.x} y={p.y < cy ? p.y - 22 : p.y + 30} textAnchor="middle" fontSize={11.5} fontWeight={700} fill="#e7ebf3">{d}</text></g> })}
+    {/* connect core → dept */}
+    {g.yvon.departments.map(d => { const p = pos['dept:' + d]; if (!p) return null
+      return <line key={'l' + d} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#2b3040" strokeWidth={1} opacity={0.5} /> })}
+    {/* agents */}
+    {g.yvon.nodes.map(n => { const p = pos[n.id]; if (!p) return null; const c = DCOL[n.dept]
+      const hit = !ql || n.id.includes(ql) || n.skills.some(s => s.includes(ql))
+      const op = (ql && !hit) ? 0.12 : (focus && !focus.has(n.id) ? 0.14 : 1)
+      return (
+        <g key={n.id} opacity={op} style={{ cursor: 'pointer' }} onClick={ev => { ev.stopPropagation(); setSel(n.id === sel ? null : n.id) }}>
+          {/* dept hub → agent */}
+          <line x1={pos['dept:' + n.dept]?.x} y1={pos['dept:' + n.dept]?.y} x2={p.x} y2={p.y} stroke="#2b3040" strokeWidth={0.8} opacity={0.4} />
+          <circle cx={p.x} cy={p.y} r={8} fill={n.builder ? c : '#0e1220'} stroke={c} strokeWidth={sel === n.id ? 3 : 1.8} filter={sel === n.id ? 'url(#glow)' : undefined} />
+          <text x={p.x} y={p.y + 20} textAnchor="middle" fontSize={10} fill="#c7cede">{n.id}</text>
+        </g>
+      ) })}
+  </>
+}
+
+// ── small components ─────────────────────────────────────────────────────────
+function Panel({ title, sub, dept, color, children, onClose }: { title: string; sub: string; dept: string; color: string; children: ReactNode; onClose: () => void }) {
   return (
-    <div className="mt-5">
-      <h3 className="text-[11px] tracking-wider uppercase text-on-surface-variant mb-2">{title}</h3>
-      <div className="flex flex-wrap gap-1.5">{children}</div>
-    </div>
+    <aside className="fixed top-0 right-0 h-full w-[360px] bg-surface-container border-l border-outline/30 p-6 overflow-auto z-50 shadow-xl">
+      <button onClick={onClose} className="absolute top-4 right-5 text-on-surface-variant">✕</button>
+      <div className="text-xs font-bold tracking-wider uppercase" style={{ color }}>{dept}</div>
+      <h2 className="text-2xl font-semibold capitalize mt-1">{title}</h2>
+      <div className="text-on-surface-variant text-sm">{sub}</div>
+      {children}
+    </aside>
   )
+}
+function Sec({ title, children }: { title: string; children: ReactNode }) {
+  return <div className="mt-5"><h3 className="text-[11px] tracking-wider uppercase text-on-surface-variant mb-2">{title}</h3><div className="flex flex-wrap gap-1.5">{children}</div></div>
 }
 function Chip({ label, sub, onClick }: { label: string; sub?: string; onClick?: () => void }) {
   return <button onClick={onClick} className="text-[11.5px] px-2.5 py-1 rounded-lg bg-surface-container-high border border-outline/20 hover:border-primary">{label}{sub && <span className="text-on-surface-variant"> · {sub}</span>}</button>
 }
-function Empty() { return <span className="text-xs text-on-surface-variant">—</span> }
+function Em() { return <span className="text-xs text-on-surface-variant">—</span> }
+function Deps({ items, onPick }: { items: { id: string; kind: string }[]; onPick: (s: string) => void }) {
+  return items.length ? <>{items.map(x => <Chip key={x.id} label={x.id} sub={x.kind} onClick={() => onPick(x.id)} />)}</> : <Em />
+}
+function depEdges(g: Graph, id: string, dir: 'in' | 'out'): { id: string; kind: string }[] {
+  return g.yvon.edges.filter(e => e.kind !== 'related' && (dir === 'in' ? e.to === id : e.from === id))
+    .map(e => ({ id: dir === 'in' ? e.from : e.to, kind: e.kind }))
+}
