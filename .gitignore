@@ -31,6 +31,11 @@ node_modules
 *.tsbuildinfo
 **/tsconfig.tsbuildinfo
 
+# graphify output (regeneratable via `graphify extract .` + cli/graph-publish.py).
+# Commit the small overview (graph-view.json); never the multi-MB raw graph.
+graphify-out/
+dashboard/public/graph-full.json
+
 # On-demand tool runtime (cli/tool.sh) — commit compose + .env.example only.
 # Tool config now lives under Teams/Shared OS/tools/<name>/; secrets/data/clones never do.
 Teams/Shared OS/tools/**/.env
