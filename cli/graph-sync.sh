@@ -6,15 +6,10 @@
 # `graphify .` (+ an LLM backend for docs). Then run this.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SRC="$ROOT/graphify-out/graph.json"
-DEST="$ROOT/dashboard/public/graph.json"
-[ -f "$SRC" ] || { echo "❌ $SRC not found — run '/graphify .' first"; exit 1; }
-cp -f "$SRC" "$DEST"
-echo "✓ published $(du -h "$DEST" | cut -f1) → dashboard/public/graph.json"
-python3 - "$SRC" <<'PY'
-import sys, json
-g = json.load(open(sys.argv[1]))
-n = g.get("nodes", g.get("Nodes", []))
-e = g.get("edges", g.get("links", g.get("Edges", [])))
-print(f"  graphify graph: {len(n)} nodes, {len(e)} edges")
-PY
+OUT="$ROOT/graphify-out"; PUB="$ROOT/dashboard/public"
+[ -f "$OUT/graph.json" ] || { echo "❌ $OUT/graph.json not found — run 'graphify extract .' first"; exit 1; }
+cp -f "$OUT/graph.json" "$PUB/graph-full.json"
+python3 "$ROOT/cli/graph-publish.py"    # writes the small graph-view.json overview
+# the interactive full-node viz (graphify cluster-only . --no-label writes it):
+if [ -f "$OUT/graph.html" ]; then cp -f "$OUT/graph.html" "$PUB/graph.html"; echo "✓ published graph.html ($(du -h "$PUB/graph.html" | cut -f1))"; \
+  else echo "ⓘ no graph.html — run: GRAPHIFY_VIZ_NODE_LIMIT=9000 graphify cluster-only . --no-label"; fi
