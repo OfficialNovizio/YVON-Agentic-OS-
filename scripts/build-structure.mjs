@@ -66,6 +66,15 @@ for (const deptName of readdirSync(TEAMS).sort()) {
 mkdirSync(dirname(OUT), { recursive: true })
 writeFileSync(OUT, JSON.stringify({ version: Date.now(), departments }, null, 0))
 
+// Alias map: bare agent name → stable id (mia → engineering-mia). All 46 names are
+// unique, so this is 1:1. The Hermes wrapper loads it to resolve `mentions` into
+// the ids the graph keys on — generated, so the contract can never drift by hand.
+const alias = Object.fromEntries(departments.flatMap(d => d.agents.map(a => [a.name, a.id])))
+const ALIAS_OUT = join(ROOT, 'vps-scripts', 'yvon-hermes-http', 'agent-alias.json')
+writeFileSync(ALIAS_OUT, JSON.stringify(alias, null, 0))
+if (Object.keys(alias).length !== departments.reduce((n, d) => n + d.agents.length, 0))
+  throw new Error('agent name collision — bare-name → id mapping is not 1:1')
+
 const total = departments.reduce((n, d) => n + d.agents.length, 0)
 console.log(`✓ structure.json — ${departments.length} departments, ${total} agents`)
 for (const d of departments) console.log(`    ${d.name.padEnd(18)} ${String(d.agents.length).padStart(2)}  ${d.agents.map(a => a.name).join(', ')}`)

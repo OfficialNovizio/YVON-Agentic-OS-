@@ -30,6 +30,7 @@ import os
 import sys
 import threading
 import time
+import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Optional
@@ -39,6 +40,9 @@ import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse, Response
 from pydantic import BaseModel, Field
+
+# Run lifecycle → Supabase event log. Fire-and-forget; never blocks a run.
+from events import emit
 
 # ── Import Hermes internals ─────────────────────────────────────────────────
 # Hermes is a pip-installed editable package at /usr/local/lib/hermes-agent/.
@@ -303,6 +307,18 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
 
     result_holder: dict[str, Any] = {"response": None, "error": None}
 
+    # ── run lifecycle → event log (architecture §5.4) ───────────────────────
+    # One event per mentioned agent; unaddressed turns are attributed to 'system'.
+    # Fire-and-forget: emit() never blocks and never raises (see events.py).
+    _correlation = str(uuid.uuid4())
+    _actors = req.mentions or ["system"]
+
+    def _emit_all(kind: str, **payload: Any) -> None:
+        for _a in _actors:
+            emit(kind, _a, context_id=req.workspace, correlation=_correlation, **payload)
+
+    _emit_all("run.started", room_id=req.room_id)
+
     def run_agent() -> None:
         try:
             with pooled.lock:  # serialize per-session; AIAgent isn't thread-safe
@@ -316,9 +332,11 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
                 pooled.agent.notice_callback = on_notice
                 response = pooled.agent.chat(full_prompt, stream_callback=on_delta)
                 result_holder["response"] = response or ""
+            _emit_all("run.completed")
         except Exception as exc:  # noqa: BLE001 — surface any agent failure
             log.exception("agent.chat failed for user=%s room=%s", req.user_id, req.room_id)
             result_holder["error"] = str(exc)
+            _emit_all("run.failed", error=str(exc)[:500])
         finally:
             loop.call_soon_threadsafe(queue.put_nowait, {"kind": "__internal_done__"})
 

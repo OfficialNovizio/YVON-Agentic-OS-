@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { supabaseSource } from "@/lib/events/supabase-source";
+import { applyEvent, bubbleUp, DECAY_MS } from "@/lib/events";
 
 /* ═══════════════════════════════════════════════════════════════════════
    YVON GRAPH VIEWER  —  two levels
@@ -109,9 +111,11 @@ export default function YvonGraph() {
   const [open, setOpen] = useState<Placed | null>(null);
   const [status, setStatus] = useState<Record<string, Status>>({});
   const [q, setQ] = useState("");
-  // Activity is driven by real run events (Supabase Realtime) once the pipeline
-  // is wired. Until then it stays OFF — a simulated glow would be fake data.
+  // Real activity comes from the events table via Supabase Realtime (below).
+  // `demo` is an explicitly-labelled simulator for screenshots — never on by default.
   const [demo, setDemo] = useState(false);
+  // The four scopes of §12.1 — same components, filtered by context_id.
+  const [scope, setScope] = useState("yvon-os");
 
   const [view, setView] = useState({ x: 0, y: 0, s: 0.52 });
   const drag = useRef({ on: false, px: 0, py: 0 });
@@ -129,6 +133,31 @@ export default function YvonGraph() {
   useEffect(() => {
     setView({ x: window.innerWidth / 2 - CX * 0.52, y: window.innerHeight / 2 - CY * 0.52, s: 0.52 });
   }, []);
+
+  /* ── LIVE ACTIVITY ─────────────────────────────────────────────────────
+     Browser ⇄ Supabase Realtime directly. Vercel is never in this path — it
+     cannot hold a live connection (§10.1). run.completed decays rather than
+     switching off, so the map shows *recent* work (§12.2).                */
+  useEffect(() => {
+    const timers: Record<string, ReturnType<typeof setTimeout>> = {};
+    const unsub = supabaseSource(scope).subscribe((e) => {
+      setStatus((prev) => applyEvent(prev, e));
+      if (e.kind === "run.completed") {
+        clearTimeout(timers[e.actor]);
+        timers[e.actor] = setTimeout(
+          () => setStatus((p) => ({ ...p, [e.actor]: "idle" })),
+          DECAY_MS,
+        );
+      }
+    });
+    return () => {
+      unsub();
+      Object.values(timers).forEach(clearTimeout);
+    };
+  }, [scope]);
+
+  // Departments inherit the strongest state of their agents (§12.2 bubble-up).
+  const rolled = useMemo(() => bubbleUp(status, DEPARTMENTS), [status, DEPARTMENTS]);
 
   useEffect(() => {
     if (!demo || !DEPARTMENTS.length) return;
@@ -188,9 +217,15 @@ export default function YvonGraph() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 5, pointerEvents: "auto" }}>
-          <button style={{ ...S.tab, ...(demo ? S.tabOn : {}) }} onClick={() => { setDemo(d => !d); if (demo) setStatus({}); }}
-            title="Simulated pulse for demo only — real glow arrives with the run-event pipeline">
-            {demo ? "demo pulse ON" : "demo pulse"}
+          {/* §12.1 — one app, four scopes; same components filtered by context_id */}
+          {[["yvon-os", "YVON"], ["novizio", "Novizio"], ["hourbour", "Hourbour"], ["agentx", "AgentX"]].map(([id, label]) => (
+            <button key={id} style={{ ...S.tab, ...(scope === id ? S.tabOn : {}) }}
+              onClick={() => { setScope(id); setStatus({}); }}>{label}</button>
+          ))}
+          <button style={{ ...S.tab, ...(demo ? S.tabOn : {}), opacity: 0.7 }}
+            onClick={() => { setDemo(d => !d); if (demo) setStatus({}); }}
+            title="Simulated pulse — for screenshots only, not real activity">
+            {demo ? "demo ON" : "demo"}
           </button>
         </div>
       </div>
@@ -231,7 +266,7 @@ export default function YvonGraph() {
             </div>
 
             {placed.map((p) => {
-              const st = status[p.id] ?? "idle";
+              const st = rolled[p.id] ?? "idle";
               return (
                 <div key={p.id} onClick={() => setOpen(p)}
                   style={{ ...S.deptCard, left: p.x, top: p.y, opacity: dim(p.name) ? 0.2 : 1 }}>
@@ -255,7 +290,7 @@ export default function YvonGraph() {
       )}
 
       {/* ══ LEVEL 2 ══ */}
-      {open && <DetailView dept={open} status={status} />}
+      {open && <DetailView dept={open} status={rolled} />}
 
       <div style={S.legend}>
         {([["ACTIVE", MINT], ["ERROR", CORAL], ["IDLE", "#5a5f68"], ["CORE", VIOLET]] as [string, string][]).map(([l, c]) => (
