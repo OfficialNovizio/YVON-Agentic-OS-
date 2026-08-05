@@ -1,0 +1,4 @@
+{"ts": "2026-08-05T03:25:50Z", "held": 1, "reason": "sandbox test failed \u2014 ALL proposals held (MASTER.md)", "detail": "stubbed failure"}
+{"ts": "2026-08-05T03:26:18Z", "held": 1, "reason": "sandbox test failed \u2014 ALL proposals held (MASTER.md)", "detail": "stubbed failure"}
+{"ts": "2026-08-05T03:26:54Z", "held": 1, "reason": "sandbox test failed \u2014 ALL proposals held (MASTER.md)", "detail": "rag/test_runner.py: PASS; cli/task.py validate: FAIL equires gate_0_signoffs (dev/spec/meta/warden or operator-ordered)\n   - TS-018.yaml: gate_0 requires gate_0_signoffs (dev/spec/meta/warden or operator-ordered)\n"}
+{"ts": "2026-08-05T03:27:31Z", "held": 1, "reason": "sandbox test failed \u2014 ALL proposals held (MASTER.md)", "detail": "rag/test_runner.py: PASS; cli/task.py validate: FAIL 6.yaml: done but exit_gate.proof empty/self-asserting\n   - TS-007.yaml: done but no approved_by\n   - TS-007.yaml: done but exit_gate.proof empty/self-asserting\n"}

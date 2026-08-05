@@ -16,12 +16,14 @@ export interface ChatMessageAttachment {
 export interface ChatMessage {
   id: string
   roomId: string
-  authorKind: 'user' | 'agent'
+  authorKind: 'user' | 'agent' | 'system'
   authorId: string
   authorName: string
   content: string
   mentions: string[]
   createdAt: string
+  /** TS-018 WI-2: turn id linking this message to its events (pipeline panel) */
+  correlation: string | null
   attachments?: ChatMessageAttachment[]
 }
 
@@ -39,19 +41,37 @@ export async function GET(request: Request): Promise<Response> {
   } = await supabase.auth.getUser()
   if (!user) return new Response('unauthorized', { status: 401 })
 
-  let q = supabase
-    .from('chat_messages')
-    .select(`
-      id, room_id, author_kind, author_id, author_name, content, mentions, created_at,
-      chat_attachments(id, storage_path, filename, mime_type, size_bytes, duration_ms, waveform)
-    `)
-    .eq('room_id', roomId)
-    .order('created_at', { ascending: false })
-    .limit(PAGE_SIZE)
+  // TS-018 WI-11 (live fix 2026-08-04): migration 106 (chat_messages.correlation)
+  // must be applied before the column exists. Until then, fall back to a select
+  // without it so chat keeps working — and re-enable automatically once the
+  // migration runs. Warned once per process, not per poll.
+  const SELECT_WITH_CORRELATION = `
+    id, room_id, author_kind, author_id, author_name, content, mentions, created_at, correlation,
+    chat_attachments(id, storage_path, filename, mime_type, size_bytes, duration_ms, waveform)
+  `
+  const SELECT_NO_CORRELATION = `
+    id, room_id, author_kind, author_id, author_name, content, mentions, created_at,
+    chat_attachments(id, storage_path, filename, mime_type, size_bytes, duration_ms, waveform)
+  `
+  let correlationFallbackWarned = false
 
-  if (before) q = q.lt('created_at', before)
+  const build = (select: string) => {
+    let q = supabase.from('chat_messages').select(select).eq('room_id', roomId)
+    if (before) q = q.lt('created_at', before)
+    return q.order('created_at', { ascending: false }).limit(PAGE_SIZE)
+  }
 
-  const { data, error } = await q
+  let { data, error } = await build(SELECT_WITH_CORRELATION)
+  if (error && /does not exist/.test(error.message ?? '')) {
+    if (!correlationFallbackWarned) {
+      correlationFallbackWarned = true
+      // eslint-disable-next-line no-console
+      console.warn(
+        'chat_messages.correlation missing — apply migration 106_chat_commands.sql; falling back without it',
+      )
+    }
+    ;({ data, error } = await build(SELECT_NO_CORRELATION))
+  }
   if (error) {
     return Response.json({ error: String(error.message ?? error) }, { status: 500 })
   }
@@ -76,6 +96,7 @@ export async function GET(request: Request): Promise<Response> {
       content: String(r.content ?? ''),
       mentions: Array.isArray(r.mentions) ? (r.mentions as string[]) : [],
       createdAt: String(r.created_at),
+      correlation: r.correlation == null ? null : String(r.correlation),
       attachments,
     } satisfies ChatMessage
   })

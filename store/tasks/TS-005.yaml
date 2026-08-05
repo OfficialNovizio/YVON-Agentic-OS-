@@ -1,5 +1,7 @@
 id: TS-005
 status: approved
+approved_by: operator
+approved_at: 2026-08-04
 source_message: "now how we can change it to align with our project and motive"
 requester: operator
 rules: { sharding: worker gets item + contracts, handoff: contracts-only, inject_form: .toon }

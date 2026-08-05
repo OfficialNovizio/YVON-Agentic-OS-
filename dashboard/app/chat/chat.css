@@ -1,0 +1,126 @@
+/* chat.css — command-deck design system (TS-020).
+ * Atlas-bridged tokens for the chat surface. Scoped under .chat-shell so
+ * nothing leaks into other pages. Tints are the REAL fleet colors.
+ * Imported from app/chat/page.tsx (App Router allows component-level global CSS).
+ */
+.chat-shell {
+  --chat-bg: #0a0a0f;
+  --chat-surface: rgba(255, 255, 255, 0.03);
+  --chat-surface-strong: rgba(255, 255, 255, 0.06);
+  --chat-hairline: rgba(255, 255, 255, 0.10);
+  --chat-hairline-soft: rgba(255, 255, 255, 0.06);
+  --chat-text: rgba(255, 255, 255, 0.92);
+  --chat-text-dim: rgba(255, 255, 255, 0.55);
+  --chat-text-faint: rgba(255, 255, 255, 0.38);
+  --chat-accent: #6366f1; /* indigo — active states only */
+  --chat-glow: rgba(99, 102, 241, 0.35);
+
+  /* Real fleet tints (per-department identity) */
+  --dept-engineering: #3B82F6;
+  --dept-brand: #EC4899;
+  --dept-security: #EF4444;
+  --dept-product: #10B981;
+  --dept-governance: #8B5CF6;
+  --dept-ai: #06B6D4;
+  --dept-exec: #F59E0B;
+}
+
+/* ── Frosted glass surfaces ─────────────────────────────────────── */
+.chat-glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--chat-hairline);
+  border-radius: 1rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.chat-glass-soft {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--chat-hairline-soft);
+  border-radius: 0.75rem;
+}
+
+/* ── Live glow (active phases, active agents) ───────────────────── */
+.chat-active-ring {
+  box-shadow: 0 0 0 1px var(--chat-accent), 0 0 18px var(--chat-glow);
+}
+.chat-breathe {
+  animation: chat-breathe 2.4s ease-in-out infinite;
+}
+@keyframes chat-breathe {
+  0%, 100% { opacity: 1; box-shadow: 0 0 10px var(--chat-glow); }
+  50% { opacity: 0.82; box-shadow: 0 0 22px var(--chat-glow); }
+}
+
+/* ── Streaming cursor + shimmer ─────────────────────────────────── */
+.chat-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  background: var(--chat-accent);
+  animation: chat-blink 1s step-end infinite;
+}
+@keyframes chat-blink { 50% { opacity: 0; } }
+.chat-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  background-size: 200% 100%;
+  animation: chat-shimmer 1.6s linear infinite;
+}
+@keyframes chat-shimmer { to { background-position: -200% 0; } }
+
+/* ── Thinking ellipsis ──────────────────────────────────────────── */
+.chat-ellipsis::after {
+  content: '';
+  animation: chat-dots 1.4s steps(4, end) infinite;
+}
+@keyframes chat-dots {
+  0% { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75% { content: '...'; }
+}
+
+/* ── Thin scrollbars for the deck ───────────────────────────────── */
+.chat-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.chat-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 3px; }
+.chat-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* ── Markdown code block ────────────────────────────────────────── */
+.chat-md pre {
+  margin: 0.5rem 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--chat-hairline-soft);
+  background: rgba(0, 0, 0, 0.35);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+  color: rgba(255, 255, 255, 0.85);
+}
+.chat-md code {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.92em;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+}
+.chat-md pre code { background: none; padding: 0; }
+.chat-md h1, .chat-md h2, .chat-md h3 {
+  margin: 0.5rem 0 0.25rem;
+  font-weight: 650;
+  color: var(--chat-text);
+}
+.chat-md ul { margin: 0.35rem 0; padding-left: 1.1rem; list-style: disc; }
+.chat-md ol { margin: 0.35rem 0; padding-left: 1.1rem; list-style: decimal; }
+.chat-md a { color: var(--chat-accent); text-decoration: underline; text-underline-offset: 2px; }
+.chat-md strong { font-weight: 650; }
+.chat-md blockquote {
+  margin: 0.4rem 0; padding-left: 0.75rem;
+  border-left: 2px solid var(--chat-hairline);
+  color: var(--chat-text-dim);
+}

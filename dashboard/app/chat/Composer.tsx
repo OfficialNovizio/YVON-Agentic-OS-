@@ -3,13 +3,14 @@
 // Owner: mia · TS-016 WI-4
 'use client'
 
-import { useCallback, useMemo, useRef, useState } from 'react'
-import { Loader2, Send, Square, X, FileText, Mic } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Loader2, Send, Square, X, FileText, Mic, CornerDownLeft } from 'lucide-react'
 import { FLEET } from '@/lib/fleet'
 import { uploadFiles, type UploadedAttachment } from '@/lib/attachments-client'
 import { AttachmentPicker } from './AttachmentPicker'
 import { AudioRecorderButton } from './AudioRecorder'
 import type { RecordedAudio } from '@/lib/audio-recorder'
+import type { CommandInfo } from '@/app/api/chat/commands/route'
 
 export interface ComposerAttachment extends UploadedAttachment {
   /** stable key so previews don't remount on each render */
@@ -49,6 +50,41 @@ export function Composer({
   const [caretPos, setCaretPos] = useState<number | null>(null)
   const [atts, setAtts] = useState<ComposerAttachment[]>([])
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // ── Command popover (TS-020) — real commands from the registry ──────────
+  const [cmds, setCmds] = useState<CommandInfo[] | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/chat/commands')
+        if (!res.ok) return
+        const data = (await res.json()) as { commands: CommandInfo[] }
+        if (!cancelled) setCmds(data.commands)
+      } catch {
+        // popover just stays hidden — never invent commands
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Popover is shown only for a bare leading '/' (no space yet).
+  const cmdQuery = text.startsWith('/') && !text.includes(' ') ? text.slice(1).toLowerCase() : null
+  const filtered = useMemo(() => {
+    if (cmdQuery == null || !cmds) return []
+    return cmds
+      .filter((c) => c.name.startsWith(cmdQuery) || (c.aliases ?? []).some((a) => a.startsWith(cmdQuery)))
+      .slice(0, 5)
+  }, [cmdQuery, cmds])
+  const [cmdIndex, setCmdIndex] = useState(0)
+
+  const applyCommand = (name: string) => {
+    setText(`/${name} `)
+    setCmdIndex(0)
+    requestAnimationFrame(() => textareaRef.current?.focus())
+  }
 
   // @mention autocomplete
   const activeQuery = useMemo(() => {
@@ -183,6 +219,29 @@ export function Composer({
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    // Command popover keyboard control
+    if (filtered.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setCmdIndex((i) => (i + 1) % filtered.length)
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setCmdIndex((i) => (i - 1 + filtered.length) % filtered.length)
+        return
+      }
+      if (e.key === 'Escape') {
+        setCmdIndex(0)
+        setText('')
+        return
+      }
+      if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
+        e.preventDefault()
+        applyCommand(filtered[Math.min(cmdIndex, filtered.length - 1)].name)
+        return
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       submit()
@@ -195,9 +254,39 @@ export function Composer({
 
   return (
     <div
-      className="border-t border-white/[0.06] bg-black/30 p-2.5 md:p-3.5"
+      className="relative border-t border-[var(--chat-hairline-soft)] bg-white/[0.01] p-2.5 md:p-3.5"
       style={{ paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom, 0))' }}
     >
+      {/* ── Command popover (TS-020) — real registry commands ─────────── */}
+      {filtered.length > 0 && (
+        <div className="chat-glass absolute bottom-full left-4 z-50 mb-2 w-[300px] overflow-hidden p-1">
+          <div className="px-2 pb-1 pt-1.5 text-[9px] font-semibold uppercase tracking-widest text-[var(--chat-text-faint)]">
+            commands
+          </div>
+          {filtered.map((c, i) => (
+            <button
+              key={c.name}
+              onClick={() => applyCommand(c.name)}
+              onMouseEnter={() => setCmdIndex(i)}
+              className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition ${
+                i === cmdIndex ? 'bg-white/[0.07]' : 'hover:bg-white/[0.04]'
+              }`}
+            >
+              <span className="shrink-0 font-mono text-[11.5px] font-semibold text-[var(--chat-accent)]">
+                /{c.name}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--chat-text-dim)]">
+                {c.summary}
+              </span>
+              {i === cmdIndex && <CornerDownLeft className="h-3 w-3 shrink-0 text-[var(--chat-text-faint)]" />}
+            </button>
+          ))}
+          <div className="px-2 pb-1 pt-1 text-[8.5px] text-[var(--chat-text-faint)]">
+            ↑↓ navigate · ↵ insert
+          </div>
+        </div>
+      )}
+
       {disabled && disabledReason && (
         <div className="mb-2 rounded-md border border-white/10 bg-white/[0.02] px-3 py-2 text-[11px] text-on-surface-variant">
           {disabledReason}
@@ -239,6 +328,7 @@ export function Composer({
 
         <textarea
           ref={textareaRef}
+          data-composer
           value={text}
           onChange={(e) => {
             setText(e.target.value)

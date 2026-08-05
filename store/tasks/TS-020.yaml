@@ -1,0 +1,101 @@
+# TS-020 — Chat redesign: command-deck UI (exact-match to the operator's image)
+# Built 2026-08-05. Conversation-first, Apple-grade restraint, every element
+# binds to real data (rooms, messages, SSE events, registry, fleet) — zero
+# hallucination, zero mock data in the DOM.
+id: TS-020
+status: gated
+approved_by: operator
+approved_at: 2026-08-05
+source_message: >
+  "lock option a i want exact same design, everything working with logic 0
+  hallucination and 0 just only UI everything binds to logic with UI and also
+  before executing tell me what agent, tool, skill, verification, test you will
+  choose and do"  +  "Go ahead do full rollout, also implement CAOS while working
+  and keep looping unless it won't pass after multiple test and delivery final
+  working project"
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only — no transcript inheritance
+  inject_form: .toon (this YAML is the source form)
+
+classification:
+  task_type: frontend redesign — chat command deck, exact-match to image
+  departments: [Engineering]
+  lead: dev
+  gate_0: true
+  gate_0_signoffs:
+    - operator   # operator-ordered full rollout
+
+context:
+  existing_assets:
+    - dashboard/app/chat/*            # prior chat (TS-015/016/017/018)
+    - dashboard/lib/fleet.ts          # real 46-agent / 7-dept roster
+    - dashboard/lib/commands/registry.ts  # real command registry
+    - dashboard/app/api/chat/{send,stream,messages,events}  # real data
+    - docs/YVON-CHAT.md §5            # pipeline panel design
+  conflicts:
+    - "sandbox is offline: Next SWC binary (linux-arm64) + Playwright browsers cannot be downloaded → browser gate is host-gated, recorded not claimed"
+    - "per-dept tints come from REAL fleet colors (Engineering #3B82F6 etc.), not the image prompt's guesses"
+
+discovery:
+  decisions:
+    - "layout: icon dock + conversation-first thread + floating HUD (right) + Teams slide-over (left), all from the operator's image"
+    - "streaming: live SSE tokens render in a streaming bubble with cursor; final message renders markdown"
+    - "live layer: compact strip expands into the pipeline HUD (CAOS phases, tools, agents, timings — all real event data)"
+    - "markdown: purpose-built deterministic renderer (no new dependency — offline-safe, zero drift)"
+    - "skill chips: real server-side scan of Teams/<dept>/<agent>/{custom,marketplace} SKILL.md; hidden when unavailable"
+
+work_items:
+  - id: WI-1
+    owner: mia
+    objective: "Design tokens + dock rail — chat.css (glass, hairlines, tints, glow, animations), lib/chat-theme.ts (real fleet tints), DockRail.tsx (Workforce orb + 7 dept glyphs, live dots from /api/agent-status)"
+    produces: dashboard/app/chat/chat.css
+    produces: dashboard/lib/chat-theme.ts
+    produces: dashboard/app/chat/DockRail.tsx
+
+  - id: WI-2
+    owner: mia
+    objective: "Teams slide-over — TeamsPanel.tsx: 46 agents · 7 departments (real FLEET counts), search, Workforce grid, per-dept sections, agent rows with role (only when non-empty), real skill chips via /api/fleet/skills, status dots"
+    produces: dashboard/app/chat/TeamsPanel.tsx
+    produces: dashboard/app/api/fleet/skills/route.ts
+
+  - id: WI-3
+    owner: mia
+    objective: "Thread — MessageStream.tsx: date dividers, user bubble (right), agent markdown messages, command cards, streaming bubble with cursor; Markdown.tsx deterministic renderer; CommandCard.tsx glass card with real content + copy"
+    produces: dashboard/app/chat/MessageStream.tsx
+    produces: dashboard/app/chat/Markdown.tsx
+    produces: dashboard/app/chat/CommandCard.tsx
+
+  - id: WI-4
+    owner: mia
+    objective: "Live layer — LiveStrip.tsx (compact: agent, thinking, phase chip, expand) + PipelineHud.tsx (CAOS phases with active glow, tool chips with real ok/ms, agents involved with thinking, context counts only from real retrieve events)"
+    produces: dashboard/app/chat/LiveStrip.tsx
+    produces: dashboard/app/chat/PipelineHud.tsx
+
+  - id: WI-5
+    owner: raj
+    objective: "Composer popover — '/' popover lists REAL registry commands via /api/chat/commands; keyboard nav (↑↓ ↵ Tab Esc); data-composer attr for ⌘K"
+    produces: dashboard/app/chat/Composer.tsx
+    produces: dashboard/app/api/chat/commands/route.ts
+
+  - id: WI-6
+    owner: mia
+    objective: "Page integration — page.tsx: top bar (title/subtitle/members/live/⌘K), dock + thread + HUD + slide-over wiring, live token streaming accumulation, ⌘T/⌘K shortcuts"
+    produces: dashboard/app/chat/page.tsx
+
+  - id: WI-7
+    owner: quinn
+    objective: "Browser gate — chat-redesign.spec.ts (dock renders 7 real depts, teams slide-over real counts, '/' popover real commands, responsive 375px). HOST-GATED: sandbox offline (SWC + browsers undownloadable) → runs via npm run test:e2e on the host"
+    produces: dashboard/tests/e2e/chat-redesign.spec.ts
+
+dag:
+  critical_path: [WI-1, WI-2, WI-3, WI-4, WI-5, WI-6, WI-7]
+
+exit_gate:
+  owner: quinn
+  proof: "VERIFIED 2026-08-05 (static tier): dashboard tsc --noEmit exit 0 · cli/verify-deploy.sh 0 findings (8/8 incl. tsc) · CAOS e2e 6/6 (verify-caos --quick) · task validate PASS. HOST-GATED (recorded, not claimed — sandbox offline): npm run test:e2e (chat-redesign.spec.ts — dock 7 depts, teams 46/7 counts, '/' popover real commands, 375px no-hscroll) · next build via verify-deploy.sh --full. Zero mock data; every element binds to real rooms/messages/SSE/registry/fleet."
+
+feedback:
+  outcome: null
+  lesson: null

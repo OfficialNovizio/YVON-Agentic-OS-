@@ -1,5 +1,7 @@
 id: TS-013
 status: approved
+approved_by: operator
+approved_at: 2026-08-04
 source_message: >
   "for chat section present me a plan and what you need to connect with hermes
   which is hosted on the hostinger"  +  (after seeing the hermes-agent TUI screenshot)
@@ -12,6 +14,8 @@ classification:
   departments: [Engineering, Cybersecurity]
   lead: dev
   gate_0: true  # structural — new public service, TLS boundary, bearer auth
+  gate_0_signoffs:
+    - operator
   security_review: warden (bearer token handling, RLS still enforced)
 
 discovery:

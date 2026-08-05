@@ -1,0 +1,87 @@
+# TS-023 — Venture selector + chat behavior fixes + fixed CAOS card + honest
+# routing + chat-in-graph (operator's 9-point review, 2026-08-06)
+id: TS-023
+status: gated
+approved_by: operator
+approved_at: 2026-08-06
+source_message: >
+  "1. default chat always goes to yvon project itself unless changes the venture
+  and how we can change venture?? use bash? or give option on the top to select
+  working venture repo? As we add venture from settings 2. Fix all the issue
+  with your recommendation with CAOS"
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only — no transcript inheritance
+  inject_form: .toon (this YAML is the source form)
+
+classification:
+  task_type: frontend + routing fixes — venture selector, room provisioning,
+             agent identity, fixed CAOS card, honest attribution, chat-in-graph
+  departments: [Engineering]
+  lead: dev
+  gate_0: true
+  gate_0_signoffs:
+    - operator
+
+context:
+  existing_assets:
+    - dashboard/app/api/ventures/route.ts    # real ventures source (selector)
+    - dashboard/app/api/set-venture/route.ts # cookie writer (/switch reuses)
+    - dashboard/app/api/chat/rooms/route.ts  # had the partial-index upsert bug (#4)
+    - dashboard/app/chat/{page,PipelineHud,LiveStrip,MessageStream}.tsx
+    - vps-scripts/yvon-hermes-http/main.py   # _actors = mentions or ['system']
+  conflicts:
+    - "agent-room upsert failed: partial unique index (WHERE kind='agent') can't match a plain onConflict column list → 'no unique or exclusion constraint' (#4)"
+    - "reply said 'agentx' because a stale yvon_active_venture cookie pointed there — default is yvon-os (#6)"
+
+discovery:
+  decisions:
+    - "venture switch: top-bar selector (real /api/ventures) + /switch command; no bash needed; cookie default yvon-os"
+    - "rooms provisioning: select-then-insert (no ON CONFLICT on partial index)"
+    - "agent identity: name + role + department chip on every agent reply; 'unassigned' for unknown authors"
+    - "CAOS card: FIXED right column (xl+), always present, no close icon; disabled 'waiting' until a turn"
+    - "honest routing: unaddressed turns attribute to 'meta' (real fleet orchestrator), not anonymous 'system'"
+    - "chat-in-graph: chat.conversation events (correlation-linked) per venture; brain-node rendering = follow-up"
+
+work_items:
+  - id: WI-1
+    owner: raj
+    objective: "Fix agent-room provisioning — rooms/route.ts select-then-insert, no onConflict (partial-index bug #4); thread now follows selection (#8)"
+    produces: dashboard/app/api/chat/rooms/route.ts
+
+  - id: WI-2
+    owner: mia
+    objective: "Venture selector — VentureSelector.tsx in chat top bar (real /api/ventures, sets yvon_active_venture, defaults yvon-os, reload)"
+    produces: dashboard/app/chat/VentureSelector.tsx
+    produces: dashboard/app/chat/page.tsx
+
+  - id: WI-3
+    owner: mia
+    objective: "Agent identity chips — MessageStream agent header: name + role + department; 'unassigned' for fallback authors (#1)"
+    produces: dashboard/app/chat/MessageStream.tsx
+
+  - id: WI-4
+    owner: mia
+    objective: "Fixed CAOS card — PipelineHud in-flow right column (no absolute, no close), always visible, disabled→live; LiveStrip drops the toggle (#7)"
+    produces: dashboard/app/chat/PipelineHud.tsx
+    produces: dashboard/app/chat/LiveStrip.tsx
+    produces: dashboard/app/chat/page.tsx
+
+  - id: WI-5
+    owner: raj
+    objective: "Honest routing — wrapper attributes unaddressed turns to 'meta' (#3); chat.conversation events from send route (#2) + migration 106 fn"
+    produces: vps-scripts/yvon-hermes-http/main.py
+    produces: dashboard/app/api/chat/send/route.ts
+    produces: dashboard/supabase/migrations/106_chat_commands.sql
+
+dag:
+  critical_path: [WI-1, WI-2, WI-3, WI-4, WI-5]
+
+exit_gate:
+  owner: quinn
+  proof: "VERIFIED 2026-08-06: dashboard tsc --noEmit exit 0 · cli/verify-deploy.sh 0 findings · CAOS e2e 6/6 · py_compile clean (main.py) · task validate PASS. HOST/OPERATOR-GATED: redeploy main.py to VPS + restart (meta attribution live) · apply migration 106 addition via supabase db push (chat.conversation events) · browser proof of selector/fixed card (host)."
+
+feedback:
+  outcome: null
+  lesson: null

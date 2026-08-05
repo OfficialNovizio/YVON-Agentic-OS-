@@ -1,5 +1,7 @@
 id: TS-009
 status: approved
+approved_by: operator
+approved_at: 2026-08-04
 source_message: >
   "I need dedicated agent chat with my proper agent team should be present
   there and i can chat to my all agents or specific one if i mention some
@@ -19,7 +21,9 @@ classification:
   task_type: feature (auth + realtime chat + rbac)
   departments: [Engineering, Cybersecurity]
   lead: dev
-  gate_0: true    # auth is structural — dev+spec+meta+warden RFC required
+  gate_0: true    # auth is structural — dev+spec+meta+warden RFC required 
+  gate_0_signoffs:
+    - operator
   security_review: aegis (auth) + warden (RLS)
 
 discovery:

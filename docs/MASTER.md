@@ -1171,7 +1171,7 @@ QUERY: "should we acquire Competitor X for $2M?"
                            ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  PHASE 2: SKILL PROGRESSIVE DISCLOSURE ★ NEW                │
-│  (rag/progressive_disclosure.py — BUILD)                     │
+│  (rag/harness/disclosure.py — BUILD)                     │
 │                                                              │
 │  agent_id → load skill DESCRIPTIONS only (not full content)  │
 │  match query against skill triggers                          │
@@ -1422,7 +1422,7 @@ QUERY: "should we acquire Competitor X for $2M?"
 |---|------|---------|-------------|--------------|
 | 1 | `rag/harness.py` | 5-gate harness — authenticate, reliability, conflict, budget, quarantine | ~500 | retriever, optimizer, embed, staleness_economics, feedback |
 | 2 | `rag/verifier.py` | Post-hoc verification — grounded citations, self-consistency, constitution | ~400 | embed, injector, Shared OS scripts |
-| 3 | `rag/progressive_disclosure.py` | Skill progressive disclosure — description loading, trigger matching, on-demand full load | ~250 | Teams/ file system, skill registry |
+| 3 | `rag/harness/disclosure.py` | Skill progressive disclosure — description loading, trigger matching, on-demand full load | ~250 | Teams/ file system, skill registry |
 | 4 | `rag/field_monitor.py` | Field monitoring — attractor detection, degradation alerts, coverage gaps, drift | ~350 | feedback, embed, harness |
 | 5 | `rag/context_constitution.md` | Context constitution — human-readable rules for acceptable context | ~150 | None (document) |
 | 6 | `rag/quarantine.jsonl` | Quarantine log — append-only record of excluded chunks | N/A | harness |
@@ -1735,7 +1735,7 @@ Verification score: 1.00
 | **1** | `rag/harness.py` — Gates 1, 2, 5 (authenticate, reliability, quarantine) | staleness_economics, feedback, optimizer fix | 3 days | 30+ tests |
 | **2** | `rag/optimizer.py` — Fix multiplicative formula + source_authority lookup | harness.py | 1 day | existing tests pass + new |
 | **3** | `rag/harness.py` — Gates 3, 4 (conflict, priority assembly) | Phase 1 harness, embed | 2 days | 20+ tests |
-| **4** | `rag/progressive_disclosure.py` — Skill progressive disclosure | agent registry, SKILL.md files | 1.5 days | 15+ tests |
+| **4** | `rag/harness/disclosure.py` — Skill progressive disclosure | agent registry, SKILL.md files | 1.5 days | 15+ tests |
 | **5** | `rag/unified_pipeline.py` — Wire harness gates + conflict flags + citation markers | harness.py, progressive_disclosure | 1.5 days | existing 31 tests + new |
 | **6** | `rag/verifier.py` — Post-hoc grounded citation + self-consistency | embed, unified_pipeline | 2 days | 20+ tests |
 | **7** | `rag/retriever.py` — Plan-lock enforcement | harness.py | 1 day | 10+ tests |
@@ -2788,7 +2788,7 @@ TOTAL                              263    ✅ ZERO FAILURES
 python3 rag/unified_pipeline.py --test       # 31 tests + harness wiring
 python3 rag/harness.py --test                 # 36 tests (all 5 gates)
 python3 rag/verifier.py --test                # 16 tests
-python3 rag/progressive_disclosure.py --test   # 23 tests
+python3 rag/harness/disclosure.py --test   # 23 tests
 python3 rag/field_monitor.py --test            # 17 tests
 python3 rag/self_improver.py --test            # 20 tests
 python3 rag/e2e_validation.py                  # 40 tests (12 scenarios)

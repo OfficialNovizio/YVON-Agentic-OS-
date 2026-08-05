@@ -131,6 +131,12 @@ def cmd_approve(args, tid):
     require(top(text, "status") == "discovery", f"{tid} is not in discovery")
     require(bool(list_items(block(text, "discovery"))) or "decisions:" in text and
             bool(list_items(block_after(text, "decisions"))), "discovery.decisions is empty")
+    # GATE 0 (MASTER.md PART 7): structural changes need explicit sign-offs —
+    # the 4-team RFC (dev/spec/meta/warden) or operator-ordered. Without them,
+    # approval is blocked: no silent builds.
+    if "gate_0: true" in block(text, "classification"):
+        signoffs = list_items(block_after(text, "gate_0_signoffs"))
+        require(bool(signoffs), "gate_0 requires gate_0_signoffs: [dev, spec, meta, warden] (or operator-ordered)")
     text = set_status(text, "approved")
     if not top(text, "approved_by"):
         text += f"\napproved_by: {who}\napproved_at: {now_iso()}\n"
@@ -201,6 +207,9 @@ def cmd_validate(args):
             proof = indented("exit_gate:\n" + block(t, "exit_gate"), "proof")
             if not proof or proof.lower() in SELF_ASSERT:
                 fails.append(f"{p.name}: {st} but exit_gate.proof empty/self-asserting")
+        if "gate_0: true" in block(t, "classification") and i >= STATES.index("approved"):
+            if not list_items(block_after(t, "gate_0_signoffs")):
+                fails.append(f"{p.name}: gate_0 requires gate_0_signoffs (dev/spec/meta/warden or operator-ordered)")
     if fails:
         print("❌ task validate FAIL:")
         for f in fails:

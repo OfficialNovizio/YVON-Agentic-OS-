@@ -30,11 +30,32 @@ export function useShell() {
   return useContext(ShellContext)
 }
 
+// ── Full-bleed mode (TS-018 WI-3 · YVON-CHAT §1.3) ──────────────────────────
+// Pages that fill the viewport (chat, dashboards) opt out of the padding
+// wrapper: the Shell hands them a correctly-sized flex child instead, and the
+// page stops doing viewport math. The Shell owns the state because it renders
+// ABOVE the page — descendants can't affect an ancestor's props, but they can
+// flip a context flag.
+interface ShellFullBleedValue {
+  fullBleed: boolean
+  setFullBleed: (v: boolean) => void
+}
+const ShellFullBleedContext = createContext<ShellFullBleedValue>({
+  fullBleed: false,
+  setFullBleed: () => {},
+})
+
+/** Call from a page's useEffect: `setFullBleed(true)` on mount, false on unmount. */
+export function useShellFullBleed() {
+  return useContext(ShellFullBleedContext)
+}
+
 // ── Shell component ───────────────────────────────────────────────────────────
 export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>('full')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [fullBleed, setFullBleed] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -68,7 +89,9 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <ShellContext.Provider value={{ sidebarMode, setSidebarMode, mobileMenuOpen, setMobileMenuOpen }}>
-      <div className="flex h-screen bg-background text-on-surface overflow-hidden">
+      <ShellFullBleedContext.Provider value={{ fullBleed, setFullBleed }}>
+      {/* h-dvh where supported: browser chrome overlays 100vh on mobile (YVON-CHAT §1.2) */}
+      <div className="flex h-screen supports-[height:100dvh]:h-dvh bg-background text-on-surface overflow-hidden">
         {/* ── Desktop sidebar (hidden on mobile, collapses on tablet) ──────── */}
         <aside
           className={`
@@ -110,13 +133,20 @@ export function Shell({ children }: { children: ReactNode }) {
             onToggleSidebar={() => setSidebarMode(sidebarMode === 'full' ? 'icons' : 'full')}
             onMobileMenu={() => setMobileMenuOpen(true)}
           />
-          <main className="flex-1 overflow-y-auto">
-            <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
-              {children}
-            </div>
+          <main className={fullBleed ? 'flex-1 overflow-hidden' : 'flex-1 overflow-y-auto'}>
+            {fullBleed ? (
+              // Full-bleed: correctly-sized flex child, no viewport math —
+              // the page fills it with h-full min-h-0 (§1.3).
+              <div className="h-full">{children}</div>
+            ) : (
+              <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
+                {children}
+              </div>
+            )}
           </main>
         </div>
       </div>
+      </ShellFullBleedContext.Provider>
     </ShellContext.Provider>
   )
 }

@@ -24,8 +24,11 @@ export interface HermesChatInput {
  * TS-017 extends the schema with live status events (thinking, tool_call,
  * notice) alongside the existing token/done/error/ping events. The client
  * ignores unknown kinds gracefully.
+ *
+ * TS-018 WI-2: every event may carry `correlation` (one per turn) — the stream
+ * route captures the first one to link the message row to its events (§5.2).
  */
-export type HermesEvent =
+export type HermesEvent = (
   | { kind: 'token'; text: string }
   | { kind: 'done'; response: string }
   | { kind: 'error'; message: string }
@@ -35,6 +38,7 @@ export type HermesEvent =
   | { kind: 'tool_call.start'; toolName: string; argsPreview: string }
   | { kind: 'tool_call.end'; toolName: string; ok: boolean; summary: string }
   | { kind: 'notice'; level: string; message: string }
+) & { correlation?: string }
 
 export interface HermesConfig {
   configured: boolean

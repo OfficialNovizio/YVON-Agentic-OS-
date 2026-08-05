@@ -1,0 +1,84 @@
+# TS-021 — Chat UX fixes: unique avatars, default teams panel, no-reply
+# diagnosis, CAOS card disabled-by-default, real history pagination.
+id: TS-021
+status: gated
+approved_by: operator
+approved_at: 2026-08-05
+source_message: >
+  "download images of people and use as icon for agents to represent them and
+  all should unique not same in looks. I am not getting department 2nd sidebar
+  when click on any department icon ... shows by default and changes according
+  to the department i select and if click on whole workforce shows everything
+  and also how we are maintaining the chat/task history??"  +  "Also i want CAOS
+  card from design by default but as a disabled when chat starts and agents
+  start doing the task CAOS card enabled and shows up metrics."
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only — no transcript inheritance
+  inject_form: .toon (this YAML is the source form)
+
+classification:
+  task_type: frontend fixes — avatars, default panels, error surfacing, history
+  departments: [Engineering]
+  lead: dev
+  gate_0: true
+  gate_0_signoffs:
+    - operator
+
+context:
+  existing_assets:
+    - dashboard/app/chat/*          # TS-020 command-deck
+    - dashboard/lib/avatar.ts       # NEW unique avatar generator (TS-021)
+    - dashboard/app/api/agent-status, fleet/skills  # real data sources
+  conflicts:
+    - "sandbox OFFLINE: cannot download photo avatars here; unique avatars are deterministic-generated (offline-safe, no licensing), real photos override via dashboard/public/avatars/<agent-id>.png"
+    - "no-reply root cause: client swallowed SSE error events (Hermes unconfigured/wrapper down) — fixed to surface the real reason"
+
+discovery:
+  decisions:
+    - "avatars: deterministic unique art per agent (seeded color pair + pattern + initial) + drop-in real-photo override"
+    - "teams panel: default-visible on desktop, focus-reactive (department click → that dept's agents; Workforce → everything)"
+    - "CAOS card: visible by default, DISABLED until a turn starts, then live metrics"
+    - "history: chat in Supabase chat_messages (+ events/correlation, command audit); tasks in store/tasks/TS-*.yaml; add real 'load earlier' pagination"
+
+work_items:
+  - id: WI-1
+    owner: mia
+    objective: "Unique avatars — lib/avatar.ts seeded generator + AgentAvatar.tsx (photo override /avatars/<id>.png, fallback to generated); used in TeamsPanel, MessageStream, LiveStrip, PipelineHud"
+    produces: dashboard/lib/avatar.ts
+    produces: dashboard/app/chat/AgentAvatar.tsx
+
+  - id: WI-2
+    owner: mia
+    objective: "Teams panel default-visible + focus-reactive — TeamsPanel always mounted, visible prop, department scope filters agents, workforce = all; page.tsx default-open on desktop"
+    produces: dashboard/app/chat/TeamsPanel.tsx
+    produces: dashboard/app/chat/page.tsx
+
+  - id: WI-3
+    owner: mia
+    objective: "No-reply diagnosis — page.tsx surfaces SSE error events as a real error banner (Hermes env/wrapper reason); stream route already best-effort on correlation"
+    produces: dashboard/app/chat/page.tsx
+
+  - id: WI-4
+    owner: mia
+    objective: "CAOS card disabled-by-default — PipelineHud visible prop + disabled state ('waiting for a task…') until source is live/past, then live metrics; default-open on desktop"
+    produces: dashboard/app/chat/PipelineHud.tsx
+    produces: dashboard/app/chat/page.tsx
+
+  - id: WI-5
+    owner: raj
+    objective: "History pagination — MessageStream 'Load earlier messages' button using the before cursor (real /api/chat/messages)"
+    produces: dashboard/app/chat/MessageStream.tsx
+    produces: dashboard/app/chat/page.tsx
+
+dag:
+  critical_path: [WI-1, WI-2, WI-3, WI-4, WI-5]
+
+exit_gate:
+  owner: quinn
+  proof: "VERIFIED 2026-08-05: dashboard tsc --noEmit exit 0 · cli/verify-deploy.sh 0 findings · CAOS e2e 6/6 · task validate PASS. HOST-GATED (sandbox offline): browser verification of default panels, avatar uniqueness, CAOS disabled→live, load-earlier (npm run test:e2e on host). History sources documented: chat_messages + events + chat_command_log (chat), store/tasks/TS-*.yaml + cli/task.sh (tasks)."
+
+feedback:
+  outcome: null
+  lesson: null

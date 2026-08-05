@@ -1,0 +1,68 @@
+# TS-022 — Teams permanent sidebar, real photo avatars, CAOS card design-match
+id: TS-022
+status: gated
+approved_by: operator
+approved_at: 2026-08-05
+source_message: >
+  "teams expand doesn't show as default in sidebar i want it always there as
+  secondary sidebar. When i click on department icon information of this sidebar
+  changes according to the selected department and you didn't put images of
+  pictures people. find some free resource from internet and put there. Also
+  verify that CAOS card design doesn't look exact same as should be from the
+  image design i provide strictly follow rules"
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only — no transcript inheritance
+  inject_form: .toon (this YAML is the source form)
+
+classification:
+  task_type: frontend fixes — permanent sidebar, photo avatars, CAOS card match
+  departments: [Engineering]
+  lead: dev
+  gate_0: true
+  gate_0_signoffs:
+    - operator
+
+context:
+  existing_assets:
+    - dashboard/app/chat/TeamsPanel.tsx   # now variant sidebar|overlay (TS-022)
+    - dashboard/app/chat/AgentAvatar.tsx  # photo tiers local → pravatar → generated
+    - dashboard/app/chat/PipelineHud.tsx  # gradient ring + real per-stage ms
+  conflicts:
+    - "sandbox OFFLINE: photos can't be downloaded here — avatars fetch from pravatar.cc (free, Unsplash CC) in the BROWSER; generated art is the offline fallback"
+
+discovery:
+  decisions:
+    - "teams: permanent 300px secondary sidebar on desktop (in-flow), mobile overlay; content switches with the dock department selection"
+    - "avatars: local /avatars/<id>.png → pravatar.cc (deterministic per agent) → generated art"
+    - "CAOS card: gradient indigo→violet ring on active phase + real per-phase mono timings (event-ts deltas) + tool status chips + agents involved — strict match to the image"
+
+work_items:
+  - id: WI-1
+    owner: mia
+    objective: "Permanent teams sidebar — TeamsPanel variant prop (sidebar in-flow / overlay), page.tsx desktop 300px column, mobile drawer"
+    produces: dashboard/app/chat/TeamsPanel.tsx
+    produces: dashboard/app/chat/page.tsx
+
+  - id: WI-2
+    owner: mia
+    objective: "Photo avatars — AgentAvatar 3-tier (local → pravatar.cc unique per agent → generated fallback); used everywhere"
+    produces: dashboard/app/chat/AgentAvatar.tsx
+
+  - id: WI-3
+    owner: mia
+    objective: "CAOS card design-match — gradient ring on active phase, real per-phase ms (stage.ts deltas), tools with status, agents + thinking"
+    produces: dashboard/app/chat/PipelineHud.tsx
+    produces: dashboard/lib/pipeline.ts
+
+dag:
+  critical_path: [WI-1, WI-2, WI-3]
+
+exit_gate:
+  owner: quinn
+  proof: "VERIFIED 2026-08-05: dashboard tsc --noEmit exit 0 · cli/verify-deploy.sh 0 findings · CAOS e2e 6/6 · task validate PASS. HOST-GATED (sandbox offline): browser proof of the permanent sidebar, photo avatars from pravatar.cc, CAOS card ring/timings."
+
+feedback:
+  outcome: null
+  lesson: null

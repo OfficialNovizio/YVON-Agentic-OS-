@@ -1,13 +1,21 @@
 // POST /api/chat/send  body: { roomId, content, mentions?, attachments? }
-// Fast-path: saves the user message + attachments, returns immediately.
-// Hermes execution + reply save happens asynchronously via the SSE stream
-// endpoint (GET /api/chat/stream). The client opens that after this returns.
+// Two paths:
+//   · normal message — saves the user message + attachments, returns
+//     immediately; Hermes execution + reply save happens asynchronously via
+//     GET /api/chat/stream (SSE).
+//   · slash command (content starts with '/') — dispatched by the command
+//     registry BEFORE any insert (YVON-CHAT §2.3). Never reaches Hermes, never
+//     stored as a user message. The result is persisted as a system message
+//     (author_kind='system' via chat_insert_system_message), audited in
+//     chat_command_log, and emitted to the events table as 'command.run'.
 //
-// This was decoupled in TS-017 to enable live status streaming — the old
-// blocking Hermes call lived here and held the response for 30-60s.
-//
-// Owner: raj · TS-009 Push C1 · TS-013 WI-5 · TS-016 WI-6 · TS-017 WI-1
+// Owner: raj · TS-009 Push C1 · TS-013 WI-5 · TS-016 WI-6 · TS-017 WI-1 · TS-018 WI-1
+import { cookies } from 'next/headers'
+import { randomUUID } from 'crypto'
 import { supabaseServer } from '@/lib/supabase-server'
+import { dispatchCommand } from '@/lib/commands/registry'
+import type { DbClient } from '@/lib/commands/types'
+import { activeWorkspace } from '@/lib/workspaces'
 
 const MENTION_RE = /@([a-z][a-z0-9-]*)/g
 
@@ -48,7 +56,72 @@ export async function POST(request: Request): Promise<Response> {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return new Response('unauthorized', { status: 401 })
+  const cookieStore = await cookies()
+  const contextId = activeWorkspace(cookieStore.get('yvon_active_venture')?.value)
 
+  // ── Command path — dispatch BEFORE the insert (YVON-CHAT §2.3) ────────────
+  if (content.startsWith('/')) {
+    // Structural seam: the ssr client's generic type churns between versions;
+    // the command contract only needs .from/.rpc (see types.ts).
+    const db = supabase as unknown as DbClient
+    const commandName = content.slice(1).split(/\s+/)[0]?.toLowerCase() ?? ''
+    const result = await dispatchCommand({
+      userId: user.id,
+      roomId,
+      args: [],
+      raw: content,
+      supabase: db,
+      cookies: cookieStore,
+    })
+    const correlation = randomUUID()
+
+    // 1) Persist the result as a system message (definer fn — RLS-guarded).
+    const { error: sysErr } = await (supabase as unknown as DbClient).rpc('chat_insert_system_message', {
+      p_room_id: roomId,
+      p_content: result.message,
+      p_author_id: 'system',
+      p_author_name: 'system',
+      p_mentions: [],
+      p_correlation: correlation,
+    })
+    if (sysErr) {
+      // Persisting the system row is best-effort — the command still ran.
+      // eslint-disable-next-line no-console
+      console.warn('chat_insert_system_message failed:', sysErr.message)
+    }
+
+    // 2) Audit the run (append-only log).
+    await supabase.from('chat_command_log').insert({
+      room_id: roomId,
+      user_id: user.id,
+      command: commandName,
+      args: result.message.length > 400 ? [result.message.slice(0, 400)] : [result.message],
+      ok: result.ok,
+      message: result.message.slice(0, 2000),
+    })
+
+    // 3) Emit to the events table so /brain and the pipeline panel see it.
+    await (supabase as unknown as DbClient).rpc('chat_emit_command_event', {
+      p_context_id: contextId,
+      p_correlation: correlation,
+      p_command: commandName,
+      p_args: result.detail ?? {},
+      p_ok: result.ok,
+      p_message: result.message.slice(0, 500),
+    })
+
+    return Response.json({
+      userMessage: null,
+      command: {
+        ok: result.ok,
+        message: result.message,
+        effect: result.effect ?? { kind: 'none' },
+        detail: result.detail,
+      },
+    })
+  }
+
+  // ── Normal message path ───────────────────────────────────────────────────
   // Look up profile for the display name on the message row.
   const { data: profile } = await supabase
     .from('profiles')
@@ -91,6 +164,20 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const userMessageId = (userMsg as { id: string; created_at: string } | null)?.id
+
+  // TS-023 #2 — emit a chat.conversation event so /brain + the pipeline panel
+  // see this message in the graph, linked by its own correlation. Best-effort.
+  try {
+    await (supabase as unknown as DbClient).rpc('chat_emit_conversation_event', {
+      p_context_id: contextId,
+      p_correlation: randomUUID(),
+      p_room_id: roomId,
+      p_author_id: user.id,
+      p_preview: content.slice(0, 120),
+    })
+  } catch {
+    // observability never breaks the send
+  }
 
   // Attach uploaded files to the user message.
   if (userMessageId && attachments.length > 0) {

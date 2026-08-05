@@ -550,6 +550,19 @@ class RetrievalResult:
     injection_text: str     # Final formatted context
     timing_ms: float
     trace: Dict             # Lasswell-compliant trace
+    # Rail 1 plan-lock (rag/core/plan_lock.py) — frozen before retrieval.
+    plan_lock: Optional[Dict] = None
+    lock_status: str = 'unlocked'   # 'locked' | 'blocked' | 'unlocked'
+
+
+# Last plan-lock record — the executor/gate layer reads this to HALT on a
+# blocked or deviated lock (Rail 1). Set by retrieve().
+_LAST_PLAN_LOCK: Optional[Dict] = None
+
+
+def last_plan_lock() -> Optional[Dict]:
+    """The most recent retrieval's plan-lock record, for gate enforcement."""
+    return _LAST_PLAN_LOCK
 
 
 def retrieve(query: str, agent_id: str = '', agent_dept: str = '',
@@ -570,7 +583,26 @@ def retrieve(query: str, agent_id: str = '', agent_dept: str = '',
     """
     t0 = time.time()
 
-    # Step 0: Classify task → select retrieval profile
+    # Step 0: Rail 1 plan-lock — freeze the plan BEFORE retrieval (MASTER PART 8).
+    # Append-only record in store/plan-lock.jsonl; a blocked lock degrades
+    # loudly (stderr) but never crashes the pipeline. The executor layer reads
+    # last_plan_lock() and HALTS on 'blocked'/'violated'.
+    global _LAST_PLAN_LOCK
+    _lock: Optional[Dict] = None
+    _lock_status = 'unlocked'
+    try:
+        from plan_lock import plan_lock as _plan_lock, PlanLockViolation
+        try:
+            _lock = _plan_lock(query, agent_id, agent_dept)
+            _lock_status = _lock.get('status', 'locked')
+        except PlanLockViolation as exc:  # noqa: BLE001 — degrade loudly, never crash
+            _lock_status = 'blocked'
+            print(f"[plan-lock] {exc}", file=sys.stderr)
+    except Exception:  # noqa: BLE001 — harness absent; retrieval proceeds
+        _lock_status = 'unlocked'
+    _LAST_PLAN_LOCK = _lock
+
+    # Step 0b: Classify task → select retrieval profile
     profile = classify_task_complexity(query, agent_id)
     if char_budget_override:
         profile.char_budget = char_budget_override
@@ -627,6 +659,8 @@ def retrieve(query: str, agent_id: str = '', agent_dept: str = '',
         injection_text=injection_text,
         timing_ms=timing,
         trace=trace,
+        plan_lock=_lock,
+        lock_status=_lock_status,
     )
 
 

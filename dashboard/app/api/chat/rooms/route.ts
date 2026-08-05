@@ -102,21 +102,48 @@ export async function POST(request: Request): Promise<Response> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return new Response('unauthorized', { status: 401 })
 
-  // Upsert the agent room. Unique index on (owner_user_id, agent_id) where kind='agent'.
-  const { data, error } = await supabase
+  // Provision the agent room WITHOUT ON CONFLICT: the unique index is PARTIAL
+  // (WHERE kind='agent'), and Postgres can't match a partial index from a plain
+  // onConflict column list — that was the "no unique or exclusion constraint"
+  // error. Robust pattern: find existing → insert → on race, re-select.
+  const existing = await supabase
     .from('chat_rooms')
-    .upsert(
-      { kind: 'agent', agent_id: agentId, owner_user_id: user.id },
-      { onConflict: 'owner_user_id,agent_id' }
-    )
     .select('id, kind, department, agent_id, owner_user_id, created_at')
-    .single()
+    .eq('kind', 'agent')
+    .eq('owner_user_id', user.id)
+    .eq('agent_id', agentId)
+    .maybeSingle()
 
-  if (error) {
-    return Response.json({ error: String((error as { message?: string })?.message ?? error) }, { status: 500 })
+  let row: Row | null = (existing.data as unknown as Row | null) ?? null
+  if (!row) {
+    const { data: inserted, error: insErr } = await supabase
+      .from('chat_rooms')
+      .insert({ kind: 'agent', agent_id: agentId, owner_user_id: user.id })
+      .select('id, kind, department, agent_id, owner_user_id, created_at')
+      .maybeSingle()
+
+    if (!insErr && inserted) {
+      row = inserted as unknown as Row
+    } else if (insErr) {
+      // Unique violation race — someone else provisioned it first; re-select.
+      const retry = await supabase
+        .from('chat_rooms')
+        .select('id, kind, department, agent_id, owner_user_id, created_at')
+        .eq('kind', 'agent')
+        .eq('owner_user_id', user.id)
+        .eq('agent_id', agentId)
+        .maybeSingle()
+      if (retry.data) row = retry.data as unknown as Row
+      else {
+        return Response.json({ error: String(insErr.message ?? insErr) }, { status: 500 })
+      }
+    }
   }
 
-  const row = data as unknown as Row
+  if (!row) {
+    return Response.json({ error: 'room provisioning failed' }, { status: 500 })
+  }
+
   const room: ChatRoom = {
     id: row.id,
     kind: row.kind as RoomKind,

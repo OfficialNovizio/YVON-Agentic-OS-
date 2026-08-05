@@ -545,6 +545,7 @@ TASK-SPEC is **refused**, and the refusal names the exact command to fix it.
 - **VAPID keys not set** — push code ships but silently no-ops
 - **DNS** `hermes.yvon.in → 169.58.107.148` (BigRock) — **verified** 2026-08-01
 - **Vercel env** `HERMES_URL` / `HERMES_TOKEN` — updated for Contabo, deploy live; `VAPID_*` still unverified
+- ⚠️ **2026-08-06 CORRECTION:** the Vercel env claim above is **unverified/stale** — chat still returns "HERMES_URL and HERMES_TOKEN not set in Vercel env". The VPS wrapper is proven working (platform='cli', SSE streaming, `pwd` → `/opt/yvon-hermes-http`), so the ONLY missing link is the env vars in the dashboard runtime (Vercel project env or local `dashboard/.env.local`). Set both and redeploy; then chat replies + bash work end-to-end.
 - **`hermes-agent` not in git** — still VPS-only on Contabo. The wrapper (`vps-scripts/`) *is* in git
 - **Hermes API server `127.0.0.1:9119`** — must run (`hermes dashboard`); powers the `/api/hermes/*` proxy (Foundry/Task Board/Office). **Unverified on Contabo** (§2 M3)
 - **4201 metrics service** — existed only on Hostinger, wrapped behind the operator's domain; not on Contabo → ventures-health may show offline (§8 V5)

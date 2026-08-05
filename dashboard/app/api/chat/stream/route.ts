@@ -13,10 +13,17 @@
 //
 // Owner: raj (TS-017 WI-1)
 
+import { cookies } from 'next/headers'
 import { supabaseServer } from '@/lib/supabase-server'
 import { streamHermesChat, hermesConfig } from '@/lib/hermes-client'
 import { sendPush, type PushSubscriptionRow } from '@/lib/push-server'
 import type { WorkspaceKey } from '@/lib/workspaces'
+import { activeWorkspace } from '@/lib/workspaces'
+
+// TS-018 WI-2 (YVON-CHAT §3.2): the workspace was hardcoded to 'yvon-os' here
+// (the "one defect that underlies more than it appears to"). Now read from the
+// yvon_active_venture cookie set by /switch; unknown/missing values fall back
+// to 'yvon-os'. The value flows to events.context_id via main.py → events.py.
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -52,12 +59,15 @@ export async function GET(request: Request): Promise<Response> {
     .select('kind, department')
     .eq('id', userMsg.room_id)
     .single()
-  const workspace: WorkspaceKey = 'yvon-os'
+  const cookieStore = await cookies()
+  const workspace: WorkspaceKey = activeWorkspace(cookieStore.get('yvon_active_venture')?.value)
 
   const cfg = hermesConfig()
   if (!cfg.configured) {
+    // Actionable error: name exactly which env var is missing (TS-021).
+    const reason = cfg.reason ?? 'Hermes not configured (HERMES_URL / HERMES_TOKEN missing)'
     return new Response(
-      `data: ${JSON.stringify({ kind: 'error', message: 'Hermes not configured' })}\n\n`,
+      `data: ${JSON.stringify({ kind: 'error', message: reason })}\n\n`,
       {
         headers: {
           'Content-Type': 'text/event-stream',
@@ -76,6 +86,9 @@ export async function GET(request: Request): Promise<Response> {
       let replyAuthorId = '[unknown]'
       let replyAuthorName = '[unknown]'
 
+      let turnCorrelation: string | null = null
+      let correlationPersisted = false
+
       try {
         const content = userMsg.content ?? ''
         const mentions: string[] = Array.isArray(userMsg.mentions) ? userMsg.mentions : []
@@ -92,6 +105,30 @@ export async function GET(request: Request): Promise<Response> {
         )) {
           const data = JSON.stringify(event)
           controller.enqueue(encoder.encode(`data: ${data}\n\n`))
+
+          // TS-018 WI-2 (YVON-CHAT §5.2): capture the turn's correlation from
+          // the first event that carries it, then link the user message row so
+          // the pipeline panel can reconstruct the turn with one query.
+          // Best-effort (WI-11 live fix): if migration 106 isn't applied the
+          // write fails quietly and the turn still completes — correlation
+          // simply isn't persisted until the migration runs.
+          if (!turnCorrelation && event.correlation) {
+            turnCorrelation = event.correlation
+            const { error: corrErr } = await supabase
+              .from('chat_messages')
+              .update({ correlation: turnCorrelation })
+              .eq('id', userMessageId)
+              .is('correlation', null)
+            if (corrErr) {
+              // eslint-disable-next-line no-console
+              console.warn(
+                'chat_messages.correlation write failed (migration 106 not applied?):',
+                corrErr.message,
+              )
+            } else {
+              correlationPersisted = true
+            }
+          }
 
           if (event.kind === 'done') {
             replyContent = event.response
@@ -122,6 +159,7 @@ export async function GET(request: Request): Promise<Response> {
           author_name: replyAuthorName,
           content: replyContent,
           mentions: [],
+          correlation: correlationPersisted ? turnCorrelation ?? undefined : undefined,
         })
 
         if (!agentErr) {

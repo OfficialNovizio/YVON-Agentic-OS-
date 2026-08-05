@@ -5,9 +5,14 @@
 # npm install, no next build required). Runs in ~2s. Every check that fails
 # prints file:line and the reason; exit code = number of failed checks.
 #
-# Usage:   cli/verify-deploy.sh [--json]
+# Usage:   cli/verify-deploy.sh [--json] [--full]
 # Exit:    0 = green (safe to push) · N>0 = number of failing checks
 # Wired:   .git/hooks/pre-push (install via cli/install-hooks.sh)
+#
+# Two tiers (YVON-CHAT §6.3 · TS-018 WI-6):
+#   · no flag        — 8 static checks, ~2s, runs on EVERY push (pre-push hook)
+#   · --full         — tier 1 + `next build` + Playwright smoke (~90s), for
+#                      before a risky push or on demand (e.g. /deploy from chat)
 #
 # Checks (each fires a distinct exit-bump):
 #   1. Undeclared runtime imports          → dep missing in package.json
@@ -26,7 +31,14 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APPS="${APPS:-dashboard}"
 FAILS=0
-JSON="${1:-}"
+JSON=0
+FULL=0
+for arg in "$@"; do
+  case "$arg" in
+    --json) JSON=1 ;;
+    --full) FULL=1 ;;
+  esac
+done
 declare -a REPORT=()
 
 red()   { printf '\033[31m%s\033[0m\n' "$*"; }
@@ -344,12 +356,28 @@ else while IFS= read -r line; do bump "${line#FAIL::}"; done <<< "$out"
 fi
 
 echo ""
-if [ "$FAILS" -eq 0 ]; then
-  green "✅ deploy-gate PASS ($((${#REPORT[@]})) findings) — safe to push"
-  exit 0
-else
+if [ "$FAILS" -ne 0 ]; then
   red "❌ deploy-gate FAIL — $FAILS finding(s) block the push"
   echo ""
   echo "Bypass (not recommended): git push --no-verify"
   exit "$FAILS"
 fi
+
+# ── Full tier: run the app (YVON-CHAT §6.3 — all 8 checks above are static;
+#    nothing runs the app. --full closes that gap for risky pushes / /deploy.)
+if [ "$FULL" -eq 1 ]; then
+  echo ""
+  echo "── full tier ── next build + Playwright smoke (~90s) ──"
+  if ! (cd "$ROOT/dashboard" && npm run build); then
+    red "❌ full tier FAIL: next build failed"
+    exit 1
+  fi
+  if ! (cd "$ROOT/dashboard" && npx playwright test --project=chromium); then
+    red "❌ full tier FAIL: Playwright smoke failed"
+    exit 1
+  fi
+  green "✅ full tier PASS — build + smoke green"
+fi
+
+green "✅ deploy-gate PASS ($((${#REPORT[@]})) findings) — safe to push"
+exit 0

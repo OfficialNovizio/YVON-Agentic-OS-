@@ -10,11 +10,20 @@ import { applyEvent, bubbleUp, DECAY_MS } from "@/lib/events";
    LEVEL 1  overview   ·  core orb + DEPARTMENT cards (collision-free ring)
    LEVEL 2  detail     ·  one department + its AGENTS fanned out
 
-   DATA IS REAL: /structure.json, generated from the Teams/ directory tree by
-   scripts/build-structure.mjs (runs as `prebuild`, so every deploy regenerates).
-   Agent ids are stable — slug(dept)-dirname — and are the contract with the
-   run-event pipeline. Layout is computed once from sorted ids and never
-   recomputes on state change, so nodes never reshuffle.
+   DATA IS REAL — see docs/YVON-GRAPH.md
+     structure  /structure.json, generated from the Teams/ tree by
+                scripts/build-structure.mjs (runs as `prebuild`, so every
+                deploy regenerates it).            → doc §1.1
+     activity   Supabase Realtime on the append-only `events` table; the
+                browser holds the socket, Vercel is never in the live
+                path.                              → doc §1.4, §4.5
+     ids        slug(dept)-dirname. Contract with events.actor — if it
+                drifts, nodes silently stop lighting. → doc §6.1
+     layout     computed once from stable sorted ids and never recomputed
+                on a state change, so nodes never reshuffle. → doc §2.5
+
+   NOT YET BUILT — L3 satellites (brand orbs, active departments only).
+   Specified in doc §2.3.
    ═══════════════════════════════════════════════════════════════════════ */
 
 interface Agent { id: string; name: string; tag: string }
@@ -26,7 +35,7 @@ interface Dept {
   agents: Agent[];
 }
 
-/* Real structure, generated from Teams/ by scripts/build-structure.mjs. */
+/* Real structure, generated from Teams/ by scripts/build-structure.mjs (doc §1.1). */
 interface Structure { version: number; departments: Dept[] }
 
 const MINT = "#3ddc97";
@@ -111,10 +120,11 @@ export default function YvonGraph() {
   const [open, setOpen] = useState<Placed | null>(null);
   const [status, setStatus] = useState<Record<string, Status>>({});
   const [q, setQ] = useState("");
-  // Real activity comes from the events table via Supabase Realtime (below).
-  // `demo` is an explicitly-labelled simulator for screenshots — never on by default.
+  // Real activity comes from the events table (below). `demo` is an explicitly
+  // labelled simulator for screenshots — never on by default.
   const [demo, setDemo] = useState(false);
-  // The four scopes of §12.1 — same components, filtered by context_id.
+  // Scope = context_id. Hardcoded today; doc §16.1 + Q2 replace this with a
+  // fetch of `ventures` so a new brand appears without a deploy.
   const [scope, setScope] = useState("yvon-os");
 
   const [view, setView] = useState({ x: 0, y: 0, s: 0.52 });
@@ -134,10 +144,10 @@ export default function YvonGraph() {
     setView({ x: window.innerWidth / 2 - CX * 0.52, y: window.innerHeight / 2 - CY * 0.52, s: 0.52 });
   }, []);
 
-  /* ── LIVE ACTIVITY ─────────────────────────────────────────────────────
-     Browser ⇄ Supabase Realtime directly. Vercel is never in this path — it
-     cannot hold a live connection (§10.1). run.completed decays rather than
-     switching off, so the map shows *recent* work (§12.2).                */
+  /* ── LIVE ACTIVITY (doc §1.4, §16.2) ────────────────────────────────────
+     Browser ⇄ Supabase Realtime directly. Vercel cannot hold a live
+     connection. run.completed decays rather than switching off, so the map
+     shows *recent* work. */
   useEffect(() => {
     const timers: Record<string, ReturnType<typeof setTimeout>> = {};
     const unsub = supabaseSource(scope).subscribe((e) => {
@@ -156,7 +166,7 @@ export default function YvonGraph() {
     };
   }, [scope]);
 
-  // Departments inherit the strongest state of their agents (§12.2 bubble-up).
+  // Departments inherit the strongest state of their agents (doc §16.2).
   const rolled = useMemo(() => bubbleUp(status, DEPARTMENTS), [status, DEPARTMENTS]);
 
   useEffect(() => {
@@ -213,17 +223,17 @@ export default function YvonGraph() {
           <div style={S.brand}>YVON</div>
           <div style={S.sub}>
             {open ? `${open.name.toUpperCase()} · ${open.agents.length} AGENTS`
-                  : `${DEPARTMENTS.length} DEPARTMENTS · ${DEPARTMENTS.reduce((n, d) => n + d.agents.length, 0)} AGENTS${demo ? ` · ${activeCount} ACTIVE` : ""}`}
+                  : `${DEPARTMENTS.length} DEPARTMENTS · ${DEPARTMENTS.reduce((n, x) => n + x.agents.length, 0)} AGENTS${demo ? ` · ${activeCount} ACTIVE` : ""}`}
           </div>
         </div>
         <div style={{ display: "flex", gap: 5, pointerEvents: "auto" }}>
-          {/* §12.1 — one app, four scopes; same components filtered by context_id */}
+          {/* doc §16.1 — one app, N scopes; same components filtered by context_id */}
           {[["yvon-os", "YVON"], ["novizio", "Novizio"], ["hourbour", "Hourbour"], ["agentx", "AgentX"]].map(([id, label]) => (
             <button key={id} style={{ ...S.tab, ...(scope === id ? S.tabOn : {}) }}
               onClick={() => { setScope(id); setStatus({}); }}>{label}</button>
           ))}
           <button style={{ ...S.tab, ...(demo ? S.tabOn : {}), opacity: 0.7 }}
-            onClick={() => { setDemo(d => !d); if (demo) setStatus({}); }}
+            onClick={() => { setDemo((v) => !v); if (demo) setStatus({}); }}
             title="Simulated pulse — for screenshots only, not real activity">
             {demo ? "demo ON" : "demo"}
           </button>

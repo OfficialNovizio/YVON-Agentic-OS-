@@ -1,0 +1,286 @@
+# TS-018 — Full /chat rollout (YVON-CHAT.md) + docs/CHAT-ENGINEERING.md
+# meta's protocol followed manually: discovery once (operator answers 2026-08-04)
+# → DAG → sign-off → activate. Source form: this YAML.
+id: TS-018
+status: gated          # draft → discovery → approved → executing → gated → done
+approved_by: operator
+approved_at: 2026-08-04
+source_message: >
+  "Do the full rollout in the chat and complete the documentation of chat use
+  engineering team, their skills tools and CIAOS workflow design from master.md doc."
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only — no transcript inheritance
+  inject_form: .toon (this YAML is the source form)
+
+classification:
+  task_type: full_rollout — chat command layer, workspace scoping, runtime fixes,
+             observability, deploy gate, engineering documentation
+  departments: [Engineering]
+  lead: dev
+  gate_0: true  # operator-ordered rollout; discovery completed via operator answers
+  gate_0_signoffs:
+    - operator
+
+context:                 # hook-injected, gate-verified (citations only)
+  chunks:
+    - Engineering/dev/agent.md
+    - Engineering/dev/custom/delivery-governance/SKILL.md
+    - Engineering/dev/custom/code-review-standards/SKILL.md
+    - Engineering/dev/custom/stack-profile/SKILL.md
+  existing_assets:
+    - docs/YVON-CHAT.md            # design of record, verified 2026-08-04
+    - docs/YVON-GRAPH.md           # events/context_id contract (§1.2, §1.4, §6.1)
+    - docs/MASTER.md               # PART 0 §3 (CAOS) · PART 2 (5 gates) · PART 6 (TASK-SPEC) · PART 7 · PART 8
+    - store/tasks/TS-013.yaml      # Hermes HTTP wrapper — the foundation this builds on
+    - dashboard/app/api/chat/send/route.ts      # auth + insert; NO command dispatch
+    - dashboard/app/api/chat/stream/route.ts    # :55 hardcodes workspace 'yvon-os'
+    - dashboard/components/Shell.tsx            # :71/:113/:114 viewport padding defect
+    - dashboard/lib/workspaces.ts               # static WorkspaceKey union of 4
+    - vps-scripts/yvon-hermes-http/main.py      # 8 SSE kinds; emits run.started/completed/failed
+    - vps-scripts/yvon-hermes-http/events.py    # daemon-thread emitter, fire-and-forget
+    - vps-scripts/hermes-config.contabo.yaml    # terminal.cwd=., timeout 180, cli-only toolset
+    - cli/deploy.sh, cli/verify-deploy.sh, cli/vercel-watch.sh, cli/worktree-gen.py
+  conflicts:
+    - "CIAOS (operator term) vs CAOS (repo) — resolved in discovery.decisions[2]; YVON-CHAT.md Appendix C #4"
+    - "YVON-CHAT.md Appendix C #1/#2/#3/#5/#6 remain open — VPS probe / runtime lookup, probe-gated"
+    - "PART 8 evidence: TS-014/015/017 shipped unrecorded; 8 of 11 store records stuck at approved — TS-018 is created complete"
+
+discovery:               # BLOCKING — resolved 2026-08-04 via operator answers
+  questions:
+    - "Full rollout scope — VPS-dependent parts (Hermes cwd/writes, /deploy, /preview) need the box or probe output — how to handle?"
+    - "Terminology: 'CIAOS' appears zero times in the repo (grep-verified); MASTER.md defines CAOS (CLASSIFY → RESOLVE → RETRIEVE → GATE) — which should documentation use?"
+    - "Where should the engineering-team + workflow documentation land?"
+    - "One artifact at a time — which first?"
+  decisions:
+    - "scope: FULL rollout, probe-gated — all repo-side artifacts built; VPS-dependent items written + documented as pending Appendix A probe; nothing applied to the box without probe output"
+    - "terminology: CAOS as documented in MASTER.md (CLASSIFY → RESOLVE → RETRIEVE → GATE + 5-gate harness + TASK-SPEC lifecycle); 'CIAOS' is not a repo term — resolves YVON-CHAT.md Appendix C #4"
+    - "docs deliverable: single new design-of-record docs/CHAT-ENGINEERING.md with [built]/[partial]/[planned] markers; no .toon variant; YVON-CHAT.md untouched except §7 status refresh at WI-10"
+    - "order: artifact-by-artifact from TASK-SPEC first (TS-018), hard stop after each per AGENT-BUILD-PLAYBOOK §0.2; sequence WI-1 → WI-10 as dagged"
+
+work_items:
+  - id: WI-0
+    owner: operator
+    objective: "Run the Appendix A diagnostic probe on the VPS (read-only) and paste output — distinguishes Defect C (toolset absent) from A/B (cwd, read-only FS) before any Hermes change"
+    produces: ""               # probe output pasted in chat, not a file
+    acceptance:
+      - "output of all 7 probe steps pasted; #4/#5 (tool enumeration + pwd/git) decisive"
+      - "unblocks WI-8; resolves Appendix C #1/#2/#3"
+
+  - id: WI-1
+    owner: raj + mia
+    objective: "Command layer — registry (types.ts, registry.ts) + dispatch in POST /api/chat/send BEFORE the chat_messages insert; first-release commands /help /switch /where /clear; unknown-command is an error with a suggestion (never fallthrough); results persist as author_kind='system'; confirm-token flow for confirm:true commands; client renders system messages + effects (reload/navigate)"
+    strategy: BALANCE 1.0x
+    consumes: [docs/YVON-CHAT.md §2, dashboard/app/api/chat/send/route.ts, dashboard/lib/workspaces.ts, dashboard/app/chat/Composer.tsx, dashboard/app/chat/MessageStream.tsx]
+    produces: dashboard/lib/commands/
+    produces: dashboard/app/api/chat/send/route.ts
+    owns_paths:
+      - dashboard/lib/commands/
+      - dashboard/app/api/chat/send/route.ts
+      # /confirm is a registry command (confirm.ts), not a route — no route file.
+    skills: [raj/api-standards, raj/service-patterns, Shared OS verification-before-completion]
+    scripts: []
+    blocked_by: []
+    acceptance:
+      - "/swich novizio → 'unknown command' error suggesting /switch — never asks the model"
+      - "/switch novizio → sets yvon_active_venture (reuses /api/set-venture logic) AND reports which parts took effect ('scope + agent context switched; Hermes cwd unchanged (not yet wired)')"
+      - "/where → prints active venture, workspace key, Hermes cwd, project root"
+      - "/help generated from the registry — every command has usage"
+      - "command results persist as author_kind='system' messages in the room"
+      - "confirm:true returns a prompt first; token bound to (userId, roomId, command, args) + expiry; second Enter without token → 'confirm required'"
+      - "dispatch runs before insert; non-command messages unchanged; send/route.ts still authenticates + parses mentions"
+    security_review: warden (confirm-token handling, cookie auth)
+
+  - id: WI-2
+    owner: raj
+    objective: "/switch part 2 — stream/route.ts reads yvon_active_venture cookie instead of the hardcoded 'yvon-os' at :55; the workspace value flows to events.context_id per the YVON-GRAPH.md §1.2 contract (ventures.context_path, not bare slug, once the runtime lookup lands)"
+    strategy: FAST 1.0x
+    consumes: [dashboard/app/api/chat/stream/route.ts, dashboard/lib/workspaces.ts, docs/YVON-GRAPH.md §1.2]
+    produces: dashboard/app/api/chat/stream/route.ts
+    owns_paths: [dashboard/app/api/chat/stream/route.ts]
+    skills: [raj/api-standards, Shared OS verification-before-completion]
+    scripts: []
+    blocked_by: []
+    acceptance:
+      - "event context_id = active venture cookie value, not 'yvon-os', for a switched room"
+      - "missing/invalid cookie → defaults to 'yvon-os' without error"
+      - "unknown venture slug → rejected at send time (no silent fallthrough)"
+    security_review: none
+
+  - id: WI-3
+    owner: mia
+    objective: "Shell full-bleed mode + chat layout fix — Shell.tsx grows a full-bleed opt-out (padding wrapper skipped for viewport-filling pages, correctly-sized flex child instead); chat/page.tsx stops viewport math (h-full min-h-0); mobile uses 100dvh + env(safe-area-inset-bottom) on the composer"
+    strategy: BALANCE 1.0x
+    consumes: [dashboard/components/Shell.tsx, dashboard/app/chat/page.tsx, dashboard/app/chat/Composer.tsx, docs/YVON-CHAT.md §1]
+    produces: dashboard/components/Shell.tsx
+    produces: dashboard/app/chat/page.tsx
+    produces: dashboard/app/chat/Composer.tsx
+    owns_paths:
+      - dashboard/components/Shell.tsx
+      - dashboard/app/chat/page.tsx
+      - dashboard/app/chat/Composer.tsx
+    skills: [mia/frontend-verification, mia/ui-accessibility-standards, Shared OS verification-before-completion]
+    scripts: []
+    blocked_by: []
+    acceptance:
+      - "at 375×667, 768×1024 and 1920×1080 the composer is visible WITHOUT scrolling"
+      - "<main> has no scrollbar while the message list scrolls independently"
+      - "no hardcoded calc() remains breakpoint-dependent; other full-height pages can opt into full-bleed"
+    security_review: none
+
+  - id: WI-4
+    owner: raj
+    objective: "Phase events — events.py adds kinds phase.classify / phase.resolve / phase.retrieve / tool.call / gate.passed / gate.blocked / loop.iteration; main.py emits at phase boundaries sharing the turn's correlation; emission stays fire-and-forget (daemon thread, exceptions swallowed)"
+    strategy: BALANCE 1.0x
+    consumes: [vps-scripts/yvon-hermes-http/events.py, vps-scripts/yvon-hermes-http/main.py, docs/YVON-CHAT.md §5.2, docs/YVON-GRAPH.md §1.4]
+    produces: vps-scripts/yvon-hermes-http/events.py
+    produces: vps-scripts/yvon-hermes-http/main.py
+    owns_paths:
+      - vps-scripts/yvon-hermes-http/events.py
+      - vps-scripts/yvon-hermes-http/main.py
+    skills: [raj/backend-observability, raj/service-patterns, Shared OS verification-before-completion]
+    scripts: []
+    blocked_by: []
+    acceptance:
+      - "a turn's phases reconstruct with ONE correlation query"
+      - "gate.blocked carries {gate, reason}; loop.iteration carries {n, why}"
+      - "emission never blocks a turn (daemon thread; exceptions swallowed — HARD RULE preserved)"
+    security_review: none
+
+  - id: WI-5
+    owner: mia
+    objective: "Pipeline panel — ContextPanel.tsx renders the pipeline beside the conversation, scoped to the current turn: live from SSE for the in-flight turn, from the events table for any past turn — same renderer, two sources; empty state when no turn"
+    strategy: BALANCE 1.0x
+    consumes: [dashboard/app/chat/ContextPanel.tsx, dashboard/app/chat/MessageStream.tsx, docs/YVON-CHAT.md §5.3]
+    produces: dashboard/app/chat/ContextPanel.tsx
+    owns_paths: [dashboard/app/chat/ContextPanel.tsx]
+    skills: [mia/frontend-verification, Shared OS verification-before-completion]
+    scripts: []
+    blocked_by: [WI-4]
+    acceptance:
+      - "in-flight turn: phases update live from SSE events"
+      - "past turn: identical view reconstructed from events (same renderer)"
+      - "no turn: explicit empty state; panel never blocks the conversation"
+    security_review: none
+
+  - id: WI-6
+    owner: quinn (dev assists)
+    objective: "Deploy gate --full tier — verify-deploy.sh --full adds next build + Playwright smoke (~90s); the 2s tier-1 8-check gate stays untouched on every push"
+    strategy: BALANCE 1.0x
+    consumes: [cli/verify-deploy.sh, dashboard/playwright.config.ts, docs/YVON-CHAT.md §6.3]
+    produces: cli/verify-deploy.sh
+    owns_paths: [cli/verify-deploy.sh]
+    skills: [quinn/test-strategy, quinn/browser-verification, quinn/webapp-testing, Shared OS verification-before-completion]
+    scripts: []
+    blocked_by: []
+    acceptance:
+      - "verify-deploy.sh (no flag) still ~2s, 8 checks, runs on every push"
+      - "--full runs next build + Playwright and exits 1 on failure"
+      - "--full documented in the script header + YVON-CHAT.md §6.3"
+    security_review: none
+
+  - id: WI-7
+    owner: raj + mia
+    objective: "/deploy [--full] and /preview registry commands — run cli/deploy.sh / push branch + vercel-watch, stream progress into the pipeline panel, return the Vercel URL; confirm:true; until Appendix C #6 is resolved they report plainly what did NOT run"
+    strategy: BALANCE 1.0x
+    consumes: [cli/deploy.sh, cli/vercel-watch.sh, docs/YVON-CHAT.md §6.4 + Appendix B]
+    produces: dashboard/lib/commands/deploy.ts
+    produces: dashboard/lib/commands/preview.ts
+    owns_paths: [dashboard/lib/commands/deploy.ts, dashboard/lib/commands/preview.ts]
+    skills: [raj/api-standards, Shared OS verification-before-completion]
+    scripts: []
+    blocked_by: [WI-6]
+    acceptance:
+      - "commands registered + discoverable via /help; confirm prompt first"
+      - "executor resolution explicit: Vercel cannot run deploy.sh — /deploy runs where the executor is (VPS/CI), else reports 'not wired: no executor'"
+      - "/preview returns the preview URL or a plain failure — no silent no-op"
+    security_review: warden (VPS-touching command, confirm-token)
+
+  - id: WI-8
+    owner: raj + ops
+    objective: "Hermes patch (PROBE-GATED) — write the §4.4 patch as tracked files in vps-scripts/: per-project cwd from ventures.local_repo_path; ReadWritePaths per checkout (ProtectSystem=strict STAYS); explicit platform/toolset incl. terminal + code_execution on AIAgent; terminal.timeout raised above 180s. NOT applied to the box until WI-0 probe output lands and decides A vs B vs C"
+    strategy: BALANCE 1.0x
+    consumes: [vps-scripts/hermes-config.contabo.yaml, vps-scripts/yvon-hermes-http/systemd/yvon-hermes-http.service, vps-scripts/yvon-hermes-http/main.py, docs/YVON-CHAT.md §4]
+    produces: vps-scripts/hermes-patch-notes.md
+    owns_paths: [vps-scripts/]
+    skills: [ops (systemd/hardening), raj/service-patterns, Shared OS verification-before-completion]
+    scripts: []
+    blocked_by: [WI-0]
+    acceptance:
+      - "patch files tracked in vps-scripts/ and marked 'pending probe' — nothing applied"
+      - "each of the 4 defects (cwd, ReadWritePaths, toolset, timeout) has a file-level diff plan with the probe result it depends on"
+      - "ProtectSystem=strict never relaxed — scope widens by explicit paths only (§8.7)"
+    security_review: warden (hardening changes are security-sensitive)
+
+  - id: WI-9
+    owner: dev
+    objective: "docs/CHAT-ENGINEERING.md — design-of-record: how /chat drives the Engineering team (11-agent roster: role, skills, tools, commands, handoffs), the chat↔team workflow, and the CAOS workflow design sourced from MASTER.md (PART 0 §3 CAOS definition, PART 2 5-gate harness, PART 6 TASK-SPEC lifecycle, PART 7 master tree + scenarios A–E, PART 8 enforcement) with [built]/[partial]/[planned] markers matching repo state"
+    strategy: QUALITY 1.0x
+    consumes: [docs/MASTER.md (line-indexed ranges only), Teams/Engineering/*/agent.md + operational/, docs/YVON-CHAT.md]
+    produces: docs/CHAT-ENGINEERING.md
+    owns_paths: [docs/CHAT-ENGINEERING.md]
+    skills: [dev/delivery-governance, dev/architecture-decisions, Shared OS verification-before-completion]
+    scripts: []
+    blocked_by: [WI-5]
+    acceptance:
+      - "every engineering agent (dev, raj, mia, nova, quinn, ops, dana, aegis, axiom, cypher, rank) has a roster row sourced from its agent.md + operational files"
+      - "CAOS section quotes MASTER.md definitions with line refs; no 'CIAOS' anywhere"
+      - "markers [built]/[partial]/[planned] match the repo on the day it's written"
+    security_review: none
+
+  - id: WI-10
+    owner: quinn
+    objective: "Verification gate + status refresh — task.sh validate PASS; tsc --noEmit clean; verify-deploy.sh 0 findings; Playwright chat-sse.spec.ts + tasks.spec.ts green; YVON-CHAT.md §7 built/partial/missing table refreshed to actual state"
+    strategy: BALANCE 1.0x
+    consumes: [everything WI-1..WI-9 produced]
+    produces: docs/YVON-CHAT.md
+    owns_paths: [docs/YVON-CHAT.md]
+    skills: [quinn/test-strategy, quinn/browser-verification, quinn/webapp-testing, Shared OS verification-before-completion]
+    scripts: [cli/task.sh, cli/verify-deploy.sh]
+    blocked_by: [WI-1, WI-2, WI-3, WI-4, WI-5, WI-6, WI-7, WI-9]
+    acceptance:
+      - "all gate evidence captured in the task record; exit_gate.proof references concrete artifacts"
+      - "YVON-CHAT.md §7 table matches reality (no [planned] item still claimed built)"
+      - "WI-8 explicitly recorded as probe-gated, not silently dropped"
+    security_review: none
+
+  - id: WI-11
+    owner: raj
+    objective: "LIVE FINDING 2026-08-04 — GET /api/chat/messages 500: 'column chat_messages.correlation does not exist'. Migration 106 never applied to the live DB. Fix: messages route self-heals (select without correlation until the column exists, warn once); stream correlation writes best-effort (never break the reply save); events probe 404s on missing column. Chat works pre-migration; correlation + command layer re-enable automatically after migration."
+    produces: dashboard/app/api/chat/messages/route.ts
+    produces: dashboard/app/api/chat/stream/route.ts
+    produces: dashboard/app/api/chat/events/route.ts
+    blocked_by: []
+    acceptance:
+      - "GET /api/chat/messages returns 200 (no 500) with migration 106 NOT applied"
+      - "agent replies save even when the correlation write fails"
+      - "GET /api/chat/events returns 404 (not 500) when the column is missing"
+      - "OPERATOR ACTION (blocks full enablement): apply dashboard/supabase/migrations/106_chat_commands.sql (SQL editor or `supabase db push`), then correlation + command layer work"
+
+  - id: WI-12
+    owner: raj + ops
+    objective: "LIVE FINDING 2026-08-04 — 'hermes bashes not recognized' confirms Defect C (YVON-CHAT §4.3): terminal toolset not loaded (AIAgent constructed with no platform). Fix coded in main.py: pass platform='cli' (fallback toolset='cli', then bare) so terminal + code_execution load. DEPLOY PENDING: copy vps-scripts/yvon-hermes-http/{main.py,events.py} to the VPS, restart yvon-hermes-http, then confirm via Appendix A probe #4 (tool list) that a terminal/shell tool exists."
+    produces: vps-scripts/yvon-hermes-http/main.py
+    blocked_by: []
+    acceptance:
+      - "main.py logs 'AIAgent created with platform=cli' (or toolset) on the box"
+      - "Appendix A probe #4 lists a terminal/shell tool"
+      - "a bash command in chat executes instead of being 'not recognized'"
+
+pushes:
+  A: [WI-1, WI-2, WI-3, WI-4, WI-5, WI-6, WI-7, WI-9]  # all repo-side code + docs
+  B: [WI-8]                                             # VPS patch — only after WI-0 probe
+  C: [WI-10]                                            # final gate + status refresh
+
+dag:
+  critical_path: [WI-1, WI-2, WI-3, WI-4, WI-5, WI-6, WI-7, WI-9, WI-10]
+  parallel: [[WI-2, WI-3], [WI-4, WI-6], [WI-7, WI-9]]
+
+exit_gate:
+  owner: quinn
+  proof: "VERIFIED 2026-08-04 (static tier): cli/task.sh validate PASS (TS-018) · tsc --noEmit clean · cli/verify-deploy.sh 0 findings (8/8 checks) · py_compile clean (main.py, events.py) · CAOS e2e 5/5 (cli/verify-caos.py --quick). LIVE FINDINGS 2026-08-04: (1) messages 500 on chat_messages.correlation — migration 106 not applied; code self-heals (WI-11), chat restored without the migration; (2) hermes bash not recognized — Defect C confirmed; toolset fix coded (WI-12). PENDING (operator + quinn, recorded not claimed): apply migration 106 (SQL editor / supabase db push) · deploy main.py+events.py to VPS + restart · Appendix A probe #4 confirms terminal tool · browser viewport checks · Playwright specs. docs/CHAT-ENGINEERING.md present: 11-agent roster + CAOS section citing MASTER.md line refs."
+
+feedback:
+  outcome: null
+  lesson: null

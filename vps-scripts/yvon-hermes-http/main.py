@@ -160,7 +160,16 @@ def _agent_for(user_id: str, room_id: str) -> PooledAgent:
             # AIAgent picks up provider/model/keys automatically from
             # /root/.hermes/config.yaml + /root/.hermes/.env. We just supply a
             # stable session id so conversation state persists.
-            agent = AIAgent(
+            #
+            # TS-018 WI-8/WI-12 — Defect C (YVON-CHAT §4.3): `terminal` and
+            # `code_execution` are registered only under platform_toolsets.cli
+            # (hermes-config.contabo.yaml). With no platform argument, AIAgent
+            # may default to a toolset that excludes them — which surfaces as
+            # "bash commands not recognized". Pass the cli platform so the
+            # tools load. The exact kwarg name lives in hermes-agent source on
+            # the box (not tracked here), so we degrade loudly: try `platform`,
+            # then `toolset`, then bare — each fallback logs a warning.
+            _agent_kwargs = dict(
                 session_id=f"web-{user_id}-{room_id}",
                 model=HERMES_MODEL_DEFAULT or None,
                 provider=HERMES_PROVIDER_DEFAULT or None,
@@ -171,6 +180,23 @@ def _agent_for(user_id: str, room_id: str) -> PooledAgent:
                 load_soul_identity=False,
                 skip_memory=False,
             )
+            agent = None
+            for _kw, _val in (("platform", "cli"), ("toolset", "cli")):
+                if agent is not None:
+                    break
+                try:
+                    _agent_kwargs[_kw] = _val
+                    agent = AIAgent(**_agent_kwargs)
+                    log.info("AIAgent created with %s=%r (terminal tools should be loaded)", _kw, _val)
+                except TypeError:
+                    _agent_kwargs.pop(_kw, None)
+                    log.warning("AIAgent rejected %s=%r — trying next option", _kw, _val)
+            if agent is None:
+                log.warning(
+                    "AIAgent created WITHOUT an explicit toolset — terminal tools may be absent. "
+                    "Verify with Appendix A probe #4 (list tools)."
+                )
+                agent = AIAgent(**_agent_kwargs)
             pooled = PooledAgent(agent=agent)
             _pool[key] = pooled
         pooled.touch()
@@ -266,34 +292,40 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
     loop = asyncio.get_running_loop()
 
+    # TS-018 WI-4 (YVON-CHAT §5.2): every SSE event carries the turn's
+    # correlation so the dashboard can link the message row to its events with
+    # one indexed query. `_correlation` is assigned below, before any callback
+    # fires (they run inside run_agent) — late binding is safe here.
+    def _sse(event: dict[str, Any]) -> None:
+        loop.call_soon_threadsafe(queue.put_nowait, {**event, "correlation": _correlation})
+
     def on_delta(text: str) -> None:
         if not text:
             return
-        loop.call_soon_threadsafe(queue.put_nowait, {"kind": "token", "text": text})
+        _sse({"kind": "token", "text": text})
 
     # ── Status callbacks (TS-017: live status feed) ─────────────────────────
     # Hermes may pass an argument (status/phase string) to these callbacks
     # depending on version — accept *args so we're version-tolerant.
+    _tool_starts: dict[str, float] = {}
+
     def on_thinking(*_args: Any) -> None:
-        loop.call_soon_threadsafe(queue.put_nowait, {"kind": "thinking"})
+        _sse({"kind": "thinking"})
 
     def on_tool_start(name: str, args_preview: str) -> None:
-        loop.call_soon_threadsafe(
-            queue.put_nowait,
-            {"kind": "tool_call.start", "toolName": name, "argsPreview": args_preview},
-        )
+        _tool_starts[name] = time.time()
+        _sse({"kind": "tool_call.start", "toolName": name, "argsPreview": args_preview})
+        # TS-018 WI-4 — persisted phase detail (fire-and-forget; see events.py).
+        _emit_all("tool.call", tool=name, status="start")
 
     def on_tool_end(name: str, ok: bool, summary: str) -> None:
-        loop.call_soon_threadsafe(
-            queue.put_nowait,
-            {"kind": "tool_call.end", "toolName": name, "ok": ok, "summary": summary},
-        )
+        _sse({"kind": "tool_call.end", "toolName": name, "ok": ok, "summary": summary})
+        started = _tool_starts.pop(name, None)
+        ms = int((time.time() - started) * 1000) if started else None
+        _emit_all("tool.call", tool=name, ok=bool(ok), ms=ms, summary=str(summary)[:300])
 
     def on_notice(level: str, message: str) -> None:
-        loop.call_soon_threadsafe(
-            queue.put_nowait,
-            {"kind": "notice", "level": level, "message": message},
-        )
+        _sse({"kind": "notice", "level": level, "message": message})
 
     # Compose the prompt with routing hints so meta/CLAUDE.md §2 logic in Hermes
     # skills can respect our department/mention conventions.
@@ -311,13 +343,23 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     # One event per mentioned agent; unaddressed turns are attributed to 'system'.
     # Fire-and-forget: emit() never blocks and never raises (see events.py).
     _correlation = str(uuid.uuid4())
-    _actors = req.mentions or ["system"]
+    # TS-023 (#3): unaddressed turns are attributed to the orchestrator agent
+    # 'meta' (real fleet agent) instead of the anonymous 'system' — so events,
+    # the pipeline panel and the graph show WHO handled the turn honestly.
+    _actors = req.mentions or ["meta"]
 
     def _emit_all(kind: str, **payload: Any) -> None:
         for _a in _actors:
             emit(kind, _a, context_id=req.workspace, correlation=_correlation, **payload)
 
     _emit_all("run.started", room_id=req.room_id)
+    # TS-018 WI-4 (YVON-CHAT §5.2): phases observable from the wrapper, sharing
+    # the turn's correlation. classify/resolve carry REAL input facts — the
+    # wrapper cannot see in-model classification, retrieval or gates, so those
+    # kinds are reserved until hermes-agent exposes phase hooks (events.py
+    # vocabulary). Never fabricate a phase the wrapper cannot observe.
+    _emit_all("phase.classify", intent=req.message[:400], workspace=req.workspace)
+    _emit_all("phase.resolve", targets=_actors, workspace=req.workspace)
 
     def run_agent() -> None:
         try:
@@ -354,9 +396,9 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
 
                 if event.get("kind") == "__internal_done__":
                     if result_holder["error"] is not None:
-                        yield f"data: {json.dumps({'kind': 'error', 'message': result_holder['error']})}\n\n"
+                        yield f"data: {json.dumps({'kind': 'error', 'message': result_holder['error'], 'correlation': _correlation})}\n\n"
                     else:
-                        yield f"data: {json.dumps({'kind': 'done', 'response': result_holder['response']})}\n\n"
+                        yield f"data: {json.dumps({'kind': 'done', 'response': result_holder['response'], 'correlation': _correlation})}\n\n"
                     break
 
                 yield f"data: {json.dumps(event)}\n\n"

@@ -43,3 +43,7 @@ Teams/Shared OS/tools/**/.env
 Teams/Shared OS/tools/**/data/
 Teams/Shared OS/tools/**/.data/
 Teams/Shared OS/tools/**/upstream/
+
+# Python bytecode — runtime noise, never commit
+__pycache__/
+*.pyc

@@ -20,3 +20,15 @@ export const WORKSPACES: Workspace[] = [
 export const WORKSPACE_MAP: Record<WorkspaceKey, Workspace> = Object.fromEntries(
   WORKSPACES.map((w) => [w.key, w])
 ) as Record<WorkspaceKey, Workspace>
+
+/** Resolve the active venture from the yvon_active_venture cookie (TS-023).
+ * Unknown/missing values fall back to 'yvon-os'. Single source of truth —
+ * used by both send and stream routes (was duplicated). */
+export function activeWorkspace(cookieValue: string | undefined): WorkspaceKey {
+  const value = (cookieValue ?? '').trim().toLowerCase()
+  if (!value) return 'yvon-os'
+  for (const w of WORKSPACES) {
+    if (w.key === value || w.ventureSlug === value) return w.key
+  }
+  return 'yvon-os'
+}

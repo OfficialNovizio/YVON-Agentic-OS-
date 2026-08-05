@@ -500,6 +500,23 @@ if __name__ == '__main__':
         f = detect_and_execute_formulas('NPV of $1M investment $300K per year 5 years 10%')
         verify('NPV formula detected', any(x.get('function') == 'npv' and x.get('computed') for x in f))
         verify('Bridge feedback works', handle_feedback({'trace': r.get('trace', {}), 'outcome': 'accepted'}).get('success'))
+        # CAOS orchestrator is exercised, not just present (TS-018 WI-13).
+        import json as _json
+        import subprocess as _subprocess
+        _run = _subprocess.run(
+            ['node', 'cli/caos-run.mjs', '--task', 'verify orchestrator wiring', '--agent', 'dev'],
+            capture_output=True, text=True, timeout=120,
+        )
+        _ok = _run.returncode == 0
+        _stages = 0
+        if _ok:
+            try:
+                _stages = _json.loads(_run.stdout).get('stages', 0)
+            except Exception:  # noqa: BLE001
+                _stages = 0
+        verify(f'CAOS executor runs end-to-end (stages={_stages}, exit={_run.returncode})',
+               _ok and _stages >= 1,
+               (_run.stdout or _run.stderr)[-200:])
         result()
         sys.exit()
 

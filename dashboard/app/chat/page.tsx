@@ -1,29 +1,51 @@
-// /chat — Team chat with drill-down.
-//   Workforce → Department → Agent (breadcrumb + pill navigation)
-//   "All assigned" combined chat for BOD members with multiple assigned depts.
-//   Owner sees each BOD member's assigned_scope room; drill-downs are 1:1 rooms.
-//
-// Owner: mia · TS-015 WI-3
+// /chat — command-deck chat (TS-020).
+// Conversation-first: icon dock (left) → thread (center) → floating pipeline
+// HUD (right, on demand) → Teams slide-over (on demand). Every element binds
+// to real data: rooms, messages, SSE events, the command registry, the fleet.
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Menu, X as CloseIcon } from 'lucide-react'
-import { PageHeader } from '@/components/ui'
+import { useRouter } from 'next/navigation'
 import { NotificationsSetup } from '@/components/NotificationsSetup'
-import { FLEET_DEPARTMENTS } from '@/lib/fleet'
-import type { FleetDepartment } from '@/lib/fleet'
+import { FLEET, FLEET_DEPARTMENTS } from '@/lib/fleet'
 import { supabaseBrowser } from '@/lib/supabase-browser'
-import { ContextPanel } from './ContextPanel'
-import { PillHeader } from './PillHeader'
+import { useShellFullBleed } from '@/components/Shell'
 import { MessageStream } from './MessageStream'
-import { SessionBar } from './SessionBar'
 import { Composer } from './Composer'
-import type { StatusChipData } from './StatusChip'
+import { DockRail } from './DockRail'
+import { TeamsPanel } from './TeamsPanel'
+import { LiveStrip } from './LiveStrip'
+import { PipelineHud } from './PipelineHud'
+import { VentureSelector } from './VentureSelector'
+import './chat.css'
 import type { UploadedAttachment } from '@/lib/attachments-client'
 import type { ChatRoom } from '@/app/api/chat/rooms/route'
 import type { ChatMessage } from '@/app/api/chat/messages/route'
+import type { TurnEvent } from '@/app/api/chat/events/route'
+import { stageFromSseEvent, stageFromEventRow, upsertStage, type PipelineView } from '@/lib/pipeline'
 
-// ─── Focus state model — drives EVERYTHING in the header + composer ──────
+// Live-status chip types (moved from the removed StatusChip.tsx — page.tsx is
+// now the only consumer; the chip component itself was dead after TS-020).
+type StatusChipKind =
+  | 'thinking'
+  | 'tool_call.start'
+  | 'tool_call.end'
+  | 'tool_call.error'
+  | 'notice'
+
+interface StatusChipData {
+  id: string
+  kind: StatusChipKind
+  toolName?: string
+  argsPreview?: string
+  summary?: string
+  message?: string
+  level?: string
+  ts: number
+  done?: boolean
+}
+
+// ─── Focus state model — drives rooms + dock + slide-over ─────────────────
 export type Focus =
   | { kind: 'workforce' }
   | { kind: 'department'; department: string }
@@ -32,7 +54,6 @@ export type Focus =
 
 const POLL_INTERVAL_MS = 4000
 
-// ─── Safe JSON fetcher — refuses to parse HTML/text as JSON (SyntaxError fix) ─
 async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     credentials: 'same-origin',
@@ -59,6 +80,8 @@ async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export default function ChatPage() {
+  const router = useRouter()
+  const { setFullBleed } = useShellFullBleed()
   const [rooms, setRooms] = useState<ChatRoom[]>([])
   const [roomsLoading, setRoomsLoading] = useState(true)
   const [focus, setFocus] = useState<Focus>({ kind: 'workforce' })
@@ -68,18 +91,74 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [userId, setUserId] = useState<string>('')
-  const [mobileRailOpen, setMobileRailOpen] = useState(false)
   const [statusChips, setStatusChips] = useState<StatusChipData[]>([])
+  const [pipeline, setPipeline] = useState<PipelineView>({ stages: [], source: 'none' })
+  const [streamingText, setStreamingText] = useState<string | null>(null)
+  // Default-visible on desktop (TS-021): teams panel + CAOS card show by
+  // default; on mobile they're overlays toggled on demand.
+  const [teamsOpen, setTeamsOpen] = useState<boolean>(() =>
+    typeof window === 'undefined' ? true : window.innerWidth >= 768,
+  )
+  // Single source of live agent status — one poll feeds the dock + teams
+  // sidebar (was duplicated in both, 2× the network calls). TS-023 review.
+  const [agentLive, setAgentLive] = useState<Record<string, 'active' | 'idle' | 'offline'>>({})
   const sendAbortRef = useRef<AbortController | null>(null)
   const lastMessageIdRef = useRef<string | null>(null)
 
-  // Derive the active agent id for the SessionBar (from focus or mentions)
   const activeAgentId = useMemo<string | null>(() => {
     if (focus.kind === 'agent') return focus.agentId
     return null
   }, [focus])
 
-  // Grab the auth user's id once for the composer (uploads go under {userId}/…)
+  // Full-bleed layout (TS-018 WI-3 · YVON-CHAT §1.3)
+  useEffect(() => {
+    setFullBleed(true)
+    return () => setFullBleed(false)
+  }, [setFullBleed])
+
+  // Live agent status — one 20s poll for the whole page (TS-023 review).
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await fetch('/api/agent-status')
+        if (!res.ok) return
+        const data = (await res.json()) as { agents?: { id: string; status: string }[] }
+        if (cancelled || !data.agents) return
+        const map: Record<string, 'active' | 'idle' | 'offline'> = {}
+        for (const a of data.agents) {
+          if (a.status === 'active' || a.status === 'idle') map[a.id] = a.status
+        }
+        setAgentLive(map)
+      } catch {
+        // no dots — status is never invented
+      }
+    }
+    load()
+    const t = setInterval(load, 20_000)
+    return () => {
+      cancelled = true
+      clearInterval(t)
+    }
+  }, [])
+
+  // Keyboard: ⌘T teams, ⌘K focus composer
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 't') {
+        e.preventDefault()
+        setTeamsOpen((v) => !v)
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        document.querySelector<HTMLTextAreaElement>('textarea[data-composer]')?.focus()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  // Auth user id for uploads
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -90,7 +169,7 @@ export default function ChatPage() {
     return () => { cancelled = true }
   }, [])
 
-  // ── Load rooms once on mount ─────────────────────────────────────────────
+  // Load rooms once
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -107,7 +186,6 @@ export default function ChatPage() {
     return () => { cancelled = true }
   }, [])
 
-  // ── Derive the "active" room based on focus + rooms ─────────────────────
   const activeRoom = useMemo<ChatRoom | null>(() => {
     if (focus.kind === 'workforce') return rooms.find((r) => r.kind === 'whole_team') ?? null
     if (focus.kind === 'assigned_scope') return rooms.find((r) => r.kind === 'assigned_scope') ?? null
@@ -118,10 +196,10 @@ export default function ChatPage() {
     return null
   }, [focus, rooms])
 
-  // ── When focus is 'agent' but no room exists yet, provision it ──────────
+  // Provision agent rooms on demand
   useEffect(() => {
     if (focus.kind !== 'agent') return
-    if (activeRoom) return  // already provisioned
+    if (activeRoom) return
     let cancelled = false
     ;(async () => {
       try {
@@ -139,7 +217,6 @@ export default function ChatPage() {
     return () => { cancelled = true }
   }, [focus, activeRoom])
 
-  // ── Load + poll messages for the active room ─────────────────────────────
   const loadMessages = useCallback(
     async (roomId: string, opts: { silent?: boolean } = {}) => {
       if (!opts.silent) setMessagesLoading(true)
@@ -162,6 +239,8 @@ export default function ChatPage() {
     if (!activeRoom) return
     setMessages([])
     lastMessageIdRef.current = null
+    setPipeline({ stages: [], source: 'none' })
+    setStreamingText(null)
     loadMessages(activeRoom.id)
     const t = setInterval(() => {
       if (activeRoom) loadMessages(activeRoom.id, { silent: true })
@@ -169,8 +248,33 @@ export default function ChatPage() {
     return () => clearInterval(t)
   }, [activeRoom, loadMessages])
 
-  // ── Send a message (TS-017: decoupled + SSE) ─────────────────────────────
-  // Flow: POST user message → open SSE stream → pipe status events → on done, poll reply
+  // Pipeline panel, past turns (TS-018 WI-5 · YVON-CHAT §5.3)
+  useEffect(() => {
+    if (sendAbortRef.current) return
+    const withCorrelation = [...messages].reverse().find((m) => m.correlation)
+    if (!withCorrelation) return
+    let cancelled = false
+    const correlation = withCorrelation.correlation as string
+    ;(async () => {
+      try {
+        const data = await jsonFetch<{ events: TurnEvent[] }>(
+          `/api/chat/events?correlation=${encodeURIComponent(correlation)}`,
+        )
+        if (cancelled) return
+        const stages = data.events
+          .map((r) => stageFromEventRow(r))
+          .filter((s): s is NonNullable<typeof s> => s !== null)
+        if (stages.length > 0) {
+          setPipeline({ stages, source: 'past' })
+        }
+      } catch {
+        // panel stays as-is on failure — observability never breaks the turn
+      }
+    })()
+    return () => { cancelled = true }
+  }, [messages])
+
+  // ── Send (command path + SSE stream + live tokens) ───────────────────────
   const send = useCallback(
     async (content: string, mentions: string[], attachments: UploadedAttachment[]) => {
       if (!activeRoom) return
@@ -178,12 +282,16 @@ export default function ChatPage() {
       setAwaitingReply(true)
       setError(null)
       setStatusChips([])
+      setPipeline({ stages: [], source: 'live' })
+      setStreamingText('')
       const abort = new AbortController()
       sendAbortRef.current = abort
 
       try {
-        // 1) POST the user message (fast — no longer blocks on Hermes)
-        const sendRes = await jsonFetch<{ userMessage: { id: string } | null }>(
+        const sendRes = await jsonFetch<{
+          userMessage: { id: string } | null
+          command?: { ok: boolean; message: string; effect: { kind: 'reload' | 'navigate'; href?: string } }
+        }>(
           '/api/chat/send',
           {
             method: 'POST',
@@ -192,16 +300,22 @@ export default function ChatPage() {
             signal: abort.signal,
           },
         )
+        if (sendRes.command) {
+          setStreamingText(null)
+          await loadMessages(activeRoom.id, { silent: true })
+          const eff = sendRes.command.effect
+          if (eff?.kind === 'navigate' && eff.href) {
+            router.push(eff.href)
+          }
+          return
+        }
         const msgId = sendRes.userMessage?.id
         if (!msgId) {
           setError('Failed to save message')
           return
         }
 
-        // 2) Open SSE stream to /api/chat/stream
-        const sseRes = await fetch(`/api/chat/stream?userMessageId=${msgId}`, {
-          signal: abort.signal,
-        })
+        const sseRes = await fetch(`/api/chat/stream?userMessageId=${msgId}`, { signal: abort.signal })
         if (!sseRes.ok) {
           setError(`SSE stream failed: HTTP ${sseRes.status}`)
           return
@@ -211,7 +325,6 @@ export default function ChatPage() {
           return
         }
 
-        // 3) Read SSE events from the response body
         const reader = sseRes.body.getReader()
         const decoder = new TextDecoder()
         let buffer = ''
@@ -219,26 +332,21 @@ export default function ChatPage() {
         while (true) {
           const { value, done } = await reader.read()
           if (done) break
-
           buffer += decoder.decode(value, { stream: true })
-
-          // Split on double-newline (SSE event boundary)
           let sep: number
           while ((sep = buffer.indexOf('\n\n')) !== -1) {
             const raw = buffer.slice(0, sep)
             buffer = buffer.slice(sep + 2)
-
-            // Extract data: lines
             const dataLines = raw
               .split('\n')
               .filter((l) => l.startsWith('data:'))
               .map((l) => l.slice(5).trim())
               .join('')
             if (!dataLines) continue
-
             try {
               const event = JSON.parse(dataLines) as {
                 kind: string
+                text?: string
                 toolName?: string
                 argsPreview?: string
                 ok?: boolean
@@ -247,7 +355,12 @@ export default function ChatPage() {
                 level?: string
               }
 
-              // Map SSE events → StatusChipData
+              // Live tokens → streaming bubble (TS-020)
+              if (event.kind === 'token' && event.text) {
+                setStreamingText((prev) => (prev ?? '') + event.text)
+              }
+
+              // Status chips (thinking / tool / notice)
               const chipKind = event.kind === 'tool_call.start'
                 ? 'tool_call.start'
                 : event.kind === 'tool_call.end'
@@ -257,7 +370,6 @@ export default function ChatPage() {
                     : event.kind === 'thinking'
                       ? 'thinking'
                       : null
-
               if (chipKind) {
                 setStatusChips((prev) => [
                   ...prev,
@@ -275,176 +387,238 @@ export default function ChatPage() {
                 ])
               }
 
-              // Stream ended
-              if (event.kind === 'done' || event.kind === 'error') break
+              // Live pipeline stages
+              const stage = stageFromSseEvent(event)
+              if (stage) {
+                setPipeline((prev) => ({
+                  stages: upsertStage(prev.stages, stage),
+                  source: 'live',
+                }))
+              }
+
+              if (event.kind === 'error') {
+                // Surface the REAL reason (Hermes env, wrapper down, …) — never
+                // silence the failure (TS-021: "messages go but no reply" fix).
+                setError(event.message ? `Agent stream: ${event.message}` : 'Agent stream failed')
+                setStreamingText(null)
+                break
+              }
+              if (event.kind === 'done') {
+                setStreamingText(null)
+                break
+              }
             } catch {
-              // Skip malformed JSON
+              // skip malformed events
             }
           }
         }
       } catch (e) {
         if ((e as { name?: string })?.name === 'AbortError') {
-          // silent — user pressed Stop
+          // user pressed Stop
         } else {
           setError(e instanceof Error ? e.message : String(e))
         }
       } finally {
         sendAbortRef.current = null
+        setStreamingText(null)
         setSending(false)
         if (activeRoom) await loadMessages(activeRoom.id, { silent: true })
-        // Brief delay so user can see the final status chips before they disappear
         setTimeout(() => setAwaitingReply(false), 500)
       }
     },
-    [activeRoom, loadMessages],
+    [activeRoom, loadMessages, router],
   )
+
+  // ── Load earlier messages (real pagination via the `before` cursor) ──────
+  const [loadingEarlier, setLoadingEarlier] = useState(false)
+  const loadEarlier = useCallback(async () => {
+    if (!activeRoom) return
+    setLoadingEarlier(true)
+    try {
+      const oldest = messages[0]
+      if (!oldest) return
+      const data = await jsonFetch<{ messages: ChatMessage[] }>(
+        `/api/chat/messages?roomId=${encodeURIComponent(activeRoom.id)}&before=${encodeURIComponent(oldest.createdAt)}`,
+      )
+      if (data.messages.length > 0) setMessages((prev) => [...data.messages, ...prev])
+    } catch {
+      // keep the thread as-is on failure
+    } finally {
+      setLoadingEarlier(false)
+    }
+  }, [activeRoom, messages])
 
   const stopSend = useCallback(() => {
     sendAbortRef.current?.abort()
     setAwaitingReply(false)
     setSending(false)
     setStatusChips([])
+    setStreamingText(null)
   }, [])
 
-  // ── Which departments should show pills / be listed? ───────────────────
-  const visibleDepartments = useMemo<FleetDepartment[]>(() => {
+  const focusAndClose = useCallback((next: Focus) => {
+    setFocus(next)
+    setTeamsOpen(false)
+  }, [])
+
+  // ── Derived: live strip + HUD inputs ─────────────────────────────────────
+  const activePhase = useMemo<string | null>(() => {
+    const active = pipeline.stages.find((s) => s.status === 'active')
+    if (!active) return null
+    const map: Record<string, string> = { classify: 'CLASSIFY', resolve: 'RESOLVE', retrieve: 'RETRIEVE', gate: 'GATE' }
+    return map[active.kind] ?? null
+  }, [pipeline.stages])
+
+  const thinking = useMemo<string | null>(() => {
+    const last = [...statusChips].reverse().find((c) => c.kind === 'thinking' || c.kind === 'notice')
+    return last?.message ?? last?.summary ?? last?.toolName ?? null
+  }, [statusChips])
+
+  const involvedAgents = useMemo<string[]>(() => {
     const set = new Set<string>()
-    for (const r of rooms) {
-      if (r.kind === 'department' && r.department) set.add(r.department)
+    if (activeAgentId) set.add(activeAgentId)
+    const lastUser = [...messages].reverse().find((m) => m.authorKind === 'user')
+    for (const m of lastUser?.mentions ?? []) set.add(m)
+    return Array.from(set)
+  }, [activeAgentId, messages])
+
+  // ── Top-bar identity (real data) ─────────────────────────────────────────
+  const topTitle = useMemo(() => {
+    if (focus.kind === 'workforce') return 'Workforce'
+    if (focus.kind === 'assigned_scope') return 'All assigned'
+    if (focus.kind === 'department') return `#${focus.department}`
+    if (focus.kind === 'agent') return `@${focus.agentId}`
+    return 'Chat'
+  }, [focus])
+
+  const topSubtitle = useMemo(() => {
+    if (focus.kind === 'workforce') return `${FLEET.length} agents · ${FLEET_DEPARTMENTS.length} departments`
+    if (focus.kind === 'department') {
+      const count = FLEET.filter((a) => a.department === focus.department).length
+      return `${count} agents · department room`
     }
-    return FLEET_DEPARTMENTS.filter((d) => set.has(d))
-  }, [rooms])
+    if (focus.kind === 'agent') {
+      const agent = FLEET.find((a) => a.id === focus.agentId)
+      return agent?.role ? `${agent.role} · 1:1 room` : '1:1 room'
+    }
+    return 'Assigned departments'
+  }, [focus])
 
-  const hasAssignedScope = rooms.some((r) => r.kind === 'assigned_scope')
-
-  // Composer's auto-@mention when focused on an agent
-  const forcedMention = focus.kind === 'agent' ? focus.agentId : null
+  const memberCount = useMemo(() => {
+    if (focus.kind === 'department') return FLEET.filter((a) => a.department === focus.department).length
+    if (focus.kind === 'workforce') return FLEET.length
+    return null
+  }, [focus])
 
   const composerPlaceholder =
     focus.kind === 'workforce'
-      ? 'Message the workforce…'
-      : focus.kind === 'assigned_scope'
-      ? 'Message across all your departments…'
+      ? 'Message the workforce…  (/ for commands)'
       : focus.kind === 'department'
-      ? `Message #${focus.department}…`
-      : `Ask @${focus.agentId}…`
-
-  // Wrap setFocus so mobile drawer auto-closes on selection
-  const focusAndClose = useCallback((next: Focus) => {
-    setFocus(next)
-    setMobileRailOpen(false)
-  }, [])
+        ? `Message #${focus.department}… (/ for commands)`
+        : focus.kind === 'agent'
+          ? `Ask @${focus.agentId}… (/ for commands)`
+          : 'Message across your departments… (/ for commands)'
 
   return (
-    <div className="flex h-[calc(100vh-1rem)] flex-col p-2 md:h-[calc(100vh-2rem)] md:p-4">
-      {/* Header with mobile hamburger */}
-      <div className="mb-2 flex items-start justify-between gap-2 md:mb-0">
-        <div className="flex flex-1 items-start gap-2">
-          <button
-            onClick={() => setMobileRailOpen(true)}
-            aria-label="Open rooms"
-            className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.02] text-on-surface-variant transition hover:border-white/25 hover:text-on-surface md:hidden"
-          >
-            <Menu className="h-4 w-4" />
-          </button>
-          <div className="min-w-0 flex-1">
-            <PageHeader
-              title="Chat"
-              subtitle="Workforce · Departments · Individual agents. @mention to target."
-            />
-          </div>
+    <div className="chat-shell flex h-full min-h-0 flex-col">
+      {/* ── Top bar ─────────────────────────────────────────────────── */}
+      <div className="flex shrink-0 items-center justify-between px-6 pb-2 pt-3.5">
+        <div className="flex items-baseline gap-2.5">
+          <h1 className="text-[15px] font-semibold text-[var(--chat-text)]">{topTitle}</h1>
+          <span className="text-[11px] text-[var(--chat-text-faint)]">{topSubtitle}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <VentureSelector />
+          {memberCount != null && (
+            <span className="rounded-full border border-[var(--chat-hairline-soft)] px-2 py-0.5 font-mono text-[9.5px] text-[var(--chat-text-faint)]">
+              {memberCount} members
+            </span>
+          )}
+          {(awaitingReply || pipeline.source === 'live') && (
+            <span className="chat-breathe rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[9.5px] font-semibold uppercase tracking-widest text-emerald-300/90">
+              live
+            </span>
+          )}
+          <span className="rounded-full border border-[var(--chat-hairline-soft)] px-2 py-0.5 font-mono text-[9.5px] text-[var(--chat-text-faint)]">
+            ⌘K
+          </span>
         </div>
       </div>
 
       <NotificationsSetup />
 
-      {/* Main split card */}
-      <div className="flex min-h-0 flex-1 gap-0 overflow-hidden rounded-2xl border border-white/[0.10] bg-black/20">
-        {/* ── Desktop / tablet rail ──────────────────────────────────── */}
-        <aside className="hidden w-56 shrink-0 border-r border-white/[0.06] md:block lg:w-64">
-          <ContextPanel rooms={rooms} focus={focus} onFocus={focusAndClose} loading={roomsLoading} />
-        </aside>
+      {error && (
+        <div className="mx-6 mb-2 rounded-lg border border-red-400/25 bg-red-400/10 px-3 py-2 text-[12px] text-red-300">
+          {error}
+        </div>
+      )}
 
-        {/* ── Mobile drawer ──────────────────────────────────────────── */}
-        {mobileRailOpen && (
-          <div className="fixed inset-0 z-50 md:hidden">
-            <div
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              onClick={() => setMobileRailOpen(false)}
-              aria-hidden
-            />
-            <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-white/[0.10] bg-surface-container">
-              <div className="flex items-center justify-between border-b border-white/[0.06] p-3">
-                <div className="text-[13px] font-semibold text-on-surface">Rooms</div>
-                <button
-                  onClick={() => setMobileRailOpen(false)}
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-on-surface-variant hover:bg-white/5 hover:text-on-surface"
-                  aria-label="Close"
-                >
-                  <CloseIcon className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                <ContextPanel
-                  rooms={rooms}
-                  focus={focus}
-                  onFocus={focusAndClose}
-                  loading={roomsLoading}
-                />
-              </div>
-            </aside>
-          </div>
-        )}
+      {/* ── Body ───────────────────────────────────────────────────── */}
+      <div className="relative flex min-h-0 flex-1">
+        <DockRail rooms={rooms} focus={focus} onFocus={focusAndClose} onOpenTeams={() => setTeamsOpen(true)} teamsOpen={teamsOpen} agentLive={agentLive} />
 
-        {/* ── Message pane ───────────────────────────────────────────── */}
-        <section className="flex min-w-0 flex-1 flex-col bg-black/30">
-          <PillHeader
-            focus={focus}
-            visibleDepartments={visibleDepartments}
-            hasAssignedScope={hasAssignedScope}
-            onFocus={setFocus}
-          />
+        {/* Permanent secondary sidebar (desktop) — teams, switches with dept */}
+        <div className="hidden w-[300px] shrink-0 md:block">
+          <TeamsPanel focus={focus} onFocus={focusAndClose} onClose={() => setTeamsOpen(false)} variant="sidebar" live={agentLive} />
+        </div>
 
-          <SessionBar
-            chips={statusChips}
-            agentId={activeAgentId}
-            active={awaitingReply}
-          />
-
-          {error && (
-            <div className="mx-3 mt-2 rounded-md border border-error/25 bg-error/10 px-3 py-2 text-[12px] text-error md:mx-6 md:mt-3">
-              {error}
-            </div>
-          )}
-
+        <main className="flex min-w-0 flex-1 flex-col">
           <MessageStream
             messages={messages}
             awaitingReply={awaitingReply || messagesLoading}
-            statusChips={statusChips}
+            streamingText={streamingText}
+            hasEarlier={messages.length >= 50}
+            loadingEarlier={loadingEarlier}
+            onLoadEarlier={loadEarlier}
             emptyLabel={
               focus.kind === 'workforce'
                 ? 'Nothing yet in Workforce. Say hi — everyone can see this.'
                 : focus.kind === 'department'
-                ? `Nothing yet in #${focus.department}. Kick things off with a question.`
-                : focus.kind === 'agent'
-                ? `You haven't talked to @${focus.agentId} yet. Ask them something.`
-                : 'Empty. Send a message across your assigned departments.'
+                  ? `Nothing yet in #${focus.department}. Kick things off with a question.`
+                  : focus.kind === 'agent'
+                    ? `You haven't talked to @${focus.agentId} yet. Ask them something.`
+                    : 'Empty. Send a message across your assigned departments.'
             }
           />
-
+          <LiveStrip
+            agentId={activeAgentId}
+            active={awaitingReply}
+            phase={activePhase}
+            thinking={thinking}
+          />
           <Composer
             sending={sending}
             awaitingReply={awaitingReply}
             disabled={!activeRoom || !userId}
             disabledReason={!activeRoom ? 'Loading room…' : !userId ? 'Signing in…' : undefined}
-            forcedMention={forcedMention}
+            forcedMention={focus.kind === 'agent' ? focus.agentId : null}
             placeholder={composerPlaceholder}
             userId={userId}
             onStop={stopSend}
             onSend={send}
           />
-        </section>
+        </main>
+
+        {/* Fixed CAOS card (right column, always present, no close — TS-023).
+            Disabled + 'waiting' until a turn starts, then live metrics. */}
+        <div className="hidden w-[300px] shrink-0 xl:block">
+          <PipelineHud
+            stages={pipeline.stages}
+            source={pipeline.source}
+            agents={involvedAgents}
+            thinking={thinking}
+          />
+        </div>
       </div>
+
+      {/* Teams panel — desktop: permanent sidebar above. Mobile: overlay
+          drawer toggled from the dock. Scope follows the selected department
+          (workforce = everything). */}
+      {teamsOpen && (
+        <div className="absolute inset-y-0 left-14 z-50 w-[320px] md:hidden">
+          <TeamsPanel focus={focus} onFocus={focusAndClose} onClose={() => setTeamsOpen(false)} variant="overlay" visible live={agentLive} />
+        </div>
+      )}
     </div>
   )
 }
