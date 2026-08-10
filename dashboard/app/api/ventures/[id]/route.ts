@@ -1,5 +1,6 @@
 import { updateVenture, deleteVenture } from '@/lib/db'
 import type { VentureConfig } from '@/lib/types'
+import { errMsg } from '@/lib/errors'
 
 export async function PATCH(
   request: Request,
@@ -18,7 +19,7 @@ export async function PATCH(
     await updateVenture(id, body)
     return Response.json({ updated: true })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }
@@ -32,7 +33,7 @@ export async function DELETE(
     await deleteVenture(id)
     return Response.json({ deleted: true })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

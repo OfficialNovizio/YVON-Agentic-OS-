@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { upsertPostHogSession } from '@/lib/db-phase1'
+import { errMsg } from '@/lib/errors'
 
 export async function POST(req: NextRequest) {
   if (!process.env.POSTHOG_API_KEY) {
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json() as Record<string, unknown>
-    const ventureId = (body.ventureId as string) ?? 'novizio'
+    const ventureId = (body.ventureId as string) ?? 'yvon-os'
 
     // Accept either a single session or an array of sessions
     const sessions = Array.isArray(body.sessions)
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ingested: sessions.length })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
@@ -55,7 +56,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url)
-  const ventureId = searchParams.get('ventureId') ?? 'novizio'
+  const ventureId = searchParams.get('ventureId') ?? 'yvon-os'
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '100'), 500)
 
   const phHost = process.env.POSTHOG_HOST ?? 'https://us.i.posthog.com'

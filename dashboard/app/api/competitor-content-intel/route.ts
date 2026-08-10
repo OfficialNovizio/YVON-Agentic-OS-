@@ -1,6 +1,6 @@
 /**
  * /api/competitor-content-intel
- * GET ?venture=novizio → real competitor content intelligence data
+ * GET ?venture=<slug> → real competitor content intelligence data
  *
  * Returns:
  *   - signals: real alerts from latest scrapes (anomalies, spikes, trending)

@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { getSecret } from '@/lib/secrets'
+import { supabase } from '@/lib/supabase'
 import { callFast } from '@/lib/ai-client'
 import { getAgentSessions } from '@/lib/db'
 
@@ -25,7 +26,8 @@ export async function GET(request: NextRequest): Promise<Response> {
   }
 
   try {
-    const ventures = ['Novizio', 'Hourbour']
+    const { data: vRows } = await supabase.from('ventures').select('name')
+    const ventures = ((vRows as unknown as { name: string }[] | null) ?? []).map(r => r.name)
     const deptReports: string[] = []
 
     for (const [dept, agentIds] of Object.entries(DEPARTMENTS)) {

@@ -4,7 +4,7 @@
  * Reads from cached social_snapshots + social_posts — no live Apify calls.
  * Empty arrays only when no data exists.
  *
- * GET ?venture=novizio&period=30d
+ * GET ?venture=<slug>&period=30d
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'

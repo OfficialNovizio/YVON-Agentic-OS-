@@ -1,3 +1,4 @@
+import { errMsg } from '@/lib/errors'
 type Site = { id: string; name: string; client: string; url: string; status: 'live' | 'building'; description?: string }
 
 const MOCK: Site[] = [
@@ -10,7 +11,7 @@ export async function GET(): Promise<Response> {
   try {
     return Response.json({ sites: MOCK, totalLive: 2, totalBuilding: 1, source: 'mock' })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ sites: [], source: 'error', error: msg }, { status: 200 })
   }
 }

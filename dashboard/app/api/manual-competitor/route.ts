@@ -3,9 +3,9 @@
  * Manual competitor tracking — user provides brand name + Instagram handle.
  * Scrapes only Instagram via Apify, saves to competitors table.
  *
- * GET  ?venture=novizio          → list manual competitors
+ * GET  ?venture=<slug>          → list manual competitors
  * POST { ventureSlug, brandName, instagramHandle } → scrape & save
- * DELETE ?venture=novizio&id=<uuid> → remove
+ * DELETE ?venture=<slug>&id=<uuid> → remove
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'

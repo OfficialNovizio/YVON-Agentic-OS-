@@ -7,6 +7,8 @@ import { getSecret } from '@/lib/secrets'
 import { callFast } from '@/lib/ai-client'
 import { supabase } from '@/lib/supabase'
 import { insertReport } from '@/lib/reports'
+import { ventureNameAndBrand } from '@/lib/venture-context'
+import { errMsg } from '@/lib/errors'
 
 export const maxDuration = 120
 
@@ -239,8 +241,8 @@ export async function POST(request: Request): Promise<Response> {
   const reportType = url.searchParams.get('type') ?? ''
 
   const cookieStore = await cookies()
-  const ventureId = url.searchParams.get('ventureId') ?? cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
-  const ventureName = ventureId === 'hourbour' ? 'Hourbour' : 'Novizio'
+  const ventureId = url.searchParams.get('ventureId') ?? cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
+  const { name: ventureName } = await ventureNameAndBrand(ventureId)
 
   try {
     let report
@@ -266,7 +268,7 @@ export async function POST(request: Request): Promise<Response> {
       createdAt: report.createdAt,
     })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

@@ -51,6 +51,9 @@ export interface CieContext {
   itemsInjected: number
   itemsFiltered: number
   timeMs: number
+  archetype?: string         // system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md §14 archetype classification (added
+                              // 2026-08-09 when archetype.ts was wired into buildCieContext) —
+                              // optional so existing callers/tests reading CieContext are unaffected
 }
 
 export interface CieWeights {

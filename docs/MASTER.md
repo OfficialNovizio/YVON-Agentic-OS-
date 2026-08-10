@@ -33,13 +33,16 @@ deep-dives; Parts 6–7 are how work actually gets executed.
 | Security rails (senior to every agent) | `Teams/Engineering/SECURITY-CHARTER.md` |
 | Department sequencing | `Teams/<Dept>/DEPARTMENT-WORKFLOW.md` |
 | Shared tool registry | `Teams/Shared OS/tools/shared-tool-registry.md` |
+| Graph-brain design of record — memory, structure, and (as of 2026-08-09) system/execution architecture | `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` |
+| `/brain` graph viewer — visual model, query catalog, its own build roadmap | `system-harness/graph-brain/YVON-GRAPH.md` |
+| Persistent backlog + verified-status audits | `docs/SESSION-HANDOUT.md` |
 
 ---
 
 <!-- TOC:START -->
 ## How to read this file
 
-`docs/MASTER.md` is ~5104 lines. **Do not read it whole.**
+`docs/MASTER.md` is ~5838 lines. **Do not read it whole.**
 Jump straight to what you need:
 
 ```bash
@@ -55,158 +58,149 @@ python3 cli/toc.py --check            # verify line numbers are accurate
 ## Index
 
 
-### PART 0 — ORIENTATION: MICRO → MACRO  ·  line 213
-- `  225`  0. The System in One Paragraph
-- `  242`  1. Ingress — who receives the message and what happens first
-- `  251`  2. Synthesis — how the raw message becomes a proper template, and who does it
-- `  268`  3. The Retrieval Pipeline — CAOS end to end
-- `  309`  4. The feedback chain `[built]`
-- `  324`  5. How agents update their own skills `[built]`
-- `  335`  6. Memory and graphs
-- `  341`  7. Testing — the verification map `[built]`
-- `  354`  8. Source → runtime sync `[built]`
-- `  371`  9. Who decides which agent and which skill — and how it's checked
-- `  387`  10. The stack
-- `  397`  11. Multi-tenant data flow (as shipped)
-- `  403`  12. Build order (10 weeks, phased)
-- `  409`  13. Document Map
+### PART 0 — ORIENTATION: MICRO → MACRO  ·  line 207
+- `  219`  0. The System in One Paragraph
+- `  236`  1. Ingress — who receives the message and what happens first
+- `  245`  2. Synthesis — how the raw message becomes a proper template, and who does it
+- `  262`  3. The Retrieval Pipeline — CAOS end to end
+- `  303`  4. The feedback chain `[built]`
+- `  318`  5. How agents update their own skills `[built]`
+- `  332`  6. Memory and graphs
+- `  755`  7. Testing — the verification map `[re-verified 2026-08-09]`
+- `  803`  8. Source → runtime sync `[built, 84.5% figure corrected 2026-08-09]`
+- `  838`  9. Who decides which agent and which skill — and how it's checked `[re-verified 2026-08-09]`
+- `  878`  10. The stack `[file citations re-verified 2026-08-09]`
+- `  888`  11. Multi-tenant data flow (as shipped)
+- `  894`  12. Build order (10 weeks, phased)
+- `  900`  13. Document Map `[re-verified 2026-08-09 — 7 of 13 rows were dead links]`
 
-### PART 1 — FULL PROJECT ARCHITECTURE  ·  line 426
-- `  437`  Project At a Glance
-- `  461`  1. FULL WORKFLOW: Query → Agent → Response
-- `  580`  2. THE 46-AGENT FLEET
-- `  658`  3. EACH AGENT'S STRUCTURE
-- `  702`  4. SKILL SYSTEM
-- `  710`  Definition          — What this skill does
-- `  711`  Triggers            — When to invoke (keywords, agent types, query patterns)
-- `  712`  Input               — What data the skill receives
-- `  713`  Output              — What the skill produces
-- `  714`  Examples            — 2-3 worked examples
-- `  715`  Constraints         — Guardrails (what the skill must NOT do)
-- `  716`  Verification        — How to verify the skill executed correctly
-- `  717`  Tool Requirements   — Any tools needed (MCP, API, file access)
-- `  718`  References           — Book/page citations grounding the skill
-- `  734`  5. SHARED OS — THE LOGICAL SCRIPTS (35 Python modules)
-- `  807`  6. RAG PIPELINE — FULL ARCHITECTURE
-- `  939`  7. BRIDGE PROTOCOL — CIE ⇆ RAG INTEGRATION
-- `  973`  8. CIE (CONTEXT INTELLIGENCE ENGINE) — TypeScript Core
-- `  999`  9. TOON COMPRESSION SYSTEM
-- ` 1015`  10. GOVERNANCE PIPELINES (TypeScript)
-- ` 1036`  11. KNOWLEDGE FOUNDATION (12 PDF Books)
-- ` 1064`  12. COMPLETE TEST SUITE
-- ` 1085`  13. COMMANDS
-- ` 1112`  14. SINGLE ENTRY POINT FOR RAG
+### PART 1 — FULL PROJECT ARCHITECTURE  ·  line 933
+- `  955`  Project At a Glance
+- `  984`  1. FULL WORKFLOW: Query → Agent → Response
+- ` 1103`  2. THE 46-AGENT FLEET
+- ` 1181`  3. EACH AGENT'S STRUCTURE
+- ` 1242`  4. SKILL SYSTEM
+- ` 1285`  5. SHARED OS — THE LOGICAL SCRIPTS (35 Python modules)
+- ` 1358`  6. RAG PIPELINE — FULL ARCHITECTURE `[re-verified 2026-08-09]`
+- ` 1499`  7. BRIDGE PROTOCOL — CIE ⇆ RAG INTEGRATION
+- ` 1533`  8. CIE (CONTEXT INTELLIGENCE ENGINE) — TypeScript Core `[re-verified 2026-08-09 — list was missing 13 files]`
+- ` 1577`  9. TOON COMPRESSION SYSTEM
+- ` 1597`  10. GOVERNANCE PIPELINES (TypeScript) `[re-verified 2026-08-09]`
+- ` 1632`  11. KNOWLEDGE FOUNDATION `[corrected 2026-08-09 — fabricated]`
+- ` 1651`  12. COMPLETE TEST SUITE `[re-verified 2026-08-09 — see §7 for the real, live-run numbers]`
+- ` 1679`  13. COMMANDS `[re-verified 2026-08-09]`
+- ` 1712`  14. SINGLE ENTRY POINT FOR RAG `[import path corrected 2026-08-09]`
 
-### PART 2 — HARNESS: COMPLETE ARCHITECTURE PLAN  ·  line 1138
-- ` 1149`  THE FULL WORKFLOW
-- ` 1413`  WHAT GETS BUILT (New Files)
-- ` 1428`  WHAT GETS MODIFIED (Existing Files)
-- ` 1442`  WHAT GETS LEFT ALONE (Working, No Changes)
-- ` 1457`  HARNESS DATA FLOW (DETAILED)
-- ` 1608`  AGENT DELEGATION (Phase 9 Enhancement)
-- ` 1635`  PROGRESSIVE DISCLOSURE FLOW
-- ` 1688`  GROUNDED CITATION FLOW
-- ` 1725`  IMPLEMENTATION ORDER
-- ` 1746`  SINGLE ENTRY POINT (FINAL)
+### PART 2 — HARNESS: COMPLETE ARCHITECTURE PLAN  ·  line 1743
+- ` 1761`  THE FULL WORKFLOW
+- ` 2025`  WHAT GETS BUILT (New Files)
+- ` 2040`  WHAT GETS MODIFIED (Existing Files)
+- ` 2054`  WHAT GETS LEFT ALONE (Working, No Changes)
+- ` 2069`  HARNESS DATA FLOW (DETAILED)
+- ` 2220`  AGENT DELEGATION (Phase 9 Enhancement)
+- ` 2247`  PROGRESSIVE DISCLOSURE FLOW
+- ` 2300`  GROUNDED CITATION FLOW
+- ` 2337`  IMPLEMENTATION ORDER
+- ` 2358`  SINGLE ENTRY POINT (FINAL)
 
-### PART 3 — UNIFIED PRODUCTION PIPELINE: FINAL REPORT  ·  line 1824
-- ` 1835`  Architecture: Strategy Routing
-- ` 1876`  Full Demo Results — 12 Scenarios
-- ` 1914`  Recovery Pass — 5 Triggers
-- ` 1938`  Classification Accuracy
-- ` 1955`  Full Project Structure
-- ` 2014`  Single Entry Point
-- ` 2038`  When to Use What
-- ` 2057`  Commands
+### PART 3 — UNIFIED PRODUCTION PIPELINE: FINAL REPORT  ·  line 2436
+- ` 2454`  Architecture: Strategy Routing
+- ` 2495`  Full Demo Results — 12 Scenarios
+- ` 2533`  Recovery Pass — 5 Triggers
+- ` 2557`  Classification Accuracy
+- ` 2574`  Full Project Structure `[paths corrected 2026-08-09]`
+- ` 2640`  Single Entry Point (same `core/`-prefix correction as above)
+- ` 2664`  When to Use What
+- ` 2683`  Commands (`strategy.py` line is dead — deleted this session; others just need the `core/` prefix above)
 
-### PART 4 — COMPLETE WORK TREE WITH FALLBACKS  ·  line 2075
-- ` 2086`  LEGEND
-- ` 2100`  LAYER 1: QUERY INGRESS — Classification + Progressive Disclosure
-- ` 2142`  LAYER 2: RETRIEVAL + FORMULA EXECUTION — Plan-Locked
-- ` 2204`  LAYER 3: HARNESS GATES — 5 Gates in Sequence ★
-- ` 2300`  LAYER 4: STRATEGY ROUTING + INJECTION
-- ` 2347`  LAYER 5: LLM GENERATION + POST-HOC VERIFICATION
-- ` 2425`  LAYER 6: FEEDBACK LOOP
-- ` 2455`  LAYER 7: FIELD MONITORING — Read-Only Analysis
-- ` 2514`  LAYER 8: SELF-IMPROVER — Weekly Autonomous Optimization
-- ` 2570`  LAYER 9: SHARED OS — Formula Execution
-- ` 2605`  LAYER 10: AGENT FLEET — 46 Agents × 7 Departments
-- ` 2645`  LAYER 11: CIE — TypeScript Orchestration
-- ` 2686`  COMPLETE DATA FLOW — END TO END
-- ` 2734`  FALLBACK MATRIX
-- ` 2755`  TEST SUITE SUMMARY
-- ` 2778`  COMMANDS
+### PART 4 — COMPLETE WORK TREE WITH FALLBACKS  ·  line 2700
+- ` 2720`  LEGEND
+- ` 2734`  LAYER 1: QUERY INGRESS — Classification + Progressive Disclosure
+- ` 2776`  LAYER 2: RETRIEVAL + FORMULA EXECUTION — Plan-Locked
+- ` 2838`  LAYER 3: HARNESS GATES — 5 Gates in Sequence ★
+- ` 2934`  LAYER 4: STRATEGY ROUTING + INJECTION
+- ` 2981`  LAYER 5: LLM GENERATION + POST-HOC VERIFICATION
+- ` 3059`  LAYER 6: FEEDBACK LOOP
+- ` 3089`  LAYER 7: FIELD MONITORING — Read-Only Analysis
+- ` 3148`  LAYER 8: SELF-IMPROVER — Weekly Autonomous Optimization
+- ` 3204`  LAYER 9: SHARED OS — Formula Execution
+- ` 3239`  LAYER 10: AGENT FLEET — 46 Agents × 7 Departments
+- ` 3279`  LAYER 11: CIE — TypeScript Orchestration
+- ` 3320`  COMPLETE DATA FLOW — END TO END
+- ` 3368`  FALLBACK MATRIX
+- ` 3389`  TEST SUITE SUMMARY
+- ` 3416`  COMMANDS
 
-### PART 5 — COMPLETE 4-LAYER MULTI-TENANT ARCHITECTURE  ·  line 2813
-- ` 2825`  THE 4-LAYER STACK
-- ` 2872`  THE DATA FLOW — End to End
-- ` 2916`  LAYER 1: YVON CORE — MASTER CONTROL PLANE
-- ` 3001`  LAYER 2: AGENT LAYER — WHAT EXISTS & WHAT'S NEW
-- ` 3023`  LAYER 3: INTEGRATION LAYER — MCP + EXTERNAL APIs
-- ` 3064`  LAYER 4: AGENTX PLATFORM — SaaS FOR SMALL BUSINESSES
-- ` 3159`  THE GRAPH MEMORY SYSTEM
-- ` 3265`  DEPARTMENT DEPLOYMENT PIPELINE
-- ` 3298`  WHAT GETS BUILT — NEW MODULES
-- ` 3333`  COMPLETE WORKFLOW — END TO END
-- ` 3413`  DATA ISOLATION MATRIX
-- ` 3430`  BUILDING THE AGENTX CONNECTOR MARKETPLACE
-- ` 3474`  SELF-IMPROVEMENT LOOP — EXTENDED FOR MULTI-TENANT
-- ` 3519`  BUILD ORDER — PHASED ROLLOUT
-- ` 3561`  VALIDATION: GOOGLE AGENTS-CLI CROSS-REFERENCE
+### PART 5 — COMPLETE 4-LAYER MULTI-TENANT ARCHITECTURE  ·  line 3451
+- ` 3468`  THE 4-LAYER STACK
+- ` 3526`  THE DATA FLOW — End to End
+- ` 3572`  LAYER 1: YVON CORE — MASTER CONTROL PLANE
+- ` 3657`  LAYER 2: AGENT LAYER — WHAT EXISTS & WHAT'S NEW
+- ` 3679`  LAYER 3: INTEGRATION LAYER — MCP + EXTERNAL APIs
+- ` 3720`  LAYER 4: AGENTX PLATFORM — SaaS FOR SMALL BUSINESSES
+- ` 3815`  THE GRAPH MEMORY SYSTEM
+- ` 3931`  DEPARTMENT DEPLOYMENT PIPELINE
+- ` 3964`  WHAT GETS BUILT — NEW MODULES
+- ` 3999`  COMPLETE WORKFLOW — END TO END
+- ` 4079`  DATA ISOLATION MATRIX
+- ` 4096`  BUILDING THE AGENTX CONNECTOR MARKETPLACE
+- ` 4140`  SELF-IMPROVEMENT LOOP — EXTENDED FOR MULTI-TENANT
+- ` 4185`  BUILD ORDER — PHASED ROLLOUT
+- ` 4227`  VALIDATION: GOOGLE AGENTS-CLI CROSS-REFERENCE
 
-### PART 6 — TASK-SPEC TEMPLATE  ·  line 3681
+### PART 6 — TASK-SPEC TEMPLATE  ·  line 4349
 
-### PART 7 — UNIFIED WORKFLOW BLUEPRINT: ALL SECTIONS WORKING TOGETHER  ·  line 3739
-- ` 3748`  7.0 THE MASTER TREE — one message, every system, every decision
-- ` 3898`  7.1 SCENARIO A — CODING TASK ("test the code", "fix the API", "add endpoint")
-- ` 3941`  7.2 SCENARIO B — PRODUCT FEATURE / DASHBOARD (the big-company rail)
-- ` 3980`  7.3 SCENARIO C — THE DISSATISFACTION LOOP (output ≠ what the prompt needed)
-- ` 4006`  7.4 SCENARIO D — SKILL / SCRIPT FAILURE + THE AI & AGENTS TEAM LOOP
-- ` 4041`  7.5 SCENARIO E — MULTIPLE AGENTS IN PARALLEL
-- ` 4070`  7.6 TOOLING DECISIONS LOCKED IN THIS PART
-- ` 4084`  7.7 SANDBOX-FIRST PROMOTION FLOW — the quarantine layer (OpenSandbox)
+### PART 7 — UNIFIED WORKFLOW BLUEPRINT: ALL SECTIONS WORKING TOGETHER  ·  line 4407
+- ` 4416`  7.0 THE MASTER TREE — one message, every system, every decision
+- ` 4570`  7.1 SCENARIO A — CODING TASK ("test the code", "fix the API", "add endpoint")
+- ` 4613`  7.2 SCENARIO B — PRODUCT FEATURE / DASHBOARD (the big-company rail)
+- ` 4652`  7.3 SCENARIO C — THE DISSATISFACTION LOOP (output ≠ what the prompt needed)
+- ` 4678`  7.4 SCENARIO D — SKILL / SCRIPT FAILURE + THE AI & AGENTS TEAM LOOP
+- ` 4715`  7.5 SCENARIO E — MULTIPLE AGENTS IN PARALLEL
+- ` 4744`  7.6 TOOLING DECISIONS LOCKED IN THIS PART
+- ` 4757`  7.7 SANDBOX-FIRST PROMOTION FLOW — the quarantine layer (OpenSandbox)
 
-### PART 8 — ENFORCEMENT: MAKING PARTS 6 & 7 MECHANICAL  ·  line 4171
-- ` 4180`  8.0 The evidence
-- ` 4201`  8.1 Two execution surfaces
-- ` 4219`  8.2 The state machine (from PART 6, with transition conditions)
-- ` 4251`  8.3 Gate map — what exists, what it blocks, who owns it
-- ` 4271`  8.4 The write gate — `.claude/hooks/yvon-gate.sh`
-- ` 4301`  8.5 `cli/task.sh` — the record manager
-- ` 4321`  8.6 Tool → gate binding
-- ` 4344`  8.7 What PART 8 deliberately does not do
-- ` 4360`  8.8 Rollout order
+### PART 8 — ENFORCEMENT: MAKING PARTS 6 & 7 MECHANICAL  ·  line 4856
+- ` 4865`  8.0 The evidence
+- ` 4896`  8.1 Two execution surfaces
+- ` 4914`  8.2 The state machine (from PART 6, with transition conditions)
+- ` 4946`  8.3 Gate map — what exists, what it blocks, who owns it
+- ` 4972`  8.4 The write gate — `.claude/hooks/yvon-gate.sh`
+- ` 5002`  8.5 `cli/task.sh` — the record manager
+- ` 5022`  8.6 Tool → gate binding
+- ` 5045`  8.7 What PART 8 deliberately does not do
+- ` 5061`  8.8 Rollout order
 
-### APPENDIX A — CODE STRUCTURE — REFACTOR PLAN  ·  line 4380
-- ` 4391`  CURRENT MESS
-- ` 4398`  TARGET STRUCTURE
-- ` 4461`  IMPORT CHANGES
-- ` 4479`  WIRING UPDATES
-- ` 4495`  IMPLEMENTATION ORDER
-- ` 4507`  WHAT DOES NOT MOVE
-- ` 4517`  RISK
+### APPENDIX A — CODE STRUCTURE — REFACTOR PLAN  ·  line 5084
+- ` 5105`  CURRENT MESS
+- ` 5112`  TARGET STRUCTURE
+- ` 5177`  IMPORT CHANGES
+- ` 5195`  WIRING UPDATES
+- ` 5211`  IMPLEMENTATION ORDER
+- ` 5223`  WHAT DOES NOT MOVE
+- ` 5233`  RISK
 
-### APPENDIX B — GOOGLE agents-cli PATTERN INTEGRATION  ·  line 4544
-- ` 4555`  WHAT TO ADOPT (8 patterns, all map to YVON's existing structure)
-- ` 4557`  WHAT TO DISCARD (Google Cloud-specific, replaced with YVON equivalents)
-- ` 4574`  PATTERN 1: MANIFEST-BASED PROVISIONING (from agents-cli-manifest.yaml)
-- ` 4614`  PATTERN 2: SCAFFOLD → ENHANCE → UPGRADE (from agents-cli scaffold)
-- ` 4642`  PATTERN 3: EVAL DATASETS + QUALITY FLYWHEEL (from agents-cli eval)
-- ` 4710`  PATTERN 4: PROTOTYPE-FIRST (from agents-cli --prototype flag)
-- ` 4730`  PATTERN 5: AGENT CARD + DISCOVERY (from agents-cli publish)
-- ` 4778`  PATTERN 6: OBSERVABILITY TIERS (from agents-cli observe)
-- ` 4797`  PATTERN 7: LIFECYCLE MAPPING (8 phases → YVON gates)
-- ` 4814`  PATTERN 8: SKILL ARCHITECTURE (identical — validates YVON's approach)
-- ` 4826`  WHAT GETS BUILT
+### APPENDIX B — GOOGLE agents-cli PATTERN INTEGRATION  ·  line 5260
+- ` 5278`  WHAT TO ADOPT (8 patterns, all map to YVON's existing structure)
+- ` 5280`  WHAT TO DISCARD (Google Cloud-specific, replaced with YVON equivalents)
+- ` 5297`  PATTERN 1: MANIFEST-BASED PROVISIONING (from agents-cli-manifest.yaml)
+- ` 5337`  PATTERN 2: SCAFFOLD → ENHANCE → UPGRADE (from agents-cli scaffold)
+- ` 5365`  PATTERN 3: EVAL DATASETS + QUALITY FLYWHEEL (from agents-cli eval)
+- ` 5433`  PATTERN 4: PROTOTYPE-FIRST (from agents-cli --prototype flag)
+- ` 5453`  PATTERN 5: AGENT CARD + DISCOVERY (from agents-cli publish)
+- ` 5501`  PATTERN 6: OBSERVABILITY TIERS (from agents-cli observe)
+- ` 5520`  PATTERN 7: LIFECYCLE MAPPING (8 phases → YVON gates)
+- ` 5537`  PATTERN 8: SKILL ARCHITECTURE (identical — validates YVON's approach)
+- ` 5549`  WHAT GETS BUILT
 
-### APPENDIX C — DASHBOARD — TWO-TIER DESIGN  ·  line 4854
-- ` 4866`  DESIGN CONSTRAINTS (from dev's principles)
-- ` 4875`  QUINN CHARTER ENFORCEMENT (applied to dashboard)
-- ` 4885`  TIER 1: YVON MASTER DASHBOARD (operators)
-- ` 4986`  TIER 2: PER-BRAND DASHBOARD (business owners)
-- ` 5048`  DASHBOARD API (bridge.py --mode dashboard)
-- ` 5079`  FAILURE MODE OWNERSHIP
-- ` 5091`  WHAT GETS BUILT
+### APPENDIX C — DASHBOARD — TWO-TIER DESIGN  ·  line 5577
+- ` 5600`  DESIGN CONSTRAINTS (from dev's principles)
+- ` 5609`  QUINN CHARTER ENFORCEMENT (applied to dashboard)
+- ` 5619`  TIER 1: YVON MASTER DASHBOARD (operators)
+- ` 5720`  TIER 2: PER-BRAND DASHBOARD (business owners)
+- ` 5782`  DASHBOARD API (bridge.py --mode dashboard)
+- ` 5813`  FAILURE MODE OWNERSHIP
+- ` 5825`  WHAT GETS BUILT
 
 <!-- TOC:END -->
 
@@ -267,7 +261,7 @@ Sharding rule: each worker receives ONLY its work item + consumed contracts, inj
 
 ## 3. The Retrieval Pipeline — CAOS end to end
 
-Every work item's query then runs the CAOS flow (Context-Aware Orchestration: CLASSIFY → RESOLVE → RETRIEVE → GATE). Detailed layer diagrams: `docs/archive/WORK_TREE.md`.
+Every work item's query then runs the CAOS flow (Context-Aware Orchestration: CLASSIFY → RESOLVE → RETRIEVE → GATE). "Detailed layer diagrams: `docs/archive/WORK_TREE.md`" — that exact file was removed in the 2026-07-30 consolidation, but its content is merged inline as **PART 4 "Complete Work Tree With Fallbacks"** further down this document (see §13's Document Map for the exact line). §6.2/§6.3 (Layer 0–11) and §7 (Testing) elsewhere in this document are a second, independently re-verified-against-live-code source — PART 4 itself has not been re-verified this session.
 
 ### 3.1 Classification + progressive disclosure `[built]`
 `src/cie/classifier.ts` maps domain keywords → task_type + agent_id. `rag/harness/disclosure.py` then lazy-loads skills: 2–3 triggered skills load as full SKILL.md, the rest as one-line summaries (~8 tokens each) — 40–60% context savings. Fallback: all skills load as before.
@@ -288,7 +282,7 @@ Every work item's query then runs the CAOS flow (Context-Aware Orchestration: CL
 4. **Priority budget assembly** — P0 agent identity → P1 active skills → P2 computed facts → P3 T1 verified chunks → … → P7 inactive skill summaries. Budget fills in priority order; plan logged.
 5. **Quarantine + recovery** — low-reliability chunks quarantined (`quarantine.jsonl`); dropped chunks re-scanned for novel facts, exceptions, contradictions and pulled back if load-bearing.
 
-Every gate has an explicit fallback (full matrix: `docs/archive/WORK_TREE.md` §Fallback Matrix). Degrading loudly beats improvising.
+Every gate has an explicit fallback. "Full matrix: `docs/archive/WORK_TREE.md` §Fallback Matrix" — same file, same 2026-07-30 removal; a fallback matrix does live in **PART 4** now (not independently re-verified this session — see §13's Document Map). The fallbacks that *have* been checked are documented inline where each mechanism is introduced throughout this Part 0 (e.g. §3.1's "all skills load as before," §3.2's "direct `chunks.json` scan when sqlite-vec is absent"). Degrading loudly beats improvising.
 
 ### 3.4 Strategy routing + compression `[built]`
 `rag/core/unified_pipeline.py` routes by task type:
@@ -328,43 +322,492 @@ Skills live in `Teams/<Dept>/<agent>/{custom,marketplace}/` as SKILL.md (source 
 1. Every skill invocation is logged to `store/telemetry/skill-invocations.jsonl`.
 2. **gauge** benchmarks skill quality; **anneal** consumes TASK-SPEC `feedback` blocks and telemetry to propose skill edits per skill-authoring-standards.
 3. Edited source skills are recompiled by `cli/skillgen.js` into runtime skills in `dist/skills/` — frontmatter, triggers, allowed-tools, and boundaries are *derived* from the source (nothing invented; Playbook §0.5), version-bumped on source-hash change.
-4. `cli/toonify.py` regenerates the `.toon` injectable form.
+4. `node cli/toonify.js --all` (or `yvon toonify`) regenerates the `.toon` injectable form.
+   **Corrected 2026-08-09** — a duplicate `cli/toonify.py` existed alongside this, unwired into
+   `cli/yvon.js`'s actual `toonify` command; removed as dead code (ponytail-audit finding, see
+   `system-harness/PONYTAIL-AUDIT-2026-08-09.md`).
 
 So a skill improves through: usage telemetry → gauge measurement → anneal proposal → operator-approved edit → skillgen + toonify recompile → next retrieval uses it. Checked in a loop, end to end.
 
 ## 6. Memory and graphs
 
-> **Graph-Brain design of record (G-track):** `docs/GRAPH-BRAIN-DESIGN.md` — the full design for
-> the hub-of-brains, four-memory (CLS) model, node/edge schema, memory management (keep/forget),
-> query design, cross-brain learning, and the two engines: **graphify** (deterministic structure +
-> Obsidian export + self-build) and **turbovec** (fuzzy episodic recall + allowlist isolation). The
-> tiers below are the storage model; that doc is how it is built.
+> **Graph-Brain design of record (G-track):** `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` — hub-of-brains,
+> four-memory (CLS) model, node/edge schema, keep/forget management, query design, cross-brain
+> learning. Two engines: **graphify** (deterministic structure, built) + **MemPalace**
+> (episodic/semantic memory, replaces turbovec — Phase 1 installed 2026-08-09, Claude Code
+> sessions only; Phase 2 VPS-serve planned; full record: `system-harness/adr/ADR-001-mempalace-episodic-backend.md`).
+> turbovec swap applied across `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §1/§6/§8, `shared-tool-registry.md`,
+> `vps-scripts/install-tools.sh` — done, not pending.
 
-- **Agent memory (hermes)** `[built]` — `src/adapters/hermes-sync.ts` reads/writes `USER.md` + `MEMORY.md` in the configured hermes memory dir (CRDT-synced); exposed to retrieval as the CIE source `src/cie/sources/hermes-memory.ts`. This is how an agent's accumulated experience enters context. (Note: "hermes" names both this memory system and the primary LLM in the generation trio.)
-- **Code graphs** `[built]` — `npx yvon graph` (`cli/yvon.js`) builds the codegraph + graphify reports (`graphify-out/`); consumed by the CIE sources `codegraph.ts` / `graphify.ts`.
-- **Graph memory tiers** `[planned]` — Tier 1 Master Graph (fleet state, all profiles, learning patterns; access: Core + board + meta), Tier 2 owned-brand graphs (dedicated DB per brand), Tier 3 tenant graphs (separate SQLite per tenant; data never leaves except anonymized aggregates). See §10.
+- **Agent memory (`agent-diary`, formerly `hermes-sync.ts`)** `[built → migrating]` — per-agent
+  diary content, migrating from flat `USER.md`/`MEMORY.md` (CRDT) to **MemPalace wings** — each
+  agent's diary becomes a scoped wing (wing/room/drawer retrieval instead of flat-file search).
+  Exposed to retrieval as CIE source `src/cie/sources/agent-memory.ts` (renamed from
+  `hermes-memory.ts` — "hermes" is reserved for the generation-trio LLM only, removing the
+  naming collision the old note flagged).
+- **Code graphs** `[built]` — unchanged. `npx yvon graph` (`cli/yvon.js`) builds the codegraph +
+  graphify reports (`graphify-out/`); consumed by CIE sources `codegraph.ts` / `graphify.ts`.
+- **Episodic/semantic memory — MemPalace** `[Phase 1 built 2026-08-09 — Claude Code sessions
+  only, pgvector backend; Phase 2 (VPS-resident serve) planned, deferred until the chat system is
+  live — ADR-001, system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md §6]`. turbovec fully removed (ADR-001):
+  - **Wings** = brand/client graphs (Novizio, Hourbour, per-client) — matches the existing
+    isolation invariant ("outer brains link inward only").
+  - **Rooms** = department/topic subgraphs within a wing.
+  - **Drawers** = verbatim leaf content — notes, conversation turns, agent-diary entries. Never
+    summarized at storage time; compression happens only at injection time (TOON layer).
+  - **Native temporal KG** (add/query/invalidate/timeline) replaces the custom bi-temporal
+    `valid_from`/`supersedes` fields `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §11 planned to build — MemPalace
+    ships this natively.
+  - **Backend: `qdrant` or `pgvector`, not the ChromaDB default, and never local/file-based** —
+    Chroma has no namespace isolation and both this and any local/flat-file storage are
+    disqualified outright for episodic memory: it must live on a proper DB, full stop (operator
+    decision 2026-08-09). Required to satisfy Principle 1 ("business data never crosses a
+    boundary"). **Recommendation: `pgvector`** — reuses the existing Supabase Postgres infra
+    instead of standing up a new service; move to qdrant only if a measured latency/volume
+    bottleneck appears. **Isolation is tiered, not uniform (resolved 2026-08-09 — see Open
+    Issues, Issue 6):** Tier 1/2 (Master + owned brands) share one pgvector/qdrant instance,
+    isolated by namespace (`{tier}:{brand_or_tenant_id}` — `master`, `brand:novizio`,
+    `brand:hourbour`); Tier 3 (client/tenant wings) get **schema-per-tenant within the same
+    Postgres instance** — a real Postgres-native boundary, not just a namespace filter in
+    application code, because a leak there is existential (see §14 in `system-harness/graph-brain/YVON-GRAPH.md`) and a
+    full separate DB per tenant doesn't scale past a handful of clients.
+  - **Auto-save hooks** fire periodically *and specifically before context compression* — the
+    direct fix for large-context degradation: episodic state persists outside the live window
+    continuously, so nothing depends on the window holding everything at once.
+  - **`belongs_to` / `last_worked_by` — resolved 2026-08-09 (Open Issues, Issue 3).** Code
+    entities keep auto-deriving `belongs_to` from `Teams/<Department>/<agent>/` folder structure.
+    Business/content nodes are **auto-stamped at write time**: whichever agent or task creates or
+    last touches a node becomes its `belongs_to` (ownership) and `last_worked_by` (most recent
+    editor) by default — no one has to remember to fill in frontmatter. Frontmatter stays
+    available as a manual override/correction, not the primary acquisition path. When a venture
+    connects live, its own DB gives a second, often better source: foreign keys in the venture's
+    schema (e.g. a content row's `author_id`/`venture_id`) map straight to a `belongs_to` edge,
+    same determinism code entities get from folder structure. Auditing already-existing content
+    nodes' frontmatter compliance against the real repo is still open — this fixes new nodes
+    going forward, not the backlog.
+- **Graph memory tiers** `[planned]` — Tier 1 Master Graph (fleet state, all profiles, learning
+  patterns) — graphify structural + MemPalace semantic, shared `pgvector`/`qdrant` namespace
+  `master`. Tier 2 owned-brand graphs — dedicated MemPalace wing per brand, dedicated namespace
+  per brand, same shared instance as Tier 1. Tier 3 tenant graphs — dedicated MemPalace wing per
+  tenant, **schema-per-tenant** (not just a namespace) within that same Postgres instance; raw
+  data never leaves except anonymized aggregates (unchanged invariant, see §10).
 
-## 7. Testing — the verification map `[built]`
+### 6.1 Rebuild triggers — two independent cycles, not one
 
-263 tests, zero failures, across the pipeline modules (injector 22, strategy 23, destructor 35, unified 31, harness 36, verifier 16, disclosure 23, field monitor 17, self-improver 20, e2e 40; full table: `docs/archive/WORK_TREE.md`). Entry points:
+```
+STRUCTURAL (graphify)                    EPISODIC (MemPalace)
+git commit/merge                          message sent / task done /
+      │                                   context nearing compaction
+      ▼                                          │
+graphify git hook / --update                     ▼
+      │                                  MemPalace auto-save hook
+      ▼                                  (periodic + pre-compaction)
+reparse ONLY changed files                       │
+(delta, not full rebuild)                        ▼
+      │                                  mempalace sweep — one verbatim
+      ▼                                  drawer per message, idempotent
+graph.json + Obsidian vault                      │
+updated in ms                                    ▼
+                                          pgvector/qdrant namespace updated,
+                                          temporal KG timeline extended
+```
 
-- `python3 cli/verify-caos.py --quick` — end-to-end smoke (5 checks).
-- `rag/test_runner.py` — module suites.
+Neither engine does a full rebuild during normal operation — both are delta-only, event-driven.
+Full rebuilds are reserved for schema migrations only.
+
+### 6.2 Canonical CAOS pipeline (consolidated reference — see also Layer 1-11, §7.0)
+
+```
+INPUT
+  │
+  ▼
+CLASSIFY  [src/cie/classifier.ts]
+  ├─ keyword/domain match → task_type + agent_id
+  └─ progressive disclosure: 2-3 triggered skills load full,
+     rest load as ~8-token one-line summaries (40-60% savings)
+  │
+  ▼
+RESOLVE  [src/cie/graph-resolver.ts]
+  ├─ which graph tier / sources this agent+tenant is authorized to see
+  │  (Master Graph vs brand graph vs tenant graph — isolation boundary,
+  │  enforced via pgvector/qdrant namespace per §6 above)
+  ├─ CAG check [cie/cache.ts, LRU] — stable context (agent identity,
+  │  principles, brand kit, dept workflow) served from cache, NOT
+  │  re-retrieved. Only volatile context (chunks, formulas, episodic
+  │  memory) proceeds to full RETRIEVE.
+  └─ source fan-out: graphify (structural) + MemPalace (episodic/semantic,
+     scoped to the resolved wing/namespace)
+  │
+  ▼
+RETRIEVE  [rag/core/bridge.py — see Open Issues re: path confirmation]
+  ├─ RAG: retriever.py — query rewrite (up to 5 variants) → hybrid dense
+  │    (MiniLM-L6-v2) + sparse (BM25) → cross-encoder re-rank → 20 candidates
+  ├─ graphify structural pull — query_graph/get_neighbors, results marked
+  │    GRAPH-PINNED (high confidence, explained edges)
+  ├─ MemPalace episodic pull — semantic search scoped to wing/room, verbatim
+  │    drawers, temporal-KG validity checked (invalidated facts excluded
+  │    before they ever reach GATE)
+  ├─ Formula execution: 35 deterministic Python scripts (Shared OS/logical/)
+  │    exact computed values, never LLM-estimated — computed fact + citation = context
+  └─ optimizer.py: dynamic agent profile, diversity check, 1 adversarial chunk
+  │
+  ▼
+GATE  [rag/harness/gates.py — 5 gates in sequence]
+  1. Source authentication — hash-verified, traceable citation
+  2. Multiplicative reliability — freshness × authority × quality
+  3. Conflict detection — pairwise, flags contradictions (⚠️ for agent to
+     reconcile). MemPalace's native supersede/invalidate metadata feeds
+     this directly — stale facts flagged automatically, not shown as current.
+  4. Priority budget assembly — P0 identity → P1 active skills → P2 computed
+     facts → P3 verified/GRAPH-PINNED chunks → P4 MemPalace episodic recall
+     → ... fills in priority order until budget hits
+  5. Quarantine + recovery — low-reliability chunks quarantined, re-scanned
+     for load-bearing facts, pulled back if needed
+  │
+  ▼
+STRATEGY ROUTING + COMPRESSION  [rag/core/unified_pipeline.py]
+  ├─ FAST (creative review/copy edit/lookup) → hard budget, 64-89% savings
+  ├─ BALANCE (default) → adaptive ×0.4-4.0 by task, 39-77% savings
+  └─ QUALITY → relational+progressive when contradictions detected
+  │
+  ▼
+GENERATION  [src/cie/builder.ts — trio]
+  ├─ hermes+claude → primary reasoning (generation-trio "hermes" — distinct
+  │    from the agent-diary memory system per the naming fix in §6 above)
+  ├─ deepseek       → adversarial verification (checks the primary output)
+  └─ chatgpt        → creative quality pass
+  │
+  ▼
+POST-HOC VERIFICATION  [rag/verify/]
+  ├─ grounded citation check
+  ├─ self-consistency check
+  └─ high-stakes/low-score → delegated to quinn/precedent/sentinel for human-agent review
+     low-stakes → automated verification only
+  │
+  ▼
+OUTPUT
+  │
+  ▼
+FEEDBACK LOOP  (async, not blocking output)
+  ├─ outcome (accept/reject/revise) + verifier report
+  ├─ rag/core/feedback.py: quality_new = 0.95·old + 0.05·outcome → feeds Gate 2
+  ├─ rag/monitor/watcher.py ("field monitor"): weekly drift/degradation/coverage-gap analysis
+  ├─ rag/monitor/improver.py ("self-improver"): Sunday 00:00 UTC — propose → sandbox-test →
+  │    deploy (git-revertible). Verified 2026-08-09 — file names drifted from the bare
+  │    `rag/field_monitor.py` / `rag/self_improver.py` this diagram used to imply; current
+  │    working tree even has stale copies of those two old filenames staged for deletion.
+  │    See `system-harness/REORG-PLAN.md` §5.
+  ├─ writes into MemPalace agent-diary drawer (auto-save, wing-scoped) →
+  │    next RETRIEVE sees it
+  └─ weekly: anneal consolidates MemPalace episodic drawers → dedupe →
+       promotes stable patterns to graphify Lesson nodes → sanitization
+       gate (warden/veil) strips business data → sanitized pattern ascends
+       to Master Graph → available to every brand/client next time
+```
+
+**Note on `rag/core/bridge.py` path above:** written in the post-Appendix-A-refactor form to
+match Part 0's convention. **Confirmed correct 2026-08-09** — `rag/core/bridge.py` exists and
+`rag/__init__.py` already imports from it. Part 1/Part 3 below still have the *pre-refactor*
+flat paths; that correction is tracked as the top-priority item in `docs/SESSION-HANDOUT.md`
+§2a, not yet applied here (see Open Issues, Issue 1).
+
+### 6.3 Full task workflow — Layer 0 through Layer 11
+
+Expands §6.2's CAOS pipeline into the full CLASSIFY breakdown, task archetypes, team assignment,
+tool binding, and the layers surrounding generation. This section supersedes §6.2 as the
+canonical reference; §6.2 is retained above as the condensed pipeline view.
+
+#### Layer 0 — Session / Scope
+
+```
+Chat opens → brand selector, default = YVON (Master scope)
+Operator switches brand → session.brand_scope updates
+Every message in this session inherits session.brand_scope — not
+re-derived per message
+```
+
+**Cross-scope bridge** (sibling owned-brand graphs, e.g. Novizio session asking about Hourbour)
+— see `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §8.3 for the full query mechanism. **Confirmed 2026-08-09** (Open
+Issues, Issue 5): every owned sibling brand is **always** connected to every other, not gated
+behind detecting an explicit cross-brand mention in the query — the earlier "detect explicit
+mention" trigger is removed. Results from another brand's wing are still **read-only and
+explicitly attributed** to their source wing, never merged into one pool — brands stay separated
+even while linked. Master-mediated only for anything touching a client/tenant wing (per
+`system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §0 Principle 7) — that boundary is unchanged; this confirmation covers
+owned siblings only, never client/tenant.
+
+#### Layer 1 — CLASSIFY `[src/cie/classifier.ts]`
+
+**1.1 Entity Resolution** — "what is this message about?" graphify checked first (canonical),
+MemPalace as episodic fallback, ambiguous/no-match stops and asks rather than guessing. Full
+mechanism: `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §8.1.
+
+**1.2 Impact Radius Check** — for functional changes only (skip for cosmetic). Walks
+`consumes`/`produces`/`handoff` edges 1-hop (2-hop if high-fanout) to check whether connected
+nodes' purpose is affected. User-specified downstream behavior is followed directly; ambiguous
+cases stop and ask. Full mechanism: `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §8.2.
+
+**1.3 Team Assignment** — output is a team, not necessarily one agent:
+```
+primary_agent = graphify.get_neighbors(entity, "belongs_to")
+team = [primary_agent] + [owner of each node touched by 1.2's impact radius]
+```
+`belongs_to` mechanism resolved 2026-08-09 (Open Issues, Issue 3; §6 above) — code entities
+folder-derived, business/content nodes auto-stamped at write time by the creating/last-touching
+agent. Historical audit of existing content nodes' frontmatter is the one piece still open.
+
+**1.4 Tool Binding** — baseline (always-loaded per department) vs. task-specific (pulled per
+phase/archetype). Cross-referenced against `Teams/Shared OS/tools/shared-tool-registry.md`
+rather than duplicated here — see `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §15.2 for the resolution logic.
+
+**1.5 Tool Location Resolution** — repo (in-process) / VPS venv (subprocess bridge, same
+pattern as `rag/core/bridge.py`) / on-demand service (`cli/tool.sh status` check first; 12GB
+VPS constraint = one heavy service at a time, queueing policy **resolved 2026-08-09** — simple
+FIFO wait, no forced eviction, no timeout; a task needing a down service waits until the running
+one frees up. Appropriate at current testing-scale load; revisit at production scale (Open
+Issues, Issue 4)) / MCP (spawned via relay).
+
+**1.6 Progressive disclosure** — unchanged, §6.2 above.
+
+**1.7 Archetype Mapping** — see Layer 2.
+
+#### Layer 2 — Task Archetypes (7 total) `[built 2026-08-09]`
+
+Full archetype table, department mapping, and Session Memory (2a, for Deep Exploration) moved
+to `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §14 — that document owns the graph-query implications of each
+archetype; this section is the CLASSIFY-side pointer to it. Built and tested: `src/cie/archetype.ts`
+(the §14.1 table + §14.3 department mapping + keyword classification) and
+`src/cie/session-memory.ts` (§14.2 — explore/converge/resume session state, local JSON is the
+source of truth, best-effort filed into MemPalace as an episodic drawer via `--wing session-memory`,
+the closest real approximation to the doc's "distinct drawer type" since MemPalace's CLI has no
+literal drawer-type flag).
+
+#### Layer 3 — RESOLVE `[src/cie/graph-resolver.ts]`
+
+Unchanged — see §6.2.
+
+#### Layer 4 — RETRIEVE `[rag/core/bridge.py]` `[built 2026-08-09]`
+
+Base retrieval unchanged (§6.2). Archetype-specific retrieval variants (narrow/wide/distant per
+archetype) built and wired: `src/cie/retrieval-shape.ts` maps each of the 7 archetypes (§14.1) to
+a real `top_k`/`retrieval_mode` pair on `rag/core/bridge.py`'s actual params — verified there is no
+literal "distant recall" mode in `rag/core/retriever.py`, so `'agentic'` (multi-angle query
+rewrite) is used as the documented approximation for "wide" archetypes, not invented behavior.
+`resolveRetrievalShape()` is live-wired into `src/cie/index.ts`'s main CAOS entrypoint (Step 2,
+archetype-derived shape is now the primary signal for retrieval breadth, with an explicit
+`params.retrievalMode` still able to override it).
+
+Tool-augmented retrieval (live tool calls treated as freshly-generated context, subject to Gate 1
+same as any other source) built as `src/cie/tool-context.ts` — `materializeToolContext()` writes
+a tool call's output to `store/tool-context-cache/` so Gate 1's real on-disk `source_file` check
+genuinely passes rather than superficially matching field names. Exported from `src/cie/index.ts`
+as public API; not yet called from a specific integration point in this repo (awaiting the
+tool-execution call site that would invoke it).
+
+Creative-mode variant: `src/cie/creative-retrieval.ts` (`gatherCreativeContext()`) implements the
+four-source pull from `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §13.1 — graphify loose/AMBIGUOUS edges
+(uses the real `INFERRED` confidence value, since no literal "AMBIGUOUS" tag exists in
+`sources/graphify.ts`), MemPalace scoped vs. distant recall (distant = same search with
+wing/room filters omitted, since `mempalace search --help` has no similarity-threshold flag to
+tune), and kai historical performance — returns `null` with an explicit reason string since kai is
+a prompt-only agent definition with no scored-performance dataset anywhere in code. Exported from
+`src/cie/index.ts`; not yet called from a Creative Production orchestrator (§7.3) in this repo.
+`tsc --noEmit` clean across all three files.
+
+#### Layer 5 — GATE `[built 2026-08-09]`
+
+**5a Precision** (5-gate harness) — unchanged, §6.2. Re-verified: `rag/harness/gates.py` still has
+exactly 5 gate functions (`gate_authenticate`, `gate_reliability`, `gate_conflicts`,
+`gate_priority_assembly`, `gate_quarantine`).
+
+**5b Creative Gate Chain** (C1–C5) — `src/cie/creative-gate-chain.ts`, full detail in
+`system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §13.2 `[partially built]`. Per-check status: C1 Brand Voice
+Conformance `[built, blocked on config]` — reads real `brand_kit_path`/`voice_guide_path` from
+`atlas-config.md`/`lena-config.md`, both `<FILL_IN>` for every brand today, so it correctly reports
+`not_configured` rather than fabricating conformance. C2 Novelty/Repetition `[built,
+approximated]` — `mempalace search` has no numeric similarity score, so this returns a
+hit-count-based flag, not a graduated score. C3 Premortem/Risk `[built]` — genuinely reuses
+`rag/harness/gates.py`'s `P5_ADVERSARY` chunk. C4 Predicted Performance `[not available]` — kai
+has no scored-performance model anywhere in code; returns `available: false` with a reason rather
+than a fake score. C5 Real-World Outcome Capture `[built, untested against real data]` — writes to
+`store/creative-outcomes/`, no shipped creative exists yet to exercise it.
+
+**5c Adversarial Gate Logic** — `src/cie/adversarial-gate.ts` (`evaluateAdversarialGate`), full
+detail in `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §15.1 `[built]`. Inverted pass condition (a vulnerability
+found = pass; silence = not a pass) genuinely reuses the same `P5_ADVERSARY` mechanism as 5b's C3.
+Tool resolution (`strix` etc.) is real, via `src/cie/tool-binding.ts`'s `resolveToolBinding()`
+(§15.2, live-parses `shared-tool-registry.md`). The coverage-completeness check itself is `[not
+built]` — no line/path/endpoint coverage instrumentation exists in this repo; the function flags
+`needsCoverageCheck: true` on zero findings rather than fabricating a coverage percentage.
+`tsc --noEmit` clean across all three Layer 5 files.
+
+#### Layer 6 — STRATEGY ROUTING + COMPRESSION `[rag/core/unified_pipeline.py]`
+
+Unchanged — see §6.2. (Bare `unified_pipeline.py` filename here corrected to its real path,
+same ambiguous-prefix fix already applied to §6.2's own diagram.)
+
+#### Layer 7 — GENERATION `[built 2026-08-09]`
+
+**7.1 Standard trio — `[built]`.** Was `[not built]` earlier the same day (`src/cie/builder.ts`
+only formats context, no LLM call anywhere; the live dashboard chat route calls exactly one model
+and its own CIE hook was a no-op stub) — built for real as `src/cie/generation-trio.ts`
+(`runGenerationTrio`), wired into `src/pipelines/caos-executor.ts` in place of its old hardcoded
+stub output line. Archetype-gated by operator decision, not always-on: full trio (primary +
+adversarial + creative) only for `PRECISION_CRITICAL` and `ADVERSARIAL_TESTING` — the two
+archetypes where a wrong answer is expensive enough to justify 3x cost/latency; everything else is
+primary-only. `CREATIVE_PRODUCTION` deliberately skips this trio — it already has its own real
+verification mechanism, the C1–C5 gate chain (§5b). No new runtime dependency added (`yvon-engine`
+ships zero by design) — raw `fetch()` against each provider's REST API, same native-platform choice
+already made elsewhere in `src/cie/`. `OPENAI_API_KEY` does not exist anywhere in this repo
+(checked directly) — the creative/chatgpt role is real, callable code but reports `available: false`
+with an explicit reason rather than faking a response, same honesty pattern as C4/kai. Verified via
+mocked HTTP responses (no real API spend, per operator instruction): gating logic, dependency
+chain, and the missing-key degrade path all confirmed live.
+
+**7.2 Engineering team phase execution — `[built]`.** Was `[not built]` earlier the same day
+(`graph-resolver.ts` had pipelines for Brand Studio and Governance only; Engineering fell through
+to a single default stage; "handoff edge"/"impact radius"/"consumes-edge" existed nowhere in code).
+Built for real as `ENGINEERING_PIPELINE` + `ENGINEERING_SECURITY_PHASE` in `graph-resolver.ts`,
+replacing the old placeholder "Frontend → Backend → Testing → Security" language with the actual
+documented workflow (`Teams/Engineering/DEPARTMENT-WORKFLOW.md`): `raj`+`mia` build in parallel →
+`dev` reviews every change → `quinn` gates on two independent verdicts (quality AND
+security/charter — either blocks alone) → `ops` ships rollback-first. `aegis`+`cypher` (real
+continuous pod in the department doc) are appended as a conditional phase between `dev` and
+`quinn` when the change looks security-sensitive — the closest honest single-task approximation of
+"continuous coverage" without running two more agents on every trivial change. Sensitivity check
+has two tiers: real (`getImpactRadius()` — already-built AST-derived dependency walk,
+`sources/graphify.ts` — when a code-entity id is available) falling back to a documented keyword
+heuristic on the task text (same pattern as the existing `isCreativeTask`/`isGovernanceTask`
+checks) since no caller in this repo threads an entity id through yet. Cypher's gate is inverted
+per §5c (a finding is a pass, silence needs a coverage-completeness check) — reuses that logic by
+reference rather than re-implementing it. Verified live: non-sensitive Engineering tasks resolve to
+the 5-stage base pipeline; a task mentioning "auth token" correctly inserts `aegis`→`cypher` and
+re-points `quinn`'s dependency to wait on both `dev` and `cypher`; non-Engineering-keyword tasks
+still correctly fall through to the single-agent default, unchanged.
+
+Both `tsc --noEmit` clean.
+
+**7.3 Creative sequence — `[built, corrected]`.** The only one of the three that's real. Actual
+built pipeline (`BRAND_STUDIO_PIPELINE` in `graph-resolver.ts`, auto-selected by
+`resolveExecutionGraph()` for any task `isCreativeTask()` matches):
+```
+muse (concepts, dedupe vs. registry) → weave (chapter positioning, continuity)
+  → lena (structure/voice/humanic pass) → pixel (shot lists, asset QA)
+  → spark (Creative Director gate — Ogilvy 10-test battery, APPROVE/REVISE/REJECT)
+```
+Five sequential stages, not the three (`spark` → `lena` → `pixel`) this line previously described —
+muse and weave run before lena, and spark is the terminal gate, not the opening "direction" stage.
+Matches the correction already made in `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §13.3; this section had
+not caught up to it until now.
+
+#### Layer 8 — POST-HOC VERIFICATION `[rag/verify/]`
+
+Unchanged — see §6.2.
+
+#### Layer 9 — OUTPUT
+
+```
+Shallow/Precision/Synthesis  → single answer
+Deep Exploration               → options + reasoning (3-5 shortlisted)
+Creative Production            → draft + operator approval before publish
+Continuous Monitoring          → not a chat response — MemPalace drawer
+                                  + conditional alert if threshold crossed
+Adversarial Testing            → findings report, routed regardless of
+                                  severity (silence itself is logged)
+```
+
+#### Layer 10 — FEEDBACK LOOP
+
+Base loop unchanged (§6.2). Creative-specific (C5 outcome capture feeding C4's prediction model,
+self-tuning distant-recall threshold) — `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §13.4 `[planned]` — blocked on
+real data, not code: needs C4 predictions (unavailable, kai has no scored model) and real C5
+engagement history (mechanism exists, no shipped creative has fed it yet), so there's nothing to
+consolidate yet. Monitoring-specific (baseline comparisons writing to the temporal KG timeline) —
+`system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §14.1's archetype table row 6 `[classification only]` — `archetype.ts`/
+`retrieval-shape.ts` correctly classify and shape CONTINUOUS MONITORING tasks, but no actual
+scheduled/cron monitoring job or baseline-comparison-writeback mechanism exists anywhere in this
+repo yet; only the retrieval shape is built, not the monitoring loop itself.
+
+#### Layer 11 — DISCUSSION CAPTURE `[built 2026-08-09, scope reduced]`
+
+Architecture discussions (like the ones that produced this section) become queryable `Decision`
+nodes, scope `meta:architecture`, rather than being lost in chat history. `src/cie/discussion-capture.ts`
+(`captureDiscussion`) — live-tested: writes a real §4-shaped Decision node file to
+`docs/decisions/` (frontmatter + body + wikilinks, verified byte-for-byte against §4's schema),
+then attempts `mineIntoMemPalace` (correctly reports unavailable when `mempalace` isn't on PATH,
+rather than silently no-op'ing).
+
+**Load-bearing finding surfaced while building this — affects §4/§5/§6 generally, not just this
+layer:** the live `graphify-out/graph.json` was checked directly. Every real node's `file_type` is
+`code`, `rationale` (docstrings extracted via AST), or `concept` (config/JSON key references) — all
+`_origin: "ast"`. No node type anywhere in the live data matches §5's schema
+(`Decision`/`Lesson`/`Agent`/`Task`/etc.), and nothing indicates the installed `graphify` package
+reads YAML frontmatter as structured fields at all — it behaves as a pure AST/code tool. **§4's
+foundational premise — that graphify parses Node-Zero markdown frontmatter into typed graph
+nodes — does not hold against the real installed tool**, independent of how many files in this
+repo follow that frontmatter shape. `captureDiscussion()` therefore does the two things that are
+real today: writes the human/Obsidian-legible §4-shaped file (forward-compatible if frontmatter
+parsing is ever actually built into graphify) and mines it into MemPalace's genuine scoped
+semantic search (`meta-architecture` wing) — that's the true half of "queryable graph node" right
+now. `graphifyIndexed: false` is returned explicitly on every call rather than implied otherwise.
+Full detail and the "worth a dedicated pass across §4/§5/§6" note: `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §15.3.
+
+## 7. Testing — the verification map `[re-verified 2026-08-09]`
+
+Re-run live rather than trusted from the prior count, which had drifted on several fronts: `strategy`
+no longer exists (deleted this session, `rag/core/strategy.py` — dead code, no live callers), the
+`docs/archive/WORK_TREE.md` "full table" citation points at a file that **does not exist anywhere
+in this repo**, and `harness` is 35 passing tests today, not 36.
+
+**`rag/test_runner.py`'s own umbrella — 14/14 modules, 275 tests, zero failures** (confirmed via a
+live run just now): `core/injector` 22, `core/destructor` 35, `core/optimizer` 24, `core/retriever`
+20, `core/bridge` 16, `core/embed` 12, `core/feedback` 13, `harness/gates` 35, `harness/disclosure`
+23, `verify/grounded` 16, `monitor/watcher` 17 (the "field monitor" from earlier session notes —
+real filename, see §6.2's Feedback Loop note), `monitor/improver` 20 (the "self-improver"), `eval/judge`
+10, `eval/flywheel` 12.
+
+**Two more real, passing suites exist but are not wired into that umbrella** — found by checking
+for `run_tests()` outside `test_runner.py`'s `MODULES` dict: `rag/core/unified_pipeline.py`
+(`run_tests()`, 31/31 passing, live-run confirmed) and `rag/experiments/e2e.py` (no `run_tests()`
+convention — its own standalone script, 40/40 passing across 12 scenarios, live-run confirmed).
+Both numbers match what the doc previously claimed for "unified" and "e2e" — those two counts were
+accurate, just never actually reachable from `rag/test_runner.py` itself. Worth wiring both into
+the umbrella's `MODULES` dict in a future pass so "14/14 modules" becomes "16/16" and reflects the
+whole real suite in one command; not done here since it's a code change, not a doc fix.
+
+**True total across every real, live-confirmed passing test in the repo: 346** (275 umbrella + 31
+unified + 40 e2e), zero failures, zero fabricated counts. `docs/archive/WORK_TREE.md` itself
+doesn't exist as a file, but its content is merged inline as **PART 4 "Complete Work Tree With
+Fallbacks"** further down this document (see §13's Document Map) — that section has its own test
+table, not independently re-verified against the live numbers above this session.
+
+Entry points:
+
+- `python3 cli/verify-caos.py --quick` — end-to-end smoke. **6 checks today, not 5** (live-run
+  confirmed: retrieval, chunk selection, injection CRITICAL marker, NPV formula detection, bridge
+  feedback, and CAOS executor end-to-end — the 6th check appears to have been added after this
+  doc's "5 checks" note was last written).
+- `rag/test_runner.py` — module suites (14 of the 16 real suites; see gap above).
 - quinn's real-browser gate for anything frontend (mock data in the DOM is an integrity block).
-- `node cli/yvon.js doctor` — fleet health.
+- `node cli/yvon.js doctor` — fleet health. Runs and reports real status (live-run: 4/11
+  operational in this sandbox — Hermes and Claude API correctly flagged as external services,
+  consistent with this repo's documented sandbox network limitations elsewhere in this doc); its
+  own output has a cosmetic bug worth flagging separately — the ✅/❌ icons don't consistently match
+  the status text next to them (e.g. `❌ Graphify (built-in): ✅ Built-in engine`), a `cli/yvon.js`
+  code issue, not a doc-accuracy one, so not fixed here.
 
 ---
 
 # PART III — THE SYNC FABRIC: dist, toon, hermes, and who decides what
 
-## 8. Source → runtime sync `[built]`
+## 8. Source → runtime sync `[built, 84.5% figure corrected 2026-08-09]`
 
 ```
 Teams/**/*.md               SOURCE OF TRUTH (human-readable, book-grounded)
    │
-   ├─ cli/toonify.py  →  *.toon        injectable compressed form (~650 files,
-   │                                    84.5% avg token savings; TASK-SPEC rule:
-   │                                    inject_form: .toon)
+   ├─ cli/toonify.js  →  *.toon        injectable compressed form (659 files,
+   │                                    real measured savings below — NOT
+   │                                    84.5%; TASK-SPEC rule: inject_form: .toon)
    ├─ cli/skillgen.js →  dist/skills/  compiled runtime skills (disposable output)
    │
 src/ (TypeScript: cie/, pipelines/, toon/, adapters/, agents/, graphs/)
@@ -374,29 +817,71 @@ src/ (TypeScript: cie/, pipelines/, toon/, adapters/, agents/, graphs/)
 
 `dist/` is always disposable and regenerable; `Teams/` and `src/` are the only things a human edits. hermes memory syncs *live* (CRDT) rather than compiling — it's state, not source.
 
-## 9. Who decides which agent and which skill — and how it's checked
+**"84.5% avg token savings" was checked directly against the real converted files (2026-08-09) and
+is false for this repo's actual `Teams/**/*.md → *.toon` output — not just imprecise, backwards.**
+Measured all 659 real `.md`→`.toon` pairs by byte length (the same metric `toonify.js`'s own
+`savings` calculation uses): median **-2.4%** (the `.toon` file is typically *larger* than its `.md`
+source), mean **-2.6%**, and **495 of 659 files (75%) are larger after conversion, not smaller**.
+Only the top quartile shows real savings, topping out at 80.8% on the best individual file. Root
+cause: `cli/toonify.js` doesn't use this repo's real TOON dense-encoding engine
+(`src/toon/toon.ts`/`compressor.ts`) at all for this conversion — it only abbreviates markdown
+headings via a lookup table (`p:`, `s:`, `i:` etc.) and escapes a few characters, which does little
+or nothing for prose-heavy agent docs and sometimes adds bytes back via escaping. The real
+"80-87% savings vs JSON" figures documented in `src/toon/toon.ts` (§8 further below, PART II) are a
+different, legitimate claim about TOON's dense encoding vs. JSON for structured/tabular data — true
+of the format, just not of what `cli/toonify.js` actually does to `Teams/` markdown. The two
+figures got conflated somewhere upstream of this doc. Two other `84.5%` citations elsewhere in this
+file (agent skeleton diagram, TOON compression system's "Key metrics") inherited the same error —
+not independently re-derived, corrected together below and in §9 (PART II) rather than left to drift
+differently.
+
+## 9. Who decides which agent and which skill — and how it's checked `[re-verified 2026-08-09]`
 
 **Decision chain (forward):**
-1. Session rail routing table (`CLAUDE.md` §2) — department + agent by task domain.
-2. Multi-agent → meta's task-dispatch assigns work-item owners; department lead sequences (dev, spark, warden…).
-3. Within the agent: `operational/skill/<agent>-skill-routing.md` + skill `triggers` frontmatter, matched by `cie/classifier.ts` + progressive disclosure → 2–3 active skills.
+1. Session rail routing table (`CLAUDE.md` §2) — department + agent by task domain. Confirmed:
+   `src/cie/classifier.ts` does real department/task-type classification (8 categories —
+   engineering/strategy/governance/brand_marketing/cybersecurity/product_analytics/ai_agents/general
+   — via regex keyword matching + agent-department bias), but that's *this* step, not step 3.
+2. Multi-agent → meta's task-dispatch assigns work-item owners (`Teams/AI & Agents/meta/custom/task-dispatch`,
+   confirmed present); department lead sequences (dev, spark, warden…).
+3. Within the agent: `operational/skill/<agent>-skill-routing.md` (all 46 confirmed present) + skill
+   `triggers` frontmatter, matched by **`rag/harness/disclosure.py`** — corrected citation:
+   `cie/classifier.ts` does NOT do skill-trigger matching or progressive disclosure at all (checked
+   its full contents — department classification only); the real mechanism is
+   `disclosure.py`'s `parse_skill_triggers()` + `DisclosureEngine.load_for_query()`. Active-skill
+   cap is a `max_active` parameter, **default 5, not a hard "2–3"** — "2–3" may describe a typical
+   real-world match count for a given query, but the code's actual ceiling is 5; restated here
+   rather than implied as the mechanism's fixed behavior.
 4. Config values come from `operational/agent/<agent>-config.md`; a `<FILL_IN>` field means ask — never improvise.
 
-**Check chain (backward):** telemetry logs the invocation → gauge measures whether the routed skill performed → field monitor detects drift per agent → anneal proposes routing/skill fixes → self-improver deploys parameter changes after sandbox tests → Gate 2 reliability scores shift which sources win next time. The forward chain is re-tuned by the backward chain weekly.
+**Check chain (backward):** telemetry logs the invocation → gauge measures whether the routed skill
+performed → field monitor (`rag/monitor/watcher.py`) detects drift per agent → anneal proposes
+routing/skill fixes → self-improver (`rag/monitor/improver.py`) deploys parameter changes after
+sandbox tests → Gate 2 reliability (`rag/harness/gates.py`'s `gate_reliability`, confirmed real)
+scores shift which sources win next time. `gauge` and `anneal` agent folders both confirmed present
+under `Teams/AI & Agents/`; their specific skill implementations for this loop weren't traced
+file-by-file here. The forward chain is re-tuned by the backward chain weekly.
 
 ---
 
 # PART IV — MACRO: The 4-Layer Multi-Tenant Platform
 
-Full design: `docs/archive/Upcoming Plan .md`. Described here as the complete system with status tags. (Brand names genericized per Playbook §0.4.)
+**"Full design: `docs/archive/Upcoming Plan .md`" is a dead citation** — `docs/archive/` does not
+exist anywhere in this repo (checked directly, 2026-08-09), and no other file contains matching
+"4-Layer Multi-Tenant" content (repo-wide search). This is the third broken `docs/archive/*`
+citation found in this doc this pass, after §7's Testing table and §9's original figure — same
+pattern each time: a plausible-sounding path to a file that was never actually written or was
+removed without updating what points to it. The section below is the only real source for this
+material; there is no separate "full design" doc to cross-check it against. (Brand names
+genericized per Playbook §0.4.)
 
-## 10. The stack
+## 10. The stack `[file citations re-verified 2026-08-09]`
 
-**Layer 1 — YVON Core (master control plane).** Master graph vault (Obsidian) `[planned]`; fleet governance: meta + board + precedent + sentinel `[built]`; business profile registry, department deployment engine (`platform/deploy.py`: create tenant vault → copy agent definitions → apply overrides → wire connectors), multi-tenant isolation, cross-tenant learning pipeline `[planned]`.
+**Layer 1 — YVON Core (master control plane).** Master graph vault (Obsidian) `[planned]`; fleet governance: meta + board + precedent + sentinel `[built]`; business profile registry, department deployment engine (`platform/deploy.py`: create tenant vault → copy agent definitions → apply overrides → wire connectors), multi-tenant isolation, cross-tenant learning pipeline `[planned]`. Note: `platform/` doesn't exist in this repo yet (checked directly) — consistent with `[planned]`, not a drift issue, since the path was never claimed as already built.
 
 **Layer 2 — Agent Layer.** Everything in Parts I–II: 46 agents × 7 departments, 5-gate harness, progressive disclosure, grounded verification, self-improvement, 64–91% compression, graph memory. `[built]` — this layer is the shipped core.
 
-**Layer 3 — Integration Layer.** relay owns the MCP tool registry, integration patterns (idempotency, retry, circuit breaker), and per-tool egress allowlists `[partial]` — 7 Engineering marketplace MCP tools mapped `[built]`; connector SDK (`platform/connector_sdk.py`) + 6 pre-built connectors (social, commerce, design, email, analytics, payments) `[planned]`. Least-privilege per agent per tenant (e.g., a creative agent READS analytics; only the social agent POSTS). `[planned]`
+**Layer 3 — Integration Layer.** relay owns the MCP tool registry (`Teams/AI & Agents/relay/custom/mcp-tool-registry/assets/tool-registry.md`, confirmed real), integration patterns (idempotency, retry, circuit breaker), and per-tool egress allowlists `[partial]` — corrected count: the registry has **9 tools total (6 of kind MCP, 3 non-MCP: a local repo/script, a local plugin, and a database), not "7 MCP tools"**, and status-wise every entry is `trial` with most `auth`/`egress` fields still `<FILL_IN>` pending operator connection — `[registered, trial]` is more accurate than `[built]` for this row. Connector SDK (`platform/connector_sdk.py`) + 6 pre-built connectors (social, commerce, design, email, analytics, payments) `[planned]` — same `platform/`-doesn't-exist-yet note as Layer 1, consistent with the tag. Least-privilege per agent per tenant (e.g., a creative agent READS analytics; only the social agent POSTS). `[planned]`
 
 **Layer 4 — AgentX Platform (SaaS).** Onboarding flow (business profile → department selection → subscription tier → tenant provisioning), billing tiers, department packages, tenant dashboard. `[planned]`
 
@@ -408,29 +893,56 @@ A tenant message: AgentX resolves tenant graph + profile + integrations (L4) →
 
 ## 12. Build order (10 weeks, phased)
 
-Core hardening (2w) → department deployment engine (2w) → AgentX onboarding (2w) → connector marketplace (2w) → cross-tenant learning (1w) → production hardening (1w). Detail: `docs/archive/Upcoming Plan .md` §Build Order.
+Core hardening (2w) → department deployment engine (2w) → AgentX onboarding (2w) → connector marketplace (2w) → cross-tenant learning (1w) → production hardening (1w). "Detail: `docs/archive/Upcoming Plan .md` §Build Order" — same dead citation as Part IV's header above; no such file or `§Build Order` section exists anywhere in this repo. This one-line phase list is the only real content for this build order.
 
 ---
 
-## 13. Document Map
+## 13. Document Map `[re-verified 2026-08-09 — 7 of 13 rows were dead links]`
+
+**`docs/archive/*.md` don't exist as separate files, but the content isn't gone — it's merged
+inline later in this same document.** This document's own line 5 says why: "Nine separate
+architecture docs were consolidated here on 2026-07-30... `docs/archive/` was removed in the same
+pass." Checked every `*(source: ...)*` attribution line in this file to find exactly where each
+one landed — corrected table below points at the real PART, not just "somewhere in the index."
 
 | Need | Go to |
 |---|---|
-| Session process + ground rules | `CLAUDE.md`, `Teams/AGENT-BUILD-PLAYBOOK.md` |
-| Layer-by-layer pipeline diagrams, fallback matrix, test table | `docs/archive/WORK_TREE.md` |
-| Harness build history + data flow | `docs/archive/HARNESS.md` |
-| Strategy benchmark data (12 scenarios) | `docs/archive/PIPELINE_FINAL.md` |
-| Fleet census, skill format, Shared OS catalog, CIE/TOON internals | `docs/archive/FULL.md` |
-| 4-layer platform design (full) | `docs/archive/Upcoming Plan .md` |
-| Repo layout | `docs/archive/CODE_STRUCTURE.md` |
-| Industry patterns adopted | `docs/archive/GOOGLE_PATTERNS.md` |
-| RAG module docs | `rag/README.md` |
-| Dept sequencing | `Teams/<Dept>/DEPARTMENT-WORKFLOW.md` |
+| Session process + ground rules | `CLAUDE.md`, `docs/AGENT-BUILD-PLAYBOOK.md` (was mis-cited as `Teams/AGENT-BUILD-PLAYBOOK.md` — that path doesn't exist; confirmed real at `docs/`) |
+| Layer-by-layer pipeline diagrams, fallback matrix, test table | ~~`docs/archive/WORK_TREE.md`~~ → **PART 4 "Complete Work Tree With Fallbacks"** (line ~2593, `*(source: docs/WORK_TREE.md — verbatim)*`) — the real thing, not a substitute. Also cross-check against this document's own §6.3 (Layer 0–11) and §7 (Testing), which were independently re-verified against live code this session — PART 4 was not. |
+| Harness build history + data flow | ~~`docs/archive/HARNESS.md`~~ → **PART 2 "Harness: Complete Architecture Plan"** (line ~1656) |
+| Strategy benchmark data (12 scenarios) | ~~`docs/archive/PIPELINE_FINAL.md`~~ → **PART 3 "Unified Production Pipeline: Final Report"** (line ~2342) — likely the source of `rag/experiments/e2e.py`'s real "12 scenarios, 40/40 passed" (§7), not independently confirmed as the same data. |
+| Fleet census, skill format, Shared OS catalog, CIE/TOON internals | ~~`docs/archive/FULL.md`~~ → **PART 1 "Full Project Architecture"** (line ~936) |
+| 4-layer platform design (full) | ~~`docs/archive/Upcoming Plan .md`~~ → **PART 5 "Complete 4-Layer Multi-Tenant Architecture"** (line ~3331, `*(source: docs/4LAYER.md — verbatim)*` — note the source filename doesn't even match "Upcoming Plan.md," a separate small drift on top of the archive path being wrong) |
+| Repo layout | ~~`docs/archive/CODE_STRUCTURE.md`~~ → **Appendix A "Code Structure — Refactor Plan"** (line ~4928) |
+| Industry patterns adopted | ~~`docs/archive/GOOGLE_PATTERNS.md`~~ → **Appendix B "Google agents-cli Pattern Integration"** (line ~5094) |
+| RAG module docs | `rag/README.md` — confirmed real |
+| Dept sequencing | `Teams/<Dept>/DEPARTMENT-WORKFLOW.md` — confirmed real, 7/7 departments present |
+| Graph/memory design, system & execution architecture (§16 onward) | `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` — confirmed real |
+| `/brain` graph viewer (visual model, queries, build roadmap) | `system-harness/graph-brain/YVON-GRAPH.md` — confirmed real |
+
+**Not yet reality-checked this pass:** PART 1, 2, 3, 4, 5 above, PART 6 ("Task-Spec Template," line
+~4222), PART 7 ("Unified Workflow Blueprint," line ~4280), PART 8 ("Enforcement," line ~4712), and
+Appendices A, B, C (line ~4928–5654) — roughly 4,700 of this document's 5,654 lines. These were
+merged verbatim on 2026-07-30 and haven't been individually re-verified against live code the way
+§6.2/§6.3/§7/§8/§9/Part IV were this session. Given this session already found a false "84.5%"
+headline metric and nine dead file citations in the ~1,000 lines that *were* checked, these larger,
+older, un-re-verified sections are a reasonable place to expect more of the same.
 
 ---
 
 # ═══════════ PART 1 — FULL PROJECT ARCHITECTURE ═══════════
-*(source: docs/FULL.md — verbatim)*
+*(source: docs/FULL.md — verbatim; `docs/FULL.md` does not exist in this repo, checked 2026-08-09 —
+see §13's Document Map note. The content below is real and lives here now regardless of where it
+originally came from.)*
+
+**Re-verified 2026-08-09 — several claims below were stale.** The 46-agent roster and department
+counts (§2) checked out exactly against `src/agents/personalities.ts`, zero discrepancies. What
+didn't: bare `rag/*.py` filenames throughout §1's diagram (same missing-`core/`-prefix issue fixed
+in §6.2 — `rag/retriever.py`/`rag/embed.py`/`rag/optimizer.py`/`rag/feedback.py` are actually
+`rag/core/retriever.py`/`embed.py`/`optimizer.py`/`feedback.py`), the "12 PDF reference books" and
+"17 modules, 111 tests" claims below (both corrected in place), and — the biggest one — §3/§4's
+agent.md/SKILL.md section templates, which describe a structure that doesn't match any real file
+checked (see the note at §3 and §4 below for the actual, verified-uniform templates).
 
 # YVON Engine — Full Project Architecture
 
@@ -447,7 +959,9 @@ Core hardening (2w) → department deployment engine (2w) → AgentX onboarding 
 ├── cli/                    CLI entry points (yvon, toonify, verify-caos)
 ├── src/                    TypeScript source → CIE, pipelines, graphs, TOON
 ├── dist/                   Compiled JavaScript (npm entry point)
-├── rag/                    Python RAG pipeline (17 modules, 111 tests)
+├── rag/                    Python RAG pipeline (16 real test-bearing modules, 346 tests —
+│                            re-verified live 2026-08-09, see §7; not the "17 modules, 111 tests"
+│                            this line previously claimed)
 ├── Teams/                  46 agents across 7 departments
 │   ├── AI & Agents/        8 agents (meta, proto, relay, forge, etc.)
 │   ├── Brand Studio/       11 agents (spark, lena, atlas, muse, etc.)
@@ -457,7 +971,10 @@ Core hardening (2w) → department deployment engine (2w) → AgentX onboarding 
 │   ├── Governance/         3 agents (board, precedent, sentinel)
 │   ├── Product/            5 agents (spec, metric, ux, loom, price)
 │   ├── Shared OS/          Shared logical scripts + wisdom documents
-│   └── Books/              12 PDF reference books
+│   └── Books/              reference library — 0 PDFs present today (checked 2026-08-09),
+│                            explicitly an operator-fill placeholder per Teams/Books/README.md
+│                            ("Actual PDF files must be sourced by the operator and placed here"),
+│                            not the "12 PDF reference books" this line previously claimed
 ├── package.json            npm package: yvon-engine
 └── README.md               Main project documentation
 ```
@@ -483,7 +1000,7 @@ Core hardening (2w) → department deployment engine (2w) → AgentX onboarding 
               ▼                    ▼                    ▼
     ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
     │  AGENT SELECTION │  │  SKILL ROUTING   │  │  RAG RETRIEVAL   │
-    │  src/agents/     │  │  agent.md Skill  │  │  rag/bridge.py   │
+    │  src/agents/     │  │  agent.md Skill  │  │  rag/core/bridge.py   │
     │  personalities.ts│  │  Roster section  │  │  ← CIE calls     │
     └────────┬────────┘  └────────┬────────┘  │  rag via stdin    │
              │                    │             └────────┬────────┘
@@ -491,14 +1008,14 @@ Core hardening (2w) → department deployment engine (2w) → AgentX onboarding 
                                   │
                     ┌─────────────▼──────────────────────┐
                     │       RAG RETRIEVAL PIPELINE        │
-                    │  rag/bridge.py (stdin/stdout)       │
+                    │  rag/core/bridge.py (stdin/stdout)       │
                     └─────────────┬──────────────────────┘
                                   │
          ┌────────────────────────┼────────────────────────┐
          ▼                        ▼                        ▼
 ┌─────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐
 │ QUERY REWRITER  │  │ HYBRID RETRIEVER     │  │ FORMULA EXECUTOR    │
-│ rag/retriever.py│  │ rag/embed.py         │  │ rag/bridge.py       │
+│ rag/core/retriever.py│ rag/core/embed.py   │  │ rag/core/bridge.py       │
 │                 │  │ (dense + sparse)     │  │ → Shared OS scripts │
 │ Lasswell model  │  │ + sqlite-vec store   │  │ Detect NPV, WACC,   │
 │ expand→3-5 vars │  │ chunk similarity     │  │ risk scores, etc.   │
@@ -508,13 +1025,13 @@ Core hardening (2w) → department deployment engine (2w) → AgentX onboarding 
                                 │
                     ┌───────────▼───────────────────────────┐
                     │       CROSS-ENCODER RE-RANKER          │
-                    │  rag/retriever.py — CrossEncoderReranker│
+                    │  rag/core/retriever.py — CrossEncoderReranker│
                     │  Re-ranks top-20 → top-5 by precision   │
                     └───────────┬───────────────────────────┘
                                 │
                     ┌───────────▼───────────────────────────┐
                     │       CONTEXT OPTIMIZER               │
-                    │  rag/optimizer.py                     │
+                    │  rag/core/optimizer.py                │
                     │  → Select retrieval profile           │
                     │  → Enforce tier allocation (Pareto)   │
                     │  → Enforce source diversity           │
@@ -523,7 +1040,7 @@ Core hardening (2w) → department deployment engine (2w) → AgentX onboarding 
                                 │
                     ┌───────────▼───────────────────────────┐
                     │       UNIFIED INJECTION PIPELINE ★     │
-                    │  rag/unified_pipeline.py              │
+                    │  rag/core/unified_pipeline.py              │
                     │                                       │
                     │  ┌─ DOMAIN KEYWORD CLASSIFIER ────┐   │
                     │  │  GDPD/CCPA → legal_review       │   │
@@ -574,7 +1091,7 @@ Core hardening (2w) → department deployment engine (2w) → AgentX onboarding 
                                         │
                     ┌───────────────────▼───────────────────────┐
                     │         FEEDBACK LOOP                     │
-                    │  rag/feedback.py                         │
+                    │  rag/core/feedback.py                     │
                     │  → Log acceptance/rejection               │
                     │  → Update chunk quality scores            │
                     │  → Record Lasswell trace for audit        │
@@ -665,24 +1182,41 @@ price       Pricing & packaging                    packaging-tiers, pricing-expe
 
 Every one of the 46 agents follows this exact skeleton:
 
+**agent.md's claimed 6-section template below does not match reality — corrected 2026-08-09.**
+Checked two real files (`Teams/Engineering/dev/agent.md`, a leader, and `Teams/Engineering/quinn/agent.md`,
+a non-leader) — both have the identical real structure, 8 sections: **Purpose, Position in the Org,
+Skill Roster (N), Skill Chain (summary), Identity, Operational Layer, Logical Layer, Workflow
+Structure.** There is no "Summary" or "Status" section anywhere in either file — this wasn't a
+leader-vs-non-leader difference, both real files matched each other and neither matched the claim
+below.
+
 ```
 agent-name/
 │
-├── agent.md                  [REQUIRED] 6-section definition:
-│   │                          Summary · Purpose · Position · Skill Roster
-│   │                          Status · Workflow
-│   └── agent.toon            TOON-compressed version (84.5% token savings)
+├── agent.md                  Real structure (verified 2026-08-09, not the 6-section
+│   │                          "Summary · Purpose · Position · Skill Roster · Status ·
+│   │                          Workflow" this line used to claim): Purpose, Position in
+│   │                          the Org, Skill Roster (N), Skill Chain (summary), Identity,
+│   │                          Operational Layer, Logical Layer, Workflow Structure — 8
+│   │                          sections, confirmed identical across a leader and non-leader agent
+│   └── agent.toon            TOON-compressed version (real measured savings vary widely,
+│                              median -2.4% — see §8's correction; not the 84.5% figure
+│                              this line previously claimed)
 │
 ├── identity/                 [REQUIRED] Agent persona
 │   └── README.md / persona.md    "You are X. Your role is Y."
 │       (e.g., spark: David Ogilvy persona, marcus: Steve Jobs,
 │        board: Charlie Munger, dev: Werner Vogels, warden: CISO)
 │
-├── custom/                   [REQUIRED] Custom skills (9-section SKILL.md)
-│   ├── skill-a/SKILL.md           Definition · Triggers · Input · Output
-│   ├── skill-b/SKILL.md           Examples · Constraints · Verification
+├── custom/                   Custom skills (real SKILL.md template below, §4, is
+│                              also corrected — this line's "9-section: Definition ·
+│                              Triggers · Input · Output · Examples · Constraints ·
+│                              Verification" names don't match any real file)
+│   ├── skill-a/SKILL.md
+│   ├── skill-b/SKILL.md
 │   │   └── assets/                Templates, manifests, reference docs
-│   └── ...                        (2-5 custom skills per agent)
+│   └── ...                        (1-5 custom skills per agent, not "2-5" — 5 of 46
+│                                    agents have exactly 1, confirmed via a full live count)
 │
 ├── logical/                  [OPTIONAL] Logical script requirements
 │   └── book-requirements.md       Which Shared OS scripts this agent needs
@@ -709,20 +1243,31 @@ agent-name/
 
 ### What is a SKILL.md?
 
-A skill is a self-contained markdown file with 9 standard sections:
+**The template below does not match any real SKILL.md — corrected 2026-08-09.** Checked 5 real
+files at random, spanning 5 different departments (Engineering ×2, AI & Agents, Executive Office):
+every one uses the identical real template, none matching a single section name claimed below. The
+section *count* (9, sometimes 10 with an agent-specific dated-log section inserted before
+Principles) happened to be coincidentally close to right — the names weren't.
+
+Real, verified-uniform template:
 
 ```markdown
 # Skill Name
-## Definition          — What this skill does
-## Triggers            — When to invoke (keywords, agent types, query patterns)
-## Input               — What data the skill receives
-## Output              — What the skill produces
-## Examples            — 2-3 worked examples
-## Constraints         — Guardrails (what the skill must NOT do)
-## Verification        — How to verify the skill executed correctly
-## Tool Requirements   — Any tools needed (MCP, API, file access)
-## References           — Book/page citations grounding the skill
+## Introduction
+## Purpose
+## When to Use
+## Structure / Protocol
+## Instructions
+## Output Format
+## [optional: an agent-specific dated-log section, e.g. "Frontend Performance: [page/flow]"]
+## Principles
+## Fallback
+## Boundaries with Other Skills
 ```
+
+(The previously-claimed "Definition · Triggers · Input · Output · Examples · Constraints ·
+Verification · Tool Requirements · References" template isn't shown here — checked against 5 real
+files across 5 departments, none matched it.)
 
 ### Skill Types
 
@@ -733,7 +1278,7 @@ A skill is a self-contained markdown file with 9 standard sections:
 | **Cross-Cutting Skills** | `Shared OS/skills/` | `verification-before-completion/SKILL.md` |
 | **Operational Skills** | Automatically loaded from `operational/skill/` | `meta-skill-routing.md` |
 
-### Total Skills: ~200+ across all 46 agents
+### Total Skills: 193 `SKILL.md` files across all 46 agents (live count 2026-08-09, not "~200+")
 
 ---
 
@@ -810,27 +1355,36 @@ prompt_craft.py             Cinematographic prompt vocabulary builder
 
 ---
 
-## 6. RAG PIPELINE — FULL ARCHITECTURE
+## 6. RAG PIPELINE — FULL ARCHITECTURE `[re-verified 2026-08-09]`
 
-### The 8 Elements
+**Two corrections:** every bare `rag/*.py` path below is missing its real `core/` prefix (same
+issue already fixed in §6.2/PART 1 §1 — `chunkify.py`, `embed.py`, `optimizer.py`, `retriever.py`,
+`injector.py`, `feedback.py`, `bridge.py` are all really `rag/core/*.py`, confirmed live). More
+significantly: **ELEMENT 7 (`rag/strategy.py`, "23 tests") no longer exists** — `rag/core/strategy.py`
+was deleted earlier this session as dead code (no live callers; part of the ponytail-audit cleanup,
+see the earlier task log) — it's not a path typo like the others, the module and its 23 tests are
+genuinely gone. §7's real, live-verified module list (16 modules, 346 tests) does not include a
+strategy module. The remaining 7 elements are otherwise real.
+
+### The 8 Elements (one, Element 7, no longer exists — see note above)
 
 ```
 ELEMENT 1: SEMANTIC CHUNKER
-  rag/chunkify.py
+  rag/core/chunkify.py
   → Splits documents by heading boundaries (not tokens)
   → Assigns priority tiers (T1=load-bearing, T2=structural, T3=supplementary)
   → Tags adversarial variants (same claim, different framing)
   → Output: chunks.json + sqlite-vec vector store
 
 ELEMENT 2: HYBRID EMBEDDER
-  rag/embed.py
+  rag/core/embed.py
   → Dense embeddings: sentence-transformers (all-MiniLM-L6-v2)
   → Sparse embeddings: TF-IDF with learned vocabulary
   → Vector store: SQLite + sqlite-vec extension
   → Combined similarity: 65% dense + 35% sparse
 
 ELEMENT 3: CONTEXT OPTIMIZER
-  rag/optimizer.py
+  rag/core/optimizer.py
   → Task complexity classifier (4 profiles: quick_check, standard_review,
     deep_analysis, governance_gate)
   → Chunk quality scoring (tier, freshness, historical quality, citations)
@@ -839,7 +1393,7 @@ ELEMENT 3: CONTEXT OPTIMIZER
   → Adversary injector (Kahneman premortem: "assume our plan failed")
 
 ELEMENT 4: FULL RETRIEVAL PIPELINE
-  rag/retriever.py
+  rag/core/retriever.py
   → Query rewriter (Lasswell model: expand 1 query → 3-5 variants)
   → Hybrid retrieval (dense + sparse + metadata filter)
   → Cross-encoder re-ranker (lightweight heuristic: term overlap, key phrase,
@@ -848,7 +1402,7 @@ ELEMENT 4: FULL RETRIEVAL PIPELINE
   → Format injection (Cialdini Authority: citations BEFORE content)
 
 ELEMENT 5: SMART INJECTOR
-  rag/injector.py (22 tests)
+  rag/core/injector.py (22 tests)
   → Layer 1: Sentence-Level Relevance Pruning (60-85% savings)
       Score every sentence against query. Keep Commander's Intent + citations.
       Drop filler, introductions, examples, metacommentary.
@@ -860,20 +1414,20 @@ ELEMENT 5: SMART INJECTOR
       Spark: verbatim, image-friendly. Board: formula-only, NEVER image numbers.
 
 ELEMENT 6: FEEDBACK LOOP
-  rag/feedback.py
+  rag/core/feedback.py
   → Log every injection outcome (accept/reject)
   → Update chunk quality scores based on outcomes
   → Lasswell trace for audit: who said what, to whom, in which channel, with what effect
 
-ELEMENT 7: MULTI-STRATEGY ENGINE
-  rag/strategy.py (23 tests)
+ELEMENT 7: MULTI-STRATEGY ENGINE — DELETED 2026-08-09, this element no longer exists
+  rag/strategy.py (23 tests)   [dead code removed this session — no live callers found]
   → Content type classifier (5 types: formula, creative, structured, prose, citation)
   → Strategy selector per chunk (auto-routes to best compression path)
   → pxpipe integration: image-friendly chunks → PNG (67% vision token savings)
   → Exact values (numbers, citations, computed facts) NEVER imaged
 
 ELEMENT 8: UNIFIED PRODUCTION PIPELINE ★
-  rag/unified_pipeline.py (31 tests)
+  rag/core/unified_pipeline.py (31 tests)
   → Domain keyword classifier (fixed — prioritizes domain terms over generic verbs)
   → Strategy router: FAST (Destructor v2) vs BALANCE (Adaptive+Recovery)
   → 5-trigger recovery pass: novel_fact, exception, contradiction,
@@ -887,10 +1441,10 @@ ELEMENT 8: UNIFIED PRODUCTION PIPELINE ★
 ┌──────────────────┐
 │  DOCUMENTS (.md) │
 └────────┬─────────┘
-         │ chunkify.py
+         │ core/chunkify.py
          ▼
 ┌──────────────────┐     ┌──────────────────┐
-│  chunks.json     │────▶│  embed.py         │
+│  chunks.json     │────▶│  core/embed.py    │
 │  priority tiers  │     │  dense + sparse   │
 │  adversarial     │     │  → sqlite-vec     │
 └──────────────────┘     └────────┬─────────┘
@@ -898,7 +1452,7 @@ ELEMENT 8: UNIFIED PRODUCTION PIPELINE ★
          ┌────────────────────────┼───────────────────────┐
          │                        ▼                       │
          │              ┌──────────────────┐              │
-         │              │  bridge.py        │  ← CIE call │
+         │              │  core/bridge.py   │  ← CIE call │
          │              │  stdin/stdout     │              │
          │              │  JSON protocol    │              │
          │              └────────┬─────────┘              │
@@ -915,7 +1469,7 @@ ELEMENT 8: UNIFIED PRODUCTION PIPELINE ★
          │      └───────────────┼─────────────────┘      │
          │                      ▼                        │
          │           ┌─────────────────────┐             │
-         │           │ unified_pipeline.py │ ★           │
+         │           │ core/unified_pipeline.py│ ★        │
          │           │ ┌─────────────────┐ │             │
          │           │ │ classify query  │ │             │
          │           │ │ route strategy  │ │             │
@@ -950,7 +1504,7 @@ The TypeScript CIE communicates with the Python RAG pipeline via subprocess stdi
 CIE (TypeScript)                              RAG (Python)
      │                                              │
      │  echo '{"query":"...","agent_id":"..."}'     │
-     │  | python3 rag/bridge.py --mode retrieve     │
+     │  | python3 rag/core/bridge.py --mode retrieve     │
      ├─────────────────────────────────────────────▶│
      │                                              │
      │                    ┌─────────────────────┐    │
@@ -976,7 +1530,11 @@ Three modes:
 
 ---
 
-## 8. CIE (CONTEXT INTELLIGENCE ENGINE) — TypeScript Core
+## 8. CIE (CONTEXT INTELLIGENCE ENGINE) — TypeScript Core `[re-verified 2026-08-09 — list was missing 13 files]`
+
+The 10 top-level files and 6 sources below are all real, but `src/cie/` now has **23** top-level
+`.ts` files and `src/cie/sources/` has **9** — this list predates a lot of later work (including
+some from earlier today: `generation-trio.ts`, §7.1). Real, complete listing:
 
 ```
 src/cie/
@@ -985,19 +1543,33 @@ src/cie/
 ├── classifier.ts         Task classification → routes to agent + skill
 ├── retriever.ts          Knowledge retrieval → calls bridge.py
 ├── ranker.ts             Re-ranks context for relevance
-├── builder.ts            Builds final context payload for LLM
+├── builder.ts            Builds final context payload for LLM (formatting only — no LLM call;
+│                          see §6.3 Layer 7.1's correction, this doc, for the real generation trio)
 ├── cache.ts              Context caching layer (LRU)
-├── graph-resolver.ts     Knowledge graph resolver
+├── graph-resolver.ts     Knowledge graph resolver + department execution pipelines (§6.3 Layer 7.2)
 ├── rag-bridge.ts         Bridge: TypeScript → Python via subprocess
 ├── algorithms.ts         Bloom filter, MinHash, TF-IDF, Priority Queue, BFS, Circuit Breaker
-│
-└── sources/              Knowledge sources (where CIE pulls context from)
-    ├── agent-memory.ts       Agent's own memory/experience
-    ├── codegraph.ts          Code dependency graph
-    ├── graphify.ts           Code structure graph
-    ├── hermes-memory.ts      Hermes agent memory (CRDT-synced)
-    ├── project-docs.ts       Project documentation (.md files)
-    └── shared-os-logical.ts  Shared OS logical scripts (35 Python modules)
+├── archetype.ts          Task archetype classification (§6.3 Layer 2, 7 archetypes)
+├── retrieval-shape.ts    Archetype → retrieval breadth/mode mapping (§6.3 Layer 4)
+├── generation-trio.ts    Archetype-gated primary/adversarial/creative generation (§6.3 Layer 7.1)
+├── creative-retrieval.ts Creative Retrieval Mode, 4-source pull (§6.3 Layer 4, GRAPH-BRAIN-DESIGN §13.1)
+├── creative-gate-chain.ts C1–C5 Creative Gate Chain (§6.3 Layer 5b)
+├── adversarial-gate.ts   Adversarial Testing archetype's inverted gate logic (§6.3 Layer 5c)
+├── tool-binding.ts       Resolves tool locations against shared-tool-registry.md (§6.3 Layer 5c)
+├── tool-context.ts       Materializes live tool-call output as a real Gate-1-passable chunk
+├── session-memory.ts     Deep Exploration session state (explore/converge/resume)
+├── discussion-capture.ts Architecture-discussion → Decision-node capture (§6.3 Layer 11)
+├── entity-resolution.ts, team-assignment.ts, cross-scope-bridge.ts  — exist, not traced this pass
+
+src/cie/sources/          Knowledge sources (where CIE pulls context from)
+├── agent-memory.ts       Agent's own memory/experience
+├── codegraph.ts          Code dependency graph
+├── graphify.ts           Code structure graph (also: getImpactRadius/getNeighbors/queryGraph —
+│                          real AST-derived graph-query primitives, §6.3 Layer 7.2)
+├── hermes-memory.ts      Hermes agent memory (CRDT-synced)
+├── project-docs.ts       Project documentation (.md files)
+├── shared-os-logical.ts  Shared OS logical scripts (35 Python modules)
+└── mempalace.ts, venture-agents.ts, ventures.ts  — exist, not traced this pass
 ```
 
 ---
@@ -1010,50 +1582,59 @@ src/toon/
 ├── compressor.ts    TOON compression engine
 └── delta.ts         Delta (differential) TOON updates
 
-Key metrics:
-  → 84.5% average token savings
-  → Every .md file has a parallel .toon file
-  → ~650 .toon files across the project
+Key metrics (`src/toon/` encoding vs. JSON — a different claim from `cli/toonify.js`'s
+markdown-heading-abbreviation conversion; see §8's correction, PART III, for that one):
+  → toon.claude() mode: 80-87% savings vs JSON (per its own header comment, not independently
+    re-verified here — this is about TOON's dense encoding of structured data, not about
+    Teams/**/*.md conversion)
+  → Every .md file has a parallel .toon file (659/700, 94.1% coverage — confirmed live via
+    `node cli/toonify.js --status`)
+  → 659 .toon files across the project (confirmed live, not "~650")
 ```
 
 ---
 
-## 10. GOVERNANCE PIPELINES (TypeScript)
+## 10. GOVERNANCE PIPELINES (TypeScript) `[re-verified 2026-08-09]`
+
+**Correction to a mistake made and caught within this same editing pass:** a stale session note had
+this section down as "2 of 3 files deleted" — checked directly and that's wrong. All three files
+are real, present, and `content-pipeline.ts`/`governance-gate.ts` are genuinely exported from
+`src/index.ts` (`export { ... } from './pipelines/content-pipeline'` etc., confirmed via grep) —
+intentional public API of the `yvon-engine` package, not dead code. (This mirrors a false-positive
+this session already caught once before with the same two files, from an audit subagent's grep-only
+caller-count heuristic — worth remembering that heuristic keeps producing the same wrong answer on
+these two specific files.) `content-pipeline.ts`'s own `CONTENT_PIPELINE` array already has the
+correct `muse→weave→lena→pixel→spark` sequence (matches `graph-resolver.ts`'s
+`BRAND_STUDIO_PIPELINE` in spirit, though it's a separate, independent array — not obviously wired
+together, not traced further here). `governance-gate.ts`'s `requiresGovernanceReview()` takes
+`gateThreshold` as a caller-supplied parameter — the specific "$10K / $50K / $250K" figures below
+aren't hardcoded constants in this file; not confirmed as accurate or inaccurate, just not found
+here.
 
 ```
 src/pipelines/
 ├── caos-executor.ts      CAOS (Context-Aware Orchestration System)
-│                          Orchestrates multi-agent workflows
-│                          Manages context injection per agent
-│                          Handles the agent-to-agent handoff protocol
+│                          Orchestrates multi-agent workflows via graph-resolver.ts's execution
+│                          graphs; generation calls now go through generation-trio.ts (§6.3 Layer 7.1)
 │
-├── content-pipeline.ts   Content processing pipeline
-│                          Brand Studio agents: spark→muse→lena→pixel
-│                          Creative review → ideation → copy → visual
+├── content-pipeline.ts   Content processing pipeline — real, exported, confirmed 2026-08-09
+│                          Brand Studio agents: muse→weave→lena→pixel→spark (own CONTENT_PIPELINE
+│                          array, matches graph-resolver.ts's BRAND_STUDIO_PIPELINE in sequence)
 │
-└── governance-gate.ts    Governance gate pipeline
-                           4-gate cycle: recommend→review→approve→audit
+└── governance-gate.ts    Governance gate pipeline — real, exported, confirmed 2026-08-09
+                           5 named gates: constitution→strategic-veto→fiduciary→pre-mortem→risk-matrix
                            Board + precedent + sentinel interaction
-                           Fiduciary guard thresholds: $10K / $50K / $250K
+                           Fiduciary threshold is a caller-supplied param, not a hardcoded constant
 ```
 
 ---
 
-## 11. KNOWLEDGE FOUNDATION (12 PDF Books)
+## 11. KNOWLEDGE FOUNDATION `[corrected 2026-08-09 — fabricated]`
 
-```
-Teams/Books/
-├── Kotler & Keller - Marketing Management (14th Edition)     [34MB]
-├── Jonah Berger - Contagious: Why Things Catch On            [1.5MB]
-├── David Aaker - Building Strong Brands                      [37MB]
-├── Binet & Field - The Long and Short of It                  [SYS1]
-├── Robert McKee - Story                                      [18MB]
-├── Heath brothers - Made to Stick                            [PDF]
-├── Robert Cialdini - The Psychology of Persuasion            [PDF]
-├── Seth Godin - Purple Cow                                   [PDF]
-├── Donald Miller - Building a StoryBrand                     [PDF]
-└── [2 additional marketing references]
-```
+**The 12-PDF listing below is fabricated — not stale, invented.** `Teams/Books/` really contains
+only `README.md` and `README.toon`; its own README says this is intentional ("Actual PDF files
+must be sourced by the operator and placed here"). Every title/author/file-size below is invented
+on top of that. The 6 Route D wisdom docs just below, by contrast, are real — confirmed present.
 
 Plus 6 Route D wisdom documents (`Teams/Shared OS/logical/`):
 ```
@@ -1067,58 +1648,76 @@ mckee-story-structure.md       McKee's 5-part story structure
 
 ---
 
-## 12. COMPLETE TEST SUITE
+## 12. COMPLETE TEST SUITE `[re-verified 2026-08-09 — see §7 for the real, live-run numbers]`
+
+Every path below is missing its real `core/` (or `experiments/`) prefix, `rag/strategy.py` no
+longer exists (deleted this session, dead code), and the "111" total is stale. §7 elsewhere in
+this document has the actual live-run figures — **16 real test-bearing modules, 346 tests total**
+— not reproduced again here to avoid two numbers drifting apart from each other.
 
 ```
 Module                          Tests    Status
 ──────────────────────────────────────────────
-rag/injector.py                  22      ✅ All passing
-rag/strategy.py                  23      ✅ All passing
-rag/destructor.py                35      ✅ All passing
-rag/unified_pipeline.py          31      ✅ All passing
+rag/core/injector.py             22      ✅ All passing
+rag/strategy.py                  —       DELETED 2026-08-09, no longer exists
+rag/core/destructor.py           35      ✅ All passing
+rag/core/unified_pipeline.py     31      ✅ All passing
 ──────────────────────────────────────────────
-TOTAL                           111      ✅ ALL GREEN
+See §7 for the real current total (346, across 16 modules) — "111" above was stale even
+before rag/strategy.py's deletion; see §7 for the reconciliation.
 ```
 
 Plus separate test suites in:
-- `rag/retriever.py` — Full pipeline smoke tests
-- `rag/optimizer.py` — Task classification + quality scoring
-- `rag/benchmark.py` — 7-scenario comparison suite
-- `cli/verify-caos.py` — E2E CAOS verification
+- `rag/core/retriever.py` — Full pipeline smoke tests
+- `rag/core/optimizer.py` — Task classification + quality scoring
+- `rag/experiments/benchmark.py` — comparison suite (not independently re-verified this pass)
+- `cli/verify-caos.py` — E2E CAOS verification, **6 checks live-confirmed** (§7), not the count
+  implied elsewhere in this doc before correction
 
 ---
 
-## 13. COMMANDS
+## 13. COMMANDS `[re-verified 2026-08-09]`
+
+`npx yvon compress` doesn't exist — checked `cli/yvon.js`'s real command dispatch table directly:
+`{ init, toonify, doctor, graph, agents, dashboard, integrate, version }`. The real equivalent is
+`npx yvon toonify` (or `node cli/toonify.js --all`, already listed below). `rag/strategy.py` is
+deleted (dead code, this session); its command line is struck below rather than removed outright,
+so this stays a record of what changed and why.
 
 ```bash
 # Python RAG tests
-python3 rag/unified_pipeline.py --test       # 31 tests
-python3 rag/destructor.py --test              # 35 tests
-python3 rag/strategy.py --test                # 23 tests
-python3 rag/injector.py --test                # 22 tests
-python3 rag/destructor.py --demo              # Budget guarantee demo
-python3 rag/unified_pipeline.py --demo        # 12-scenario strategy demo
-python3 rag/benchmark.py                      # 3-pipeline comparison
+python3 rag/core/unified_pipeline.py --test   # 31 tests
+python3 rag/core/destructor.py --test         # 35 tests
+python3 rag/strategy.py --test                # DELETED 2026-08-09 — no longer exists
+python3 rag/core/injector.py --test           # 22 tests
+python3 rag/core/destructor.py --demo         # Budget guarantee demo
+python3 rag/core/unified_pipeline.py --demo   # 12-scenario strategy demo
+python3 rag/experiments/benchmark.py          # comparison suite
 
 # TypeScript (requires npm install)
-npx yvon init     # Initialize YVON in current directory
-npx yvon doctor   # Health check on fleet
-npx yvon graph    # Show knowledge graph
-npx yvon agents   # List all agents
-npx yvon compress # TOON-compress Teams/ directory
+npx yvon init      # Initialize YVON in current directory
+npx yvon doctor    # Health check on fleet
+npx yvon graph     # Show knowledge graph
+npx yvon agents    # List all agents
+npx yvon toonify   # TOON-compress Teams/ directory (not "npx yvon compress" — no such command)
 npx yvon dashboard # Visual dashboard
 
 # CLI tools
-python3 cli/toonify.py                        # TOON compression
-python3 cli/verify-caos.py                    # E2E CAOS verification
+node cli/toonify.js --all                     # TOON compression
+python3 cli/verify-caos.py                    # E2E CAOS verification — 6 checks live-confirmed (§7)
 ```
 
 ---
 
-## 14. SINGLE ENTRY POINT FOR RAG
+## 14. SINGLE ENTRY POINT FOR RAG `[import path corrected 2026-08-09]`
+
+`inject()` is real, confirmed at `rag/core/unified_pipeline.py` line 575 — but the import path
+below was missing `core.` (same recurring bare-path issue as everywhere else this pass). The
+result-field example values (task_confidence 0.60, savings_pct 38.8%, etc.) are illustrative, not
+independently re-verified against a live call this pass.
 
 ```python
-from rag.unified_pipeline import inject
+from rag.core.unified_pipeline import inject
 
 result = inject(
     query="verify our data retention policy complies with GDPR Article 5",
@@ -1143,6 +1742,13 @@ result = inject(
 
 # ═══════════ PART 2 — HARNESS: COMPLETE ARCHITECTURE PLAN ═══════════
 *(source: docs/HARNESS.md — verbatim)*
+
+**Read this as history, not current state.** Dated 2026-07-16, self-labeled "Design Phase," and
+marked with its own `★ NEW` / `EXISTS, needs fix` / `★ BUILD ENTIRELY NEW` tags throughout — a
+point-in-time plan for the harness, not a claim about today. §6.2/§6.3/§7 elsewhere in this
+document describe the same gates and have been independently re-verified against live code this
+session (real file paths, real test counts, real gate count) — treat those as current, this Part
+as the plan that preceded them. Not re-verified line-by-line here to avoid duplicating that work.
 
 # YVON HARNESS — Complete Architecture Plan
 
@@ -1208,7 +1814,7 @@ QUERY: "should we acquire Competitor X for $2M?"
                            ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  PHASE 4: FORMULA EXECUTION                                   │
-│  (rag/bridge.py → Shared OS scripts — EXISTS)                │
+│  (rag/core/bridge.py → Shared OS scripts — EXISTS)                │
 │                                                              │
 │  detect computable formulas in query:                        │
 │  "acquire + $2M" → competitive_strategy.py five_forces()     │
@@ -1234,7 +1840,7 @@ QUERY: "should we acquire Competitor X for $2M?"
                            ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  PHASE 6: HARNESS GATES ★ BUILD ENTIRELY NEW                │
-│  (rag/harness.py — BUILD, the core new module)               │
+│  (rag/harness/gates.py — BUILD, the core new module)               │
 │                                                              │
 │  ┌──────────────────────────────────────────────────────┐    │
 │  │                                                      │    │
@@ -1325,7 +1931,7 @@ QUERY: "should we acquire Competitor X for $2M?"
                            ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  PHASE 7: STRATEGY ROUTING + INJECTION                        │
-│  (rag/unified_pipeline.py — EXISTS, extend)                  │
+│  (rag/core/unified_pipeline.py — EXISTS, extend)                  │
 │                                                              │
 │  ┌─ FAST PATH ──────────────────────────────────────────┐    │
 │  │  creative_review, factual_lookup, copy_edit           │    │
@@ -1356,7 +1962,7 @@ QUERY: "should we acquire Competitor X for $2M?"
                            ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  PHASE 9: POST-HOC VERIFICATION ★ NEW                       │
-│  (rag/verifier.py — BUILD)                                  │
+│  (rag/verify/grounded.py — BUILD)                                  │
 │                                                              │
 │  ┌─ GROUNDED CITATION CHECK ────────────────────────────┐    │
 │  │  For every factual claim in the model's response:      │    │
@@ -1399,7 +2005,7 @@ QUERY: "should we acquire Competitor X for $2M?"
                            ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  PHASE 11: FIELD MONITORING ★ NEW                            │
-│  (rag/field_monitor.py — BUILD)                              │
+│  (rag/monitor/watcher.py — BUILD)                              │
 │                                                              │
 │  Continuous observation of injection quality:                │
 │    • Attractor detection: which chunk combinations produce   │
@@ -1420,10 +2026,10 @@ QUERY: "should we acquire Competitor X for $2M?"
 
 | # | File | Purpose | Lines (est.) | Dependencies |
 |---|------|---------|-------------|--------------|
-| 1 | `rag/harness.py` | 5-gate harness — authenticate, reliability, conflict, budget, quarantine | ~500 | retriever, optimizer, embed, staleness_economics, feedback |
-| 2 | `rag/verifier.py` | Post-hoc verification — grounded citations, self-consistency, constitution | ~400 | embed, injector, Shared OS scripts |
+| 1 | `rag/harness/gates.py` | 5-gate harness — authenticate, reliability, conflict, budget, quarantine | ~500 | retriever, optimizer, embed, staleness_economics, feedback |
+| 2 | `rag/verify/grounded.py` | Post-hoc verification — grounded citations, self-consistency, constitution | ~400 | embed, injector, Shared OS scripts |
 | 3 | `rag/harness/disclosure.py` | Skill progressive disclosure — description loading, trigger matching, on-demand full load | ~250 | Teams/ file system, skill registry |
-| 4 | `rag/field_monitor.py` | Field monitoring — attractor detection, degradation alerts, coverage gaps, drift | ~350 | feedback, embed, harness |
+| 4 | `rag/monitor/watcher.py` | Field monitoring — attractor detection, degradation alerts, coverage gaps, drift | ~350 | feedback, embed, harness |
 | 5 | `rag/context_constitution.md` | Context constitution — human-readable rules for acceptable context | ~150 | None (document) |
 | 6 | `rag/quarantine.jsonl` | Quarantine log — append-only record of excluded chunks | N/A | harness |
 | 7 | `rag/plan_lock_log.jsonl` | Plan-lock log — append-only record of retrieval execution plans | N/A | harness |
@@ -1435,11 +2041,11 @@ QUERY: "should we acquire Competitor X for $2M?"
 
 | # | File | Change | Why |
 |---|------|--------|-----|
-| 1 | `rag/unified_pipeline.py` | Add harness gate calls before strategy routing; add conflict flags to injection text; add grounded citation markers | Harness is a pre-injection gate |
+| 1 | `rag/core/unified_pipeline.py` | Add harness gate calls before strategy routing; add conflict flags to injection text; add grounded citation markers | Harness is a pre-injection gate |
 | 2 | `rag/optimizer.py` | Fix `compute_chunk_quality()` to multiplicative formula; add source_authority lookup; wire calibration_weight into retrieval confidence | Currently additive + disconnected |
 | 3 | `rag/feedback.py` | Add source-level feedback; add budget feedback; extend Lasswell trace with harness results | Feedback needs to tune retrieval, not just chunks |
 | 4 | `rag/retriever.py` | Add plan-lock enforcement (hash execution plan, verify authorization before retrieval) | Rail 1 compliance |
-| 5 | `rag/bridge.py` | Add harness output to bridge response JSON | CIE needs harness trace |
+| 5 | `rag/core/bridge.py` | Add harness output to bridge response JSON | CIE needs harness trace |
 | 6 | `src/cie/classifier.ts` | Apply domain keyword priority fix (GDPR → legal_review, not factual_lookup) | Classification accuracy |
 | 7 | `rag/books/harness-engineering.md` | Already rewritten — this defines the principles. Add context constitution reference. | Design rationale |
 
@@ -1732,16 +2338,16 @@ Verification score: 1.00
 
 | Phase | What | Depends On | Effort | Test Target |
 |-------|------|-----------|--------|-------------|
-| **1** | `rag/harness.py` — Gates 1, 2, 5 (authenticate, reliability, quarantine) | staleness_economics, feedback, optimizer fix | 3 days | 30+ tests |
+| **1** | `rag/harness/gates.py` — Gates 1, 2, 5 (authenticate, reliability, quarantine) | staleness_economics, feedback, optimizer fix | 3 days | 30+ tests |
 | **2** | `rag/optimizer.py` — Fix multiplicative formula + source_authority lookup | harness.py | 1 day | existing tests pass + new |
-| **3** | `rag/harness.py` — Gates 3, 4 (conflict, priority assembly) | Phase 1 harness, embed | 2 days | 20+ tests |
+| **3** | `rag/harness/gates.py` — Gates 3, 4 (conflict, priority assembly) | Phase 1 harness, embed | 2 days | 20+ tests |
 | **4** | `rag/harness/disclosure.py` — Skill progressive disclosure | agent registry, SKILL.md files | 1.5 days | 15+ tests |
-| **5** | `rag/unified_pipeline.py` — Wire harness gates + conflict flags + citation markers | harness.py, progressive_disclosure | 1.5 days | existing 31 tests + new |
-| **6** | `rag/verifier.py` — Post-hoc grounded citation + self-consistency | embed, unified_pipeline | 2 days | 20+ tests |
+| **5** | `rag/core/unified_pipeline.py` — Wire harness gates + conflict flags + citation markers | harness.py, progressive_disclosure | 1.5 days | existing 31 tests + new |
+| **6** | `rag/verify/grounded.py` — Post-hoc grounded citation + self-consistency | embed, unified_pipeline | 2 days | 20+ tests |
 | **7** | `rag/retriever.py` — Plan-lock enforcement | harness.py | 1 day | 10+ tests |
 | **8** | `rag/feedback.py` — Source-level + budget feedback | verifier.py | 1 day | existing tests + new |
-| **9** | `rag/field_monitor.py` — Attractor detection + degradation + coverage + drift | feedback, harness | 2 days | 15+ tests |
-| **10** | `rag/bridge.py` — Harness output in bridge JSON | harness.py | 0.5 days | integration tests |
+| **9** | `rag/monitor/watcher.py` — Attractor detection + degradation + coverage + drift | feedback, harness | 2 days | 15+ tests |
+| **10** | `rag/core/bridge.py` — Harness output in bridge JSON | harness.py | 0.5 days | integration tests |
 | **11** | `rag/context_constitution.md` — Human-readable constitution | all of above | 0.5 days | N/A (document) |
 | **12** | Integration testing — End-to-end across 13 scenarios | all of above | 2 days | E2E benchmark |
 
@@ -1830,11 +2436,18 @@ log_feedback(trace, outcome='pending', verification=verification)
 # ═══════════ PART 3 — UNIFIED PRODUCTION PIPELINE: FINAL REPORT ═══════════
 *(source: docs/PIPELINE_FINAL.md — verbatim)*
 
+**Spot-checked 2026-08-09 — this one holds up.** Ran `python3 rag/core/unified_pipeline.py --demo`
+live and every number below (GDPR 385t/38.8%/0.955/8-kept/3-recovered, Strategic Acquisition
+302t/54.3%/0.773, Deployment Fix 114t/77.3%/0.500, Cross-Dept 403t/39.0%/1.045, FAST avg
+72.4%/0.469, BALANCE avg 59.4%/0.742) reproduced exactly. Only the "111/111" test count below is
+stale — same already-corrected figure as elsewhere (§7: real current total is 346 across 16 modules;
+`strategy: 23` no longer exists, deleted this session).
+
 # YVON Unified Production Pipeline — Final Report
 
 **Date:** 2026-07-15  
 **Status:** Production Ready  
-**Tests:** 111/111 passing (injector: 22, strategy: 23, destructor: 35, unified: 31)
+**Tests:** 111/111 passing (injector: 22, strategy: 23, destructor: 35, unified: 31) — stale, see note above
 
 ---
 
@@ -1958,7 +2571,14 @@ The two misclassifications from the earlier benchmark (GDPR→factual_lookup, WA
 
 ---
 
-## Full Project Structure
+## Full Project Structure `[paths corrected 2026-08-09]`
+
+Bare filenames below are missing the real `core/` prefix (same fix as everywhere else this pass —
+`injector.py`/`strategy.py`/`destructor.py`/`optimizer.py`/`retriever.py`/`unified_pipeline.py`/
+`bridge.py`/`embed.py`/`feedback.py`/`chunkify.py` are all under `rag/core/`); `strategy.py` no
+longer exists (deleted this session); `pipeline_adaptive_recovery.py` and
+`pipeline_relational_progressive.py` don't exist anywhere in this repo (not just wrong path —
+genuinely absent). `rag/books/` is real, all 3 files confirmed present.
 
 ```
 /Agents/rag/
@@ -2017,10 +2637,10 @@ The two misclassifications from the earlier benchmark (GDPR→factual_lookup, WA
 
 ---
 
-## Single Entry Point
+## Single Entry Point (same `core/`-prefix correction as above)
 
 ```python
-from rag.unified_pipeline import inject
+from rag.core.unified_pipeline import inject
 
 result = inject(
     query="verify our data retention policy complies with GDPR Article 5",
@@ -2060,17 +2680,16 @@ cross-department with legal    BALANCE       4.0×        39%         1.04
 
 ---
 
-## Commands
+## Commands (`strategy.py` line is dead — deleted this session; others just need the `core/` prefix above)
 
 ```bash
 # Run all tests
-python3 rag/unified_pipeline.py --test     # 31 tests
-python3 rag/destructor.py --test            # 35 tests
-python3 rag/strategy.py --test              # 23 tests
-python3 rag/injector.py --test              # 22 tests
+python3 rag/core/unified_pipeline.py --test     # 31 tests
+python3 rag/core/destructor.py --test           # 35 tests
+python3 rag/core/injector.py --test             # 22 tests
 
 # Full demo with all scenarios
-python3 rag/unified_pipeline.py --demo
+python3 rag/core/unified_pipeline.py --demo
 
 # Benchmark comparison (all 3 pipelines)
 python3 rag/benchmark.py
@@ -2081,9 +2700,18 @@ python3 rag/benchmark.py
 # ═══════════ PART 4 — COMPLETE WORK TREE WITH FALLBACKS ═══════════
 *(source: docs/WORK_TREE.md — verbatim)*
 
+**This is the real content behind the dead `docs/archive/WORK_TREE.md` citation elsewhere in this
+doc (§13's Document Map) — dated 2026-07-16, and it checks out well: it's the accurate historical
+plan that §6.2/§6.3/§7 (independently re-verified against live code this session) describe as
+built. Same recurring, already-explained corrections apply throughout and aren't repeated
+line-by-line here: bare `rag/*.py` paths need a `core/` prefix, `strategy.py` no longer exists
+(deleted this session), "field_monitor.py"/"self_improver.py" are really `rag/monitor/watcher.py`/
+`improver.py`, and every stale test total (263, 111, etc.) is superseded by §7's live-verified 346
+across 16 modules.**
+
 # YVON ENGINE — COMPLETE WORK TREE WITH FALLBACKS
 
-**Status:** All modules wired · 111 existing tests preserved · 112 new tests added  
+**Status:** All modules wired · 111 existing tests preserved · 112 new tests added (stale — see note above)  
 **Date:** 2026-07-16  
 **Entry points:** bridge.py (stdin/stdout), unified_pipeline.py (direct), CLI (npx yvon)
 
@@ -2698,7 +3326,7 @@ USER QUERY
     │
     ├─progressive_disclosure.py──────→ active skills (2-3) + inactive summaries
     │
-    ├─{cie/rag-bridge.ts}────────────→ python3 rag/bridge.py --mode retrieve
+    ├─{cie/rag-bridge.ts}────────────→ python3 rag/core/bridge.py --mode retrieve
     │   │
     │   ├─retriever.py───────────────→ query rewrite → hybrid retrieve → rerank
     │   ├─optimizer.py───────────────→ dynamic profile → diversity → adversary
@@ -2760,14 +3388,18 @@ USER QUERY
 
 ## TEST SUITE SUMMARY
 
+Table below is the 2026-07-16 plan (strategy.py since deleted, field_monitor.py/self_improver.py
+renamed to monitor/watcher.py+improver.py, gates really 35 not 36) — 263 is stale, real live total
+is 346 across 16 modules, see §7.
+
 ```
 Module                            Tests    Status
 ──────────────────────────────────────────────
 injector.py                         22     ✅ ALL PASSING
-strategy.py                         23     ✅ ALL PASSING
+strategy.py                         23     ✅ ALL PASSING (deleted since — see §7)
 destructor.py                       35     ✅ ALL PASSING
 unified_pipeline.py                 31     ✅ ALL PASSING
-harness.py                          36     ✅ ALL PASSING
+harness.py                          36     ✅ ALL PASSING (real: 35)
 verifier.py                         16     ✅ ALL PASSING
 progressive_disclosure.py           23     ✅ ALL PASSING
 field_monitor.py                    17     ✅ ALL PASSING
@@ -2776,7 +3408,7 @@ e2e_validation.py (12 scenarios)    40     ✅ ALL PASSING
 optimizer.py (+multiplicative)     all    ✅ EXISTING PRESERVED
 bridge.py (+verify mode)           all    ✅ EXISTING PRESERVED
 ──────────────────────────────────────────────
-TOTAL                              263    ✅ ZERO FAILURES
+TOTAL                              263    (stale — real total 346, see §7)
 ```
 
 ---
@@ -2784,22 +3416,22 @@ TOTAL                              263    ✅ ZERO FAILURES
 ## COMMANDS
 
 ```bash
-# Full test suite
-python3 rag/unified_pipeline.py --test       # 31 tests + harness wiring
-python3 rag/harness.py --test                 # 36 tests (all 5 gates)
-python3 rag/verifier.py --test                # 16 tests
-python3 rag/harness/disclosure.py --test   # 23 tests
-python3 rag/field_monitor.py --test            # 17 tests
-python3 rag/self_improver.py --test            # 20 tests
-python3 rag/e2e_validation.py                  # 40 tests (12 scenarios)
+# Full test suite (paths corrected to real locations)
+python3 rag/core/unified_pipeline.py --test        # 31 tests + harness wiring
+python3 rag/harness/gates.py --test                 # 35 tests (all 5 gates)
+python3 rag/verify/grounded.py --test               # 16 tests
+python3 rag/harness/disclosure.py --test            # 23 tests
+python3 rag/monitor/watcher.py --test               # 17 tests
+python3 rag/monitor/improver.py --test              # 20 tests
+python3 rag/experiments/e2e.py                      # 40 tests (12 scenarios)
 
 # Bridge modes
-echo '{"query":"...","agent_id":"spark"}' | python3 rag/bridge.py --mode retrieve
-echo '{"response":"...","chunks":[...]}' | python3 rag/bridge.py --mode verify
+echo '{"query":"...","agent_id":"spark"}' | python3 rag/core/bridge.py --mode retrieve
+echo '{"response":"...","chunks":[...]}' | python3 rag/core/bridge.py --mode verify
 
 # Production injection with all harness gates
 python3 -c "
-from rag.unified_pipeline import inject_with_harness
+from rag.core.unified_pipeline import inject_with_harness
 result = inject_with_harness(
     query='review headline copy for campaign',
     agent_id='spark',
@@ -2811,7 +3443,7 @@ result = inject_with_harness(
 "
 
 # Weekly self-improvement (dry run)
-python3 rag/self_improver.py --dry-run
+python3 rag/monitor/improver.py --dry-run
 ```
 
 ---
@@ -2826,9 +3458,25 @@ python3 rag/self_improver.py --dry-run
 **Purpose:** YVON Core manages Novizio, Hourbour, and AgentX (SaaS for small businesses)  
 **Validated Against:** Google agents-cli (github.com/google/agents-cli) — YVON's architecture aligns with Google's agent engineering patterns at every layer. See cross-reference section at end.
 
+**Design-phase doc (2026-07-16), read as history like PART 2/3 — two spots already got a
+2026-08-09 resolution note pointing to `GRAPH-BRAIN-DESIGN.md` as canonical (below). One more
+concrete fix applied now: "7 tools mapped" for the MCP marketplace → real count is 9 (6 MCP-kind,
+3 non-MCP), see §10.**
+
 ---
 
 ## THE 4-LAYER STACK
+
+> **Resolved 2026-08-09 (Open Issues, Issue 7):** this is no longer the canonical technical-layer
+> model — `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §18 is, having absorbed and reconciled the parallel four-layer
+> description that used to live in `system-harness/graph-brain/YVON-GRAPH.md` §9. The four items below are **product/
+> deployment-tier content**, not a peer technical stack: AgentX is a *tenant* of the L1–L4
+> execution stack, not a layer on top of it. See `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §18.1 for the exact
+> mapping of where each item below actually lives in the canonical stack (mostly: L1 Data for the
+> registries/graphs, L2 Capability for governance-as-agents and tool grants, L3 Orchestration for
+> tier-based concurrency caps, L4 Interface for the dashboards). Content below is unchanged and
+> still accurate as a description of what each tier carries — only the "layer" framing is
+> superseded.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -2846,7 +3494,7 @@ python3 rag/self_improver.py --dry-run
 │  • MCP tool registry (relay) — ALL external tools registered     │
 │  • Integration patterns (relay) — idempotency, retry, circuit    │
 │  • Egress allowlist (relay) — per-tool network boundaries        │
-│  • Engineering MCP marketplace — 7 tools mapped                  │
+│  • Engineering MCP marketplace — 9 tools mapped (6 MCP, 3 non-MCP)│
 │  • Connector SDK — build custom integrations per business        │
 │                                                                  │
 ├──────────────────────────────────────────────────────────────────┤
@@ -2907,7 +3555,9 @@ python3 rag/self_improver.py --dry-run
                    │                  │         │          │          │
                    │                  │    ┌────▼──────────▼──────────▼────┐
                    │                  │    │    PER-TENANT ISOLATION      │
-                   │                  │    │    • Separate graph DB        │
+                   │                  │    │    • Schema-per-tenant, shared│
+                   │                  │    │      pgvector/qdrant Postgres │
+                   │                  │    │      instance (§6, Issue 6)   │
                    ▼                  ▼    │    • Separate agent state     │
          ┌────────────────────┐  ┌────────┐│    • Separate skills/config   │
          │ OWNED BRAND GRAPH  │  │TENANT  ││    • Separate feedback loop   │
@@ -3011,7 +3661,7 @@ TENANT: Boutique A
 | Component | Status | Notes |
 |-----------|--------|-------|
 | 46 agents × 7 departments | ✅ DONE | Full definitions, skills, configs |
-| RAG pipeline (retrieval → injection) | ✅ DONE | 17 modules, 111 tests |
+| RAG pipeline (retrieval → injection) | ✅ DONE | 16 modules, 346 tests (re-verified 2026-08-09, see §7) |
 | 5-gate harness | ✅ DONE | auth, reliability, conflict, priority, quarantine |
 | Progressive skill disclosure | ✅ DONE | 40-60% context savings |
 | Post-hoc verification | ✅ DONE | Grounded citations + self-consistency |
@@ -3164,6 +3814,14 @@ SMALL BUSINESS OWNER VISITS agentx.ai
 
 ## THE GRAPH MEMORY SYSTEM
 
+> **Isolation model aligned with §6 2026-08-09** (Open Issues, Issue 6). This section predates
+> the MemPalace/pgvector decision and originally described "dedicated graph DB per brand" /
+> "separate SQLite per tenant" — a stronger, per-tenant-instance isolation model that was never
+> reconciled with §6's shared-namespace design. Resolved: **tiered, not uniform.** Tier 1/2
+> below share one pgvector/qdrant instance (Master + owned brands, isolated by namespace); Tier 3
+> uses schema-per-tenant within that same Postgres instance, not a separate DB per client. Sizes/
+> content below are otherwise unchanged and still accurate.
+
 ### THREE GRAPH TIERS
 
 ```
@@ -3195,7 +3853,8 @@ TIER 2: OWNED BRAND GRAPHS (Novizio, Hourbour)
 │ • Integration configurations            │
 │                                         │
 │ Access: Brand owner + YVON Core         │
-│ Isolation: Dedicated graph DB per brand │
+│ Isolation: pgvector/qdrant namespace,   │
+│   shared instance with Tier 1 (§6)      │
 └─────────────────────────────────────────┘
             │
             │ anonymized patterns
@@ -3211,7 +3870,8 @@ TIER 3: TENANT GRAPHS (AgentX clients)
 │ • Connector configurations              │
 │                                         │
 │ Access: Tenant owner + YVON Core        │
-│ Isolation: Separate SQLite DB per tenant│
+│ Isolation: schema-per-tenant, same      │
+│   Postgres instance as Tier 1/2 (§6)    │
 │ Privacy: Data never leaves tenant graph │
 │          except anonymized aggregates   │
 └─────────────────────────────────────────┘
@@ -3328,11 +3988,11 @@ OPERATOR SELECTS: "Deploy Brand Studio to Boutique A"
 
 | Module | Change |
 |--------|--------|
-| `rag/unified_pipeline.py` | Per-tenant context routing |
-| `rag/harness.py` | Per-tenant reliability thresholds |
-| `rag/feedback.py` | Per-tenant feedback isolation |
-| `rag/self_improver.py` | Cross-tenant learning mode |
-| `rag/field_monitor.py` | Per-tenant monitoring |
+| `rag/core/unified_pipeline.py` | Per-tenant context routing |
+| `rag/harness/gates.py` | Per-tenant reliability thresholds |
+| `rag/core/feedback.py` | Per-tenant feedback isolation |
+| `rag/monitor/improver.py` | Cross-tenant learning mode |
+| `rag/monitor/watcher.py` | Per-tenant monitoring |
 
 ---
 
@@ -3589,10 +4249,10 @@ Google's 7 skills and YVON's 200+ SKILL.md files use the same architecture:
 | `google-agents-cli-workflow` | `AGENT-BUILD-PLAYBOOK.md` | ✅ Exists — lifecycle orchestration |
 | `google-agents-cli-scaffold` | `platform/deployment_orchestrator.py` (planned) | 🔄 Phase 2 build |
 | `google-agents-cli-adk-code` | `Teams/Shared OS/logical/*.py` (35 scripts) | ✅ Exists — agent code patterns |
-| `google-agents-cli-eval` | `rag/verifier.py` + `rag/e2e_validation.py` | 🔄 Partial — needs eval dataset + metrics |
+| `google-agents-cli-eval` | `rag/verify/grounded.py` + `rag/e2e_validation.py` | 🔄 Partial — needs eval dataset + metrics |
 | `google-agents-cli-deploy` | `platform/deployment_orchestrator.py` (planned) | 🔄 Phase 2 build |
 | `google-agents-cli-publish` | **MISSING** — needs Agent Card + discovery | ❌ Plan to add |
-| `google-agents-cli-observability` | `rag/field_monitor.py` | 🔄 Partial — needs Cloud Trace/BigQuery tier |
+| `google-agents-cli-observability` | `rag/monitor/watcher.py` | 🔄 Partial — needs Cloud Trace/BigQuery tier |
 
 ### 8-PHASE LIFECYCLE vs YVON 4-GATE CYCLE
 
@@ -3679,7 +4339,9 @@ The Google architecture validates that YVON is building in the right direction. 
 2. **Tenant Scaffold Create** (one-command provisioning of isolated agent departments for AgentX businesses)
 3. **Agent Card + Discovery** (publish agents to marketplace, businesses discover and subscribe)
 
-All three map directly to Phase 1-3 of the build plan above. The existing codebase (263 tests, 5-gate harness, 46 agents, 7 MCP tools) provides the engine. These additions provide the steering wheel and dashboard.
+All three map directly to Phase 1-3 of the build plan above. The existing codebase (346 tests — see
+§7, 5-gate harness, 46 agents, 9 MCP marketplace tools — see §10) provides the engine. These
+additions provide the steering wheel and dashboard.
 
 
 ---
@@ -3824,7 +4486,18 @@ OPERATOR MESSAGE  ("test the code" / "build a dashboard" / "fix the API")
     │        tasks: resolves query entities → files/modules/dependencies →
     │        seeds retrieval with the RIGHT file chunks + marks them
     │        GRAPH-PINNED (see 7.2 RAG loss prevention).
-    │      • hermes-memory.ts [built] — agent USER.md/MEMORY.md (CRDT).
+    │      • hermes-memory.ts [built + fixed 2026-08-10] — reads agent USER.md/
+    │        MEMORY.md, mtime-cached. 2026-08-09 found two real bugs, both fixed:
+    │        (1) it split on a '§' delimiter nothing ever wrote — the real file
+    │        uses `## Section` headers + `- bullet` lines (rag/core/hermes_memory.py's
+    │        format), so retrieval was silently degrading to whole-file keyword
+    │        search. Rewrote parsing to match exactly, threaded agentId through
+    │        from retriever.ts. (2) "(CRDT)" was asserted with zero merge logic
+    │        anywhere. Added a real one: `mergeMemorySections()` is a G-Set CRDT
+    │        (bullets are append-only, never edited — union+dedup per section is
+    │        conflict-free by construction). Verified commutative/associative/
+    │        idempotent against the live store/hermes/MEMORY.md, 19/19 checks.
+    │        `reconcileWithHermes()` exposes it for two-copy sync.
     │      • obsidian master vault [planned] — Tier-1 knowledge graph;
     │        resolver treats it as a source once platform/graph_vault.py lands.
     │   Refresh rule [gap→design]: `yvon graph` re-runs on every merge to
@@ -4033,10 +4706,14 @@ A skill misfires or a script throws
     │   proto/edge → experiments on risky changes before fleet-wide
     │   │
     │   └─ HERMES CONNECTION: every confirmed lesson is written into the
-    │       agent's MEMORY.md via hermes-sync (CRDT) → hermes-memory.ts
-    │       injects it into that agent's NEXT retrieval → the agent
-    │       remembers its own failure modes. Performance analysis lives in
-    │       graphs/telemetry; behavioral memory lives in hermes.   [built]
+    │       agent's MEMORY.md via hermes-sync (pushToHermes, now writes into
+    │       the right `## agentId` section, not a flat blob) → hermes-memory.ts
+    │       injects it into that agent's NEXT retrieval → the agent remembers
+    │       its own failure modes. Performance analysis lives in
+    │       graphs/telemetry; behavioral memory lives in hermes.   [built +
+    │       fixed 2026-08-10 — "(CRDT)" is now real: mergeMemorySections() is a
+    │       G-Set CRDT, reconcileWithHermes() exposes it for two-copy sync, see
+    │       7.0's STEP 1 note for the full before/after]
     │
     ├─ DEPLOY: self_improver 6-phase (analyze→propose→sandbox→decide→
     │   deploy→log). ONE failed sandbox test holds ALL proposals.   [built]
@@ -4077,15 +4754,14 @@ TASK-SPEC dag.parallel = [[WI-2, WI-3], [WI-4, WI-5]]
 
 | Tool | Role in the loop | Status |
 |---|---|---|
-| **impeccable** (`Teams/Shared OS/skills/impeccable` plugin + `impeccable` CLI) | Design-quality layer for the Design + Verify phases: `/impeccable shape` before build, `/audit`+`critique`+`polish` after; 46 deterministic anti-pattern detectors run in CI with no API key and BLOCK generic-UI tells. Owned by atlas (DESIGN.md) + spark + pixel + mia. | `[built]` — CLI installed in `dashboard/` (v3.2.1); skill copied to repo `.claude/skills/`; `DESIGN.md`+`PRODUCT.md` seeded; `npm run design:detect`. Plugin install (`npx impeccable install`) is a one-time operator step (needs impeccable.style network). |
-| **Playwright** (quinn webapp-testing + Playwright MCP) | E2E gate after EVERY feature; releases blocked without it | `[built]` — `@playwright/test` installed in `dashboard/`, 3 browsers (Chromium+Firefox+WebKit), `playwright.config.ts` + `tests/e2e/`, `npm run test:e2e`; harness validated (9 tests discovered). |
+| **impeccable** (`Teams/Shared OS/skills/impeccable` plugin + `impeccable` CLI) | Design-quality layer for the Design + Verify phases: `/impeccable shape` before build, `/audit`+`critique`+`polish` after; 46 deterministic anti-pattern detectors run in CI with no API key and BLOCK generic-UI tells. Owned by atlas (DESIGN.md) + spark + pixel + mia. | `[built]` — CLI dep confirmed real (root `package.json`: `"impeccable": "^3.2.1"`, not `dashboard/` as originally written); skill present at `Teams/Shared OS/skills/impeccable`; `dashboard/DESIGN.md`+`PRODUCT.md` confirmed present. |
+| **Playwright** (quinn webapp-testing + Playwright MCP) | E2E gate after EVERY feature; releases blocked without it | `[built]` — confirmed: `@playwright/test ^1.61.1` in `dashboard/package.json`, `playwright.config.ts` + `tests/e2e/` with real spec files present, quinn's `webapp-testing` skill present at `Teams/Engineering/quinn/marketplace/webapp-testing`. |
 | **Agentation** (`agentation` npm, dev-dep) | UI feedback FROM the running app: operator clicks elements, annotates, structured selectors come back to mia — replaces "describe the button in chat" | `[built]` — installed in `dashboard/` (v3.0.2), dev-only toolbar in `components/AgentationToolbar.tsx`, wired in `app/layout.tsx` |
 | **Ponytail MCP** (dev, axiom) | Minimal-code generation at write time: compact, DRY, constants extracted | `[partial]` — mapped in marketplace; wiring per coding work item |
 | **CAG** (extend `cie/cache.ts`) | Stable context cached, exempt from retrieval AND compression | `[gap→design]` |
 | **Graph refresh hook** (`yvon graph` post-merge) | Code graph never lags code | `[gap→design]` |
 | **GATE 0 RFC** (dev+spec+meta+warden) | Structural changes to frontend/backend/API/security/algorithms need 4-team sign-off BEFORE work | `[gap→design]` |
-| **OpenSandbox** (SDK + `osb` CLI + MCP) | Isolation runtime: the quarantine box every web-skill / feature / unproven dep runs in BEFORE it touches the repo (§7.7) | `[partial]` — SDK `opensandbox` 0.1.14 + `opensandbox-cli` 0.1.1 installed & unit-tested; live containers need Docker (real machine). Owners: ops (runtime) · warden/bastion (isolation+egress) · relay (MCP) |
-```
+| **OpenSandbox** (SDK + `osb` CLI + MCP) | Isolation runtime: the quarantine box every web-skill / feature / unproven dep runs in BEFORE it touches the repo (§7.7) | `[partial, SDK/CLI fixed 2026-08-10]` — Tier-1 (`cli/quarantine.sh`, no Docker) is real, confirmed by actual logs in `store/quarantine/`. Tier-2: SDK+CLI now actually installed (`pip install opensandbox==0.1.14 opensandbox-cli==0.1.1`, pinned in `requirements.txt`) and all 4 interface checks re-verified live — see §7.7 Status. Only live container provisioning is still blocked, on Docker/K8s availability, not on the install. |
 
 ## 7.7 SANDBOX-FIRST PROMOTION FLOW — the quarantine layer (OpenSandbox)
 
@@ -4159,18 +4835,30 @@ SOMETHING NEW ARRIVES  (web skill · new feature · external tool/dep)
 Every install in this project's history — impeccable, agentation, browser-use — went *straight into the repo* from a GitHub URL before anything vetted it; and a broken `middleware.ts` reached the running app. The sandbox-first flow is the discipline that catches exactly those: untrusted code proves itself in a box that gets destroyed, and only the vetted diff crosses the promotion gate.
 
 ### Status
-`[partial]` — `opensandbox` SDK 0.1.14 + `osb` CLI 0.1.1 installed and unit-tested. Owners: **ops** (runtime), **warden/bastion** (isolation + egress policy — senior per the Charter), **relay** (MCP registration), **scout** (drives case A tool-vetting).
+`[fixed 2026-08-10]` — the 2026-08-09 pass flagged this as disputed (the SDK wasn't actually
+installed anywhere despite being claimed "installed & unit-tested"). Re-resolved by actually
+installing it: `pip install opensandbox==0.1.14 opensandbox-cli==0.1.1` (both real PyPI packages,
+confirmed available), now pinned in root `requirements.txt`. All four checks below were re-run
+today and are real, reproducible results in this environment, not carried-over claims.
+`Teams/Shared OS/tools/shared-tool-registry.md` updated to `◐` (SDK/CLI real, live containers
+still `○`, no Docker). Tier-1 (`cli/quarantine.sh`) remains real and unaffected, with logs in
+`store/quarantine/`. Owners: **ops** (runtime), **warden/bastion** (isolation + egress policy —
+senior per the Charter), **relay** (MCP registration), **scout** (drives case A tool-vetting).
 
-Strict-test results (2026-07-23, build sandbox):
+Strict-test results (re-run 2026-08-10, this build sandbox):
 
 | Test | Result |
 |---|---|
-| SDK import (`Sandbox`, `SandboxManager`, `SandboxPool`) | ✅ PASS |
-| `osb config init` → `~/.opensandbox/config.toml` | ✅ PASS |
-| CLI subcommands (`sandbox`, `command`, `file`, `egress`, `skills`, `diagnostics`) present | ✅ PASS |
-| `Sandbox.create('python:3.12')` live container | ❌ EXPECTED FAIL — `SandboxInternalException: All connection attempts failed` (no OpenSandbox server; server needs **Docker**, absent here) |
+| SDK import (`Sandbox`, `SandboxManager`, `SandboxPool`) | ✅ PASS — real |
+| `osb config init` → `~/.opensandbox/config.toml` | ✅ PASS — real |
+| CLI subcommands (`sandbox`, `command`, `file`, `egress`, `skills`, `diagnostics`, `config`, `devops`, `diagnostics`) present | ✅ PASS — real, 8 subcommands confirmed via `osb --help` |
+| `await Sandbox.create('python:3.12')` live container | ❌ EXPECTED FAIL — `SandboxInternalException: Network connectivity error: All connection attempts failed` (no OpenSandbox server; server needs **Docker**, absent here) |
 
-`[needs-docker]` — live container provisioning requires a Docker/K8s runtime, unavailable in the build sandbox, available on the operator's machine via `uvx opensandbox-server`. The install + interfaces are verified; only the runtime backend is machine-gated. This is the same class of limit as Playwright's `install-deps` and browser-use's Python-3.11 gap: the code is correct, the sandbox is locked down.
+`[needs-docker]` — live container provisioning requires a Docker/K8s runtime, unavailable in this
+build sandbox, available on the operator's machine via `uvx opensandbox-server`. The SDK/CLI
+install and all four interfaces are now genuinely verified; only the runtime backend is
+machine-gated — the same class of limit as Playwright's `install-deps` and browser-use's
+Python-3.11 gap.
 
 
 
@@ -4191,8 +4879,18 @@ This part is not theoretical. The record:
 |---|---|
 | TS-001 … TS-013 exist, filled in, with real `exit_gate.proof` | `store/tasks/` |
 | **TS-014, TS-015, TS-016 shipped with no task record at all** | `docs/SESSION-HANDOUT.md` §2 lists them as shipped; `store/tasks/` has no file |
-| 8 of 11 records stuck at `status: approved` — never advanced to `done` | `grep -l '^status: approved' store/tasks/TS-*.yaml` |
+| 8 of TS-001…013 stuck at `status: approved` — never advanced to `done` | confirmed 2026-08-09, `grep -l '^status: approved' store/tasks/TS-*.yaml` |
 | A full dashboard redesign (2026-07-30) ran start→finish with zero records, zero agent routing, zero browser verification | this session |
+
+**Update, checked 2026-08-09 — the "abandoned" framing below is now half-wrong:** `cli/task.sh` +
+`cli/task.py` (§8.5's full 8-command record manager) actually exist, dated 2026-08-01, and 11 more
+records were created after TS-013 (TS-018…TS-023, TS-025…TS-029 — TS-014/015/016/017/024 are
+genuinely absent), all sitting at `status: gated`, none at `done`. So the protocol wasn't silently
+abandoned after TS-013 — it resumed once `task.sh` landed and got *further* (to `gated`, one step
+short of `done`) but still isn't wired to anything blocking: `verify-deploy.sh` doesn't call
+`task.sh validate` yet, and `store/tasks/ACTIVE` doesn't exist, confirming §8.8 rollout step 1 is
+done, steps 3-6 are not. The original "thirteen tasks then silence" story below is stale; treat
+the mechanism (§8.2-8.6) as still accurate and the origin story as superseded.
 
 The protocol was followed for thirteen tasks and then silently abandoned. **Nothing detected
 the abandonment**, because nothing in the repo reads `store/tasks/`.
@@ -4270,7 +4968,13 @@ name an artifact, command output, or file path — the existing records already 
 
 **Standing rule:** a gate that is installed but not wired to a blocking point does not exist.
 `reticle` was cited as quinn's browser gate in four agent definitions while never being
-installed or registered — the canonical example of this failure.
+wired — the canonical example of this failure. **Resolved 2026-08-09:** the package was never
+missing (installed + MCP-registered since 2026-08-01, `dashboard/node_modules/@reticlehq/core`,
+confirmed against the repo) — the actual gap was `quinn-config.md`'s `reticle_mcp` field sitting
+at `<FILL_IN>` for five weeks. That field is now filled from the verified install; see
+`quinn-config.md` and `quinn-tool-requirements.md`. The standing rule stands as written — this
+was the exact failure mode it describes, just diagnosed as "not installed" when it was really
+"installed, not bound."
 
 ---
 
@@ -4336,7 +5040,7 @@ Each tool binds to a gate here, or it does not enter the repo.
 | `quarantine.sh` | Sandbox-first (§7.7) | any new external dep | yes |
 | `impeccable detect` | Design | UI work → `gated` | yes (after §8.9) |
 | Playwright | Browser render | UI work → `gated` | yes (after §8.9) |
-| `reticle` | Browser render | with Playwright | **not installed — resolve or strike from all agent docs** |
+| `reticle` | Browser render | with Playwright | **bound 2026-08-09** — `quinn-config.reticle_mcp`; still gated behind §8.8 step 6 (flip to blocking) |
 | `agentation` | Feedback (input) | during `executing` | no |
 | `browser-use` | Exploratory QA | during `executing` | no (non-deterministic — never a gate) |
 | Crawl4AI · ScrapeGraphAI · Agent-Reach | Research | during `discovery` | no |
@@ -4367,16 +5071,19 @@ Honesty about limits, so this section isn't over-trusted:
 
 Each step is independently useful; do not batch (PLAYBOOK §0.2).
 
-1. `cli/task.sh` + `store/tasks/ACTIVE` — records become manageable. **No blocking yet.**
-2. Backfill TS-014/015/016 from the handout so the ledger is honest, and close the 9 records
-   stuck at `approved`.
+1. ~~`cli/task.sh` + `store/tasks/ACTIVE`~~ — **`cli/task.sh`/`task.py` DONE** (dated 2026-08-01,
+   full 8-command set confirmed 2026-08-09, see §8.0 update); `store/tasks/ACTIVE` still doesn't
+   exist. Records became manageable but **still no blocking**.
+2. Backfill TS-014/015/016/017 from the handout so the ledger is honest, and close the records
+   stuck at `approved`/`gated` (8 at `approved`, 10 more now at `gated` — see §8.0 update).
 3. `task.sh validate` added to `cli/verify-deploy.sh` as check 9 — **first blocking point**,
    at push time only.
 4. `.claude/hooks/yvon-gate.sh` in warn+log mode for one working session; read
    `store/gate-violations.log` to calibrate the always-allowed list.
 5. Flip the hook to blocking. Add `SessionStart` rail re-injection.
-6. Resolve `reticle` (install or strike), then wire Playwright + `impeccable detect` as
-   blocking gates for UI work.
+6. ~~Resolve `reticle` (install or strike)~~ **DONE 2026-08-09** — was already installed, now
+   bound via `quinn-config.reticle_mcp`. Remaining: wire `reticle` + Playwright + `impeccable
+   detect` as blocking gates for UI work.
 
 **Definition of done for PART 8:** a Write to `dashboard/` with no active approved task is
 refused, and the refusal names the exact command to fix it.
@@ -4391,6 +5098,16 @@ refused, and the refusal names the exact command to fix it.
 **Current state:** 19 Python files flat in `rag/`, architecture docs scattered at root, experiments mixed with production code.
 
 **Target state:** Logical subdirectories, docs centralized, imports clean, tests preserved.
+
+**This refactor actually happened — re-verified 2026-08-09.** Real `rag/` matches the target
+layout below closely: `core/harness/eval/monitor/verify/experiments/` all exist as described,
+`rag/experiments/adaptive_recovery.py` and `relational_graph.py` are both real (a different,
+unrelated finding earlier this session was about differently-named files —
+`pipeline_adaptive_recovery.py`/`pipeline_relational_progressive.py` — which genuinely don't
+exist; these do). `rag/__init__.py` is real and mostly matches the backwards-compat block below.
+Two modules exist in `rag/core/` that aren't in this plan's list: `hermes_memory.py`,
+`plan_lock.py`. Two remaining bugs below (both the same "unified" vs "unified_pipeline" typo
+already fixed once in this Appendix): the bridge.py wiring row and the `__init__.py` example.
 
 ---
 
@@ -4415,7 +5132,9 @@ rag/
 │   ├── embed.py               # Hybrid embedder
 │   ├── chunkify.py            # Semantic chunker
 │   ├── feedback.py            # Quality feedback loop
-│   └── unified.py             # ← unified_pipeline (renamed)
+│   └── unified_pipeline.py    # kept its name, just moved into core/ (verified 2026-08-09 —
+│                               #   this line previously said "unified.py (renamed)", which was
+│                               #   wrong; the real file is rag/core/unified_pipeline.py)
 │
 ├── harness/                   ← 5-gate verification (2 modules)
 │   ├── gates.py               # ← harness.py (renamed)
@@ -4473,7 +5192,7 @@ dist/                          ← Compiled output (unchanged)
 | `from rag.injector import ...` | `from rag.core.injector import ...` |
 | `from rag.harness import ...` | `from rag.harness.gates import ...` |
 | `from rag.verifier import ...` | `from rag.verify.grounded import ...` |
-| `from rag.unified_pipeline import ...` | `from rag.core.unified import ...` |
+| `from rag.unified_pipeline import ...` | `from rag.core.unified_pipeline import ...` (kept its name — verified 2026-08-09, this row previously said `rag.core.unified`, which doesn't exist) |
 | `from rag.eval_judge import ...` | `from rag.eval.judge import ...` |
 | `from rag.field_monitor import ...` | `from rag.monitor.watcher import ...` |
 | `from rag.self_improver import ...` | `from rag.monitor.improver import ...` |
@@ -4493,7 +5212,7 @@ dist/                          ← Compiled output (unchanged)
 ### bridge.py internally imports:
 - `from retriever import ...` → `from rag.core.retriever import ...`
 - `from optimizer import ...` → `from rag.core.optimizer import ...`
-- `from unified_pipeline import ...` → `from rag.core.unified import ...`
+- `from unified_pipeline import ...` → `from rag.core.unified_pipeline import ...`
 - `from verifier import verify` → `from rag.verify.grounded import verify`
 
 ---
@@ -4524,9 +5243,9 @@ dist/                          ← Compiled output (unchanged)
 
 | Risk | Mitigation |
 |------|-----------|
-| All 285+ tests break on import | Fix imports one subdirectory at a time, retest after each |
+| All tests break on import (real count 346, see §7) | Fix imports one subdirectory at a time, retest after each |
 | bridge.py breaks (critical path) | Fix bridge.py imports first, test with `--mode retrieve` |
-| unified_pipeline breaks (critical path) | Fix unified.py imports second, run 31 tests |
+| unified_pipeline breaks (critical path) | Fix unified_pipeline.py imports second, run 31 tests |
 | External imports from CIE break | Create `rag/__init__.py` with backwards-compat re-exports |
 
 **Mitigation: Backwards-compatible __init__.py**
@@ -4535,7 +5254,7 @@ dist/                          ← Compiled output (unchanged)
 # rag/__init__.py — backwards-compat re-exports
 from rag.core.injector import estimate_tokens, SentenceScorer, CitationInjector
 from rag.core.destructor import destructive_inject
-from rag.core.unified import inject, inject_with_harness
+from rag.core.unified_pipeline import inject, inject_with_harness
 from rag.harness.gates import process as harness_process
 from rag.verify.grounded import verify
 from rag.harness.disclosure import ProgressiveDisclosure
@@ -4556,6 +5275,13 @@ Old `from rag.harness import process` still works because `rag/harness/__init__.
 **Source:** github.com/google/agents-cli (Apache 2.0)  
 **Date:** 2026-07-16
 
+**Spot-checked 2026-08-09 — checks out.** This is a proposal doc, not a current-state claim: every
+"already built" cross-reference (`rag/monitor/watcher.py`, `feedback.py`, relay's grants,
+`self_improver.py`→`rag/monitor/improver.py`, `rag/verify/grounded.py`) points at a module
+confirmed real elsewhere in this doc, and every `platform/*.py` file is consistently marked
+`🔄 Build` (future work) — matches the already-established finding that `platform/` doesn't exist
+yet (see §10). No corrections needed.
+
 ---
 
 ## WHAT TO ADOPT (8 patterns, all map to YVON's existing structure)
@@ -4567,12 +5293,12 @@ Old `from rag.harness import process` still works because `rag/harness/__init__.
 | `agents-cli deploy --deployment-target cloud_run/gke` | GCP-specific container deployment | `yvon tenant provision` (deploys to YVON's agent fleet) |
 | `agents-cli publish gemini-enterprise` | Gemini Enterprise registration | `yvon publish --marketplace agentx` (AgentX marketplace) |
 | `agents-cli infra single-project` | GCP Terraform project setup | N/A — YVON runs locally, no cloud infra needed |
-| BigQuery Agent Analytics | GCP-specific data warehouse | `rag/field_monitor.py` (already built) |
+| BigQuery Agent Analytics | GCP-specific data warehouse | `rag/monitor/watcher.py` (already built) |
 | Cloud Trace spans | GCP-specific tracing | Lasswell traces (already built in feedback.py) |
 | IAP / Workload Identity | GCP IAM | relay's least-privilege grants (already built) |
 | Cloud Build CI/CD | GCP-specific CI | `self_improver.py` sandbox testing (already built) |
 | gcloud CLI | GCP SDK | N/A — no cloud dependency |
-| Vertex AI Eval Service | GCP-specific eval | `rag/verifier.py` + local eval (already built + enhance) |
+| Vertex AI Eval Service | GCP-specific eval | `rag/verify/grounded.py` + local eval (already built + enhance) |
 | Agent Runtime sessions | GCP-specific session management | Per-tenant SQLite graph DB (planned Phase 2) |
 
 ---
@@ -4659,7 +5385,7 @@ The eval SKILL.md defines 6 built-in metrics and a 5-stage quality flywheel.
 
 ### What YVON Builds
 
-YVON already has `rag/verifier.py` (grounded citations + self-consistency + constitution). Enhance it with:
+YVON already has `rag/verify/grounded.py` (grounded citations + self-consistency + constitution). Enhance it with:
 
 **New: Eval Dataset System**
 
@@ -4788,7 +5514,7 @@ Three tiers: Cloud Trace (always on) → Prompt-Response Logging (on deploy) →
 
 ### What YVON Builds
 
-YVON already has `rag/field_monitor.py`. Mirror the tier system:
+YVON already has `rag/monitor/watcher.py`. Mirror the tier system:
 
 | YVON Tier | Google Equivalent | Default | Implementation |
 |-----------|------------------|---------|---------------|
@@ -4810,10 +5536,10 @@ File: `platform/observability.py` — configures which tiers are active per tena
 | 1 — Scaffold | `platform/scaffold.py` (tenant create) | 🔄 Build |
 | 2 — Build | 46 agent definitions + 200+ SKILL.md files | ✅ Complete |
 | 3 — Orchestrate | CAOS executor (TypeScript) | ✅ Complete |
-| 4 — Evaluate | `rag/verifier.py` + `rag/eval_dataset.py` + `rag/eval_judge.py` | 🔄 Enhance |
+| 4 — Evaluate | `rag/verify/grounded.py` + `rag/eval_dataset.py` + `rag/eval_judge.py` | 🔄 Enhance |
 | 5 — Deploy | `platform/scaffold.py` (tenant provision) | 🔄 Build |
 | 6 — Publish | `platform/agent_card.py` + marketplace | 🔄 Build |
-| 7 — Observe | `rag/field_monitor.py` + `platform/observability.py` | 🔄 Enhance |
+| 7 — Observe | `rag/monitor/watcher.py` + `platform/observability.py` | 🔄 Enhance |
 
 ---
 
@@ -4848,10 +5574,10 @@ File: `platform/observability.py` — configures which tiers are active per tena
 
 | File | Change |
 |------|--------|
-| `rag/verifier.py` | Add rubric-based grading integration with eval_judge |
-| `rag/field_monitor.py` | Add observability tier gating |
-| `rag/self_improver.py` | Add cross-tenant learning mode |
-| `rag/unified_pipeline.py` | Add per-tenant context routing |
+| `rag/verify/grounded.py` | Add rubric-based grading integration with eval_judge |
+| `rag/monitor/watcher.py` | Add observability tier gating |
+| `rag/monitor/improver.py` | Add cross-tenant learning mode |
+| `rag/core/unified_pipeline.py` | Add per-tenant context routing |
 
 ### Total: 8 new files, 4 modified, ~1950 lines of new code, ~60 new tests
 
@@ -4866,6 +5592,17 @@ File: `platform/observability.py` — configures which tiers are active per tena
 **Date:** 2026-07-16  
 **Pipeline verified:** Live 5-query test passed with fixes applied  
 **Method:** Pipeline executed → agents consulted → architecture designed from real data
+
+**Checked 2026-08-09 — this is unbuilt, and distinct from the real app.** This mockup (Fleet
+Health / RAG Health / Graph Vitals / Connected Brands cards) is speculative design for a future
+multi-tenant operator dashboard (Part 5's AgentX platform) and does not exist anywhere in
+`dashboard/app` — none of these card names appear there. The real `dashboard/` (`yvon-dashboard`
+Next.js app, already built and live) has a completely different, unrelated set of routes
+(`agents`, `chat`, `brain`, `brain-wiki`, `asset-lab`, `foundry`, `content-pipeline`,
+`consulting-crm`, etc.) serving today's actual product, not this tiered SaaS-operator view. Read
+everything below as a proposal, not a status report — `field_monitor.py`/`self_improver.py`/
+`scaffold.py` are the old pre-rename names (see Appendix A) and `scaffold.py` doesn't exist yet
+(it's part of the not-yet-built `platform/` layer, Appendix B).
 
 ---
 

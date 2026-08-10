@@ -1,4 +1,5 @@
 import { getSecret } from '@/lib/secrets'
+import { errMsg } from '@/lib/errors'
 
 // Krea.ai Job Status — poll a generation job until completion
 // GET /api/krea/status?jobId=xxx
@@ -53,7 +54,7 @@ export async function GET(request: Request): Promise<Response> {
     // Still running
     return Response.json({ status: job.status ?? 'pending' })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg, status: 'failed' }, { status: 502 })
   }
 }

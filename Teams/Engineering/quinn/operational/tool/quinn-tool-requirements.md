@@ -14,7 +14,7 @@ What quinn needs to operate at full capability, and what happens without each. A
 
 | Need | Tool / access | Used by | Without it |
 |---|---|---|---|
-| Edit-gate verification (state, network, file:line) | **Reticle** — github.com/reticlehq/reticle (MCP; proposed connector, redesign plan §5) | browser-verification | Edit gate = labeled manual checklist, "unverified by tooling" flag |
+| Edit-gate verification (state, network, file:line) | **Reticle** — github.com/reticlehq/reticle (MCP; **installed + registered** 2026-08-01, **bound via `quinn-config.reticle_mcp`** 2026-08-09 — see `quinn-config.md`) | browser-verification | Edit gate = labeled manual checklist, "unverified by tooling" flag |
 | Release-gate browser runs | **Playwright** — via marketplace/webapp-testing machinery | browser-verification | E tier reports UNMET; gate verdict says so |
 | Hashing for plan-locks | sha256 utility (local, no egress) | charter-enforcement | Verbatim-record fallback, flagged |
 | Append-only file access | plan_lock_log · regression map · flaky register (paths per config) | charter-enforcement, regression-map | The affected rail/tier stops issuing verdicts; loud degradation |

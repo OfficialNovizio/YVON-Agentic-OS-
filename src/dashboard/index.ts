@@ -17,10 +17,11 @@
 //   startDashboard(3000)     // starts on port 3000
 
 import { createServer, IncomingMessage, ServerResponse } from 'http'
-import { readFileSync, existsSync } from 'fs'
+import { readFileSync, existsSync, readdirSync } from 'fs'
 import { resolve, join } from 'path'
 import { homedir } from 'os'
 import { AGENT_REGISTRY, type AgentProfile } from '../agents/personalities'
+import { getConfig } from '../adapters/config'
 
 // ─── Dashboard HTML ───────────────────────────────────────────────────────────
 // Single self-contained file. D3 loaded from CDN. All CSS/JS inline.
@@ -628,15 +629,68 @@ function getAgentStatuses() {
   }
 }
 
-function getTokenSavings() {
-  return {
-    jsonChars: 18420,
-    toonChars: 2855,
-    compressionRatio: 84.5,
-    tokensJSON: 5120,
-    tokensTOON: 793,
-    tokensSaved: 4327,
+// Real numbers, not the fixed 84.5%/18420/2855 constants this function used
+// to return unconditionally (as if measured — they weren't). Live-checked
+// 2026-08-09: the actual Teams/**/*.md -> *.toon conversion averages -2.6%
+// (median -2.4%) — most .toon files are slightly LARGER than their .md
+// source, not smaller. `cli/toonify.js` only abbreviates markdown headings;
+// it doesn't use this package's real TOON dense encoder
+// (src/toon/toon.ts/compressor.ts), which is where the legitimate
+// "80-87% vs JSON" figures actually come from — a different comparison
+// (TOON vs JSON for structured data), not this one (md vs toon for prose
+// docs). Field names below (jsonChars/toonChars) are kept for API
+// compatibility with the dashboard's existing gauge HTML/JS (`stat-json`/
+// `stat-toon` elements) — they actually hold source-.md and .toon byte
+// counts, not JSON, since there's no JSON step in this repo's real
+// conversion pipeline.
+let cachedTokenSavings: ReturnType<typeof computeTokenSavings> | null = null
+
+function walkFiles(dir: string, out: string[] = []): string[] {
+  if (!existsSync(dir)) return out
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) walkFiles(full, out)
+    else if (entry.isFile() && entry.name.endsWith('.md')) out.push(full)
   }
+  return out
+}
+
+function computeTokenSavings() {
+  const config = getConfig()
+  const mdFiles = walkFiles(config.teamsPath)
+
+  let mdChars = 0
+  let toonChars = 0
+  let filesCompared = 0
+  let filesLarger = 0
+
+  for (const mdPath of mdFiles) {
+    const toonPath = mdPath.slice(0, -3) + '.toon'
+    if (!existsSync(toonPath)) continue
+    const mdLen = readFileSync(mdPath, 'utf-8').length
+    const toonLen = readFileSync(toonPath, 'utf-8').length
+    if (mdLen === 0) continue
+    mdChars += mdLen
+    toonChars += toonLen
+    filesCompared++
+    if (toonLen > mdLen) filesLarger++
+  }
+
+  const compressionRatio = mdChars > 0 ? Math.round((1 - toonChars / mdChars) * 1000) / 10 : 0
+
+  return {
+    jsonChars: mdChars,       // actually source .md chars — see comment above
+    toonChars,
+    compressionRatio,          // real, can be negative — not clamped/faked
+    filesCompared,
+    filesLargerAfterConversion: filesLarger,
+    measuredLive: true,
+  }
+}
+
+function getTokenSavings() {
+  if (!cachedTokenSavings) cachedTokenSavings = computeTokenSavings()
+  return cachedTokenSavings
 }
 
 // ─── HTTP Server ───────────────────────────────────────────────────────────────

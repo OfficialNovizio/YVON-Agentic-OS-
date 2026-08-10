@@ -5,8 +5,8 @@
  *
  * Usage:
  *   const { data, loading, refresh } = useSessionCache(
- *     'competitor-intel-novizio',
- *     () => fetch('/api/competitor-intelligence?venture=novizio').then(r => r.json())
+ *     'competitor-intel-<venture>',
+ *     () => fetch('/api/competitor-intelligence?venture=<slug>').then(r => r.json())
  *   )
  */
 

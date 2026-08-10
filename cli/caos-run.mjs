@@ -5,7 +5,7 @@
 //
 // Usage:
 //   node cli/caos-run.mjs                          # sample task, agent dev
-//   node cli/caos-run.mjs --task "..." --agent mia --venture novizio --mode auto
+//   node cli/caos-run.mjs --task "..." --agent mia --venture yvon-os --mode auto
 //   node cli/caos-run.mjs --task "..." --skip-cache
 //
 // Exit: 0 = ran (gate passed) · 2 = ran but a gate blocked · 1 = failed to run.

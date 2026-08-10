@@ -16,7 +16,7 @@ export declare const toon: {
      *
      * Expected savings: 80-87% vs JSON on Claude models.
      *
-     * Format: `decision d1 · venture=novizio · by=henry · task=Approve post · when=today · status=none`
+     * Format: `decision d1 · venture=yvon-os · by=henry · task=Approve post · when=today · status=none`
      */
     claude(items: Record<string, unknown>[], schemaOrType: ToonSchema | string): string;
     /**
@@ -26,7 +26,7 @@ export declare const toon: {
      *
      * Expected savings: 27% vs JSON (OpenAI), 40% vs JSON (Claude).
      *
-     * Format: `D|d1|novizio|henry|Approve post|today|-`
+     * Format: `D|d1|yvon-os|henry|Approve post|today|-`
      */
     dense(items: Record<string, unknown>[], schemaOrType: ToonSchema | string): string;
     /**
@@ -35,7 +35,7 @@ export declare const toon: {
      *
      * Expected savings: 25% vs JSON.
      *
-     * Format: `#id|venture|agent|text|urgency|action\n d1|novizio|henry|Approve|today|-`
+     * Format: `#id|venture|agent|text|urgency|action\n d1|yvon-os|henry|Approve|today|-`
      */
     api(items: Record<string, unknown>[], schemaOrType: ToonSchema | string): string;
     /**

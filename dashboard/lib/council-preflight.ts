@@ -397,7 +397,7 @@ export async function runPreflight(
   topic?: string,
   mentionedAgent?: string | null
 ): Promise<PreflightResult> {
-  const session = getOrCreateSession(venture)
+  const session = await getOrCreateSession(venture)
 
   // Step 1: Expand the task
   const expanded = expandTask(message, topic)

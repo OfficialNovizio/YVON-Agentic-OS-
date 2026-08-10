@@ -4,6 +4,7 @@
 
 import { getVentureBySlug } from '@/lib/db'
 import { getRequiredSecret, getSecret } from '@/lib/secrets'
+import { errMsg } from '@/lib/errors'
 
 const GH_API = 'https://api.github.com'
 
@@ -226,7 +227,7 @@ export async function POST(request: Request): Promise<Response> {
     }, { status: 201 })
 
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

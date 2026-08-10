@@ -6,10 +6,11 @@ import { cookies } from 'next/headers'
 import { callSynthesis } from '@/lib/ai-client'
 import { getBrandDNA, saveBrandDNA } from '@/lib/brand-dna'
 import { getTopContent } from '@/lib/db-phase1'
+import { errMsg } from '@/lib/errors'
 
 export async function GET(): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const dna = await getBrandDNA(ventureId)
   return Response.json({ ventureId, brandDNA: dna })
@@ -17,7 +18,7 @@ export async function GET(): Promise<Response> {
 
 export async function POST(): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const topContent = await getTopContent(ventureId, 15)
   if (topContent.length < 3) {
@@ -60,7 +61,7 @@ Return the brand voice profile as ONLY valid JSON:
 
     return Response.json({ ventureId, brandDNA: profile, learnedFrom: topContent.length })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

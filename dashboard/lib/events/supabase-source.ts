@@ -28,7 +28,7 @@ interface RealtimeCapable {
 
 /**
  * Subscribe to inserts on the append-only `events` table.
- * @param contextId optional scope filter — 'yvon-os' | 'novizio' | … (§12.1)
+ * @param contextId optional scope filter — 'yvon-os' | … (§12.1)
  */
 export function supabaseSource(contextId?: string): EventSource {
   return {

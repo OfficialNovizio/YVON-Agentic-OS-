@@ -1,6 +1,6 @@
 /**
  * /api/competitor-keywords
- * GET ?venture=novizio → keyword/hashtag intelligence from competitor posts
+ * GET ?venture=<slug> → keyword/hashtag intelligence from competitor posts
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'

@@ -8,6 +8,7 @@
 
 import { NextRequest } from 'next/server'
 import { getAgentMemoryRaw, setAgentMemory, listAgentMemoryStatus } from '@/lib/agent-memory'
+import { errMsg } from '@/lib/errors'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
     const status = await listAgentMemoryStatus()
     return Response.json({ status })
   } catch (e) {
-    return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    return Response.json({ error: errMsg(e) }, { status: 500 })
   }
 }
 
@@ -38,6 +39,6 @@ export async function POST(request: NextRequest) {
     await setAgentMemory(agentId, content ?? '')
     return Response.json({ ok: true, agentId })
   } catch (e) {
-    return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    return Response.json({ error: errMsg(e) }, { status: 500 })
   }
 }

@@ -4,6 +4,7 @@
 import { cookies } from 'next/headers'
 import { callSynthesis } from '@/lib/ai-client'
 import { supabase } from '@/lib/supabase'
+import { errMsg } from '@/lib/errors'
 
 export async function POST(request: Request): Promise<Response> {
   let body: { theme?: string; goal?: string; platform?: string }
@@ -14,7 +15,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const prompt = `You are a narrative arc planner. Create a 4-week connected content sequence for a brand.
 
@@ -56,7 +57,7 @@ Return ONLY valid JSON:
 
     return Response.json({ arc })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }
@@ -64,7 +65,7 @@ Return ONLY valid JSON:
 // GET /api/narrative-arc — list active arcs
 export async function GET(): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const { data } = await supabase
     .from('narrative_arcs')

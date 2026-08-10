@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { PageHeader, StatusBadge, Card } from '@/components/ui'
 import { useLiveData } from '@/lib/use-live-data'
+import YvonGraph from '@/components/YvonGraph'
 import type { GraphNode, GraphEdge, LibraryDoc } from '@/app/api/knowledge-graph/route'
 
 type VisibilityFilter = 'all' | 'private' | 'team' | 'workspace' | 'cross-workspace'
@@ -22,7 +23,7 @@ const FILTER_OPTIONS: { label: string; value: VisibilityFilter }[] = [
 ]
 
 export default function BrainWikiPage() {
-  const [view, setView] = useState<'graph' | 'library'>('graph')
+  const [view, setView] = useState<'graphMemory' | 'graph' | 'library' | 'caos' | 'cie' | 'rag' | 'context' | 'input'>('graphMemory')
   const [selNode, setSelNode] = useState<GraphNode | null>(null)
   const [selDoc, setSelDoc] = useState<LibraryDoc | null>(null)
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('all')
@@ -200,10 +201,16 @@ export default function BrainWikiPage() {
         </StatusBadge>
         <div className="flex-1" />
         <button
+          onClick={() => setView('graphMemory')}
+          className={`btn-ghost !py-1.5 !text-xs ${view === 'graphMemory' ? '!bg-white/10' : ''}`}
+        >
+          Graph Memory
+        </button>
+        <button
           onClick={() => setView('graph')}
           className={`btn-ghost !py-1.5 !text-xs ${view === 'graph' ? '!bg-white/10' : ''}`}
         >
-          Graph
+          Knowledge Graph
         </button>
         <button
           onClick={() => setView('library')}
@@ -211,6 +218,17 @@ export default function BrainWikiPage() {
         >
           Library
         </button>
+        {/* TS-030: pipeline structure tabs — where CAOS/CIE/RAG/Context/Input
+            Analysis visuals will live (visuals work deferred) */}
+        {([['caos', 'CAOS'], ['cie', 'CIE'], ['rag', 'RAG'], ['context', 'Context'], ['input', 'Input Analysis']] as const).map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => setView(id)}
+            className={`btn-ghost !py-1.5 !text-xs ${view === id ? '!bg-white/10' : ''}`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* ── Visibility filter chips ─────────────────────────────────── */}
@@ -230,7 +248,24 @@ export default function BrainWikiPage() {
         ))}
       </div>
 
-      {view === 'graph' ? (
+      {view === 'graphMemory' ? (
+        /* ── Graph Memory — the real YvonGraph orb viewer, boxed in a viewport
+            (embedded) with an expand button that opens it full-screen in a new
+            tab (/brain renders it fixed). ── */
+        <div className="relative overflow-hidden rounded-xl border border-white/10 bg-[#0a0a0c]" style={{ height: '70vh' }}>
+          <YvonGraph embedded />
+          {/* Expand — opens the full-screen graph in a new tab */}
+          <a
+            href="/brain"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute right-3 top-3 z-50 flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-[12px] text-white backdrop-blur transition hover:bg-white/20"
+          >
+            <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+            Expand
+          </a>
+        </div>
+      ) : view === 'graph' ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]">
           {/* ── Force-directed graph ────────────────────────────────── */}
           <Card className="p-4 min-h-[400px] overflow-hidden">
@@ -367,7 +402,7 @@ export default function BrainWikiPage() {
             )}
           </div>
         </div>
-      ) : (
+      ) : view === 'library' ? (
         /* ── Library view ───────────────────────────────────────────── */
         <div className="space-y-2">
           {filteredDocs.map((d) => (
@@ -435,6 +470,30 @@ export default function BrainWikiPage() {
               </div>
             </div>
           )}
+        </div>
+      ) : (
+        /* ── Pipeline structure view (CAOS / CIE / RAG / Context / Input) ──
+            TS-030: these are the home for the pipeline visualizations.
+            Full visuals are deferred (F1/F2 in handout) — for now show a
+            structural summary of each stage. */
+        <div className="glass-card p-6">
+          <h3 className="text-base font-semibold text-on-surface mb-3">
+            {view === 'caos' ? 'CAOS — Context-Aware Orchestration System' :
+             view === 'cie' ? 'CIE — Context Intelligence Engine' :
+             view === 'rag' ? 'RAG — Retrieval-Augmented Generation' :
+             view === 'context' ? 'Context Injection' :
+             'Input Analysis'}
+          </h3>
+          <p className="text-[13px] text-on-surface-variant">
+            {view === 'caos' && 'CLASSIFY → RESOLVE → RETRIEVE → GATE, then the 5-gate harness, strategy routing, LLM trio, and post-hoc verification.'}
+            {view === 'cie' && 'Classification, progressive disclosure, cache-augmented generation, and graph resolution feeding the agent.'}
+            {view === 'rag' && 'Query rewrite → hybrid retrieval → cross-encoder re-rank → harness gates → injection with citations.'}
+            {view === 'context' && 'Agent skills (yvon-os) + venture memory (other ventures) injected into the turn.'}
+            {view === 'input' && 'Message analysis — tier (generic/info/build) + relation (venture/general) + dynamic fields.'}
+          </p>
+          <p className="mt-3 text-[12px] text-on-surface-variant/60">
+            Full visualization of this stage will be built with the visuals work (handout F1/F2).
+          </p>
         </div>
       )}
     </div>

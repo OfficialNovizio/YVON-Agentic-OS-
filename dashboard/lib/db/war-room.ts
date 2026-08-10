@@ -232,40 +232,6 @@ export async function deleteAllWarRoomPlans(ventureName: string): Promise<void> 
 
 // ─── Strategy Log ─────────────────────────────────────────────────────────────
 
-export async function saveStrategyLog(
-  entry: Omit<StrategyLogEntry, 'id' | 'createdAt'>
-): Promise<string> {
-  const { data, error } = await supabase
-    .from('strategy_log')
-    .insert({
-      brand:               entry.brand,
-      surface:             entry.surface,
-      lever:               entry.lever,
-      layer_number:        entry.layerNumber,
-      variant_a:           entry.variantA,
-      variant_b:           entry.variantB,
-      run_recommendation:  entry.runRecommendation,
-      result:              entry.result ?? null,
-      diagnosis:           entry.diagnosis ?? null,
-      mechanism_confirmed: entry.mechanismConfirmed ?? null,
-      next_cycle_direction:entry.nextCycleDirection ?? null,
-    })
-    .select('id')
-    .single()
-  if (error ?? !data) throw new Error('Failed to save strategy log')
-  return data.id as string
-}
-
-export async function getPendingStrategyLogs(brand: string): Promise<StrategyLogEntry[]> {
-  const { data } = await supabase
-    .from('strategy_log')
-    .select('*')
-    .eq('brand', brand)
-    .is('result', null)
-    .order('created_at', { ascending: false })
-  return (data ?? []).map(mapStrategyLog)
-}
-
 export async function updateStrategyLogResult(
   id: string,
   result: string,

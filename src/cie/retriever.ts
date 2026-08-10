@@ -65,7 +65,7 @@ function fetchSource(source: KnowledgeSource, profile: TaskProfile, keywords: st
     case 'hermes_memory': {
       const user = getHermesUserContext()
       const standards = getHermesStandards()
-      const mem = getHermesMemoryContext(keywords)
+      const mem = getHermesMemoryContext(profile.agentId, keywords)
       add(user, 0)
       standards.forEach((s, i) => add(`[STANDARD] ${s}`, i + 0.5))
       if (mem) add(mem, 3)

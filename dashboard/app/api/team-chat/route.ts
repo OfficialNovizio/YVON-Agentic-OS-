@@ -48,6 +48,7 @@ import { createSession, enterSession } from '@/lib/session'
 import { isEngineV2Enabled } from '@/lib/session-flag'
 import { captureBuildBaseline, runBuildGateStage } from './build-gate-stage'
 import type { BuildError } from '@/lib/build-gate'
+import { errMsg } from '@/lib/errors'
 
 // ─── GitHub snapshot pre-fetcher ─────────────────────────────────────────────
 
@@ -86,7 +87,7 @@ async function prefetchVentureGithubSnapshot(slug: string | undefined): Promise<
     }
     return { snapshot }
   } catch (e) {
-    return { snapshot: null, error: e instanceof Error ? e.message : String(e) }
+    return { snapshot: null, error: errMsg(e) }
   }
 }
 
@@ -154,7 +155,7 @@ async function prefetchLocalSnapshot(localRepoPath: string): Promise<{ snapshot:
     }
     return { snapshot }
   } catch (e) {
-    return { snapshot: null, error: e instanceof Error ? e.message : String(e) }
+    return { snapshot: null, error: errMsg(e) }
   }
 }
 
@@ -277,7 +278,7 @@ async function parseBody(request: Request): Promise<ParsedBody> {
       : [])
   return {
     message:               (body.message as string) ?? '',
-    ventureName:           (body.ventureName as string) ?? 'Novizio',
+    ventureName:           (body.ventureName as string) ?? 'yvon-os',
     ventureSlug:           body.ventureSlug as string | undefined,
     repoMode:              (body.repoMode as 'github' | 'local') ?? 'github',
     localRepoPath:         body.localRepoPath as string | undefined,
@@ -447,7 +448,7 @@ async function handlePhase1(body: ParsedBody): Promise<Response> {
         // (handled by client re-sending with approved=true — this path is a safety net)
         clearInterval(heartbeat); close()
       } catch (err) {
-        emit('error', { message: err instanceof Error ? err.message : String(err) })
+        emit('error', { message: errMsg(err) })
         clearInterval(heartbeat); close()
       }
     },
@@ -668,7 +669,7 @@ async function handlePhase2(body: ParsedBody): Promise<Response> {
         emit('plan_complete', { elapsed })
         controller.enqueue(encoder.encode('data: [DONE]\n\n'))
       } catch (err) {
-        emit('error', { message: err instanceof Error ? err.message : String(err) })
+        emit('error', { message: errMsg(err) })
       } finally {
         clearInterval(heartbeat); close()
       }
@@ -727,7 +728,7 @@ async function handleCeoOnly(body: ParsedBody): Promise<Response> {
         emit('plan_complete', { elapsed })
         controller.enqueue(encoder.encode('data: [DONE]\n\n'))
       } catch (err) {
-        emit('error', { message: err instanceof Error ? err.message : String(err) })
+        emit('error', { message: errMsg(err) })
       } finally {
         clearInterval(heartbeat); close()
       }

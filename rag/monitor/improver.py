@@ -23,9 +23,9 @@ Rollback guarantee:
   version from git or the backup file. No database mutations.
 
 Usage:
-  python3 rag/self_improver.py --run     # Full weekly cycle
-  python3 rag/self_improver.py --test
-  python3 rag/self_improver.py --dry-run # Analyze + propose, don't deploy
+  python3 rag/monitor/improver.py --run     # Full weekly cycle
+  python3 rag/monitor/improver.py --test
+  python3 rag/monitor/improver.py --dry-run # Analyze + propose, don't deploy
 """
 
 import sys, os, json, math, time, shutil, subprocess
@@ -457,4 +457,4 @@ if __name__ == '__main__':
         result = run_improvement_cycle(dry_run=True)
         print(f'Dry run complete. {len(result.proposals)} proposals. All tests: {result.all_passed}. Held: {result.held_count}')
     else:
-        print('Usage: python3 rag/self_improver.py [--run|--dry-run|--test]')
+        print('Usage: python3 rag/monitor/improver.py [--run|--dry-run|--test]')

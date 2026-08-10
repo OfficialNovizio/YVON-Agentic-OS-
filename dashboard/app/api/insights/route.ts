@@ -3,13 +3,13 @@ import type { AgentId } from '@/lib/types'
 
 export const maxDuration = 30
 
-// GET /api/insights?venture=Novizio&days=30&agent=kai-analyst
+// GET /api/insights?venture=<slug>&days=30&agent=kai-analyst
 // Returns aggregated token usage, cost, session counts and top skills
 
 export async function GET(request: Request): Promise<Response> {
   const { searchParams } = new URL(request.url)
 
-  const venture = searchParams.get('venture') ?? 'Novizio'
+  const venture = searchParams.get('venture') ?? 'yvon-os'
   const days    = Math.min(parseInt(searchParams.get('days') ?? '30'), 365)
   const agentId = searchParams.get('agent') as AgentId | undefined ?? undefined
 

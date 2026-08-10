@@ -5,10 +5,11 @@
 import { cookies } from 'next/headers'
 import { callSynthesis } from '@/lib/ai-client'
 import { getCommunitySignals } from '@/lib/community-intelligence'
+import { errMsg } from '@/lib/errors'
 
 export async function GET(): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const signals = await getCommunitySignals(ventureId)
   const desires = new Map<string, { count: number, sources: string[], latest: string }>()
@@ -34,7 +35,7 @@ export async function GET(): Promise<Response> {
 
 export async function POST(): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const signals = await getCommunitySignals(ventureId)
   if (signals.length < 2) {
@@ -77,7 +78,7 @@ Return ONLY valid JSON array:
     const briefs = JSON.parse(raw) as Array<Record<string, unknown>>
     return Response.json({ ventureId, briefsGenerated: briefs.length, briefs })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

@@ -3,6 +3,7 @@
 // Stages: ideas → scripts → captions → voiceover → image_prompts → krea_generate
 
 import { callSynthesis } from '@/lib/ai-client'
+import { errMsg } from '@/lib/errors'
 
 interface CampaignBrief {
   goal: string
@@ -26,7 +27,7 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const ventureName = body.brief.ventureName ?? 'Novizio'
+  const ventureName = body.brief.ventureName ?? 'yvon-os'
   const brandVoice = body.brief.brandVoice ?? 'confident, innovative, action-oriented'
 
   const prompts: Record<string, string> = {
@@ -46,7 +47,7 @@ export async function POST(request: Request): Promise<Response> {
     const raw = await callSynthesis({ messages: [{ role: 'user', content: prompt }], maxTokens: 4000 })
     return Response.json({ stage: body.stage, result: raw })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

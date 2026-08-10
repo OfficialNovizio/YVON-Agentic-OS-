@@ -8,6 +8,7 @@
 
 import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { errMsg } from '@/lib/errors'
 
 interface SlashCmd {
   cmd:        string
@@ -33,7 +34,7 @@ export async function GET() {
     if (error) throw error
     return Response.json({ commands: (data ?? []) as SlashCmd[] })
   } catch (e) {
-    return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    return Response.json({ error: errMsg(e) }, { status: 500 })
   }
 }
 
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
     if (error) throw error
     return Response.json({ ok: true, cmd: normalised })
   } catch (e) {
-    return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    return Response.json({ error: errMsg(e) }, { status: 500 })
   }
 }
 
@@ -71,6 +72,6 @@ export async function DELETE(req: NextRequest) {
     if (error) throw error
     return Response.json({ ok: true })
   } catch (e) {
-    return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    return Response.json({ error: errMsg(e) }, { status: 500 })
   }
 }

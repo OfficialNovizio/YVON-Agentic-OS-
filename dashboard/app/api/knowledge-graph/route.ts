@@ -119,9 +119,9 @@ export async function GET(request: Request): Promise<Response> {
 const MOCK_NODES: GraphNode[] = [
   { id: 'n1', label: 'Agent Automation', size: 45, color: '#abc7ff', visibility: 'workspace', workspace: 'vibe', connections: ['n2', 'n3'] },
   { id: 'n2', label: 'Social Media Strategy', size: 32, color: '#5fd0b4', visibility: 'workspace', workspace: 'vibe', connections: ['n1'] },
-  { id: 'n3', label: 'E-commerce Metrics', size: 38, color: '#c08bff', visibility: 'workspace', workspace: 'novizio', connections: ['n1', 'n4'] },
-  { id: 'n4', label: 'Competitor Intelligence', size: 28, color: '#5ee0ff', visibility: 'workspace', workspace: 'novizio', connections: ['n3'] },
-  { id: 'n5', label: 'Fintech SaaS', size: 25, color: '#ffb693', visibility: 'workspace', workspace: 'hourbour', connections: [] },
+  { id: 'n3', label: 'E-commerce Metrics', size: 38, color: '#c08bff', visibility: 'workspace', workspace: 'yvon-os', connections: ['n1', 'n4'] },
+  { id: 'n4', label: 'Competitor Intelligence', size: 28, color: '#5ee0ff', visibility: 'workspace', workspace: 'yvon-os', connections: ['n3'] },
+  { id: 'n5', label: 'Fintech SaaS', size: 25, color: '#ffb693', visibility: 'workspace', workspace: 'yvon-os', connections: [] },
 ]
 
 const MOCK_EDGES: GraphEdge[] = [
@@ -132,6 +132,6 @@ const MOCK_EDGES: GraphEdge[] = [
 
 const MOCK_DOCS: LibraryDoc[] = [
   { id: 'd1', title: 'Is agent-as-a-service real demand?', category: 'research', visibility: 'workspace', workspace: 'vibe', updatedAt: new Date().toISOString(), answer: 'Yes — mentions up 3x in 30 days. Founders searching for done-for-you agent ops.', findings: 'Twitter/LinkedIn mentions growing. Window to claim the category name.' },
-  { id: 'd2', title: 'Summer 2026 collection strategy', category: 'brand', visibility: 'workspace', workspace: 'novizio', updatedAt: new Date().toISOString(), answer: 'Focus on sustainable fabrics + bold colors. Instagram reels perform best.', findings: 'Analysis from 5 competitor collections. Reels = 3x engagement vs static.' },
-  { id: 'd3', title: 'Hourbour pricing model analysis', category: 'finance', visibility: 'team', workspace: 'hourbour', updatedAt: new Date().toISOString(), answer: 'Current $29/mo is below market. Recommend $49/mo with 14-day trial.', findings: 'Competitors charge $39-79. Churn is 4.2%, below industry 5-7%.' },
+  { id: 'd2', title: 'Summer 2026 collection strategy', category: 'brand', visibility: 'workspace', workspace: 'yvon-os', updatedAt: new Date().toISOString(), answer: 'Focus on sustainable fabrics + bold colors. Instagram reels perform best.', findings: 'Analysis from 5 competitor collections. Reels = 3x engagement vs static.' },
+  { id: 'd3', title: 'Venture pricing model analysis', category: 'finance', visibility: 'team', workspace: 'yvon-os', updatedAt: new Date().toISOString(), answer: 'Current $29/mo is below market. Recommend $49/mo with 14-day trial.', findings: 'Competitors charge $39-79. Churn is 4.2%, below industry 5-7%.' },
 ]

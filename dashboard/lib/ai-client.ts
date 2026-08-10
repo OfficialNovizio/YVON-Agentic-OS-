@@ -570,7 +570,7 @@ export async function classifyIntentSemantic(
   const techStack = ventureSlug
     ? (await import('@/lib/ventures')).VENTURE_TECH_STACK[ventureSlug] ?? 'web/mobile app'
     : 'web/mobile app'
-  const name = ventureName ?? 'Novizio'
+  const name = ventureName ?? 'yvon-os'
   const systemPrompt = buildClassifierSystemPrompt(name, techStack)
 
   const fallback: SemanticIntentResult = {

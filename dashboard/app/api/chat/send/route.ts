@@ -57,7 +57,15 @@ export async function POST(request: Request): Promise<Response> {
   } = await supabase.auth.getUser()
   if (!user) return new Response('unauthorized', { status: 401 })
   const cookieStore = await cookies()
-  const contextId = activeWorkspace(cookieStore.get('yvon_active_venture')?.value)
+  // Real ventures from the DB — no hardcoded sub-brands (TS-026).
+  let validVentureSlugs: string[] = []
+  try {
+    const { data: ventureRows } = await supabase.from('ventures').select('slug')
+    validVentureSlugs = ((ventureRows as unknown as { slug: string }[] | null) ?? []).map((r) => r.slug)
+  } catch {
+    // fall through with yvon-os only
+  }
+  const contextId = activeWorkspace(cookieStore.get('yvon_active_venture')?.value, validVentureSlugs)
 
   // ── Command path — dispatch BEFORE the insert (YVON-CHAT §2.3) ────────────
   if (content.startsWith('/')) {
@@ -173,6 +181,7 @@ export async function POST(request: Request): Promise<Response> {
       p_correlation: randomUUID(),
       p_room_id: roomId,
       p_author_id: user.id,
+      p_kind: 'chat.conversation',
       p_preview: content.slice(0, 120),
     })
   } catch {

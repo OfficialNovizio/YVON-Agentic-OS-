@@ -1,9 +1,10 @@
 import { appendDailyLog, getDailyLogs } from '@/lib/db'
 import { cookies } from 'next/headers'
+import { errMsg } from '@/lib/errors'
 
 export async function GET(request: Request): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
   const { searchParams } = new URL(request.url)
   const days = parseInt(searchParams.get('days') ?? '7', 10)
 
@@ -11,14 +12,14 @@ export async function GET(request: Request): Promise<Response> {
     const logs = await getDailyLogs(ventureId, { days })
     return Response.json({ logs })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }
 
 export async function POST(request: Request): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   let body: {
     agentId?: string
@@ -48,7 +49,7 @@ export async function POST(request: Request): Promise<Response> {
     })
     return Response.json({ ok: true })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

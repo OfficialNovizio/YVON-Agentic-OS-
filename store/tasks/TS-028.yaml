@@ -1,0 +1,58 @@
+# TS-028 — P3: Full real-time expandable pipeline HUD
+# (MASTER-PLAN P3 · operator: "preview of the proper pipeline on the side with
+#  real time execution, success, expand to view more info and steps")
+id: TS-028
+status: gated
+approved_by: operator
+approved_at: 2026-08-06
+source_message: >
+  "I want preview of the proper pipeline on the side with real time execution,
+  success, expand to view more info and steps of that specific gate."
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only — no transcript inheritance
+  inject_form: .toon (this YAML is the source form)
+
+classification:
+  task_type: pipeline HUD — full sectioned, real-time, expandable
+  departments: [Engineering]
+  lead: dev
+  gate_0: true
+  gate_0_signoffs:
+    - operator
+
+context:
+  existing_assets:
+    - dashboard/app/chat/PipelineHud.tsx   # rewritten: 6 sections, expandable
+    - dashboard/app/api/chat/stream/route.ts  # emits input.analysis + context.injected
+    - dashboard/lib/pipeline.ts            # analyze/context/record kinds
+    - dashboard/app/chat/page.tsx          # handles the new event kinds + recording stage
+  conflicts:
+    - "pre-existing TS-006/007 done-without-proof (not fabricated)"
+
+discovery:
+  decisions:
+    - "six sections: Input Analysis · Context Injection · CAOS · RAG · Execution · Recording"
+    - "each section: real-time status (active glow/done check/error), expand chevron revealing steps"
+    - "all real event data; disabled 'waiting' until a turn starts"
+
+work_items:
+  - id: WI-1
+    owner: mia
+    objective: "PipelineHud rewrite — 6 sectioned, expandable rows with real-time status + steps; input.analysis + context.injected + recording events mapped to stages"
+    produces: dashboard/app/chat/PipelineHud.tsx
+    produces: dashboard/app/api/chat/stream/route.ts
+    produces: dashboard/app/chat/page.tsx
+    produces: dashboard/lib/pipeline.ts
+
+dag:
+  critical_path: [WI-1]
+
+exit_gate:
+  owner: quinn
+  proof: "VERIFIED 2026-08-06: dashboard tsc --noEmit exit 0 · cli/verify-deploy.sh 0 findings · CAOS e2e 6/6 · task validate PASS (except pre-existing TS-006/007). OPERATOR-GATED: local test — send 'fix the cart badge' → all 6 sections live with real-time status, expandable to steps; info tier shows analysis + RAG 'no retrieval needed'; recording stage shows on done."
+
+feedback:
+  outcome: null
+  lesson: null

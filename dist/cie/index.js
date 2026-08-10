@@ -53,7 +53,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.invalidateAll = exports.invalidateAgent = exports.cacheStats = exports.setCached = exports.getCached = exports.ragToCieInjection = exports.callRagFormulas = exports.callRagBridge = exports.evaluateGate = exports.resolveExecutionGraph = exports.buildInjection = exports.getSourcesUsed = exports.rankContext = exports.retrieveContext = exports.classifyTask = void 0;
+exports.checkPremortemRisk = exports.checkNoveltyRepetition = exports.checkBrandVoiceConformance = exports.gatherCreativeContext = exports.getLooseNeighbors = exports.bridgeCrossScopeQuery = exports.invalidateVenturesCache = exports.listVentures = exports.materializeToolContext = exports.resolveRetrievalShape = exports.mineIntoMemPalace = exports.SESSION_WING = exports.persistToMemPalace = exports.listSessions = exports.resumeSession = exports.converge = exports.addExploreRound = exports.loadSession = exports.startSession = exports.SCRAPING_ESCALATION_CHAIN = exports.invalidateToolRegistryCache = exports.resolveOnDemandService = exports.checkRunningServices = exports.resolveToolBinding = exports.resolveToolLocation = exports.DEPARTMENT_ARCHETYPES = exports.ARCHETYPE_TABLE = exports.classifyArchetype = exports.resolveOwnerFromPath = exports.resolveTeam = exports.searchMemPalace = exports.getImpactRadius = exports.getNeighbors = exports.queryGraph = exports.resolveEntity = exports.invalidateAll = exports.invalidateAgent = exports.cacheStats = exports.setCached = exports.getCached = exports.ragToCieInjection = exports.callRagFormulas = exports.callRagBridge = exports.evaluateGate = exports.resolveExecutionGraph = exports.buildInjection = exports.getSourcesUsed = exports.rankContext = exports.retrieveContext = exports.classifyTask = void 0;
+exports.getRealAgentRoster = exports.syncVentureAgents = exports.DECISION_WING = exports.captureDiscussion = exports.evaluateAdversarialGate = exports.recordCreativeOutcome = exports.checkPredictedPerformance = void 0;
 exports.buildCieContext = buildCieContext;
 exports.logFeedback = logFeedback;
 const classifier_1 = require("./classifier");
@@ -63,6 +64,8 @@ const config_1 = require("../adapters/config");
 const rag_bridge_1 = require("./rag-bridge");
 const graph_resolver_1 = require("./graph-resolver");
 const cache_1 = require("./cache");
+const archetype_1 = require("./archetype");
+const retrieval_shape_1 = require("./retrieval-shape");
 /**
  * Build CIE context for an agent call. v3 — RAG-powered.
  *
@@ -94,9 +97,11 @@ async function buildCieContext(params) {
     }
     // ── Step 1: Classify (regex, zero tokens) ──
     const profile = (0, classifier_1.classifyTask)(params.agentId, params.task, params.venture ?? 'yvon-dashboard');
-    // ── Step 2: Resolve execution graph ──
+    // ── Step 2: Resolve execution graph + task archetype (§14, wired 2026-08-09) ──
     const dept = resolveAgentDepartment(params.agentId);
     const graph = (0, graph_resolver_1.resolveExecutionGraph)(dept, params.task, params.agentId);
+    const classifiedArchetype = (0, archetype_1.classifyArchetype)(params.task, dept);
+    const retrievalShape = (0, retrieval_shape_1.resolveRetrievalShape)(classifiedArchetype.archetype);
     // ── Step 3: RAG Bridge (the P0 bridge) ──
     let ragResult = null;
     try {
@@ -105,7 +110,13 @@ async function buildCieContext(params) {
                 query: params.task,
                 agentId: params.agentId,
                 dept,
-                retrievalMode: params.retrievalMode ?? (graph.stages.length > 3 ? 'agentic' : 'standard'),
+                // Archetype-derived shape (§14.1/retrieval-shape.ts) is the primary signal now — an
+                // explicit params.retrievalMode still wins if the caller set one. The old
+                // graph.stages.length>3 heuristic is kept as a tertiary fallback only for the edge case
+                // where archetype resolution somehow yields a shape retrievalMode of 'standard' but the
+                // execution graph is unusually deep — archetype classification takes priority.
+                retrievalMode: params.retrievalMode ?? retrievalShape.retrievalMode,
+                topK: retrievalShape.topK,
             });
         }
     }
@@ -136,6 +147,7 @@ async function buildCieContext(params) {
             itemsInjected: ragResult.chunks ?? 1,
             itemsFiltered: 0,
             timeMs,
+            archetype: classifiedArchetype.archetype,
         };
     }
     // Fallback: v2 source-level retrieval
@@ -163,6 +175,7 @@ async function buildCieContext(params) {
         dedupSimilarity: 0.85,
     });
     const context = (0, builder_1.buildInjection)(selected, filtered, timeMs);
+    context.archetype = classifiedArchetype.archetype;
     // Add graph metadata
     if (graph.stages.length > 1) {
         const graphInfo = graph.stages
@@ -222,4 +235,64 @@ Object.defineProperty(exports, "setCached", { enumerable: true, get: function ()
 Object.defineProperty(exports, "cacheStats", { enumerable: true, get: function () { return cache_2.cacheStats; } });
 Object.defineProperty(exports, "invalidateAgent", { enumerable: true, get: function () { return cache_2.invalidateAgent; } });
 Object.defineProperty(exports, "invalidateAll", { enumerable: true, get: function () { return cache_2.invalidateAll; } });
+var entity_resolution_1 = require("./entity-resolution");
+Object.defineProperty(exports, "resolveEntity", { enumerable: true, get: function () { return entity_resolution_1.resolveEntity; } });
+var graphify_1 = require("./sources/graphify");
+Object.defineProperty(exports, "queryGraph", { enumerable: true, get: function () { return graphify_1.queryGraph; } });
+Object.defineProperty(exports, "getNeighbors", { enumerable: true, get: function () { return graphify_1.getNeighbors; } });
+Object.defineProperty(exports, "getImpactRadius", { enumerable: true, get: function () { return graphify_1.getImpactRadius; } });
+var mempalace_1 = require("./sources/mempalace");
+Object.defineProperty(exports, "searchMemPalace", { enumerable: true, get: function () { return mempalace_1.searchMemPalace; } });
+var team_assignment_1 = require("./team-assignment");
+Object.defineProperty(exports, "resolveTeam", { enumerable: true, get: function () { return team_assignment_1.resolveTeam; } });
+Object.defineProperty(exports, "resolveOwnerFromPath", { enumerable: true, get: function () { return team_assignment_1.resolveOwnerFromPath; } });
+var archetype_2 = require("./archetype");
+Object.defineProperty(exports, "classifyArchetype", { enumerable: true, get: function () { return archetype_2.classifyArchetype; } });
+Object.defineProperty(exports, "ARCHETYPE_TABLE", { enumerable: true, get: function () { return archetype_2.ARCHETYPE_TABLE; } });
+Object.defineProperty(exports, "DEPARTMENT_ARCHETYPES", { enumerable: true, get: function () { return archetype_2.DEPARTMENT_ARCHETYPES; } });
+var tool_binding_1 = require("./tool-binding");
+Object.defineProperty(exports, "resolveToolLocation", { enumerable: true, get: function () { return tool_binding_1.resolveToolLocation; } });
+Object.defineProperty(exports, "resolveToolBinding", { enumerable: true, get: function () { return tool_binding_1.resolveToolBinding; } });
+Object.defineProperty(exports, "checkRunningServices", { enumerable: true, get: function () { return tool_binding_1.checkRunningServices; } });
+Object.defineProperty(exports, "resolveOnDemandService", { enumerable: true, get: function () { return tool_binding_1.resolveOnDemandService; } });
+Object.defineProperty(exports, "invalidateToolRegistryCache", { enumerable: true, get: function () { return tool_binding_1.invalidateToolRegistryCache; } });
+Object.defineProperty(exports, "SCRAPING_ESCALATION_CHAIN", { enumerable: true, get: function () { return tool_binding_1.SCRAPING_ESCALATION_CHAIN; } });
+var session_memory_1 = require("./session-memory");
+Object.defineProperty(exports, "startSession", { enumerable: true, get: function () { return session_memory_1.startSession; } });
+Object.defineProperty(exports, "loadSession", { enumerable: true, get: function () { return session_memory_1.loadSession; } });
+Object.defineProperty(exports, "addExploreRound", { enumerable: true, get: function () { return session_memory_1.addExploreRound; } });
+Object.defineProperty(exports, "converge", { enumerable: true, get: function () { return session_memory_1.converge; } });
+Object.defineProperty(exports, "resumeSession", { enumerable: true, get: function () { return session_memory_1.resumeSession; } });
+Object.defineProperty(exports, "listSessions", { enumerable: true, get: function () { return session_memory_1.listSessions; } });
+Object.defineProperty(exports, "persistToMemPalace", { enumerable: true, get: function () { return session_memory_1.persistToMemPalace; } });
+Object.defineProperty(exports, "SESSION_WING", { enumerable: true, get: function () { return session_memory_1.SESSION_WING; } });
+var mempalace_2 = require("./sources/mempalace");
+Object.defineProperty(exports, "mineIntoMemPalace", { enumerable: true, get: function () { return mempalace_2.mineIntoMemPalace; } });
+var retrieval_shape_2 = require("./retrieval-shape");
+Object.defineProperty(exports, "resolveRetrievalShape", { enumerable: true, get: function () { return retrieval_shape_2.resolveRetrievalShape; } });
+var tool_context_1 = require("./tool-context");
+Object.defineProperty(exports, "materializeToolContext", { enumerable: true, get: function () { return tool_context_1.materializeToolContext; } });
+var ventures_1 = require("./sources/ventures");
+Object.defineProperty(exports, "listVentures", { enumerable: true, get: function () { return ventures_1.listVentures; } });
+Object.defineProperty(exports, "invalidateVenturesCache", { enumerable: true, get: function () { return ventures_1.invalidateVenturesCache; } });
+var cross_scope_bridge_1 = require("./cross-scope-bridge");
+Object.defineProperty(exports, "bridgeCrossScopeQuery", { enumerable: true, get: function () { return cross_scope_bridge_1.bridgeCrossScopeQuery; } });
+var graphify_2 = require("./sources/graphify");
+Object.defineProperty(exports, "getLooseNeighbors", { enumerable: true, get: function () { return graphify_2.getLooseNeighbors; } });
+var creative_retrieval_1 = require("./creative-retrieval");
+Object.defineProperty(exports, "gatherCreativeContext", { enumerable: true, get: function () { return creative_retrieval_1.gatherCreativeContext; } });
+var creative_gate_chain_1 = require("./creative-gate-chain");
+Object.defineProperty(exports, "checkBrandVoiceConformance", { enumerable: true, get: function () { return creative_gate_chain_1.checkBrandVoiceConformance; } });
+Object.defineProperty(exports, "checkNoveltyRepetition", { enumerable: true, get: function () { return creative_gate_chain_1.checkNoveltyRepetition; } });
+Object.defineProperty(exports, "checkPremortemRisk", { enumerable: true, get: function () { return creative_gate_chain_1.checkPremortemRisk; } });
+Object.defineProperty(exports, "checkPredictedPerformance", { enumerable: true, get: function () { return creative_gate_chain_1.checkPredictedPerformance; } });
+Object.defineProperty(exports, "recordCreativeOutcome", { enumerable: true, get: function () { return creative_gate_chain_1.recordCreativeOutcome; } });
+var adversarial_gate_1 = require("./adversarial-gate");
+Object.defineProperty(exports, "evaluateAdversarialGate", { enumerable: true, get: function () { return adversarial_gate_1.evaluateAdversarialGate; } });
+var discussion_capture_1 = require("./discussion-capture");
+Object.defineProperty(exports, "captureDiscussion", { enumerable: true, get: function () { return discussion_capture_1.captureDiscussion; } });
+Object.defineProperty(exports, "DECISION_WING", { enumerable: true, get: function () { return discussion_capture_1.DECISION_WING; } });
+var venture_agents_1 = require("./sources/venture-agents");
+Object.defineProperty(exports, "syncVentureAgents", { enumerable: true, get: function () { return venture_agents_1.syncVentureAgents; } });
+Object.defineProperty(exports, "getRealAgentRoster", { enumerable: true, get: function () { return venture_agents_1.getRealAgentRoster; } });
 //# sourceMappingURL=index.js.map

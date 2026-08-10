@@ -3,6 +3,7 @@ import type { ClaudeRequestBody, AgentId } from '@/lib/types'
 import { calcCostUsd } from '@/lib/token-cost'
 import { getAgent } from '@/lib/agents'
 import { getPersonalityExtension } from '@/lib/agent-personalities'
+import { errMsg } from '@/lib/errors'
 
 // Falls through gracefully when no context is available
 function buildCieContext(_opts: { agentId: string; task: string; venture: string }) {
@@ -255,7 +256,7 @@ export async function POST(request: Request): Promise<Response> {
         controller.enqueue(encoder.encode('data: [DONE]\n\n'))
         controller.close()
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
+        const msg = errMsg(err)
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: msg })}\n\n`))
         controller.close()
       }

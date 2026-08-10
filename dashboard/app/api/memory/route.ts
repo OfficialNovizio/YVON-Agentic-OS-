@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs'
 import path from 'path'
 import { sessionManager, flagSIP } from '@/lib/session-manager'
+import { errMsg } from '@/lib/errors'
 
 // ── Agent → MEMORY.md path map ────────────────────────────────────────────────
 // Resolved relative to the project root at runtime via process.cwd()
@@ -180,7 +181,7 @@ export async function POST(request: Request): Promise<Response> {
       sipDue,
     })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: `Write failed: ${msg}` }, { status: 500 })
   }
 }

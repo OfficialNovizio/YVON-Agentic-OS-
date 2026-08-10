@@ -14,6 +14,7 @@
 import { streamSynthesis } from '@/lib/ai-client'
 import { getAgent } from '@/lib/agents'
 import type { AgentId } from '@/lib/types'
+import { errMsg } from '@/lib/errors'
 
 // ── Routing table ─────────────────────────────────────────────────────────────
 // Each entry: { keywords[], agentId, weight }
@@ -164,7 +165,7 @@ export async function POST(request: Request): Promise<Response> {
 
         controller.enqueue(encoder.encode('data: [DONE]\n\n'))
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
+        const msg = errMsg(err)
         emit('error', { message: msg })
       } finally {
         controller.close()

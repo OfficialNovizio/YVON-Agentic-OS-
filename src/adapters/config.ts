@@ -14,11 +14,13 @@ export interface EngineConfig {
   sharedOsPath: string
   booksPath: string
   graphifyReport: string
+  graphifyGraphJson: string
   codegraphReport: string
   agentMemoryDir: string
   hermesMemoryDir: string
   projectClaudePath: string
   ventureDocsDir: string
+  sessionMemoryDir: string
 
   // CIE settings
   cieEnabled: boolean
@@ -72,11 +74,13 @@ export function getConfig(): EngineConfig {
     sharedOsPath: fromRoot(fileConfig.sharedOsPath) ?? join(root, 'Teams', 'Shared OS', 'logical'),
     booksPath: fromRoot(fileConfig.booksPath) ?? join(root, 'Books'),
     graphifyReport: fromRoot(fileConfig.graphifyReport) ?? join(root, 'graphify-out', 'GRAPH_REPORT.md'),
+    graphifyGraphJson: fromRoot(fileConfig.graphifyGraphJson) ?? join(root, 'graphify-out', 'graph.json'),
     codegraphReport: fromRoot(fileConfig.codegraphReport) ?? join(root, 'graphify-out', 'CODEGRAPH_REPORT.md'),
     agentMemoryDir: fromRoot(fileConfig.agentMemoryDir) ?? join(root, 'agent-memory'),
     hermesMemoryDir: fromRoot(fileConfig.hermesMemoryDir) ?? join(homedir(), '.hermes', 'memories'),
     projectClaudePath: fromRoot(fileConfig.projectClaudePath) ?? join(root, 'CLAUDE.md'),
     ventureDocsDir: fromRoot(fileConfig.ventureDocsDir) ?? join(root, 'docs', 'ventures'),
+    sessionMemoryDir: fromRoot(fileConfig.sessionMemoryDir) ?? join(root, 'store', 'sessions'),
 
     cieEnabled: fileConfig.cieEnabled ?? true,
     contextCap: fileConfig.contextCap ?? 2500,

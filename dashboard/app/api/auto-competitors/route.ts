@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { callFast } from '@/lib/ai-client'
+import { ventureNameAndBrand } from '@/lib/venture-context'
 
 export const runtime = 'nodejs'
 
@@ -101,12 +102,22 @@ async function resolveVentureProfile(ventureSlug: string, fallbackFollowers: num
   let audience = { ageRange: '', gender: '', incomeTier: '', region: 'all' }
 
   try {
-    const { data: venture } = await supabase
+    // TS-030: graceful fallback — if the optional columns don't exist, fall
+    // back to a safe select (no schema-cache crash).
+    let { data: venture } = await supabase
       .from('ventures')
       .select('name, operating_countries, market_subcategories, brand_tier, avg_price_point, target_audience')
       .eq('slug', ventureSlug)
       .limit(1)
       .single()
+    if (!venture) {
+      ;({ data: venture } = await supabase
+        .from('ventures')
+        .select('name')
+        .eq('slug', ventureSlug)
+        .limit(1)
+        .single())
+    }
 
     if (venture) {
       if (venture.operating_countries?.length) {
@@ -149,10 +160,11 @@ async function resolveVentureProfile(ventureSlug: string, fallbackFollowers: num
 
   const countryCode = country.toUpperCase()
   const countryName = COUNTRY_NAMES[countryCode] ?? country
-  const industry = ventureSlug === 'hourbour' ? 'fintech' : 'fashion e-commerce'
+  const { brandType: industryBrand } = await ventureNameAndBrand(ventureSlug)
+  const industry = industryBrand ?? 'general'
 
   return {
-    name: ventureSlug === 'hourbour' ? 'Hourbour' : 'Novizio',
+    name: ventureSlug,
     industry,
     country: countryCode,
     countryName,

@@ -6,7 +6,7 @@ import { detectPurchaseIntentPosts } from '@/lib/social-commerce'
 
 export async function GET(): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const intentPosts = await detectPurchaseIntentPosts(ventureId)
 

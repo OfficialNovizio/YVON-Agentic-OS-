@@ -43,7 +43,7 @@ interface NavSection {
 // Rationale: one team runs everything, so shared surfaces (agents, decisions,
 // settings) belong on the control plane. Switch to YVON to see them.
 const YVON_ONLY:  WorkspaceKey[] = ['yvon-os']
-const BRAND_ONLY: WorkspaceKey[] = ['novizio', 'hourbour', 'agentx']
+const BRAND_ONLY: WorkspaceKey[] = [] // TS-026: no hardcoded sub-brands — brand-only nav comes from real DB ventures
 
 const NAV_SECTIONS: NavSection[] = [
   {
@@ -55,9 +55,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Task Board', href: '/task-board', icon: 'view_kanban', liveBadge: true },
       { label: 'Advisory Council', href: '/advisory-council', icon: 'groups' },
       { label: 'Chat', href: '/chat', icon: 'forum' },
-      { label: 'Agents', href: '/agents', icon: 'smart_toy' },
       { label: 'Org Chart', href: '/org-chart', icon: 'account_tree' },
-      { label: 'Graph Memory', href: '/brain', icon: 'hub' },
       { label: 'Office', href: '/office', icon: 'apartment' },
       { label: 'Foundry', href: '/foundry', icon: 'science' },
     ],
@@ -139,21 +137,7 @@ function isActive(pathname: string, href: string): boolean {
 // ── Component ────────────────────────────────────────────────────────────────
 export function Sidebar({ mode, onToggle, mobileClose }: SidebarProps) {
   const pathname = usePathname()
-  const { workspace, setWorkspace } = useWorkspace()
-  const [workspaceOpen, setWorkspaceOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-
-  // Close dropdown on click outside
-  useEffect(() => {
-    if (!workspaceOpen) return
-    function handleClick(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setWorkspaceOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [workspaceOpen])
+  const { workspace } = useWorkspace()
 
   // Live badge counts fetched from API (with mock fallback)
   const [liveCounts, setLiveCounts] = useState<Record<string, number>>({
@@ -235,54 +219,15 @@ export function Sidebar({ mode, onToggle, mobileClose }: SidebarProps) {
                 <div className="text-[10px] text-on-surface-variant tracking-widest uppercase">Mission Control</div>
               </div>
             </div>
-            {/* Workspace switcher — interactive dropdown */}
-            <div ref={dropdownRef} className="relative">
-              <button
-                onClick={() => setWorkspaceOpen((o) => !o)}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-white/[0.08] bg-white/[0.03] text-xs transition hover:bg-white/[0.06] cursor-pointer"
-              >
-                <span className="text-[10px] tracking-widest text-on-surface-variant uppercase shrink-0">
-                  WORKSPACE
-                </span>
-                <span className="flex-1 text-left text-on-surface font-medium truncate">
-                  {wsLabel}
-                </span>
-                {WORKSPACE_MAP[workspace.key]?.isVenture && (
-                  <span className="h-2 w-2 rounded-full shrink-0" style={{ background: workspace.accent }} />
-                )}
-                <span className="material-symbols-outlined text-[18px] text-on-surface-variant shrink-0">
-                  {workspaceOpen ? 'expand_less' : 'expand_more'}
-                </span>
-              </button>
-
-              {workspaceOpen && (
-                <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-white/10 bg-surface-container shadow-2xl">
-                  {WORKSPACES.map((w) => (
-                    <button
-                      key={w.key}
-                      onClick={() => {
-                        setWorkspace(w.key)
-                        setWorkspaceOpen(false)
-                      }}
-                      className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-xs transition hover:bg-white/5 cursor-pointer ${
-                        w.key === workspace.key ? 'bg-white/[0.06]' : ''
-                      }`}
-                    >
-                      <span
-                        className="h-2.5 w-2.5 rounded-full shrink-0"
-                        style={{ background: w.accent }}
-                      />
-                      <span className="flex-1 text-on-surface font-medium">{w.name}</span>
-                      <span className="text-[11px] text-on-surface-variant">{w.business}</span>
-                      {w.key === workspace.key && (
-                        <span className="material-symbols-outlined text-[16px] shrink-0" style={{ color: 'var(--ws-accent)' }}>
-                          check
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
+            {/* Workspace — static label (TS-030: the interactive selector lives
+                in the TopBar WorkspaceSwitcher — one place, not two) */}
+            <div className="flex w-full items-center gap-2 px-3 py-2 rounded-lg border border-white/[0.08] bg-white/[0.03] text-xs">
+              <span className="text-[10px] tracking-widest text-on-surface-variant uppercase shrink-0">
+                WORKSPACE
+              </span>
+              <span className="flex-1 text-left text-on-surface font-medium truncate">
+                {wsLabel}
+              </span>
             </div>
           </>
         ) : (

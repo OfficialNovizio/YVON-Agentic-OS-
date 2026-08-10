@@ -7,6 +7,7 @@
 // Owner: raj · TS-018 WI-1
 
 import { NextRequest, NextResponse } from 'next/server'
+import { errMsg } from '@/lib/errors'
 
 const HERMES_BASE = process.env.HERMES_URL?.trim() ?? ''
 const HERMES_TOKEN = process.env.HERMES_TOKEN?.trim() ?? ''
@@ -58,7 +59,7 @@ async function handler(request: NextRequest, { params }: RouteParams) {
     })
   } catch (error) {
     return NextResponse.json(
-      { error: `Hermes proxy error: ${error instanceof Error ? error.message : String(error)}` },
+      { error: `Hermes proxy error: ${errMsg(error)}` },
       { status: 502 },
     )
   }

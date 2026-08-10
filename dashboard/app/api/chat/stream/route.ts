@@ -14,11 +14,13 @@
 // Owner: raj (TS-017 WI-1)
 
 import { cookies } from 'next/headers'
+import { randomUUID } from 'crypto'
 import { supabaseServer } from '@/lib/supabase-server'
 import { streamHermesChat, hermesConfig } from '@/lib/hermes-client'
 import { sendPush, type PushSubscriptionRow } from '@/lib/push-server'
 import type { WorkspaceKey } from '@/lib/workspaces'
 import { activeWorkspace } from '@/lib/workspaces'
+import { errMsg } from '@/lib/errors'
 
 // TS-018 WI-2 (YVON-CHAT §3.2): the workspace was hardcoded to 'yvon-os' here
 // (the "one defect that underlies more than it appears to"). Now read from the
@@ -60,7 +62,15 @@ export async function GET(request: Request): Promise<Response> {
     .eq('id', userMsg.room_id)
     .single()
   const cookieStore = await cookies()
-  const workspace: WorkspaceKey = activeWorkspace(cookieStore.get('yvon_active_venture')?.value)
+  // Real ventures from the DB — no hardcoded sub-brands (TS-026).
+  let validVentureSlugs: string[] = []
+  try {
+    const { data: ventureRows } = await supabase.from('ventures').select('slug')
+    validVentureSlugs = ((ventureRows as unknown as { slug: string }[] | null) ?? []).map((r) => r.slug)
+  } catch {
+    // fall through with yvon-os only
+  }
+  const workspace: WorkspaceKey = activeWorkspace(cookieStore.get('yvon_active_venture')?.value, validVentureSlugs)
 
   const cfg = hermesConfig()
   if (!cfg.configured) {
@@ -93,6 +103,173 @@ export async function GET(request: Request): Promise<Response> {
         const content = userMsg.content ?? ''
         const mentions: string[] = Array.isArray(userMsg.mentions) ? userMsg.mentions : []
 
+        // TS-027/TS-028: Input Analysis + Context, INLINED (no self-fetch —
+        // the old NEXT_PUBLIC_SITE_URL fetch broke the pipeline events when the
+        // env wasn't set / port differed, leaving the HUD on "waiting").
+        const { analyzeMessage } = await import('@pipelines/input-analysis')
+        const { agentContextFor, ventureContextFor } = await import('@/lib/context-resolver')
+
+        const analysis = await analyzeMessage(content)
+        const tier = analysis.tier
+        let inputAnalysis: string | null = null
+        if (tier === 'build' && analysis.analyzed) {
+          inputAnalysis =
+            `WHAT: ${analysis.what}\n` +
+            `WHY: ${analysis.why}\n` +
+            `HOW: ${analysis.how}\n` +
+            `END RESULT: ${analysis.endResult}\n` +
+            `DESIRED OUTPUT: ${analysis.desiredOutput}`
+        } else if (tier === 'info') {
+          // Info tier: inject the dynamic breakdown so the agent answers to it.
+          inputAnalysis =
+            `QUESTION: ${analysis.what}\n` +
+            `TYPE: ${analysis.type ?? ''}\n` +
+            `SUBJECT: ${analysis.subject ?? ''}\n` +
+            `SCOPE: ${analysis.scope ?? ''}\n` +
+            `EXPECTED: ${analysis.expected ?? ''}\n` +
+            `FORMAT: ${analysis.format ?? ''}`
+        }
+
+        // Emit the analysis event UNCONDITIONALLY (except generic) so the HUD
+        // leaves "waiting" and shows the analysis for every turn. Dynamic
+        // fields: info → type/subject/scope/expected/format; build → 5 fields.
+        if (tier !== 'generic') {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                kind: 'input.analysis',
+                tier,
+                what: analysis.what,
+                why: analysis.why,
+                how: analysis.how,
+                endResult: analysis.endResult,
+                desiredOutput: analysis.desiredOutput,
+                type: analysis.type,
+                subject: analysis.subject,
+                scope: analysis.scope,
+                expected: analysis.expected,
+                format: analysis.format,
+                relation: analysis.relation,
+                mustHaves: analysis.mustHaves,
+                targetAgents: analysis.targetAgents,
+                correlation: turnCorrelation,
+              })}\n\n`,
+            ),
+          )
+        }
+
+        // TS-030: persist the input-analysis breakdown (tier/relation/fields/
+        // must-haves/routing) so past turns render the same pipeline section
+        // as live ones. Rides chat_emit_input_analysis_event (migration 106) —
+        // best-effort like the TS-029 emit below; never breaks the turn. If
+        // migration 106 isn't pushed yet, this silently no-ops (degrading
+        // loudly: live HUD unaffected, past turns show no analysis until push).
+        if (tier !== 'generic') {
+          try {
+            await (supabase as unknown as {
+              rpc: (fn: string, args: Record<string, unknown>) => Promise<{ error: { message: string } | null }>
+            }).rpc('chat_emit_input_analysis_event', {
+              p_context_id: workspace,
+              p_correlation: turnCorrelation ?? randomUUID(),
+              p_room_id: userMsg.room_id,
+              p_author_id: user.id,
+              p_payload: {
+                tier,
+                relation: analysis.relation,
+                what: analysis.what,
+                why: analysis.why,
+                how: analysis.how,
+                endResult: analysis.endResult,
+                desiredOutput: analysis.desiredOutput,
+                type: analysis.type,
+                subject: analysis.subject,
+                scope: analysis.scope,
+                expected: analysis.expected,
+                format: analysis.format,
+                mustHaves: analysis.mustHaves,
+                targetAgents: analysis.targetAgents,
+              },
+            })
+          } catch {
+            // observability never breaks the send
+          }
+        }
+
+        // TS-029: general (non-venture) messages are recorded as a distinct
+        // graph node kind 'chat.general' so /brain can show venture-task nodes
+        // vs general-chat nodes separately. Best-effort, never breaks the turn.
+        if (tier !== 'generic' && analysis.relation === 'general') {
+          try {
+            await (supabase as unknown as {
+              rpc: (fn: string, args: Record<string, unknown>) => Promise<{ error: { message: string } | null }>
+            }).rpc('chat_emit_conversation_event', {
+              p_context_id: workspace,
+              p_correlation: randomUUID(),
+              p_room_id: userMsg.room_id,
+              p_author_id: user.id,
+              p_kind: 'chat.general',
+              p_preview: content.slice(0, 120),
+            })
+          } catch {
+            // observability never breaks the send
+          }
+        }
+
+        // Generic messages are answered directly by the client — no Hermes call.
+        if (tier === 'generic') {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ kind: 'done', response: 'Hey! How can I help?', correlation: turnCorrelation })}\n\n`,
+            ),
+          )
+          controller.close()
+          return
+        }
+
+        // TS-029: context injection ONLY for venture-related messages. General
+        // messages skip context/CAOS/RAG and go straight to the answer.
+        let agentContext: string | undefined
+        let ventureContext: string | undefined
+        if (analysis.relation === 'venture') {
+          agentContext = (await agentContextFor(mentions[0] ?? '')) ?? undefined
+          ventureContext = (await ventureContextFor(workspace)) ?? undefined
+        }
+        // Emit the context stage always (real, or honest 'none defined').
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({
+              kind: 'context.injected',
+              label: 'context',
+              detail: agentContext
+                ? ventureContext
+                  ? 'agent skills · venture memory'
+                  : 'agent skills'
+                : ventureContext
+                  ? 'venture memory'
+                  : 'no context defined',
+              correlation: turnCorrelation,
+            })}\n\n`,
+          ),
+        )
+
+        // TS-028: context-injection stage event (real — resolved above).
+        if (agentContext || ventureContext) {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                kind: 'context.injected',
+                label: 'context',
+                detail: agentContext
+                  ? ventureContext
+                    ? 'agent skills · venture memory'
+                    : 'agent skills'
+                  : 'venture memory',
+                correlation: turnCorrelation,
+              })}\n\n`,
+            ),
+          )
+        }
+
         for await (const event of streamHermesChat(
           {
             message: content,
@@ -100,6 +277,9 @@ export async function GET(request: Request): Promise<Response> {
             roomId: userMsg.room_id,
             workspace,
             mentions,
+            agentContext,
+            ventureContext,
+            inputAnalysis: inputAnalysis ?? undefined,
           },
           cfg,
         )) {
@@ -141,7 +321,7 @@ export async function GET(request: Request): Promise<Response> {
           }
         }
       } catch (e) {
-        const msg = `[Hermes error] ${e instanceof Error ? e.message : String(e)}`
+        const msg = `[Hermes error] ${errMsg(e)}`
         replyContent = msg
         replyAuthorId = 'system'
         replyAuthorName = 'system'

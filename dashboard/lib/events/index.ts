@@ -14,7 +14,7 @@
 export interface RunEvent {
   /** agent id — slug(dept)-name, e.g. 'engineering-mia'. Matches structure.json. */
   actor: string
-  /** 'yvon-os' | 'novizio' | 'hourbour' | 'agentx' — the four scopes (§12.1). */
+  /** 'yvon-os' | any Settings-added venture (§12.1). */
   contextId: string
   /** which runtime produced it: 'hermes' | 'claude-code' | 'yvon'. */
   source: string

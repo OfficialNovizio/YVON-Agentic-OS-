@@ -2,7 +2,7 @@
  * GET /api/competitor-intelligence
  * Returns dashboard-ready competitor data — signals, KPIs, competitor list.
  *
- * GET ?venture=novizio
+ * GET ?venture=<slug>
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'

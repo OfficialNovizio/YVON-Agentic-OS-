@@ -6,13 +6,14 @@ import { cookies } from 'next/headers'
 import { getLatestReports } from '@/lib/reports'
 import { getLatestBatch, getPitchesByBatch } from '@/lib/intelligence'
 import { mockReports, mockBatch, mockPitches } from '@/lib/demo'
+import { errMsg } from '@/lib/errors'
 
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url)
   const ventureId = url.searchParams.get('ventureId') ?? ''
 
   const cookieStore = await cookies()
-  const vId = ventureId || (cookieStore.get('yvon_active_venture')?.value ?? 'novizio')
+  const vId = ventureId || (cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os')
 
   try {
     const [batch, reports] = await Promise.all([
@@ -129,7 +130,7 @@ export async function GET(request: Request): Promise<Response> {
       },
     })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

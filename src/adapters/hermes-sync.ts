@@ -4,13 +4,22 @@
 // context synchronization between YVON Engine and Hermes Agent.
 //
 //   syncWithHermes()     → read USER.md + MEMORY.md, return synced context
-//   pushToHermes(...)    → write memories back to Hermes
+//   pushToHermes(...)    → write memories back to Hermes, under an agent's section
+//   reconcileWithHermes()→ CRDT-merge this file against a second copy (multi-source sync)
+//
+// Fixed 2026-08-10: pushToHermes() used to append flat `[timestamp#i] text`
+// lines with no `## Section` header at all — incompatible with the real
+// MEMORY.md format (`## Section` + `- [date#tag] entry` bullets) that
+// rag/core/hermes_memory.py actually reads/writes and that store/hermes/
+// MEMORY.md is genuinely populated with. Rewritten to match exactly, plus a
+// real CRDT merge path (reconcileWithHermes) for when two copies diverge.
 //
 // Dependencies: Node.js fs module only.
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { getConfig } from './config'
+import { mergeMemorySections } from '../cie/sources/hermes-memory'
 
 // ─── Path resolution ──────────────────────────────────────────────────────────
 
@@ -132,14 +141,18 @@ export function syncWithHermes(): HermesSyncContext {
 }
 
 /**
- * Push memories back to the Hermes memory system.
+ * Push memories back to the Hermes memory system, under an agent's section.
  *
- * Each string in `memories` is appended to MEMORY.md as a dated entry.
- * Creates the ~/.hermes/memories/ directory if it doesn't exist.
+ * Each string in `memories` becomes a `- [date#tag] text` bullet inserted
+ * right after `## <agentId>` (created if missing, matched case-insensitively
+ * — mirrors rag/core/hermes_memory.py's push_lesson() exactly so both
+ * pipelines write the same shape). Defaults to the `## Fleet` section when
+ * no agentId is given, same default as the Python side.
  *
+ * Creates the hermes memory directory if it doesn't exist.
  * Returns a result with count of memories written and total bytes.
  */
-export function pushToHermes(memories: string[]): HermesPushResult {
+export function pushToHermes(memories: string[], agentId: string = 'Fleet'): HermesPushResult {
   const errors: string[] = []
 
   const { dir, memoryFile, userFile } = getHermesPaths()
@@ -157,21 +170,30 @@ export function pushToHermes(memories: string[]): HermesPushResult {
     }
   }
 
-  // Build entry lines with timestamps
-  const now = new Date().toISOString()
-  const entries = memories.map((m, i) =>
-    `[${now}#${i + 1}] ${m.trim()}`
-  )
-  const block = '\n' + entries.join('\n') + '\n'
-  const bytes = Buffer.byteLength(block, 'utf-8')
+  const section = (agentId || 'Fleet').trim()
+  const header = `## ${section}`
+  const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD, matches Python's push_lesson
+  const entries = memories.map(m => `- [${today}#loop] ${m.trim()}`)
+  const bytes = Buffer.byteLength(entries.join('\n'), 'utf-8')
 
-  // Append to MEMORY.md
   try {
-    const existing = existsSync(memoryFile)
+    let existing = existsSync(memoryFile)
       ? readFileSync(memoryFile, 'utf-8')
       : '# Hermes Agent Memory\n\nPersistent memories synced from YVON Engine.\n'
 
-    writeFileSync(memoryFile, existing + block, 'utf-8')
+    const lines = existing.split('\n')
+    const idx = lines.findIndex(l => l.trim().toLowerCase() === header.toLowerCase())
+
+    if (idx === -1) {
+      // Section doesn't exist — append a new one at the end.
+      existing = existing.replace(/\s*$/, '') + `\n\n${header}\n${entries.join('\n')}\n`
+    } else {
+      // Insert right after the header line, same as Python.
+      lines.splice(idx + 1, 0, ...entries)
+      existing = lines.join('\n') + (existing.endsWith('\n') ? '' : '\n')
+    }
+
+    writeFileSync(memoryFile, existing, 'utf-8')
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
     return {
@@ -196,6 +218,31 @@ export function pushToHermes(memories: string[]): HermesPushResult {
     memoriesWritten: memories.length,
     bytesWritten: bytes,
     errors,
+  }
+}
+
+/**
+ * Reconcile the local MEMORY.md against a second copy (e.g. one synced in
+ * from another device or the Hermes agent's own store) using the G-Set CRDT
+ * merge in hermes-memory.ts: union bullets per section, dedup exact matches,
+ * write the merged result back. Conflict-free by construction — safe to
+ * call with the same `otherMemoryMd` twice (idempotent) or in either order
+ * relative to another reconcile call (commutative).
+ */
+export function reconcileWithHermes(otherMemoryMd: string): { success: boolean; bytesWritten: number; error: string | null } {
+  const { dir, memoryFile } = getHermesPaths()
+  try {
+    ensureDir(dir)
+    const existing = existsSync(memoryFile)
+      ? readFileSync(memoryFile, 'utf-8')
+      : '# Hermes Agent Memory\n\nPersistent memories synced from YVON Engine.\n'
+    const preamble = existing.includes('##') ? existing.slice(0, existing.indexOf('##')) : existing
+    const merged = preamble + mergeMemorySections(existing, otherMemoryMd) + '\n'
+    writeFileSync(memoryFile, merged, 'utf-8')
+    return { success: true, bytesWritten: Buffer.byteLength(merged, 'utf-8'), error: null }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return { success: false, bytesWritten: 0, error: msg }
   }
 }
 

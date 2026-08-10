@@ -61,7 +61,7 @@ function fetchSource(source, profile, keywords) {
         case 'hermes_memory': {
             const user = (0, hermes_memory_1.getHermesUserContext)();
             const standards = (0, hermes_memory_1.getHermesStandards)();
-            const mem = (0, hermes_memory_1.getHermesMemoryContext)(keywords);
+            const mem = (0, hermes_memory_1.getHermesMemoryContext)(profile.agentId, keywords);
             add(user, 0);
             standards.forEach((s, i) => add(`[STANDARD] ${s}`, i + 0.5));
             if (mem)

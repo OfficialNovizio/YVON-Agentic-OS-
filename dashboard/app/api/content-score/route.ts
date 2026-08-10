@@ -6,6 +6,7 @@ import { cookies } from 'next/headers'
 import { upsertContentScores } from '@/lib/db-phase1'
 import { enrichScoreCards, calculateCompositeScore } from '@/lib/content-scorer'
 import type { ContentScoreCard } from '@/lib/types'
+import { errMsg } from '@/lib/errors'
 
 export async function POST(request: Request): Promise<Response> {
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -13,7 +14,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   let body: {
     platform: string
@@ -94,7 +95,7 @@ export async function POST(request: Request): Promise<Response> {
       }))
     )
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: `DB error: ${msg}` }, { status: 500 })
   }
 
@@ -109,7 +110,7 @@ export async function GET(request: Request): Promise<Response> {
   const platform = searchParams.get('platform') ?? undefined
 
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const { getTopContent, getWorstContent } = await import('@/lib/db-phase1')
   const top = await getTopContent(ventureId, topN, platform)

@@ -3,6 +3,7 @@
 
 import { cookies } from 'next/headers'
 import { callFast } from '@/lib/ai-client'
+import { errMsg } from '@/lib/errors'
 
 export async function GET(request: Request): Promise<Response> {
   const { searchParams } = new URL(request.url)
@@ -10,7 +11,7 @@ export async function GET(request: Request): Promise<Response> {
   if (!brandName) return Response.json({ error: 'brand query param required' }, { status: 400 })
 
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const prompt = `You are a collaboration opportunity detector. Find 5 adjacent-niche brands that would be valuable collaboration partners for ${brandName}.
 
@@ -32,7 +33,7 @@ Return ONLY valid JSON array:
     const collabs = JSON.parse(raw) as Array<Record<string, string>>
     return Response.json({ ventureId, brandName, collaborations: collabs })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

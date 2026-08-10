@@ -9,7 +9,7 @@ export async function GET(): Promise<Response> {
   }
 
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const trending = await getTrendingItems(ventureId, 'new')
   const trends = trending.map((t) => t.keyword)

@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase'
 // ── GET — current reliability scores ─────────────────────────────────────────
 export async function GET(): Promise<Response> {
   const cookieStore = await cookies()
-  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const { data, error } = await supabase
     .from('signal_reliability')
@@ -40,7 +40,7 @@ export async function GET(): Promise<Response> {
 // ── PATCH — manual update to a signal's reliability score ─────────────────────
 export async function PATCH(request: Request): Promise<Response> {
   const cookieStore = await cookies()
-  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   interface PatchBody {
     signalType:   string

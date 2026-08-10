@@ -40,18 +40,44 @@ function mapVentureRow(r: Record<string, unknown>): VentureConfig {
     productCategories:  r.product_categories ? (r.product_categories as VentureConfig['productCategories']) : undefined,
     deploymentPlatforms: (r.deployment_platforms as string[]) ?? undefined,
     deploymentConfig:    (r.deployment_config as Record<string, Record<string, string>>) ?? undefined,
+    // Context graph fields (migrations 109/111/112) — guaranteed present on every live row
+    // (NOT NULL DEFAULT columns), unlike the optional TS-030 fields above.
+    kind:          (r.kind as VentureConfig['kind']) ?? undefined,
+    tier:          (r.tier as VentureConfig['tier']) ?? undefined,
+    contextPath:   (r.context_path as string) ?? undefined,
+    parentId:      (r.parent_id as string) ?? undefined,
+    sortOrder:     (r.sort_order as number) ?? undefined,
   }
 }
 
 // ─── Ventures ─────────────────────────────────────────────────────────────────
 
+// TS-030: select ONLY base columns that exist in every deployment — `select('*')`
+// breaks the schema cache when optional columns (description, tagline, etc.)
+// are missing from the DB. The map tolerates absent optionals.
+//
+// kind/status/tier/context_path/parent_id/sort_order (migrations 109/014/111/112) are safe to
+// include unconditionally: they're NOT NULL DEFAULT columns added additively and confirmed live
+// on every row (system-harness/graph-brain/YVON-GRAPH.md §1.2, §5) — not optional-profile fields like description/tagline
+// that TS-030's original comment was guarding against.
+// A `+`-concatenated string widens to `string` and breaks Supabase's generated-types select()
+// overload (it needs a literal type to parse the column list) — kept as one literal instead.
+const SAFE_SELECT = 'id, name, slug, color, ig_handle, yt_channel_id, li_profile_url, ga4_property_id, kind, status, tier, context_path, parent_id, sort_order'
+
 export async function getAllVentures(): Promise<VentureConfig[]> {
-  const { data } = await supabase.from('ventures').select('*').order('name')
+  const { data } = await supabase
+    .from('ventures')
+    .select(SAFE_SELECT)
+    .neq('status', 'archived')
+    // §3 Q2 ordering: core first, then by sort_order, then slug.
+    .order('kind')
+    .order('sort_order', { ascending: true, nullsFirst: false })
+    .order('slug')
   return (data ?? []).map(mapVentureRow)
 }
 
 export async function getVentureBySlug(slug: string): Promise<VentureConfig | null> {
-  const { data } = await supabase.from('ventures').select('*').eq('slug', slug).single()
+  const { data } = await supabase.from('ventures').select(SAFE_SELECT).eq('slug', slug).single()
   return data ? mapVentureRow(data) : null
 }
 
@@ -66,18 +92,12 @@ export async function createVenture(data: Omit<VentureConfig, 'id'>): Promise<Ve
       yt_channel_id:  data.ytChannelId,
       li_profile_url: data.liProfileUrl,
       ga4_property_id: data.ga4PropertyId,
-      description:    data.description,
-      tagline:        data.tagline,
-      brand_type:     data.brandType,
-      market_subcategories: data.marketSubcategories ?? null,
-      status:         data.status ?? 'active',
-      website_url:    data.websiteUrl,
-      logo_url:       data.logoUrl,
-      founded_year:   data.foundedYear,
-      repo_url:           data.repoUrl,
-      notion_url:         data.notionUrl,
-      operating_countries: data.operatingCountries ?? [],
-      target_audience:     data.targetAudience ?? null,
+      // TS-030: insert ONLY guaranteed base columns. Optional columns
+      // (description, tagline, brand_type, market_subcategories, status,
+      // website_url, logo_url, founded_year, repo_url, notion_url,
+      // operating_countries, target_audience) may not exist in every DB —
+      // inserting them breaks the schema cache. Set via the detail view once
+      // the columns exist.
     })
     .select()
     .single()

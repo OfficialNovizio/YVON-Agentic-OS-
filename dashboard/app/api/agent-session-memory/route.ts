@@ -13,6 +13,7 @@
 import { NextRequest } from 'next/server'
 import { saveSessionMemory, getSessionHistory } from '@/lib/agent-memory'
 import { getSecret } from '@/lib/secrets'
+import { errMsg } from '@/lib/errors'
 
 async function verifyInternalAuth(request: NextRequest): Promise<boolean> {
   const cronSecret = await getSecret('CRON_SECRET')
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
     const history = await getSessionHistory(agentId, limit)
     return Response.json({ history })
   } catch (e) {
-    return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    return Response.json({ error: errMsg(e) }, { status: 500 })
   }
 }
 
@@ -72,6 +73,6 @@ export async function POST(request: NextRequest) {
     })
     return Response.json({ ok: true, agentId: body.agentId })
   } catch (e) {
-    return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    return Response.json({ error: errMsg(e) }, { status: 500 })
   }
 }

@@ -16,6 +16,7 @@
 import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { getConfig } from '../adapters/config'
+import { getImpactRadius } from './sources/graphify'
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -71,6 +72,71 @@ const BRAND_STUDIO_PIPELINE: GraphStage[] = [
   },
 ]
 
+// Engineering pipeline — §6.3 Layer 7.2. Built 2026-08-09 against the real,
+// already-documented workflow in Teams/Engineering/DEPARTMENT-WORKFLOW.md,
+// not the generic "Frontend → Backend → Testing → Security" placeholder
+// MASTER.md used to describe (verified: that phrasing matches no code or
+// department doc anywhere — corrected there, implemented here for real).
+//
+// Real shape: raj (backend) + mia (frontend) build in parallel → dev reviews
+// every change (integrity → correctness → security → tests → style) →
+// quinn gates on TWO independent verdicts (quality AND security/charter
+// compliance — either blocks alone) → ops ships rollback-first. aegis
+// (defense) + cypher (caged offense) are a CONTINUOUS pod in the real
+// workflow, not a one-shot conditional phase — but for a single task's
+// execution graph, appending them only when the change looks
+// security-sensitive is the closest honest approximation of "continuous
+// coverage, weighted toward what needs it most" without literally running
+// two more agents on every trivial change.
+const ENGINEERING_PIPELINE: GraphStage[] = [
+  {
+    agentId: 'raj', agentDept: 'Engineering', dependencies: [],
+    parallelOk: true, isGate: false, required: true,
+    description: 'Backend/APIs — implements against dana\'s data model + axiom\'s algorithm choices',
+  },
+  {
+    agentId: 'mia', agentDept: 'Engineering', dependencies: [],
+    parallelOk: true, isGate: false, required: true,
+    description: 'Frontend — implements against atlas-bridged design tokens',
+  },
+  {
+    agentId: 'dev', agentDept: 'Engineering', dependencies: ['raj', 'mia'],
+    parallelOk: false, isGate: false, required: true,
+    description: 'Review every change: integrity -> correctness -> security -> tests -> style',
+  },
+  {
+    agentId: 'quinn', agentDept: 'Engineering', dependencies: ['dev'],
+    parallelOk: false, isGate: true,
+    gateCondition: 'GATE PASS requires BOTH quality verdict and security/charter verdict — either blocks alone',
+    required: true,
+    description: 'Quality gate (test tiers + regression map + browser evidence) AND charter/security gate',
+  },
+  {
+    agentId: 'ops', agentDept: 'Engineering', dependencies: ['quinn'],
+    parallelOk: false, isGate: false, required: true,
+    description: 'Ship rollback-first, monitor, watch-window held',
+  },
+]
+
+// Appended to ENGINEERING_PIPELINE (after dev's review, before quinn's gate)
+// only when the change looks security-sensitive. aegis+cypher's continuous
+// real-world pod isn't literally "conditional" — this is the graph-shaped
+// approximation of it for a single task's stage list.
+const ENGINEERING_SECURITY_PHASE: GraphStage[] = [
+  {
+    agentId: 'aegis', agentDept: 'Engineering', dependencies: ['raj', 'mia'],
+    parallelOk: false, isGate: false, required: true,
+    description: 'Threat-model -> vuln-pipeline -> secure-code-review -> verified-patching',
+  },
+  {
+    agentId: 'cypher', agentDept: 'Engineering', dependencies: ['aegis'],
+    parallelOk: false, isGate: true,
+    gateCondition: 'Findings filed to quinn — inverted per §6.3 Layer 5c: a finding is a pass for this phase, silence needs a coverage-completeness check',
+    required: false,
+    description: 'Caged offense — attacks in-scope targets, files findings to quinn',
+  },
+]
+
 // Governance 4-gate cycle
 const GOVERNANCE_PIPELINE: GraphStage[] = [
   {
@@ -123,6 +189,7 @@ export function resolveExecutionGraph(
   department: string,
   task: string,
   agentId: string = '',
+  entityId?: string,
 ): ExecutionPlan {
   let stages: GraphStage[] = []
   const warnings: string[] = []
@@ -135,6 +202,24 @@ export function resolveExecutionGraph(
   // Governance 4-gate cycle
   else if (department === 'Governance' && isGovernanceTask(task)) {
     stages = [...GOVERNANCE_PIPELINE]
+  }
+
+  // Engineering pipeline — §6.3 Layer 7.2
+  else if (department === 'Engineering' && isEngineeringTask(task)) {
+    const sensitive = isSecuritySensitive(task, entityId)
+    if (sensitive.flagged) {
+      // Insert the security phase after dev's review, before quinn's gate —
+      // and make quinn wait on cypher's findings too, not just dev's review.
+      stages = [
+        ...ENGINEERING_PIPELINE.slice(0, 3),          // raj, mia, dev
+        ...ENGINEERING_SECURITY_PHASE,                 // aegis, cypher
+        { ...ENGINEERING_PIPELINE[3], dependencies: ['dev', 'cypher'] }, // quinn
+        ENGINEERING_PIPELINE[4],                        // ops
+      ]
+      warnings.push(`Security phase included: ${sensitive.reason}`)
+    } else {
+      stages = [...ENGINEERING_PIPELINE]
+    }
   }
 
   // Default: single agent
@@ -191,6 +276,70 @@ function isGovernanceTask(task: string): boolean {
   ]
   const lower = task.toLowerCase()
   return govtKeywords.some(k => lower.includes(k))
+}
+
+function isEngineeringTask(task: string): boolean {
+  const engKeywords = [
+    'build', 'implement', 'feature', 'bug', 'fix', 'api', 'endpoint',
+    'backend', 'frontend', 'deploy', 'ship', 'refactor', 'migration',
+    'schema', 'database', 'component', 'route', 'pipeline', 'code review',
+  ]
+  const lower = task.toLowerCase()
+  return engKeywords.some(k => lower.includes(k))
+}
+
+/**
+ * isSecuritySensitive — decides whether Engineering's execution graph needs
+ * the aegis/cypher security phase. Two mechanisms, in priority order:
+ *
+ * 1. Real: if `entityId` is given, walk `getImpactRadius()` (real AST-derived
+ *    dependency edges — sources/graphify.ts) and check whether any node in
+ *    the radius has a source_file path matching a security-sensitive area.
+ *    This is genuinely graph-driven, not guessed from task text.
+ * 2. Fallback: keyword scan of the task description itself, same pattern as
+ *    isCreativeTask/isGovernanceTask above. Used whenever no entityId is
+ *    available — which is every call site in this repo today
+ *    (caos-executor.ts and src/cie/index.ts don't thread a code-entity id
+ *    through yet). Documented as an approximation, not silently treated as
+ *    equivalent to a real graph check.
+ */
+const SECURITY_SENSITIVE_PATH_HINTS = [
+  'auth', 'login', 'session', 'token', 'credential', 'password',
+  'payment', 'billing', 'stripe', 'pii', 'gdpr', 'migration', 'rls', 'policy',
+]
+const SECURITY_SENSITIVE_KEYWORDS = [
+  ...SECURITY_SENSITIVE_PATH_HINTS,
+  'security', 'vulnerability', 'exploit', 'encryption', 'secret', 'api key',
+  'permission', 'access control', 'sql injection', 'xss', 'csrf',
+]
+
+function isSecuritySensitive(
+  task: string,
+  entityId?: string,
+): { flagged: boolean; reason: string } {
+  if (entityId) {
+    try {
+      const radius = getImpactRadius(entityId, { hops: 1 })
+      const hit = radius.find(r =>
+        SECURITY_SENSITIVE_PATH_HINTS.some(h => (r.node.source_file || r.node.id || '').toLowerCase().includes(h))
+      )
+      if (hit) {
+        return { flagged: true, reason: `getImpactRadius('${entityId}') touches ${hit.node.id} (real graph edge, not a keyword guess)` }
+      }
+      // Real graph check ran and found nothing — still fall through to the
+      // keyword check on task text, since the graph only sees code
+      // structure, not what the task description says it's for.
+    } catch {
+      // graph.json unavailable in this environment — fall through to keywords
+    }
+  }
+
+  const lower = task.toLowerCase()
+  const hitKeyword = SECURITY_SENSITIVE_KEYWORDS.find(k => lower.includes(k))
+  if (hitKeyword) {
+    return { flagged: true, reason: `task text matched keyword '${hitKeyword}' (approximation — no entityId was given for a real graph check)` }
+  }
+  return { flagged: false, reason: 'no security-sensitive signal found' }
 }
 
 // ─── Gate execution ──────────────────────────────────────────────

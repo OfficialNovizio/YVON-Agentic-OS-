@@ -1,5 +1,6 @@
 import Stripe from 'stripe'
 import { createRevenueEvent, createAttributionEntry } from '@/lib/db-phase1'
+import { errMsg } from '@/lib/errors'
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? ''
 
@@ -24,15 +25,14 @@ export async function POST(request: Request): Promise<Response> {
   try {
     event = stripeClient.webhooks.constructEvent(body, sig, WEBHOOK_SECRET)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: `Webhook error: ${msg}` }, { status: 400 })
   }
 
   const dataObj = event.data.object as Stripe.Charge | Stripe.PaymentIntent
   const ventureId =
     (dataObj.metadata?.venture_id as string) ??
-    (dataObj.metadata?.utm_campaign as string)?.split('_')[0] ??
-    'novizio'
+    (dataObj.metadata?.utm_campaign as string)?.split('_')[0] ?? 'yvon-os'
 
   const sessionId =
     (dataObj.metadata?.session_id as string) ?? ''

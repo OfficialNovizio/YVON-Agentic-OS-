@@ -12,7 +12,7 @@ import { getSecret } from '@/lib/secrets'
 
 export type TrendSentiment = 'rising' | 'stable' | 'cooling'
 export type TrendType = 'Technology' | 'Consumer' | 'Finance' | 'Fashion' | 'SaaS'
-export type Workspace = 'Novizio' | 'Hourbour'
+export type Workspace = string
 
 export interface TrendSignal {
   title: string

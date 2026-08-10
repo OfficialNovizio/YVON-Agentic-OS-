@@ -13,6 +13,7 @@ import { captureBuildLessons } from '@/lib/learning-loop'
 import type { AgentId, ExecutionPlan, WarRoomToolCall } from '@/lib/types'
 import type { ModeContext } from './mode-resolver'
 import type { StepResult } from './execute-stage'
+import { errMsg } from '@/lib/errors'
 
 type EmitFn = (type: string, data: Record<string, unknown>) => void
 
@@ -101,7 +102,7 @@ export async function runBuildGateStage(params: {
         else if (ev.kind === 'error') emit('agent_error', { agentId: fixAgent, error: ev.message, fatal: false })
       }
     } catch (e) {
-      emit('agent_error', { agentId: fixAgent, error: e instanceof Error ? e.message : String(e), fatal: false })
+      emit('agent_error', { agentId: fixAgent, error: errMsg(e), fatal: false })
     }
     emit('agent_complete', { agentId: fixAgent, previewText: `Build-gate fix round ${rounds} applied` })
     gateSteps.push({

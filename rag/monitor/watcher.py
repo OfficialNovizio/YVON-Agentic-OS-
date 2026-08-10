@@ -14,8 +14,8 @@ Four monitors:
 Output: field_monitor_report.md (weekly) + field_monitor_data.json (daily)
 
 Usage:
-  python3 rag/field_monitor.py --report    # Generate weekly report
-  python3 rag/field_monitor.py --test
+  python3 rag/monitor/watcher.py --report    # Generate weekly report
+  python3 rag/monitor/watcher.py --test
 """
 
 import sys, os, json, math, time, re
@@ -400,4 +400,4 @@ if __name__ == '__main__':
             'drifts': len(report.drifts),
         }, indent=2))
     else:
-        print('Usage: python3 rag/field_monitor.py [--test|--report]')
+        print('Usage: python3 rag/monitor/watcher.py [--test|--report]')

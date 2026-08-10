@@ -1,6 +1,7 @@
 import { getVentureBySlug, getAnalyticsHistory, getSocialHistory, insertAnalyticsSnapshot } from '@/lib/db'
 import { getAnalyticsReport } from '@/lib/google-analytics'
 import type { VentureConfig, BrandTier } from '@/lib/types'
+import { errMsg } from '@/lib/errors'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -172,9 +173,9 @@ function buildContext(venture: VentureConfig): MarketContext {
   const ta = venture.targetAudience ?? {}
   const slug = venture.slug
 
-  // Detect segment from brand type + categories
-  const isFintech = slug === 'hourbour' || cats.some(c => ['fintech', 'saas > fintech'].includes(c))
-  const isSaaS = slug === 'hourbour' || venture.brandType === 'saas' || cats.some(c => c.startsWith('saas >'))
+  // Detect segment from brand type + categories (TS-026: no hardcoded venture names)
+  const isFintech = String(venture.brandType) === 'fintech' || cats.some(c => ['fintech', 'saas > fintech'].includes(c))
+  const isSaaS = String(venture.brandType) === 'saas' || cats.some(c => c.startsWith('saas >'))
 
   // Resolve a human-readable focus label from the most specific leaf categories
   const leafCats = cats.filter(c => c.includes('>') || !Object.keys(LABELS).some(k =>
@@ -1162,7 +1163,7 @@ function getSignalFeed(ctx: MarketContext): SignalFeed {
 
 export async function GET(request: Request): Promise<Response> {
   const { searchParams } = new URL(request.url)
-  const ventureSlug = searchParams.get('venture') ?? 'novizio'
+  const ventureSlug = searchParams.get('venture') ?? 'yvon-os'
   const countriesParam = searchParams.get('countries') ?? ''
   const countries = countriesParam ? countriesParam.split(',').filter(Boolean) : ['US']
   const includeAll = searchParams.get('include') ?? 'all'
@@ -1200,7 +1201,7 @@ export async function GET(request: Request): Promise<Response> {
       data,
     })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

@@ -30,7 +30,7 @@ Affected (all tracked in this repo):
 | No terminal/shell tool listed | Defect C confirmed → pass platform/toolset to `AIAgent` (§4.4 toolset bullet). Do NOT touch systemd hardening yet. |
 | Tool listed, `pwd` = `/opt/yvon-hermes-http` | Defect A only → set per-project cwd. |
 | Tool listed, writes fail read-only | Defect B → add checkouts to `ReadWritePaths` only. |
-| Tool listed, `git rev-parse` fails | no checkout on the box → clone it; also blocks the Graphify cron (`YVON-GRAPH.md` §4.4). |
+| Tool listed, `git rev-parse` fails | no checkout on the box → clone it; also blocks the Graphify cron (`system-harness/graph-brain/YVON-GRAPH.md` §4.4). |
 | `ss` shows no 8765/9119 listener | wrapper down or dashboard API off — fix the service first (probe #7). |
 
 ## Draft diffs (written for review — NOT to run)
@@ -47,7 +47,7 @@ Affected (all tracked in this repo):
 ```ini
 # add ONE line per checkout, e.g.:
 ReadWritePaths=/root/.hermes /var/log /usr/local/lib/hermes-agent/logs \
-    /opt/Agents /opt/novizio /opt/hourbour /opt/agentx
+    /opt/Agents /opt/<venture-slug>
 ```
 `ProtectSystem=strict` unchanged. No path is added that the wrapper does not
 need — a wrapper that can write anywhere is a larger problem than one that

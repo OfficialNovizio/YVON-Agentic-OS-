@@ -7,7 +7,7 @@ import { cookies } from 'next/headers'
 // GET /api/revenue-attribution
 export async function GET(request: Request): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const { searchParams } = new URL(request.url)
   const since = searchParams.get('since') ?? ''

@@ -9,12 +9,11 @@ import { X, Users, Building2, GitBranch, Clock, Activity, User } from 'lucide-re
 import { StatusBadge, Chip } from '@/components/ui'
 import type { OfficeAgent, AgentStatus, WorkspaceKey } from '@/app/api/office/route'
 
-// Workspace accent lookup (mirrors lib/workspaces.ts)
-const WORKSPACE_ACCENT: Record<WorkspaceKey, string> = {
+// Workspace accent — only the system venture is static (TS-026 sweep).
+// Real ventures' accents come from the DB (ventures.color); anything else
+// falls back to the yvon-os accent rather than inventing a brand color.
+const WORKSPACE_ACCENT: Record<string, string> = {
   'yvon-os': '#6366F1',
-  novizio: '#E94560',
-  hourbour: '#3B82F6',
-  agentx: '#5ee0ff',
 }
 
 const STATUS_TONE: Record<AgentStatus, 'green' | 'blue' | 'muted' | 'red'> = {
@@ -55,7 +54,7 @@ export function OfficeDrawer({ agent, agentsById, onClose, onSelectAgent }: Offi
 
   if (!agent) return null
 
-  const wsAccent = agent.workspace ? WORKSPACE_ACCENT[agent.workspace] : undefined
+  const wsAccent = agent.workspace ? (WORKSPACE_ACCENT[agent.workspace] ?? '#6366F1') : undefined
   const isActive = agent.status === 'working' || agent.status === 'in-council'
 
   return (

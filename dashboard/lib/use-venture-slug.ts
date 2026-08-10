@@ -5,7 +5,7 @@ import { getActiveVentureSlugClient } from '@/lib/venture-context'
 /** Reactive hook — re-renders when the active venture changes. */
 export function useVentureSlug(): string {
   const [slug, setSlug] = useState<string>(() =>
-    typeof document === 'undefined' ? 'novizio' : getActiveVentureSlugClient()
+    typeof document === 'undefined' ? 'yvon-os' : getActiveVentureSlugClient()
   )
   useEffect(() => {
     setSlug(getActiveVentureSlugClient())

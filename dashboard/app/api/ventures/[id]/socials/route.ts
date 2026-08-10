@@ -1,5 +1,6 @@
 import { getVentureSocials, upsertVentureSocial } from '@/lib/db'
 import type { SocialPlatform } from '@/lib/types'
+import { errMsg } from '@/lib/errors'
 
 const VALID_PLATFORMS: SocialPlatform[] = [
   'instagram','youtube','linkedin','tiktok',
@@ -15,7 +16,7 @@ export async function GET(
     const socials = await getVentureSocials(id)
     return Response.json(socials)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }
@@ -46,7 +47,7 @@ export async function POST(
     const social = await upsertVentureSocial(id, platform as SocialPlatform, handleOrUrl)
     return Response.json(social, { status: 201 })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

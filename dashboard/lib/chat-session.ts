@@ -43,11 +43,28 @@ interface CachedContext {
 
 const sessions = new Map<string, VentureSession>()
 
-// Venture workdirs
-const VENTURES: Record<string, { workdir: string; name: string }> = {
-  novizio:  { workdir: '/root/novizio',  name: 'Novizio' },
-  hourbour: { workdir: '/root/hourbour', name: 'Hourbour' },
-  yvon:     { workdir: '/root/yvon',     name: 'YVON OS' },
+// TS-026: no hardcoded sub-brands. Venture workdir/name resolve from the DB
+// (ventures table — added via Settings); 'yvon' is the system venture.
+const resolvedNames = new Map<string, string>()
+
+async function resolveVenture(venture: string): Promise<{ workdir: string; name: string }> {
+  if (venture === 'yvon') {
+    return { workdir: '/root/yvon', name: 'YVON OS' }
+  }
+  try {
+    const { getAllVentures } = await import('@/lib/db')
+    const ventures = await getAllVentures()
+    const row = ventures.find((v) => v.slug === venture)
+    if (row) {
+      resolvedNames.set(venture, row.name ?? venture)
+      const workdir =
+        (row as unknown as { localRepoPath?: string | null }).localRepoPath ?? `/root/${venture}`
+      return { workdir, name: row.name ?? venture }
+    }
+  } catch {
+    // DB unavailable — fall through to generic default
+  }
+  return { workdir: `/root/${venture}`, name: resolvedNames.get(venture) ?? venture }
 }
 
 // ─── Fingerprinting ──────────────────────────────────────────────────────────
@@ -90,12 +107,11 @@ export function getVentureSession(venture: string): VentureSession | undefined {
   return undefined
 }
 
-export function getOrCreateSession(venture: string): VentureSession {
+export async function getOrCreateSession(venture: string): Promise<VentureSession> {
   const existing = getVentureSession(venture)
   if (existing) return existing
 
-  const v = VENTURES[venture]
-  if (!v) throw new Error(`Unknown venture: ${venture}`)
+  const v = await resolveVenture(venture)
 
   const session: VentureSession = {
     venture,
@@ -116,7 +132,7 @@ export async function sendChatMessage(
   message: string,
   onChunk?: (text: string) => void
 ): Promise<{ content: string; tokens: number; deltaDetected: boolean }> {
-  const session = getOrCreateSession(venture)
+  const session = await getOrCreateSession(venture)
   session.messages.push({ role: 'user', content: message })
   session.lastActivity = Date.now()
 
@@ -128,7 +144,8 @@ export async function sendChatMessage(
   if (!session.context || session.context.fingerprint !== fp) {
     // Rebuild full context
     // We build context inline in this module
-    session.context = await buildSystemContext(session.workdir, VENTURES[venture].name)
+    const { name } = await resolveVenture(venture)
+    session.context = await buildSystemContext(session.workdir, name)
     session.context.fingerprint = fp
     session.context.builtAt = Date.now()
     deltaDetected = true

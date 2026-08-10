@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase'
 import { NextRequest } from 'next/server'
 import { callFast } from '@/lib/ai-client'
 import { getStrategyLog, updateStrategyLogResult, appendLearnedActivation } from '@/lib/db'
@@ -31,9 +32,13 @@ export async function POST(request: NextRequest): Promise<Response> {
   try {
     // Find the strategy log entry
     // We search by ID across both brands — load recent logs and find by ID
-    const novizioLog = await getStrategyLog('Novizio', undefined, 50)
-    const hourbourLog = await getStrategyLog('Hourbour', undefined, 50)
-    const entry = [...novizioLog, ...hourbourLog].find(e => e.id === strategyLogId)
+    const { data: vRows } = await supabase.from('ventures').select('name')
+    const names = ((vRows as unknown as { name: string }[] | null) ?? []).map(r => r.name)
+    const logs = []
+    for (const n of names) logs.push(await getStrategyLog(n, undefined, 50))
+    const firstLog = logs[0] ?? null
+    const secondLog = logs[1] ?? null
+    const entry = [...(firstLog ?? []), ...(secondLog ?? [])].find(e => e.id === strategyLogId)
 
     if (!entry) {
       return Response.json({ error: 'Strategy log entry not found' }, { status: 404 })

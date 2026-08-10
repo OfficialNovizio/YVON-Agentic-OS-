@@ -6,11 +6,12 @@
  * Uses the YVON Hermes profile with kai-analyst skill, passing venture
  * context and fresh data so Kai can produce a real analysis.
  *
- * POST { venture: 'novizio' | 'hourbour', context?: string }
+ * POST { venture: string, context?: string }
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { spawn } from 'child_process'
 import { supabase } from '@/lib/supabase'
+import { ventureNameAndBrand } from '@/lib/venture-context'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -24,8 +25,8 @@ interface KaiReadResponse {
   source: 'hermes-agent' | 'fallback'
 }
 
-function fallbackRead(venture: string): KaiReadResponse {
-  const brand = venture === 'hourbour' ? 'Hourbour' : 'Novizio'
+async function fallbackRead(venture: string): Promise<KaiReadResponse> {
+  const { name: brand } = await ventureNameAndBrand(venture)
   return {
     situation: `${brand} analytics data is connected. Data flows from connected platforms into the system.`,
     diagnosis: `No Kai analysis has been run yet for this period. Social snapshots and post data exist — analysis is pending.`,
@@ -81,8 +82,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing venture' }, { status: 400 })
   }
 
-  const ventureName = venture === 'hourbour' ? 'Hourbour' : 'Novizio'
-  const isFashion = venture !== 'hourbour'
+  const { name: ventureName, brandType } = await ventureNameAndBrand(venture)
+  const isFashion = brandType === 'fashion'
 
   let dataContext = ''
   try {
@@ -137,8 +138,8 @@ export async function POST(req: NextRequest) {
     })
 
     const parsed = parseKaiOutput(stdout)
-    return NextResponse.json(parsed || { ...fallbackRead(venture), source: 'fallback' as const })
+    return NextResponse.json(parsed || { ...(await fallbackRead(venture)), source: 'fallback' as const })
   } catch {
-    return NextResponse.json(fallbackRead(venture))
+    return NextResponse.json(await fallbackRead(venture))
   }
 }

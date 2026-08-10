@@ -7,7 +7,11 @@
 //   - CIE v3: Context Intelligence Engine (classify → graph → RAG Bridge → inject)
 //   - RAG: Retrieval-Augmented Generation with dynamic profiles
 //   - Shared OS: Formula execution at query time (hallucination prevention)
-//   - TOON: Token-Optimized Object Notation (84.5% token savings)
+//   - TOON: Token-Optimized Object Notation (80-87% savings vs JSON for the
+//     dense-encoding modes in src/toon/ — a different claim from the
+//     Teams/**/*.md -> *.toon heading-abbreviation conversion cli/toonify.js
+//     does, which real-measures at -2.6% avg, not a savings win; verified
+//     2026-08-09, do not restate the old blended "84.5%" figure)
 //   - Agents: 46 AI agent personalities from the department framework
 //   - Algorithms: Bloom, MinHash, TF-IDF, BFS, PriorityQueue
 //   - Adapters: Config resolver, MCP client, Hermes sync
@@ -19,7 +23,7 @@
 //   import { createEngine, buildCieContext } from '@yvon/engine'
 //   const cie = buildCieContext({ agentId: 'marcus', task: 'quarterly strategy review', venture: 'myproject' })
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAllAgentScriptMappings = exports.getSharedOsContext = exports.requiresGovernanceReview = exports.executeGovernanceReview = exports.getNextContentStage = exports.isContentPipelineAgent = exports.executeContentPipeline = exports.getAgentContext = exports.getDepartments = exports.getLeaders = exports.getDepartmentLeader = exports.getDepartmentAgents = exports.getAgentProfile = exports.DEPARTMENT_COUNT = exports.AGENT_COUNT = exports.AGENT_REGISTRY = exports.pushToHermes = exports.syncWithHermes = exports.startDashboard = exports.createMCPClient = exports.invalidateConfig = exports.getConfig = exports.jaccardEstimate = exports.minhashSignature = exports.blastRadius = exports.ContextPriorityQueue = exports.TfidfIndex = exports.BloomFilter = exports.computeDelta = exports.getOrCreateState = exports.dictToLine = exports.buildDictionary = exports.compress = exports.toon = exports.classifyTask = exports.buildCieContext = void 0;
+exports.getAllAgentScriptMappings = exports.getSharedOsContext = exports.requiresGovernanceReview = exports.executeGovernanceReview = exports.getNextContentStage = exports.isContentPipelineAgent = exports.executeContentPipeline = exports.getAgentContext = exports.getDepartments = exports.getLeaders = exports.getDepartmentLeader = exports.getDepartmentAgents = exports.getAgentProfile = exports.DEPARTMENT_COUNT = exports.AGENT_COUNT = exports.AGENT_REGISTRY = exports.parseMemorySections = exports.mergeMemorySections = exports.reconcileWithHermes = exports.pushToHermes = exports.syncWithHermes = exports.startDashboard = exports.createMCPClient = exports.invalidateConfig = exports.getConfig = exports.jaccardEstimate = exports.minhashSignature = exports.blastRadius = exports.ContextPriorityQueue = exports.TfidfIndex = exports.BloomFilter = exports.computeDelta = exports.getOrCreateState = exports.dictToLine = exports.buildDictionary = exports.compress = exports.toon = exports.classifyTask = exports.buildCieContext = void 0;
 exports.createEngine = createEngine;
 // ─── Main engine ──────────────────────────────────────────────────────────────
 var cie_1 = require("./cie");
@@ -57,6 +61,10 @@ Object.defineProperty(exports, "startDashboard", { enumerable: true, get: functi
 var hermes_sync_1 = require("./adapters/hermes-sync");
 Object.defineProperty(exports, "syncWithHermes", { enumerable: true, get: function () { return hermes_sync_1.syncWithHermes; } });
 Object.defineProperty(exports, "pushToHermes", { enumerable: true, get: function () { return hermes_sync_1.pushToHermes; } });
+Object.defineProperty(exports, "reconcileWithHermes", { enumerable: true, get: function () { return hermes_sync_1.reconcileWithHermes; } });
+var hermes_memory_1 = require("./cie/sources/hermes-memory");
+Object.defineProperty(exports, "mergeMemorySections", { enumerable: true, get: function () { return hermes_memory_1.mergeMemorySections; } });
+Object.defineProperty(exports, "parseMemorySections", { enumerable: true, get: function () { return hermes_memory_1.parseMemorySections; } });
 // ─── Agent Registry (46 agents, 7 departments) ────────────────────────────────
 var personalities_1 = require("./agents/personalities");
 Object.defineProperty(exports, "AGENT_REGISTRY", { enumerable: true, get: function () { return personalities_1.AGENT_REGISTRY; } });

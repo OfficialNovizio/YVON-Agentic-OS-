@@ -23,7 +23,7 @@ const DEFAULT_WEIGHTS = { E: 0.25, R: 0.25, G: 0.20, B: 0.15, T: 0.15 }
 // ── GET — pending proposals + active weights ───────────────────────────────────
 export async function GET(): Promise<Response> {
   const cookieStore = await cookies()
-  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const [{ data: pending, error: pendingErr }, { data: active }] = await Promise.all([
     supabase
@@ -57,7 +57,7 @@ export async function GET(): Promise<Response> {
 // ── POST — approve or reject ───────────────────────────────────────────────────
 export async function POST(request: Request): Promise<Response> {
   const cookieStore = await cookies()
-  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   interface Body {
     proposalId: string

@@ -1,16 +1,17 @@
 import { getGrowthSummary, setGrowthBaseline } from '@/lib/db'
+import { errMsg } from '@/lib/errors'
 
-// GET /api/growth?ventureId=novizio
+// GET /api/growth?ventureId=<slug>
 // Returns growth metrics: current vs baseline + 30-day history for each tracked metric
 export async function GET(request: Request): Promise<Response> {
   const url       = new URL(request.url)
-  const ventureId = url.searchParams.get('ventureId') ?? 'novizio'
+  const ventureId = url.searchParams.get('ventureId') ?? 'yvon-os'
 
   try {
     const metrics = await getGrowthSummary(ventureId)
     return Response.json({ ventureId, metrics })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }
@@ -38,7 +39,7 @@ export async function POST(request: Request): Promise<Response> {
     await setGrowthBaseline(ventureId, platform, metricKey, value, notes)
     return Response.json({ ok: true, ventureId, platform, metricKey, value })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

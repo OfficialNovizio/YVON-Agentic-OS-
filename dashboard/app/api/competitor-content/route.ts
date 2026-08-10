@@ -1,11 +1,12 @@
 import { getCompetitorContent, upsertCompetitorContent, insertCompetitorSnapshot } from '@/lib/db'
 import { getSecret } from '@/lib/secrets'
+import { errMsg } from '@/lib/errors'
 
 const CACHE_DAYS = 14
 
 export async function GET(request: Request): Promise<Response> {
   const url       = new URL(request.url)
-  const ventureId = url.searchParams.get('ventureId') ?? 'novizio'
+  const ventureId = url.searchParams.get('ventureId') ?? 'yvon-os'
   const platform  = url.searchParams.get('platform') ?? 'instagram'
 
   try {
@@ -25,7 +26,7 @@ export async function GET(request: Request): Promise<Response> {
     // Actual scraping is done via the cron job (POST below)
     return Response.json(cached)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }
@@ -47,7 +48,7 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const { ventureId = 'novizio', platform = 'instagram', competitorUrl, items = [] } = body
+  const { ventureId = 'yvon-os', platform = 'instagram', competitorUrl, items = [] } = body
 
   if (items.length === 0) {
     return Response.json({ stored: 0 })
@@ -77,7 +78,7 @@ export async function POST(request: Request): Promise<Response> {
     } catch { /* snapshot failure must not fail the response */ }
     return Response.json({ stored: items.length })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

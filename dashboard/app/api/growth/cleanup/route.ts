@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { getSecret } from '@/lib/secrets'
+import { errMsg } from '@/lib/errors'
 
 // POST /api/growth/cleanup
 // Deletes snapshot rows older than 90 days from all three snapshot tables.
@@ -18,7 +19,7 @@ export async function POST(request: Request): Promise<Response> {
     if (error) throw new Error(error.message)
     return Response.json({ ok: true, result: data })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

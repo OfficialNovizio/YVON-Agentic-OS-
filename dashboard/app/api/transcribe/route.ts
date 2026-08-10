@@ -7,6 +7,7 @@
 // Owner: raj · TS-017 WI-5
 
 import { NextRequest, NextResponse } from 'next/server'
+import { errMsg } from '@/lib/errors'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ text: data.text ?? '' })
   } catch (error) {
     return NextResponse.json(
-      { error: `Transcription error: ${error instanceof Error ? error.message : String(error)}` },
+      { error: `Transcription error: ${errMsg(error)}` },
       { status: 500 },
     )
   }

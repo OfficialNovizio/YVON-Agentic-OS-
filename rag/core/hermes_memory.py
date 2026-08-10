@@ -79,13 +79,19 @@ def _sections(md: str) -> dict:
 
 
 def read_memory(agent_id: str = '', keywords: List[str] = None, max_lines: int = 8) -> str:
-    """Fleet lessons + this agent's section, optionally keyword-filtered."""
+    """This agent's section + Fleet lessons, optionally keyword-filtered.
+
+    Agent section first (fixed 2026-08-10, kept in sync with
+    src/cie/sources/hermes-memory.ts): with a global max_lines cap, a
+    verbose ## Fleet section used to crowd out the very agent-specific
+    match the caller asked for. Fleet lines are still always kept once
+    reached; only the ORDER changed."""
     md = _safe_read(_memory_path())
     if not md:
         return ''
     secs = _sections(md)
     picked = []
-    for name in ('fleet', (agent_id or '').lower()):
+    for name in ((agent_id or '').lower(), 'fleet'):
         if name and name in secs and secs[name]:
             picked.append((name, secs[name]))
     lines = []

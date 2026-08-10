@@ -43,6 +43,10 @@ function fingerprint(query: string, agentId: string): string {
   return `${agentId}:${normalized}`
 }
 
+// ponytail: LRU via Map insertion order, not a hand-rolled oldest-entry scan. A `Map` iterates
+// in insertion order, so re-inserting an entry on every touch (delete then set) moves it to the
+// "newest" end; the first key in iteration order is then always the least-recently-touched one.
+// Eviction is O(1) (`cache.keys().next().value`) instead of the O(n) scan this replaced.
 export function getCached(fingerprintKey: string): CacheEntry | undefined {
   const entry = cache.get(fingerprintKey)
   if (!entry) return undefined
@@ -55,6 +59,8 @@ export function getCached(fingerprintKey: string): CacheEntry | undefined {
 
   entry.hits++
   entry.lastAccess = Date.now()
+  cache.delete(fingerprintKey) // move to newest end (see LRU note above)
+  cache.set(fingerprintKey, entry)
   return entry
 }
 
@@ -66,19 +72,12 @@ export function setCached(
 ): void {
   const fp = fingerprint(query, agentId)
 
-  // LRU eviction
   if (cache.size >= MAX_ENTRIES) {
-    let oldestKey = ''
-    let oldestTime = Infinity
-    for (const [key, entry] of cache) {
-      if (entry.lastAccess < oldestTime) {
-        oldestTime = entry.lastAccess
-        oldestKey = key
-      }
-    }
-    if (oldestKey) cache.delete(oldestKey)
+    const oldestKey = cache.keys().next().value
+    if (oldestKey !== undefined) cache.delete(oldestKey)
   }
 
+  cache.delete(fp) // ensure a re-set also moves to the newest end
   cache.set(fp, {
     fingerprint: fp,
     agentId,

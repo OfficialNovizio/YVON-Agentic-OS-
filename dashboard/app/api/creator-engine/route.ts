@@ -4,6 +4,7 @@
 import { cookies } from 'next/headers'
 import { callSynthesis } from '@/lib/ai-client'
 import { supabase } from '@/lib/supabase'
+import { errMsg } from '@/lib/errors'
 
 interface CreatorProfile {
   name: string
@@ -26,7 +27,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const prompt = `You are a creator discovery engine. Find 10 rising micro-creators (5K-50K followers) in the "${body.niche ?? 'this'}" niche who would be valuable collaboration partners.
 
@@ -74,7 +75,7 @@ Return ONLY valid JSON array:
 
     return Response.json({ creators, count: creators.length })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }
@@ -82,7 +83,7 @@ Return ONLY valid JSON array:
 // GET /api/creator-engine
 export async function GET(): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const { data } = await supabase
     .from('creator_profiles')

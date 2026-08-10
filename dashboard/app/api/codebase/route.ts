@@ -3,12 +3,12 @@
 // for external projects (Novizio, Hourbour).
 //
 // Query params:
-//   action=list    &project=novizio&path=src        → list files/dirs
-//   action=read    &project=novizio&file=src/index.ts → read file content
-//   action=diff    &project=novizio                 → git diff (unstaged)
-//   action=status  &project=novizio                 → git status
-//   action=log     &project=novizio&count=10        → recent commits
-//   action=pending &project=novizio                 → list pending_changes from Supabase
+//   action=list    &project=<slug>&path=src        → list files/dirs
+//   action=read    &project=<slug>&file=src/index.ts → read file content
+//   action=diff    &project=<slug>                 → git diff (unstaged)
+//   action=status  &project=<slug>                 → git status
+//   action=log     &project=<slug>&count=10        → recent commits
+//   action=pending &project=<slug>                 → list pending_changes from Supabase
 //
 // POST body:
 //   { action: 'propose', project, agentId, agentName, branchName, commitMessage, files[] }
@@ -20,6 +20,7 @@ import path from 'path'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { getProject } from '@/lib/projects'
+import { errMsg } from '@/lib/errors'
 
 const execAsync = promisify(exec)
 
@@ -97,7 +98,7 @@ export async function GET(request: Request): Promise<Response> {
 
   if (!project.localPath) {
     return Response.json({
-      error: 'Project not mounted. Set env var NOVIZIO_PATH or HOURBOUR_PATH to the local repo path.',
+      error: 'Project not mounted for this venture. Set its repo path in Settings or HOURBOUR_PATH to the local repo path.',
       mounted: false,
     }, { status: 422 })
   }
@@ -280,7 +281,7 @@ export async function POST(request: Request): Promise<Response> {
 
       return Response.json({ ok: true, branch, message: 'Committed and pushed.' })
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const msg = errMsg(err)
       return Response.json({ error: `Git operation failed: ${msg}` }, { status: 500 })
     }
   }

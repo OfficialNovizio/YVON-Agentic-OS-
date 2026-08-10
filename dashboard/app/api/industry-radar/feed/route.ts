@@ -25,7 +25,7 @@ You are an industry intelligence analyst briefing someone with this background:
 - Aircraft Engineering degree
 - 2 years software development at a trucking/dispatch company
 - MBA
-- Building Novizio (sustainable fashion e-commerce) and Hourbour (fintech SaaS)
+- Building the active venture
 - Based in Canada
 
 Generate ${count} specific, current intelligence items for: ${industryText}

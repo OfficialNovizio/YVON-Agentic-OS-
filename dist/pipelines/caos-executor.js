@@ -23,6 +23,8 @@ const rag_bridge_1 = require("../cie/rag-bridge");
 const cache_1 = require("../cie/cache");
 const config_1 = require("../adapters/config");
 const personalities_1 = require("../agents/personalities");
+const archetype_1 = require("../cie/archetype");
+const generation_trio_1 = require("../cie/generation-trio");
 // ─── Agent prompt builder ───────────────────────────────────────────
 function buildAgentPrompt(agentId, task) {
     const profile = (0, personalities_1.getAgentProfile)(agentId);
@@ -146,13 +148,22 @@ async function executeCaosPipeline(task, agentId, venture = 'default', retrieval
             computedFacts: '',
         };
         calls.push(call);
-        // ── ♢♢♢ LLM CALL ♢♢♢ ─────────────────────────────────────
-        // In production: call Claude/DeepSeek API with the composed prompt.
-        // For now: this is the structured call that any LLM client receives.
+        // ── ♢♢♢ LLM CALL — §6.3 Layer 7.1, generation-trio.ts (built 2026-08-09) ─
+        // Archetype-gated: PRECISION_CRITICAL/ADVERSARIAL_TESTING run the full
+        // primary+adversarial+creative trio; everything else is primary-only.
         const stageStart = Date.now();
-        // Simulate for pipeline structure verification:
-        // In reality, this is: await llmClient.complete({ systemPrompt, ragContext, task })
-        const llmOutput = `[${stage.agentId} agent output — in production this is the LLM response]`;
+        const classified = (0, archetype_1.classifyArchetype)(task, stage.agentDept);
+        const trioResult = await (0, generation_trio_1.runGenerationTrio)(classified.archetype, {
+            systemPrompt,
+            task,
+            ragContext: ragContext || undefined,
+        });
+        const llmOutput = trioResult.primary.available
+            ? trioResult.primary.content ?? ''
+            // No ANTHROPIC_API_KEY (or a call failure) — degrade loudly rather than
+            // fabricate a response, same pattern this repo uses everywhere else
+            // (kai's C4, tool-context's materialize check, etc.).
+            : `[${stage.agentId}: generation unavailable — ${trioResult.primary.reason}]`;
         const stageMs = Date.now() - stageStart;
         // ── Check gate ──────────────────────────────────────────────
         let gateResult;

@@ -31,10 +31,25 @@ def strip_toc(lines):
 
 def collect(lines, from_line=0):
     """Headers at/after `from_line` only — the doc's own front-matter headings
-    sit before the insertion point and must not be offset."""
+    sit before the insertion point and must not be offset.
+
+    Skips lines inside ``` fenced code blocks — a `## ` line inside a
+    SKILL.md/agent.md example (illustrating what those files' own headers
+    look like) is not a real MASTER.md section and must not be indexed as
+    one. Bug found + fixed 2026-08-09: this previously had no fence
+    awareness at all, so every fenced example containing a literal
+    `## Something` line silently inflated the subsection count with fake
+    entries — discovered when the count jumped from 129 to 139 after adding
+    one more such example block."""
     out = []
+    in_fence = False
     for i, l in enumerate(lines):
         if i < from_line:
+            continue
+        if l.lstrip().startswith('```'):
+            in_fence = not in_fence
+            continue
+        if in_fence:
             continue
         m1 = re.match(r'^# ═+ (PART \d+|APPENDIX [A-C])\s*[—-]?\s*(.*?)\s*═*$', l)
         if m1:

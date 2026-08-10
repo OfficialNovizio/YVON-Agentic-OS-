@@ -9,6 +9,7 @@ import { NextRequest } from 'next/server'
 import { readdirSync, statSync } from 'fs'
 import { join, normalize } from 'path'
 import { homedir } from 'os'
+import { errMsg } from '@/lib/errors'
 
 export async function GET(req: NextRequest) {
   // Guard: only allow in development or local environments
@@ -35,6 +36,6 @@ export async function GET(req: NextRequest) {
 
     return Response.json({ path: safePath, dirs, home: homedir() })
   } catch (e) {
-    return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 400 })
+    return Response.json({ error: errMsg(e) }, { status: 400 })
   }
 }

@@ -1,5 +1,6 @@
 import { getAnalyticsReport } from '@/lib/google-analytics'
 import { getVentureBySlug, setAnalyticsReport, insertAnalyticsSnapshot } from '@/lib/db'
+import { errMsg } from '@/lib/errors'
 
 export async function GET(request: Request): Promise<Response> {
   if (!process.env.GOOGLE_SA_JSON) {
@@ -7,7 +8,7 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const url        = new URL(request.url)
-  const ventureId  = url.searchParams.get('ventureId') ?? 'novizio'
+  const ventureId  = url.searchParams.get('ventureId') ?? 'yvon-os'
   const venture    = await getVentureBySlug(ventureId)
   const propertyId = venture?.ga4PropertyId || process.env.GA4_PROPERTY_ID
 
@@ -26,7 +27,7 @@ export async function GET(request: Request): Promise<Response> {
     } catch { /* persistence failure must not fail the response */ }
     return Response.json(report)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

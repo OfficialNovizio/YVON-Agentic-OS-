@@ -1,5 +1,6 @@
 import { runWebScraper } from '@/lib/apify'
 import { sanitizeForPrompt } from '@/lib/sanitize'
+import { errMsg } from '@/lib/errors'
 
 export const maxDuration = 30
 
@@ -46,7 +47,7 @@ export async function POST(request: Request): Promise<Response> {
     const text = sanitizeForPrompt(raw)
     return Response.json({ text })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

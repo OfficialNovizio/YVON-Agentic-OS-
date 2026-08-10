@@ -5,10 +5,11 @@
 import { cookies } from 'next/headers'
 import { callFast } from '@/lib/ai-client'
 import { supabase } from '@/lib/supabase'
+import { errMsg } from '@/lib/errors'
 
 export async function GET(): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const { data } = await supabase
     .from('crisis_alerts')
@@ -29,7 +30,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
   const brandName = body.mentions ?? 'this brand'
 
   const prompt = `You are a crisis early warning system. Scan these brand mentions and identify any potential PR crises, negative sentiment spikes, or customer complaints going viral.
@@ -69,7 +70,7 @@ Return ONLY a JSON array. If nothing concerning found, return [].`
 
     return Response.json({ scanned: true, alertsFound: alerts.length, alerts })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

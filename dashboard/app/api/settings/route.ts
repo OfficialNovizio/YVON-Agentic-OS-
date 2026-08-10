@@ -1,5 +1,6 @@
 import { getAllAgentSettings, saveAgentSettings, getAgentMemory, setAgentMemory, deleteAgentMemory } from '@/lib/db'
 import type { AgentSettingsSave, AgentId } from '@/lib/types'
+import { errMsg } from '@/lib/errors'
 
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url)
@@ -22,7 +23,7 @@ export async function GET(request: Request): Promise<Response> {
     const settings = await getAllAgentSettings(ventureId)
     return Response.json(settings)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }
@@ -57,7 +58,7 @@ export async function POST(request: Request): Promise<Response> {
     await saveAgentSettings(ventureId, settings)
     return Response.json({ saved: true })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }
@@ -80,7 +81,7 @@ export async function DELETE(request: Request): Promise<Response> {
     await deleteAgentMemory(agentId, ventureId, key)
     return Response.json({ deleted: true })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

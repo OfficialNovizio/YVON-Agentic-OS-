@@ -21,12 +21,40 @@ interface TeamsPanelProps {
   visible?: boolean
   /** live agent status — owned by the page (single poll), TS-023 review */
   live: Record<string, 'active' | 'idle' | 'offline'>
+  /** TS-030: the PAGE owns collapsed state so it can shrink the container and
+   * let the chat expand to fill the freed space (no blank gap). */
+  collapsed?: boolean
+  onToggleCollapsed?: (next: boolean) => void
 }
 
 const TOTAL_AGENTS = FLEET.length
 const TOTAL_DEPTS = FLEET_DEPARTMENTS.length
 
-export function TeamsPanel({ focus, onFocus, onClose, variant = 'sidebar', visible = true, live }: TeamsPanelProps) {
+export function TeamsPanel({ focus, onFocus, onClose, variant = 'sidebar', visible = true, live, collapsed = false, onToggleCollapsed }: TeamsPanelProps) {
+  // TS-030: collapsed is owned by the page (so it can shrink the container).
+  // Local persistence kept here for the initial state + to notify the page.
+  const [localCollapsed, setLocalCollapsed] = useState(false)
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('teams-panel-collapsed') === '1') {
+        setLocalCollapsed(true)
+        onToggleCollapsed?.(true)
+      }
+    } catch {
+      // localStorage unavailable — defaults stand
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const isCollapsed = collapsed || localCollapsed
+  const setCollapsed = (v: boolean) => {
+    setLocalCollapsed(v)
+    onToggleCollapsed?.(v)
+    try {
+      localStorage.setItem('teams-panel-collapsed', v ? '1' : '0')
+    } catch {}
+  }
+
   const [query, setQuery] = useState('')
   const [skills, setSkills] = useState<Record<string, string[]>>({})
   const [hasSkills, setHasSkills] = useState(false)
@@ -80,6 +108,23 @@ export function TeamsPanel({ focus, onFocus, onClose, variant = 'sidebar', visib
           visible ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`
 
+  // Collapsed → a thin rail; the expand button sits at the TOP, aligned with
+  // where the hide button was (TS-030).
+  if (isCollapsed && variant === 'sidebar') {
+    return (
+      <div className="flex h-full w-10 shrink-0 flex-col items-center border-r border-[var(--chat-hairline-soft)] bg-white/[0.015]">
+        <button
+          onClick={() => setCollapsed(false)}
+          title="Expand teams"
+          aria-label="Expand teams"
+          className="mt-3 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--chat-text-faint)] transition hover:bg-white/[0.06] hover:text-[var(--chat-text)]"
+        >
+          <span className="text-[14px]">»</span>
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className={wrapperClass}>
       {/* Header */}
@@ -114,6 +159,16 @@ export function TeamsPanel({ focus, onFocus, onClose, variant = 'sidebar', visib
                 className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--chat-text-dim)] hover:bg-white/[0.06] hover:text-[var(--chat-text)]"
               >
                 <ChevronLeft className="h-4 w-4" />
+              </button>
+            )}
+            {variant === 'sidebar' && (
+              <button
+                onClick={() => setCollapsed(true)}
+                aria-label="Collapse teams"
+                title="Collapse to rail"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--chat-text-dim)] hover:bg-white/[0.06] hover:text-[var(--chat-text)]"
+              >
+                <span className="text-[13px]">«</span>
               </button>
             )}
             <button

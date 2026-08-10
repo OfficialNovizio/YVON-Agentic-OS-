@@ -1,4 +1,5 @@
 import { getSecret } from '@/lib/secrets'
+import { errMsg } from '@/lib/errors'
 
 // Krea.ai Image Generation — submit an async image generation job
 // POST: sends prompt to Krea API, returns job_id for polling
@@ -68,7 +69,7 @@ export async function POST(request: Request): Promise<Response> {
 
     return Response.json({ jobId: data.job_id })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

@@ -1,6 +1,7 @@
 import { callFast, classifyIntentSemantic } from '@/lib/ai-client'
 import { VENTURE_TECH_STACK } from '@/lib/ventures'
 import type { RoutingResult, RoutingIntent, AgentId } from '@/lib/types'
+import { errMsg } from '@/lib/errors'
 
 // ─── Specialist routing map ──────────────────────────────────────────────────
 // Maps semantic {command, domain, layer} → routing intent + 2-3 specialists.
@@ -134,7 +135,7 @@ export async function POST(request: Request): Promise<Response> {
     }
     message           = body.message ?? ''
     ventureId         = body.ventureId ?? ''
-    activeVentureName = body.activeVentureName ?? 'Novizio'
+    activeVentureName = body.activeVentureName ?? 'yvon-os'
     ventureSlug       = body.ventureSlug ?? ventureId ?? ''
   } catch {
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
@@ -180,7 +181,7 @@ export async function POST(request: Request): Promise<Response> {
     const result = JSON.parse(match[0]) as RoutingResult
     return Response.json(result)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

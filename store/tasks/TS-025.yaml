@@ -1,0 +1,69 @@
+# TS-025 — Per-venture agent context injection (agent skills + venture memory)
+# Fixes Echo's hallucinated "66 skills": agents now answer from their REAL
+# abilities injected into the turn.
+id: TS-025
+status: gated
+approved_by: operator
+approved_at: 2026-08-06
+source_message: >
+  "I want all agents get its all the abilities when i'm talking to them when
+  venture is yvon and if i change ventures all department updated with that
+  venture memory injection"
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only — no transcript inheritance
+  inject_form: .toon (this YAML is the source form)
+
+classification:
+  task_type: context injection — real agent skills (yvon-os) / venture memory (others)
+  departments: [Engineering]
+  lead: dev
+  gate_0: true
+  gate_0_signoffs:
+    - operator
+
+context:
+  existing_assets:
+    - dashboard/app/api/chat/context/route.ts   # NEW resolver (TS-025)
+    - dashboard/lib/hermes-client.ts            # agent_context / venture_context fields
+    - dashboard/app/api/chat/stream/route.ts    # resolves + injects before Hermes
+    - vps-scripts/yvon-hermes-http/main.py      # accepts + injects into the prompt
+    - Teams/Executive Office/echo/              # Echo's REAL 4 skills (vs claimed 66)
+  conflicts:
+    - "Echo's chat reply claimed 66 generic skills — NOT in repo (real: 4 skills). Root cause: wrapper attributes by name but model answers from Hermes' own catalog. Fix: inject real skills so replies are grounded."
+
+discovery:
+  decisions:
+    - "yvon-os → inject the agent's REAL identity + skill roster from the repo (Teams/<dept>/<agent>/<skill>/SKILL.md)"
+    - "other ventures → inject that venture's memory from the DB (ventures: name, description)"
+    - "wrapper receives context via the SSE request and injects it as [AGENT CONTEXT]/[VENTURE CONTEXT] prompt blocks, instructing the model to answer only from these"
+    - "build now, preview before deploy (operator decision)"
+
+work_items:
+  - id: WI-1
+    owner: raj + mia
+    objective: "Context resolver route — /api/chat/context: agent identity + skills (repo scan) for yvon-os; venture memory (DB) for other ventures; zero-hallucination (omit what's absent)"
+    produces: dashboard/app/api/chat/context/route.ts
+
+  - id: WI-2
+    owner: raj
+    objective: "Client + stream injection — HermesChatInput gains agent_context/venture_context; stream/route.ts resolves via /api/chat/context and passes them (best-effort)"
+    produces: dashboard/lib/hermes-client.ts
+    produces: dashboard/app/api/chat/stream/route.ts
+
+  - id: WI-3
+    owner: raj
+    objective: "Wrapper injection — main.py accepts agent_context/venture_context, builds [AGENT CONTEXT]/[VENTURE CONTEXT] prompt blocks, instructs answer-only-from-these"
+    produces: vps-scripts/yvon-hermes-http/main.py
+
+dag:
+  critical_path: [WI-1, WI-2, WI-3]
+
+exit_gate:
+  owner: quinn
+  proof: "VERIFIED 2026-08-06: dashboard tsc --noEmit exit 0 · cli/verify-deploy.sh 0 findings · CAOS e2e 6/6 · py_compile clean (main.py) · task validate PASS. OPERATOR-GATED (preview first per decision): deploy main.py to VPS + restart, then ask @echo 'what are your skills' → must answer from its REAL 4 skills (pitch-narrative, pitch-framework, investor-update-template, investor-update-generator), NOT the generic 66. Switch venture → agents re-inject with that venture's memory."
+
+feedback:
+  outcome: null
+  lesson: null

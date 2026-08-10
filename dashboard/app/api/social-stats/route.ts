@@ -1,7 +1,7 @@
 /**
  * /api/social-stats
  *
- * GET  ?venture=novizio&platform=instagram&handle=novizio&refresh=false
+ * GET  ?venture=<slug>&platform=instagram&handle=novizio&refresh=false
  *      → Returns SocialMetrics (from cache or Apify)
  *
  * POST { venture, platforms: [{ platform, handle }], refresh? }

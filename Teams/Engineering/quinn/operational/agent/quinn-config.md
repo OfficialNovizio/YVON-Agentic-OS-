@@ -33,8 +33,11 @@ regression_map_path: <FILL_IN>         # append-only (asset template)
 flaky_register_path: <FILL_IN>         # may live inside the regression map file
 
 # --- Connectors (proposed at deployment; degrade loudly if absent) ---
-reticle_mcp: <FILL_IN>                 # edit gate — github.com/reticlehq/reticle
-playwright_available: <FILL_IN>        # release gate — via marketplace/webapp-testing machinery
+reticle_mcp: registered                # edit gate — `npx @reticlehq/core mcp` (~/.claude.json, user
+                                        # scope); package verified at dashboard/node_modules/@reticlehq/core@2.2.1
+                                        # (repo-verified 2026-08-09 — was <FILL_IN>, never actually bound here)
+playwright_available: true             # release gate — @playwright/test@1.61.1, root node_modules,
+                                        # chromium-only (dashboard/playwright.config.ts) (repo-verified 2026-08-09)
 
 # --- Department wiring ---
 gate_dispute_route: dev                # matrix arguments are dev's, as ADRs

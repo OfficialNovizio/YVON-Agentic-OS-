@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { supabase } from '@/lib/supabase'
 import { getClothingItems, createClothingItem, updateClothingItem } from '@/lib/clothing'
+import { errMsg } from '@/lib/errors'
 
 interface ClothingBody {
   name:        string
@@ -20,19 +21,19 @@ async function resolveVentureId(slug: string): Promise<string> {
 export async function GET(): Promise<Response> {
   try {
     const cookieStore = await cookies()
-    const slug = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+    const slug = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
     const ventureId = await resolveVentureId(slug)
     const items = await getClothingItems(ventureId)
     return Response.json({ ventureId, items })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg, items: [] }, { status: 502 })
   }
 }
 
 export async function POST(request: Request): Promise<Response> {
   const cookieStore = await cookies()
-  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
   const ventureId = await resolveVentureId(slug)
 
   let body: ClothingBody

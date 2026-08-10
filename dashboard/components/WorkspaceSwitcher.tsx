@@ -12,44 +12,16 @@ interface Venture {
   pending?: number
 }
 
-// Color → accent mapping for the live dot
+// Color → accent mapping for the live dot (TS-026: only the system venture is
+// static; real ventures get their color from the DB row)
 const VENTURE_ACCENTS: Record<string, string> = {
   'yvon-os': '#6366F1',
-  novizio: '#E94560',
-  hourbour: '#3B82F6',
 }
 
 export function WorkspaceSwitcher() {
-  const { workspace, setWorkspace } = useWorkspace()
+  const { workspace, setWorkspace, ventures } = useWorkspace()
   const [open, setOpen] = useState(false)
-  const [ventures, setVentures] = useState<Venture[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetch('/api/ventures')
-      .then((r) => r.json())
-      .then((data: Venture[]) => {
-        if (Array.isArray(data)) {
-          setVentures(
-            data.map((v) => ({
-              slug: v.slug,
-              name: v.name,
-              color: v.color ?? VENTURE_ACCENTS[v.slug] ?? '#6366f1',
-              pending: v.pending ?? 0,
-            })),
-          )
-        }
-      })
-      .catch(() => {
-        // Fallback to hardcoded workspaces
-        setVentures([
-          { slug: 'yvon-os', name: 'YVON OS', color: '#6366F1' },
-          { slug: 'novizio', name: 'Novizio', color: '#E94560' },
-          { slug: 'hourbour', name: 'Hourbour', color: '#3B82F6' },
-        ])
-      })
-      .finally(() => setLoading(false))
-  }, [])
+  const [loading, setLoading] = useState(false)
 
   const currentVenture = ventures.find((v) => v.slug === workspace.key)
   const displayName = currentVenture?.name ?? workspace.name

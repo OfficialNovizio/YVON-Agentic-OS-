@@ -12,6 +12,7 @@
 // The learning state is stored in Supabase: agent_memory table.
 
 import { createClient } from '@supabase/supabase-js'
+import { errMsg } from '@/lib/errors'
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -238,7 +239,7 @@ export async function GET(request: Request): Promise<Response> {
       lastUpdated: new Date().toISOString(),
     })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg, items: [], totalItems: 0 }, { status: 500 })
   }
 }
@@ -301,7 +302,7 @@ export async function POST(request: Request): Promise<Response> {
 
     return Response.json({ success: true, itemId, action, updated: update })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 500 })
   }
 }

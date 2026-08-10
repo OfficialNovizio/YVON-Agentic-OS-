@@ -65,7 +65,7 @@ export async function POST() {
 
 Background:
 - Aircraft Engineering degree + 2 years SW dev at a trucking/dispatch company + MBA
-- Building Novizio (sustainable fashion e-commerce) and Hourbour (fintech SaaS for dispatch operations)
+- Building the active venture for dispatch operations
 - Actively job hunting in Aerospace, IT, and Drone sectors
 
 Current state:

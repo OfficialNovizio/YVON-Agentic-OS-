@@ -17,6 +17,7 @@ import { KAHNEMAN_BATCH_SYSTEM } from '@/lib/kahneman-prompt'
 import { getBigIdea } from '@/lib/big-idea'
 import { getContentSeries } from '@/lib/content-series'
 import { supabase } from '@/lib/supabase'
+import { errMsg } from '@/lib/errors'
 
 export const maxDuration = 300  // 5 minutes for full pipeline
 
@@ -31,7 +32,7 @@ function extractJson(raw: string): string {
 }
 
 function getVentureName(ventureId: string): string {
-  return ventureId === 'hourbour' ? 'Hourbour' : 'Novizio'
+  return ventureId.charAt(0).toUpperCase() + ventureId.slice(1)
 }
 
 function parseCSEScores(raw: string): { E: number; R: number; G: number; B: number; T: number } {
@@ -52,9 +53,8 @@ function mapSignalType(category: string): string {
 }
 
 function getVentureDesc(ventureId: string): string {
-  return ventureId === 'hourbour'
-    ? 'fintech SaaS — budgeting & personal finance app'
-    : 'fashion e-commerce — premium DTC clothing brand'
+  // TS-026: no hardcoded brand descriptions — generic truthful default.
+  return 'the active venture'
 }
 
 // ─── POST ───────────────────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ export async function POST(request: Request): Promise<Response> {
   const isCron = storedSecret && cronSecret === storedSecret
 
   const cookieStore = await cookies()
-  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
   const { data: vRow } = await supabase.from('ventures').select('id').eq('slug', slug).single()
   const ventureId = (vRow?.id as string | undefined) ?? slug
   const ventureName = getVentureName(slug)
@@ -512,7 +512,7 @@ ${pitchTexts}`
     })
 
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }
@@ -521,7 +521,7 @@ ${pitchTexts}`
 
 export async function GET(): Promise<Response> {
   const cookieStore = await cookies()
-  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
   const { data } = await supabase.from('ventures').select('id').eq('slug', slug).single()
   const ventureId = (data?.id as string | undefined) ?? slug
 
@@ -537,7 +537,7 @@ export async function GET(): Promise<Response> {
 
 export async function PATCH(request: Request): Promise<Response> {
   const cookieStore = await cookies()
-  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   interface PatchBody {
     pitchId: string

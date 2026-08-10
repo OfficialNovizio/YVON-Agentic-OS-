@@ -1,6 +1,6 @@
 /**
  * /api/competitor-trending
- * GET ?venture=novizio → returns trending reels from latest competitor snapshots
+ * GET ?venture=<slug> → returns trending reels from latest competitor snapshots
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'

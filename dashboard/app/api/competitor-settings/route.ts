@@ -1,6 +1,6 @@
 /**
  * /api/competitor-settings
- * GET  ?venture=novizio  → read settings
+ * GET  ?venture=<slug>  → read settings
  * PATCH { ventureSlug, refresh_frequency, platforms_to_scrape } → update
  */
 import { NextRequest, NextResponse } from 'next/server'

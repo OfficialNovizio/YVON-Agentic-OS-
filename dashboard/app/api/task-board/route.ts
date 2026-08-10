@@ -84,7 +84,7 @@ export async function POST(request: Request): Promise<Response> {
 
 const MOCK_TASKS: TaskItem[] = [
   { id: 'mt1', title: 'Research: is agent-as-a-service a real category?', description: 'Analyze market signals for AaaS as a product category', stage: 'proposed', agent: 'Kai', workspace: 'vibe', priority: 'high', createdAt: new Date().toISOString(), completedAt: null },
-  { id: 'mt2', title: 'Fix cart badge count on mobile tap', description: 'Cart badge shows wrong count on first tap', stage: 'week', agent: 'Dev', workspace: 'novizio', priority: 'high', createdAt: new Date().toISOString(), completedAt: null },
+  { id: 'mt2', title: 'Fix cart badge count on mobile tap', description: 'Cart badge shows wrong count on first tap', stage: 'week', agent: 'Dev', workspace: 'yvon-os', priority: 'high', createdAt: new Date().toISOString(), completedAt: null },
   { id: 'mt3', title: 'Draft newsletter #13 outline', description: 'Monthly newsletter about agent automation', stage: 'backlog', agent: 'Lena', workspace: 'vibe', priority: 'normal', createdAt: new Date().toISOString(), completedAt: null },
   { id: 'mt4', title: 'Newsletter #12 — first draft', description: 'Complete first draft ready for review', stage: 'review', agent: 'Lena', workspace: 'vibe', priority: 'normal', createdAt: new Date().toISOString(), completedAt: null },
   { id: 'mt5', title: 'LinkedIn carousel — tighten the hook', description: 'Improve opening hook for better engagement', stage: 'done', agent: 'William', workspace: 'vibe', priority: 'normal', createdAt: new Date(Date.now() - 86400000).toISOString(), completedAt: new Date().toISOString() },

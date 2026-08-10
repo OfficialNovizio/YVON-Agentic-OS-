@@ -2,18 +2,28 @@
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { supabaseSource } from "@/lib/events/supabase-source";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 import { applyEvent, bubbleUp, DECAY_MS } from "@/lib/events";
+import { useWorkspace } from "@/lib/WorkspaceContext";
 
 /* ═══════════════════════════════════════════════════════════════════════
-   YVON GRAPH VIEWER  —  two levels
+   YVON GRAPH VIEWER  —  three levels
 
    LEVEL 1  overview   ·  core orb + DEPARTMENT cards (collision-free ring)
+                          + satellite orbs, one per real brand (L3, below)
    LEVEL 2  detail     ·  one department + its AGENTS fanned out
+   LEVEL 3  satellite   ·  one brand's ring — active departments only, and
+                          within each, only the agents granted to that brand
 
-   DATA IS REAL — see docs/YVON-GRAPH.md
+   DATA IS REAL — see system-harness/graph-brain/YVON-GRAPH.md
      structure  /structure.json, generated from the Teams/ tree by
                 scripts/build-structure.mjs (runs as `prebuild`, so every
                 deploy regenerates it).            → doc §1.1
+     contexts   Supabase `ventures` (kind/status/tier/context_path/parent_id/
+                sort_order — migrations 109/111/112), fetched via
+                useWorkspace()/`/api/ventures`.     → doc §1.2, §3 Q2
+     grants     Supabase `venture_agents` (enabled=true), fetched directly
+                from the browser client below.      → doc §1.3, §3 Q3
      activity   Supabase Realtime on the append-only `events` table; the
                 browser holds the socket, Vercel is never in the live
                 path.                              → doc §1.4, §4.5
@@ -22,8 +32,10 @@ import { applyEvent, bubbleUp, DECAY_MS } from "@/lib/events";
      layout     computed once from stable sorted ids and never recomputed
                 on a state change, so nodes never reshuffle. → doc §2.5
 
-   NOT YET BUILT — L3 satellites (brand orbs, active departments only).
-   Specified in doc §2.3.
+   L3 built 2026-08-09 — see system-harness/graph-brain/YVON-GRAPH.md §2.3 for the rendering rule
+   this implements (active-departments-only, granted-agents-only, dimmed +
+   explicit affordance for zero-grant brands, one-level client sub-orb
+   nesting, grant edge vs run edge visually distinct).
    ═══════════════════════════════════════════════════════════════════════ */
 
 interface Agent { id: string; name: string; tag: string }
@@ -37,6 +49,19 @@ interface Dept {
 
 /* Real structure, generated from Teams/ by scripts/build-structure.mjs (doc §1.1). */
 interface Structure { version: number; departments: Dept[] }
+
+/* Context graph — Supabase `ventures` (doc §1.2), shape as returned by /api/ventures. */
+interface Context {
+  slug: string;
+  name: string;
+  color: string;
+  kind?: "core" | "venture" | "client";
+  status?: string;
+  contextPath?: string;
+  parentId?: string;
+  id?: string;
+  sortOrder?: number;
+}
 
 const MINT = "#3ddc97";
 const CORAL = "#ff6b60";
@@ -55,10 +80,14 @@ const ORB_R = 132;
 
 interface Placed extends Dept { x: number; y: number; bars: number[] }
 
-/* ── ring layout + AABB relaxation → guaranteed no overlap ─────────── */
-function buildLayout(DEPARTMENTS: Dept[]): { placed: Placed[]; stars: { x: number; y: number; r: number; o: number }[] } {
-  const rnd = rngFrom(20260803);
-  const n = DEPARTMENTS.length;
+/* ── ring layout + AABB relaxation → guaranteed no overlap ───────────
+   `seed` defaults to the original fixed date-seed (L1's exact historical
+   layout, unchanged). L3 satellite rings pass a seed derived from the
+   context slug instead, so one brand's internal arrangement is stable
+   across reloads and independent of every other brand (doc §2.3, §2.5.5). */
+function buildLayout(DEPARTMENTS: Dept[], seed = 20260803): { placed: Placed[]; stars: { x: number; y: number; r: number; o: number }[] } {
+  const rnd = rngFrom(seed);
+  const n = DEPARTMENTS.length || 1;
 
   const placed: Placed[] = DEPARTMENTS.map((dep, i) => {
     const ang = (i / n) * Math.PI * 2 - Math.PI / 2 + (rnd() - 0.5) * 0.06;
@@ -115,7 +144,66 @@ function buildLayout(DEPARTMENTS: Dept[]): { placed: Placed[]; stars: { x: numbe
   return { placed, stars };
 }
 
-export default function YvonGraph() {
+/* ── L3 — satellite ring layout (doc §2.3) ──────────────────────────
+   Positions come from a ring pass over contexts sorted by (kind, sort_order,
+   slug) — the same "sorted stable ids, never array index" rule as buildLayout,
+   so satellites never reshuffle on a status change. Each satellite's seed is
+   derived from its own context slug, so one brand's internal churn never
+   perturbs another's layout (doc §2.5.5). */
+const SAT_R = 980;      // outer ring radius — beyond the department ring (ORB_R + ~600)
+const SAT_ORB = 70;     // satellite orb diameter baseline
+const SUB_OFFSET = 118; // nested client sub-orb distance from its parent satellite
+
+interface Placed3 { ctx: Context; x: number; y: number; r: number; agentCount: number; deptCount: number; children: Placed3[] }
+
+function seedFromSlug(slug: string): number {
+  let h = 0;
+  for (let i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) >>> 0;
+  return h || 1;
+}
+
+function buildSatelliteLayout(
+  contexts: Context[],
+  ringFor: (slug: string) => { deptCount: number; agentCount: number },
+): Placed3[] {
+  const roots = contexts
+    .filter((c) => c.kind !== "core" && !c.parentId)
+    .sort((a, b) => (a.sortOrder ?? 99) - (b.sortOrder ?? 99) || a.slug.localeCompare(b.slug));
+  const childrenOf = (id?: string) =>
+    contexts.filter((c) => c.parentId && c.parentId === id)
+      .sort((a, b) => a.slug.localeCompare(b.slug));
+
+  const n = Math.max(roots.length, 1);
+  return roots.map((ctx, i) => {
+    const rnd = rngFrom(seedFromSlug(ctx.slug));
+    const ang = (i / n) * Math.PI * 2 - Math.PI / 2 + (rnd() - 0.5) * 0.08;
+    const x = CX + Math.cos(ang) * SAT_R * 1.42;
+    const y = CY + Math.sin(ang) * SAT_R * 0.97;
+    const { deptCount, agentCount } = ringFor(ctx.slug);
+
+    const kids = childrenOf(ctx.id).map((child, j): Placed3 => {
+      const crnd = rngFrom(seedFromSlug(child.slug));
+      const cang = ang + (j + 1) * 0.7 + (crnd() - 0.5) * 0.2;
+      const { deptCount: cd, agentCount: ca } = ringFor(child.slug);
+      return {
+        ctx: child,
+        x: x + Math.cos(cang) * SUB_OFFSET,
+        y: y + Math.sin(cang) * SUB_OFFSET,
+        r: SAT_ORB * 0.55,
+        deptCount: cd,
+        agentCount: ca,
+        children: [],
+      };
+    });
+
+    // Ring size scales with active-department count (doc §2.3 consequences table) —
+    // never padded to a fixed 7. A single-department brand is a legal, smaller orb.
+    const r = SAT_ORB * (0.62 + Math.min(deptCount, 7) * 0.09);
+    return { ctx, x, y, r, deptCount, agentCount, children: kids };
+  });
+}
+
+export default function YvonGraph({ embedded = false }: { embedded?: boolean }) {
   const [DEPARTMENTS, setDepartments] = useState<Dept[]>([]);
   const [open, setOpen] = useState<Placed | null>(null);
   const [status, setStatus] = useState<Record<string, Status>>({});
@@ -123,9 +211,25 @@ export default function YvonGraph() {
   // Real activity comes from the events table (below). `demo` is an explicitly
   // labelled simulator for screenshots — never on by default.
   const [demo, setDemo] = useState(false);
-  // Scope = context_id. Hardcoded today; doc §16.1 + Q2 replace this with a
-  // fetch of `ventures` so a new brand appears without a deploy.
+  // Scope = context_path (doc §6.1: "context_id = ventures.context_path" — the bare slug is
+  // NOT the join key once nesting exists). TS-026/030: real ventures from the SHARED store —
+  // yvon-os + DB rows only; new ventures appear without refresh.
   const [scope, setScope] = useState("yvon-os");
+  const [scopes, setScopes] = useState<Array<[string, string]>>([["yvon-os", "YVON"]]);
+  const { ventures } = useWorkspace();
+  const contexts = ventures as Context[];
+
+  useEffect(() => {
+    if (ventures.length > 0) {
+      setScopes(ventures.map((v) => [v.contextPath ?? v.slug, (v.name ?? v.slug).toUpperCase()]));
+    }
+  }, [ventures]);
+
+  // L3 — one satellite the operator has zoomed into (doc §2.3). null = universe view
+  // (core ring + all satellite orbs at once).
+  const [openSatellite, setOpenSatellite] = useState<Context | null>(null);
+  // Grants (doc §1.3/§3 Q3) — venture_slug → Set<agent_id>, enabled=true only.
+  const [grants, setGrants] = useState<Record<string, Set<string>>>({});
 
   const [view, setView] = useState({ x: 0, y: 0, s: 0.52 });
   const drag = useRef({ on: false, px: 0, py: 0 });
@@ -137,8 +241,73 @@ export default function YvonGraph() {
       .catch(() => setDepartments([]));
   }, []);
 
+  /* ── L3 grants fetch (doc §3 Q3) ──────────────────────────────────────
+     Same browser client + RLS shape as the events Realtime subscription
+     (authenticated SELECT, service_role write — migration 111). Empty result
+     under an unauthenticated session is expected, not an error — the ring
+     for every brand then legitimately renders "no agents granted". */
+  useEffect(() => {
+    let cancelled = false;
+    supabaseBrowser()
+      .from("venture_agents")
+      .select("venture_slug, agent_id")
+      .eq("enabled", true)
+      .then(({ data }: { data: { venture_slug: string; agent_id: string }[] | null }) => {
+        if (cancelled || !data) return;
+        const byVenture: Record<string, Set<string>> = {};
+        for (const row of data) {
+          (byVenture[row.venture_slug] ??= new Set()).add(row.agent_id);
+        }
+        setGrants(byVenture);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  // agent id → department id, built once per structure (doc §3 Q3 — "never recover the
+  // department by string-splitting agent_id"; always join through structure.json).
+  const deptOf = useMemo(
+    () => new Map(DEPARTMENTS.flatMap((d) => d.agents.map((a): [string, string] => [a.id, d.id]))),
+    [DEPARTMENTS],
+  );
+
+  // Doc §3 Q3's ringFor, plus §2.3's rendering rule: YVON (kind=core) gets every department,
+  // every agent — the full 7/46. A brand gets only departments with ≥1 granted+enabled agent.
+  const ringFor = useCallback(
+    (slug: string, kind?: Context["kind"]): Dept[] => {
+      if (kind === "core") return DEPARTMENTS;
+      const ids = grants[slug] ?? new Set<string>();
+      return DEPARTMENTS
+        .map((d) => ({ ...d, agents: d.agents.filter((a) => ids.has(a.id)) }))
+        .filter((d) => d.agents.length > 0);
+    },
+    [DEPARTMENTS, grants],
+  );
+
+  const ringSummary = useCallback(
+    (slug: string) => {
+      const r = ringFor(slug);
+      return { deptCount: r.length, agentCount: r.reduce((n, d) => n + d.agents.length, 0) };
+    },
+    [ringFor],
+  );
+
   // Layout computed ONCE per structure, from stable sorted ids → never reshuffles.
   const { placed, stars } = useMemo(() => buildLayout(DEPARTMENTS), [DEPARTMENTS]);
+
+  // L3 satellite positions — recomputed only when contexts or grants change, not on every
+  // status tick (doc §2.5.1).
+  const satellites = useMemo(
+    () => buildSatelliteLayout(contexts, ringSummary),
+    [contexts, ringSummary],
+  );
+
+  // The scoped ring for whichever satellite is currently open — its own filtered department
+  // list, re-laid-out with a seed derived from its own slug (doc §2.3).
+  const satelliteRing = useMemo(() => {
+    if (!openSatellite) return null;
+    const depts = ringFor(openSatellite.slug, openSatellite.kind);
+    return buildLayout(depts, seedFromSlug(openSatellite.slug));
+  }, [openSatellite, ringFor]);
 
   useEffect(() => {
     setView({ x: window.innerWidth / 2 - CX * 0.52, y: window.innerHeight / 2 - CY * 0.52, s: 0.52 });
@@ -215,7 +384,7 @@ export default function YvonGraph() {
   const dim = (name: string) => !!q && !name.toLowerCase().includes(q.toLowerCase());
 
   return (
-    <div style={S.root}>
+    <div style={embedded ? S.rootEmbedded : S.root}>
       <style>{CSS}</style>
 
       <div style={S.hud}>
@@ -223,14 +392,25 @@ export default function YvonGraph() {
           <div style={S.brand}>YVON</div>
           <div style={S.sub}>
             {open ? `${open.name.toUpperCase()} · ${open.agents.length} AGENTS`
-                  : `${DEPARTMENTS.length} DEPARTMENTS · ${DEPARTMENTS.reduce((n, x) => n + x.agents.length, 0)} AGENTS${demo ? ` · ${activeCount} ACTIVE` : ""}`}
+              : openSatellite && satelliteRing
+                ? `${openSatellite.name.toUpperCase()} · ${satelliteRing.placed.length} ACTIVE DEPTS · ${satelliteRing.placed.reduce((n, x) => n + x.agents.length, 0)} GRANTED AGENTS`
+                : `${DEPARTMENTS.length} DEPARTMENTS · ${DEPARTMENTS.reduce((n, x) => n + x.agents.length, 0)} AGENTS${demo ? ` · ${activeCount} ACTIVE` : ""}`}
           </div>
         </div>
         <div style={{ display: "flex", gap: 5, pointerEvents: "auto" }}>
-          {/* doc §16.1 — one app, N scopes; same components filtered by context_id */}
-          {[["yvon-os", "YVON"], ["novizio", "Novizio"], ["hourbour", "Hourbour"], ["agentx", "AgentX"]].map(([id, label]) => (
+          {/* doc §16.1 — one app, N scopes (TS-026: real ventures only). Tab id is
+              context_path (doc §6.1), and doubles as the L3 satellite entry point:
+              picking a non-core venture opens its scoped ring; YVON returns to the
+              universe view. */}
+          {scopes.map(([id, label]) => (
             <button key={id} style={{ ...S.tab, ...(scope === id ? S.tabOn : {}) }}
-              onClick={() => { setScope(id); setStatus({}); }}>{label}</button>
+              onClick={() => {
+                setScope(id);
+                setStatus({});
+                setOpen(null);
+                const ctx = contexts.find((c) => (c.contextPath ?? c.slug) === id);
+                setOpenSatellite(ctx && ctx.kind !== "core" ? ctx : null);
+              }}>{label}</button>
           ))}
           <button style={{ ...S.tab, ...(demo ? S.tabOn : {}), opacity: 0.7 }}
             onClick={() => { setDemo((v) => !v); if (demo) setStatus({}); }}
@@ -240,20 +420,30 @@ export default function YvonGraph() {
         </div>
       </div>
 
-      {!open && (
+      {!open && !openSatellite && (
         <input style={S.search} placeholder="Search departments…" value={q}
           onChange={(e) => setQ(e.target.value)} />
       )}
-      {open && <button style={S.back} onClick={() => setOpen(null)}>← All departments</button>}
+      {open && (
+        <button style={S.back} onClick={() => setOpen(null)}>
+          ← {openSatellite ? openSatellite.name.toUpperCase() : "All departments"}
+        </button>
+      )}
+      {openSatellite && !open && (
+        <button style={S.back}
+          onClick={() => { setOpenSatellite(null); setScope("yvon-os"); setStatus({}); }}>
+          ← Universe
+        </button>
+      )}
 
-      {/* ══ LEVEL 1 ══ */}
-      {!open && (
+      {/* ══ LEVEL 1 — universe: core ring + every satellite at once (doc §2.3) ══ */}
+      {!open && !openSatellite && (
         <div style={S.stage} onWheel={onWheel}
           onMouseDown={(e) => (drag.current = { on: true, px: e.clientX, py: e.clientY })}>
           <div style={{ position: "absolute", transformOrigin: "0 0",
             transform: `translate(${view.x}px,${view.y}px) scale(${view.s})` }}>
 
-            <svg style={{ position: "absolute", overflow: "visible", pointerEvents: "none" }} width={3200} height={2100}>
+            <svg style={{ position: "absolute", overflow: "visible", pointerEvents: "none" }} width={3600} height={2400}>
               {[300, 400, 500, 620].map((r, i) => (
                 <ellipse key={r} cx={CX} cy={CY} rx={r * 1.45} ry={r * 0.99} fill="none"
                   stroke={`rgba(255,255,255,${0.038 - i * 0.006})`} strokeWidth={1} />
@@ -265,6 +455,16 @@ export default function YvonGraph() {
                 <line key={p.id} x1={CX} y1={CY} x2={p.x} y2={p.y}
                   stroke="rgba(255,255,255,0.045)" strokeWidth={1} />
               ))}
+              {/* Grant edges (doc §2.4) — thin, static, low opacity, visually distinct (dashed,
+                  violet-tinted) from department spokes. Membership, not execution. */}
+              {satellites.map((s) => (
+                <line key={"sat-edge-" + s.ctx.slug} x1={CX} y1={CY} x2={s.x} y2={s.y}
+                  stroke="rgba(142,123,240,0.16)" strokeWidth={1.2} strokeDasharray="2 5" />
+              ))}
+              {satellites.flatMap((s) => s.children.map((c) => (
+                <line key={"sub-edge-" + c.ctx.slug} x1={s.x} y1={s.y} x2={c.x} y2={c.y}
+                  stroke="rgba(142,123,240,0.22)" strokeWidth={1} strokeDasharray="1.5 4" />
+              )))}
             </svg>
 
             <div style={{ ...S.orbWrap, left: CX, top: CY }}>
@@ -286,6 +486,105 @@ export default function YvonGraph() {
                   </div>
                   <div style={S.bigNum}>{p.metric}</div>
                   <div style={S.numLabel}>{p.metricLabel}</div>
+                  <div style={S.sparkRow}>
+                    {p.bars.map((h, i) => (
+                      <i key={i} style={{ flex: 1, height: `${h}%`, background: "rgba(255,255,255,.19)", borderRadius: 0.5 }} />
+                    ))}
+                  </div>
+                  <div style={S.deptFoot}>{p.agents.length} AGENTS</div>
+                </div>
+              );
+            })}
+
+            {/* ══ L3 — satellite orbs (doc §2.3) ══
+                Ring size scales with active-department count; zero-node rings are legal
+                (single-department brand); zero-grant brands render dimmed with an explicit
+                affordance rather than being hidden. */}
+            {satellites.map((s) => {
+              const empty = s.agentCount === 0;
+              const openThis = () => { setOpenSatellite(s.ctx); setScope(s.ctx.contextPath ?? s.ctx.slug); setStatus({}); };
+              return (
+                <React.Fragment key={s.ctx.slug}>
+                  <div onClick={openThis}
+                    style={{
+                      ...S.satOrb,
+                      left: s.x, top: s.y, width: s.r * 2, height: s.r * 2,
+                      borderColor: empty ? "rgba(255,255,255,.14)" : `${s.ctx.color}66`,
+                      background: empty
+                        ? "rgba(255,255,255,.03)"
+                        : `radial-gradient(circle at 36% 30%, ${s.ctx.color}55, ${s.ctx.color}18 60%, transparent 100%)`,
+                      opacity: empty ? 0.55 : 1,
+                    }}>
+                    <span style={S.satLabel}>{s.ctx.name}</span>
+                    <span style={S.satSub}>
+                      {empty ? "NO AGENTS GRANTED" : `${s.deptCount} DEPT · ${s.agentCount} AGENTS`}
+                    </span>
+                  </div>
+                  {s.children.map((c) => {
+                    const cEmpty = c.agentCount === 0;
+                    return (
+                      <div key={c.ctx.slug}
+                        onClick={() => { setOpenSatellite(c.ctx); setScope(c.ctx.contextPath ?? c.ctx.slug); setStatus({}); }}
+                        style={{
+                          ...S.satOrb, ...S.satChild,
+                          left: c.x, top: c.y, width: c.r * 2, height: c.r * 2,
+                          borderColor: cEmpty ? "rgba(255,255,255,.14)" : `${c.ctx.color}66`,
+                          background: cEmpty ? "rgba(255,255,255,.03)" : `${c.ctx.color}30`,
+                          opacity: cEmpty ? 0.5 : 0.92,
+                        }}>
+                        <span style={S.satLabelSm}>{c.ctx.name}</span>
+                      </div>
+                    );
+                  })}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ══ LEVEL 3 — one satellite's scoped ring: active departments, granted agents only ══ */}
+      {openSatellite && !open && satelliteRing && (
+        <div style={S.stage} onWheel={onWheel}
+          onMouseDown={(e) => (drag.current = { on: true, px: e.clientX, py: e.clientY })}>
+          <div style={{ position: "absolute", transformOrigin: "0 0",
+            transform: `translate(${view.x}px,${view.y}px) scale(${view.s})` }}>
+
+            <svg style={{ position: "absolute", overflow: "visible", pointerEvents: "none" }} width={3600} height={2400}>
+              {satelliteRing.stars.map((s, i) => (
+                <circle key={i} cx={s.x} cy={s.y} r={s.r} fill={`rgba(205,210,222,${s.o})`} />
+              ))}
+              {satelliteRing.placed.map((p) => (
+                <line key={p.id} x1={CX} y1={CY} x2={p.x} y2={p.y}
+                  stroke="rgba(255,255,255,0.045)" strokeWidth={1} />
+              ))}
+            </svg>
+
+            <div style={{ ...S.orbWrap, left: CX, top: CY }}>
+              <div style={{ ...S.orbGlow, background: `radial-gradient(circle, ${openSatellite.color}30 0%, ${openSatellite.color}0d 40%, transparent 70%)` }} />
+              <div style={{ ...S.orbBody, background: `radial-gradient(circle at 36% 30%, ${openSatellite.color}dd 0%, ${openSatellite.color}99 48%, ${openSatellite.color}55 100%)` }}>
+                <div style={S.orbSheen} />
+                <span style={S.orbLabel}>{openSatellite.name.toUpperCase()}</span>
+              </div>
+            </div>
+
+            {satelliteRing.placed.length === 0 && (
+              <div style={{ ...S.satEmptyNote, left: CX, top: CY + 260 }}>
+                No agents granted to {openSatellite.name} yet — grant access in Settings.
+              </div>
+            )}
+
+            {satelliteRing.placed.map((p) => {
+              const st = rolled[p.id] ?? "idle";
+              return (
+                <div key={p.id} onClick={() => setOpen(p)}
+                  style={{ ...S.deptCard, left: p.x, top: p.y, opacity: dim(p.name) ? 0.2 : 1 }}>
+                  <div style={S.deptHead}>
+                    <span style={S.deptName}>{p.name}</span>
+                    <Pip status={st} />
+                  </div>
+                  <div style={S.bigNum}>{p.agents.length}</div>
+                  <div style={S.numLabel}>GRANTED AGENTS</div>
                   <div style={S.sparkRow}>
                     {p.bars.map((h, i) => (
                       <i key={i} style={{ flex: 1, height: `${h}%`, background: "rgba(255,255,255,.19)", borderRadius: 0.5 }} />
@@ -438,6 +737,11 @@ const S: Record<string, React.CSSProperties> = {
     fontFamily: "-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Inter,sans-serif",
     color: "#d8dae0", WebkitFontSmoothing: "antialiased",
   },
+  rootEmbedded: {
+    position: "absolute", inset: 0, background: "#0a0a0c", overflow: "hidden",
+    fontFamily: "-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Inter,sans-serif",
+    color: "#d8dae0", WebkitFontSmoothing: "antialiased",
+  },
   stage: { position: "absolute", inset: 0, cursor: "grab" },
   vig: {
     position: "fixed", inset: 0, pointerEvents: "none", zIndex: 5,
@@ -498,6 +802,23 @@ const S: Record<string, React.CSSProperties> = {
   numLabel: { fontSize: 10.5, color: "#83888f", marginTop: 6 },
   sparkRow: { display: "flex", alignItems: "flex-end", gap: 1.5, height: 30, marginTop: 14 },
   deptFoot: { fontSize: 8.5, color: "#4f545c", letterSpacing: "0.14em", marginTop: 10 },
+
+  /* L3 — satellite orbs (doc §2.3) */
+  satOrb: {
+    position: "absolute", transform: "translate(-50%,-50%)", borderRadius: "50%",
+    border: "1.5px solid", display: "flex", flexDirection: "column", alignItems: "center",
+    justifyContent: "center", textAlign: "center", cursor: "pointer", padding: 6,
+    backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
+    boxShadow: "0 10px 30px rgba(0,0,0,.4)", transition: "opacity .25s, transform .2s",
+  },
+  satChild: { boxShadow: "0 6px 18px rgba(0,0,0,.35)" },
+  satLabel: { fontSize: 11, fontWeight: 600, color: "#eef0f3", letterSpacing: "0.04em" },
+  satLabelSm: { fontSize: 8.5, fontWeight: 600, color: "#eef0f3", letterSpacing: "0.03em" },
+  satSub: { fontSize: 8, color: "#b7b2e6", letterSpacing: "0.06em", marginTop: 3 },
+  satEmptyNote: {
+    position: "absolute", transform: "translate(-50%,-50%)", fontSize: 11.5,
+    color: "#83888f", letterSpacing: "0.03em", whiteSpace: "nowrap",
+  },
 
   detailStage: { position: "absolute", inset: 0 },
   detailSvg: { position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" },

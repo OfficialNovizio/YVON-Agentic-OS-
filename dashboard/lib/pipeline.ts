@@ -18,12 +18,37 @@ export type SseLike = {
 
 export interface PipelineStage {
   id: string
-  kind: 'classify' | 'resolve' | 'retrieve' | 'tool' | 'gate' | 'loop' | 'run'
+  kind: 'analyze' | 'context' | 'classify' | 'resolve' | 'retrieve' | 'tool' | 'gate' | 'loop' | 'run' | 'record'
   label: string
   detail?: string
   status: 'active' | 'done' | 'error' | 'pending'
   /** event timestamp (ms) — enables real per-stage timings in the HUD */
   ts?: number
+  /** Structured input-analysis payload (TS-030) — carried on the 'analyze'
+   * stage so the HUD renders tier/relation/fields/must-haves/routing as UI
+   * (chips, checklist, agent plan), not flattened text. Absent for old rows. */
+  analysis?: InputAnalysisStage
+}
+
+/** The InputAnalysis shape the pipeline panel cares about — mirrors
+ * pipelines/input-analysis/types.ts (InputAnalysis) minus pipeline internals. */
+export interface InputAnalysisStage {
+  tier: 'generic' | 'info' | 'build'
+  relation: 'venture' | 'general'
+  what?: string
+  type?: string
+  subject?: string
+  scope?: string
+  expected?: string
+  format?: string
+  why?: string
+  how?: string
+  endResult?: string
+  desiredOutput?: string
+  /** The MUST-HAVE checklist — defines "done"; rendered as a checklist. */
+  mustHaves?: string[]
+  /** The agent routing plan — primary agent + team, rendered as chips. */
+  targetAgents?: { primary: string; team: string[]; reason: string }
 }
 
 // ── Live source: SSE events (token/thinking/tool_call.*/notice) ────────────
@@ -142,8 +167,57 @@ export function stageFromEventRow(row: TurnEvent): PipelineStage | null {
       return { id: 'run-done', kind: 'run', label: 'completed', status: 'done', ts }
     case 'run.failed':
       return { id: 'run-failed', kind: 'run', label: 'failed', detail: payload.error ? String(payload.error).slice(0, 120) : undefined, status: 'error', ts }
+    case 'input.analysis':
+      return stageFromInputAnalysisPayload(payload, ts)
     default:
       return null
+  }
+}
+
+/** Build the analyze stage from a persisted input.analysis payload (TS-030).
+ * Shared shape with page.tsx's live handler: same id, same label, same detail
+ * lines, plus the structured `analysis` payload for the HUD flow. */
+export function stageFromInputAnalysisPayload(
+  payload: Record<string, unknown>,
+  ts?: number,
+): PipelineStage | null {
+  const rawTier = String(payload.tier ?? '')
+  const tierKey = (rawTier === 'build' || rawTier === 'generic' ? rawTier : 'info') as InputAnalysisStage['tier']
+  const relation = (String(payload.relation ?? 'venture') === 'general' ? 'general' : 'venture') as InputAnalysisStage['relation']
+  const fields =
+    tierKey === 'info'
+      ? ([['type', payload.type], ['subject', payload.subject], ['scope', payload.scope], ['expected', payload.expected], ['format', payload.format]] as const)
+      : ([['what', payload.what], ['why', payload.why], ['how', payload.how], ['end result', payload.endResult], ['desired output', payload.desiredOutput]] as const)
+  const lines = fields
+    .filter(([, v]) => v && String(v) !== 'not specified')
+    .map(([k, v]) => `${k}: ${String(v)}`)
+  const str = (v: unknown) => (v == null ? undefined : String(v))
+  return {
+    id: 'input-analysis',
+    kind: 'analyze',
+    label: `input analysis · ${tierKey} · ${relation}`,
+    detail: lines.join('\n') || 'not specified',
+    status: 'done',
+    ts,
+    analysis: {
+      tier: tierKey,
+      relation,
+      what: str(payload.what),
+      type: str(payload.type),
+      subject: str(payload.subject),
+      scope: str(payload.scope),
+      expected: str(payload.expected),
+      format: str(payload.format),
+      why: str(payload.why),
+      how: str(payload.how),
+      endResult: str(payload.endResult),
+      desiredOutput: str(payload.desiredOutput),
+      mustHaves: Array.isArray(payload.mustHaves) ? (payload.mustHaves as string[]) : undefined,
+      targetAgents:
+        payload.targetAgents && typeof payload.targetAgents === 'object'
+          ? (payload.targetAgents as InputAnalysisStage['targetAgents'])
+          : undefined,
+    },
   }
 }
 

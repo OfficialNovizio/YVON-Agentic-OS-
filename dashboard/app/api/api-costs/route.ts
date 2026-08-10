@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { cookies } from 'next/headers'
+import { errMsg } from '@/lib/errors'
 
 interface CostRow {
   model: string
@@ -21,7 +22,7 @@ interface ModelAggregate {
 
 export async function GET(request: Request): Promise<Response> {
   const cookieStore = await cookies()
-  const _ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const _ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
   const { searchParams } = new URL(request.url)
   const days = parseInt(searchParams.get('days') ?? '7', 10)
 
@@ -63,7 +64,7 @@ export async function GET(request: Request): Promise<Response> {
       since: since.toISOString(),
     })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

@@ -7,40 +7,24 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, Check } from 'lucide-react'
-
-interface VentureOption {
-  slug: string
-  name: string
-  color?: string | null
-}
+import { useWorkspace } from '@/lib/WorkspaceContext'
 
 export function VentureSelector() {
-  const [ventures, setVentures] = useState<VentureOption[]>([])
+  const { ventures } = useWorkspace()
   const [active, setActive] = useState<string>('yvon-os')
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const ref = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const res = await fetch('/api/ventures')
-        if (!res.ok) return
-        const data = (await res.json()) as VentureOption[]
-        if (cancelled || !Array.isArray(data)) return
-        if (data.length > 0) setVentures(data)
-      } catch {
-        // selector stays on yvon-os — never invent ventures
-      }
-    })()
-    // Read the active cookie (httpOnly:false — readable client-side).
+    // TS-030: read from the SHARED venture store (no own fetch) — so a new
+    // venture appears here instantly. Validate the cookie against the list;
+    // a stale/unknown cookie (e.g. 'agentx') falls back to yvon-os.
     const match = document.cookie.match(/(?:^|;\s*)yvon_active_venture=([^;]+)/)
-    if (match) setActive(match[1])
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    const cookieVenture = match ? decodeURIComponent(match[1]) : null
+    const real = ventures.some((v) => v.slug === cookieVenture)
+    setActive(real && cookieVenture ? cookieVenture : 'yvon-os')
+  }, [ventures])
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -70,7 +54,7 @@ export function VentureSelector() {
     }
   }
 
-  const current = ventures.find((v) => v.slug === active) ?? { slug: active, name: active }
+  const current = ventures.find((v) => v.slug === active) ?? { slug: active, name: active, color: undefined }
 
   return (
     <div className="relative" ref={ref}>

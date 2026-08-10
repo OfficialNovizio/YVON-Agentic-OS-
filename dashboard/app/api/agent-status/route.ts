@@ -3,6 +3,7 @@
 // Wired from YVON 2.0's agent_memory and agent_sessions tables.
 
 import { createClient } from '@supabase/supabase-js'
+import { errMsg } from '@/lib/errors'
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -73,7 +74,7 @@ export async function GET(): Promise<Response> {
       totalAgents: agents.length,
     })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({
       agents: STATIC_ROSTER.map((a) => ({ ...a, status: 'offline' as const, currentTask: null, lastActive: null })),
       machinesOnline: 0,

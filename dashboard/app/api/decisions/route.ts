@@ -1,10 +1,11 @@
 import { getDecisions, createDecision, resolveDecision } from '@/lib/db'
 import type { DecisionAction, DecisionUrgency } from '@/lib/types'
 import { cookies } from 'next/headers'
+import { errMsg } from '@/lib/errors'
 
 export async function GET(request: Request): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
   const { searchParams } = new URL(request.url)
   const resolvedParam = searchParams.get('resolved')
 
@@ -17,14 +18,14 @@ export async function GET(request: Request): Promise<Response> {
     const decisions = await getDecisions(ventureId, { resolved, limit: 20 })
     return Response.json({ decisions })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }
 
 export async function POST(request: Request): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   let body: {
     agentId?: string
@@ -52,7 +53,7 @@ export async function POST(request: Request): Promise<Response> {
     })
     return Response.json({ decision })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }
@@ -78,7 +79,7 @@ export async function PATCH(request: Request): Promise<Response> {
     await resolveDecision(body.id, body.action)
     return Response.json({ ok: true })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

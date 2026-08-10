@@ -5,13 +5,15 @@
  * Import from here instead of duplicating the constant in every route file.
  */
 
+// TS-026: no hardcoded sub-brand stacks. The only static entry is the system
+// venture; real ventures' stacks come from the DB (ventures.repo_url) when
+// available, else a generic default.
 export const VENTURE_TECH_STACK: Record<string, string> = {
-  'hourbour':       'Flutter mobile app (Dart, Firebase)',
-  'novizio':        'Next.js e-commerce web app (TypeScript, Supabase)',
-  'yvon-dashboard': 'Next.js AI operating system (TypeScript, Supabase)',
+  'yvon-os': 'Next.js AI operating system (TypeScript, Supabase)',
 }
 
 export function getVentureTechStack(ventureSlug: string | undefined): string {
+  if (ventureSlug && ventureSlug !== 'yvon-os') return 'web/mobile app'
   return VENTURE_TECH_STACK[ventureSlug ?? ''] ?? 'web/mobile app'
 }
 

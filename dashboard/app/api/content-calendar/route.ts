@@ -9,7 +9,7 @@ export async function GET(request: Request): Promise<Response> {
   const zone = searchParams.get('zone') ?? 'upcoming'
 
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   if (zone === 'missed') {
     const entries = await getMissedEntries(ventureId)
@@ -30,7 +30,7 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   let body: { planDate: string; contentType: string; platform: string; headline?: string; brief?: string }
   try {
@@ -58,7 +58,7 @@ export async function POST(request: Request): Promise<Response> {
 
 export async function PATCH(request: Request): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   let body: { action: string; id?: string; missedId?: string; newDate?: string; status?: string }
   try {

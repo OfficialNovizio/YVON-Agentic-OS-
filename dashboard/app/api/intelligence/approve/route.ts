@@ -2,6 +2,7 @@
 // Updates a pitch status: pending → approved (or drafted/passed)
 
 import { updatePitchStatus } from '@/lib/intelligence'
+import { errMsg } from '@/lib/errors'
 
 export async function POST(request: Request): Promise<Response> {
   let body: { pitchId: string; status?: string }
@@ -21,7 +22,7 @@ export async function POST(request: Request): Promise<Response> {
     await updatePitchStatus(body.pitchId, status as 'approved' | 'drafted' | 'deployed' | 'passed')
     return Response.json({ success: true, pitchId: body.pitchId, status })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

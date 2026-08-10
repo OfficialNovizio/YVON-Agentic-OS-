@@ -172,7 +172,8 @@ create or replace function public.chat_emit_conversation_event(
   p_correlation uuid,
   p_room_id     uuid,
   p_author_id   text,
-  p_preview     text
+  p_preview     text,
+  p_kind        text default 'chat.conversation'   -- last param: defaults after defaults is not allowed
 )
 returns void
 language plpgsql security definer set search_path = public
@@ -182,7 +183,7 @@ begin
   values (
     'yvon',
     p_context_id,
-    'chat.conversation',
+    coalesce(p_kind, 'chat.conversation'),
     p_author_id,
     jsonb_build_object(
       'room_id', p_room_id,
@@ -193,8 +194,41 @@ begin
 end;
 $$;
 
-revoke all on function public.chat_emit_conversation_event(text, uuid, uuid, text, text) from public;
-grant execute on function public.chat_emit_conversation_event(text, uuid, uuid, text, text) to authenticated;
+revoke all on function public.chat_emit_conversation_event(text, uuid, uuid, text, text, text) from public;
+grant execute on function public.chat_emit_conversation_event(text, uuid, uuid, text, text, text) to authenticated;
+
+-- ── 7b. input.analysis events (TS-030) ─────────────────────────────────────
+-- /api/chat/stream emits the input-analysis breakdown live (tier/relation/
+-- fields/must-haves/routing) but never persisted it, so past turns showed no
+-- analysis in the pipeline panel. Same security-definer writer pattern as the
+-- two above; the payload carries the full structured InputAnalysis so past
+-- turns render the same breakdown as live ones. Caller sets kind by payload;
+-- events.kind is fixed to 'input.analysis' (stream-side concern).
+create or replace function public.chat_emit_input_analysis_event(
+  p_context_id  text,
+  p_correlation uuid,
+  p_room_id     uuid,
+  p_author_id   text,
+  p_payload     jsonb
+)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+begin
+  insert into public.events (source, context_id, kind, actor, payload, correlation)
+  values (
+    'yvon',
+    p_context_id,
+    'input.analysis',
+    p_author_id,
+    coalesce(p_payload, '{}'::jsonb),
+    p_correlation
+  );
+end;
+$$;
+
+revoke all on function public.chat_emit_input_analysis_event(text, uuid, uuid, text, jsonb) from public;
+grant execute on function public.chat_emit_input_analysis_event(text, uuid, uuid, text, jsonb) to authenticated;
 
 -- ── Documented gap (pre-existing) ─────────────────────────────────────────
 -- /api/chat/stream saves agent replies under the user's session, so any

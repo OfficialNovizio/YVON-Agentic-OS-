@@ -22,7 +22,7 @@ import type { UploadedAttachment } from '@/lib/attachments-client'
 import type { ChatRoom } from '@/app/api/chat/rooms/route'
 import type { ChatMessage } from '@/app/api/chat/messages/route'
 import type { TurnEvent } from '@/app/api/chat/events/route'
-import { stageFromSseEvent, stageFromEventRow, upsertStage, type PipelineView } from '@/lib/pipeline'
+import { stageFromSseEvent, stageFromEventRow, upsertStage, type PipelineView, type InputAnalysisStage } from '@/lib/pipeline'
 
 // Live-status chip types (moved from the removed StatusChip.tsx — page.tsx is
 // now the only consumer; the chip component itself was dead after TS-020).
@@ -99,6 +99,9 @@ export default function ChatPage() {
   const [teamsOpen, setTeamsOpen] = useState<boolean>(() =>
     typeof window === 'undefined' ? true : window.innerWidth >= 768,
   )
+  // TS-030: collapsed teams sidebar — the container shrinks so the chat fills
+  // the freed width (no blank space). Restored from localStorage via the panel.
+  const [teamsCollapsed, setTeamsCollapsed] = useState(false)
   // Single source of live agent status — one poll feeds the dock + teams
   // sidebar (was duplicated in both, 2× the network calls). TS-023 review.
   const [agentLive, setAgentLive] = useState<Record<string, 'active' | 'idle' | 'offline'>>({})
@@ -315,6 +318,9 @@ export default function ChatPage() {
           return
         }
 
+        // TS-027: Input Analysis runs inside the stream route. For generic
+        // short messages ("hi") the route returns a direct reply (kind:'done',
+        // no Hermes, no pipeline) — handled below by the normal done path.
         const sseRes = await fetch(`/api/chat/stream?userMessageId=${msgId}`, { signal: abort.signal })
         if (!sseRes.ok) {
           setError(`SSE stream failed: HTTP ${sseRes.status}`)
@@ -353,6 +359,22 @@ export default function ChatPage() {
                 summary?: string
                 message?: string
                 level?: string
+                what?: string
+                why?: string
+                how?: string
+                endResult?: string
+                desiredOutput?: string
+                tier?: string
+                label?: string
+                detail?: string
+                type?: string
+                subject?: string
+                scope?: string
+                expected?: string
+                format?: string
+                relation?: string
+                mustHaves?: string[]
+                targetAgents?: { primary: string; team: string[]; reason: string }
               }
 
               // Live tokens → streaming bubble (TS-020)
@@ -392,6 +414,88 @@ export default function ChatPage() {
               if (stage) {
                 setPipeline((prev) => ({
                   stages: upsertStage(prev.stages, stage),
+                  source: 'live',
+                }))
+              }
+
+              // TS-028: context-injection stage (real).
+              if (event.kind === 'context.injected') {
+                setPipeline((prev) => ({
+                  stages: upsertStage(prev.stages, {
+                    id: 'context-injected',
+                    kind: 'context',
+                    label: event.label ?? 'context',
+                    detail: event.detail,
+                    status: 'done',
+                    ts: Date.now(),
+                  }),
+                  source: 'live',
+                }))
+              }
+
+              // TS-028: recording stage — every turn records to events/graph.
+              if (event.kind === 'done') {
+                setPipeline((prev) => ({
+                  stages: upsertStage(prev.stages, {
+                    id: 'recording',
+                    kind: 'record',
+                    label: 'recorded',
+                    detail: 'events · graph · memory',
+                    status: 'done',
+                    ts: Date.now(),
+                  }),
+                  source: 'live',
+                }))
+              }
+
+              // TS-027/TS-029/TS-030: Input Analysis — dynamic fields (info vs
+              // build), plus the structured payload so the HUD renders the
+              // 5-stage flow (tier/relation/extract/routing/must-haves) as UI.
+              if (event.kind === 'input.analysis') {
+                const tier = (event.tier === 'build' || event.tier === 'generic' ? event.tier : 'info') as InputAnalysisStage['tier']
+                const relation = (event.relation === 'general' ? 'general' : 'venture') as InputAnalysisStage['relation']
+                const infoFields =
+                  tier === 'info'
+                    ? ([
+                        ['type', event.type],
+                        ['subject', event.subject],
+                        ['scope', event.scope],
+                        ['expected', event.expected],
+                        ['format', event.format],
+                      ] as const)
+                    : ([
+                        ['what', event.what],
+                        ['why', event.why],
+                        ['how', event.how],
+                        ['end result', event.endResult],
+                        ['desired output', event.desiredOutput],
+                      ] as const)
+                const fields = infoFields.filter(([, v]) => v && v !== 'not specified')
+                setPipeline((prev) => ({
+                  stages: upsertStage(prev.stages, {
+                    id: 'input-analysis',
+                    kind: 'analyze',
+                    label: `input analysis · ${tier} · ${relation}`,
+                    detail: fields.map(([k, v]) => `${k}: ${v}`).join('\n') || 'not specified',
+                    status: 'done',
+                    ts: Date.now(),
+                    analysis: {
+                      tier,
+                      relation,
+                      what: event.what,
+                      type: event.type,
+                      subject: event.subject,
+                      scope: event.scope,
+                      expected: event.expected,
+                      format: event.format,
+                      why: event.why,
+                      how: event.how,
+                      endResult: event.endResult,
+                      desiredOutput: event.desiredOutput,
+                      mustHaves: event.mustHaves,
+                      targetAgents: event.targetAgents,
+                    },
+                  }),
                   source: 'live',
                 }))
               }
@@ -557,9 +661,19 @@ export default function ChatPage() {
       <div className="relative flex min-h-0 flex-1">
         <DockRail rooms={rooms} focus={focus} onFocus={focusAndClose} onOpenTeams={() => setTeamsOpen(true)} teamsOpen={teamsOpen} agentLive={agentLive} />
 
-        {/* Permanent secondary sidebar (desktop) — teams, switches with dept */}
-        <div className="hidden w-[300px] shrink-0 md:block">
-          <TeamsPanel focus={focus} onFocus={focusAndClose} onClose={() => setTeamsOpen(false)} variant="sidebar" live={agentLive} />
+        {/* Permanent secondary sidebar (desktop) — teams, switches with dept.
+            When collapsed, the container shrinks to a 40px rail and the chat
+            (main) expands to fill the freed space — no blank gap (TS-030). */}
+        <div className={`hidden shrink-0 md:block ${teamsCollapsed ? 'w-10' : 'w-[300px]'}`}>
+          <TeamsPanel
+            focus={focus}
+            onFocus={focusAndClose}
+            onClose={() => setTeamsOpen(false)}
+            variant="sidebar"
+            live={agentLive}
+            collapsed={teamsCollapsed}
+            onToggleCollapsed={(v) => setTeamsCollapsed(v)}
+          />
         </div>
 
         <main className="flex min-w-0 flex-1 flex-col">

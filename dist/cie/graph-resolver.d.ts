@@ -15,7 +15,7 @@ export interface ExecutionPlan {
     estimatedDurationMs: number;
     warnings: string[];
 }
-export declare function resolveExecutionGraph(department: string, task: string, agentId?: string): ExecutionPlan;
+export declare function resolveExecutionGraph(department: string, task: string, agentId?: string, entityId?: string): ExecutionPlan;
 export interface GateResult {
     passed: boolean;
     gateCondition: string;

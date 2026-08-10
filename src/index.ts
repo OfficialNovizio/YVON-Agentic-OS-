@@ -6,7 +6,11 @@
 //   - CIE v3: Context Intelligence Engine (classify → graph → RAG Bridge → inject)
 //   - RAG: Retrieval-Augmented Generation with dynamic profiles
 //   - Shared OS: Formula execution at query time (hallucination prevention)
-//   - TOON: Token-Optimized Object Notation (84.5% token savings)
+//   - TOON: Token-Optimized Object Notation (80-87% savings vs JSON for the
+//     dense-encoding modes in src/toon/ — a different claim from the
+//     Teams/**/*.md -> *.toon heading-abbreviation conversion cli/toonify.js
+//     does, which real-measures at -2.6% avg, not a savings win; verified
+//     2026-08-09, do not restate the old blended "84.5%" figure)
 //   - Agents: 46 AI agent personalities from the department framework
 //   - Algorithms: Bloom, MinHash, TF-IDF, BFS, PriorityQueue
 //   - Adapters: Config resolver, MCP client, Hermes sync
@@ -49,7 +53,8 @@ export { startDashboard } from './dashboard'
 
 // ─── Hermes ────────────────────────────────────────────────────────────────────
 
-export { syncWithHermes, pushToHermes } from './adapters/hermes-sync'
+export { syncWithHermes, pushToHermes, reconcileWithHermes } from './adapters/hermes-sync'
+export { mergeMemorySections, parseMemorySections } from './cie/sources/hermes-memory'
 
 // ─── Agent Registry (46 agents, 7 departments) ────────────────────────────────
 

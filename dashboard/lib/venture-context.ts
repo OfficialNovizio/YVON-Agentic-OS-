@@ -7,15 +7,15 @@ const COOKIE_NAME = 'yvon_active_venture'
 export function getActiveVentureSlug(
   cookieStore: { get: (name: string) => { value: string } | undefined }
 ): string {
-  return cookieStore.get(COOKIE_NAME)?.value ?? 'novizio'
+  return cookieStore.get(COOKIE_NAME)?.value ?? 'yvon-os'
 }
 
 // ─── Client-side ──────────────────────────────────────────────────────────────
 
 export function getActiveVentureSlugClient(): string {
-  if (typeof document === 'undefined') return 'novizio'
+  if (typeof document === 'undefined') return 'yvon-os'
   const match = document.cookie.match(new RegExp(`(?:^|; )${COOKIE_NAME}=([^;]*)`))
-  return match ? decodeURIComponent(match[1]) : 'novizio'
+  return match ? decodeURIComponent(match[1]) : 'yvon-os'
 }
 
 export async function setActiveVentureSlugClient(slug: string): Promise<void> {
@@ -26,38 +26,57 @@ export async function setActiveVentureSlugClient(slug: string): Promise<void> {
   })
 }
 
+// P1 (TS-026): the system venture is yvon-os. The hardcoded novizio/hourbour
+// fallbacks below are REMOVED — getVentureConfig now returns yvon-os when the
+// slug isn't a real (Settings-added) venture, so no phantom sub-brands appear.
+
 // ─── Sync fallback (env vars) — used by analytics/briefing routes ─────────────
 // These routes call getVentureConfig() synchronously. Keep this until they are
 // migrated to the async DB version below.
 
+/** TS-026: resolve a venture's REAL name + brandType from the DB (no hardcoded
+ * sub-brand assumptions). Falls back to the slug itself — truthful, never invented. */
+export async function ventureNameAndBrand(
+  slug: string,
+): Promise<{ name: string; brandType?: string }> {
+  try {
+    const { getVentureBySlug } = await import('@/lib/db/ventures')
+    const v = await getVentureBySlug(slug)
+    if (v) return { name: v.name ?? slug, brandType: v.brandType }
+  } catch {
+    // DB unavailable — fall through to slug
+  }
+  return { name: slug }
+}
+
 export function getVentureConfig(slug: string): VentureConfig {
-  if (slug === 'hourbour') {
+  // P1 (TS-026): no hardcoded sub-brand configs. Real ventures resolve via the
+  // DB (async); this sync fallback returns the system venture (yvon-os) unless
+  // the slug matches one of the known real venture env configs (kept for
+  // existing sync consumers until they migrate to the DB lookup).
+  if (slug && slug !== 'yvon-os' && process.env[`${slug.toUpperCase()}_IG_HANDLE`]) {
     return {
-      id: 'hourbour',
-      name: 'Hourbour',
-      slug: 'hourbour',
-      color: '#3B82F6',
-      igHandle:      process.env.HOURBOUR_IG_HANDLE ?? '',
-      ytChannelId:   process.env.HOURBOUR_YT_CHANNEL_ID ?? '',
-      liProfileUrl:  process.env.HOURBOUR_LI_PROFILE_URL ?? '',
-      ga4PropertyId: process.env.HOURBOUR_GA4_PROPERTY_ID ?? '',
+      id: slug,
+      name: slug.charAt(0).toUpperCase() + slug.slice(1),
+      slug,
+      color: '#E94560',
+      igHandle:      process.env[`${slug.toUpperCase()}_IG_HANDLE`] ?? '',
+      ytChannelId:   process.env[`${slug.toUpperCase()}_YT_CHANNEL_ID`] ?? '',
+      liProfileUrl:  process.env[`${slug.toUpperCase()}_LI_PROFILE_URL`] ?? '',
+      ga4PropertyId: process.env[`${slug.toUpperCase()}_GA4_PROPERTY_ID`] ?? '',
     }
   }
 
-  // Default: novizio
+  // Default: yvon-os (the system venture).
   return {
-    id: 'novizio',
-    name: 'Novizio',
-    slug: 'novizio',
-    color: '#E94560',
-    igHandle:      process.env.NOVIZIO_IG_HANDLE ?? '',
-    ytChannelId:   process.env.NOVIZIO_YT_CHANNEL_ID ?? '',
-    liProfileUrl:  process.env.NOVIZIO_LI_PROFILE_URL ?? '',
-    ga4PropertyId: process.env.NOVIZIO_GA4_PROPERTY_ID ?? '',
+    id: 'yvon-os',
+    name: 'YVON OS',
+    slug: 'yvon-os',
+    color: '#6366F1',
+    igHandle: '',
+    ytChannelId: '',
+    liProfileUrl: '',
+    ga4PropertyId: '',
+    description: 'The AI operating system',
   }
 }
-
-export const VENTURES: { slug: string; name: string; color: string }[] = [
-  { slug: 'novizio',  name: 'Novizio',  color: '#E94560' },
-  { slug: 'hourbour', name: 'Hourbour', color: '#3B82F6' },
-]

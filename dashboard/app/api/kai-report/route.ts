@@ -5,10 +5,11 @@
  * No fabricated reports. If no real data exists, returns an error.
  *
  * POST { venture, period }
- * GET  ?venture=novizio
+ * GET  ?venture=<slug>
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { ventureNameAndBrand } from '@/lib/venture-context'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -43,8 +44,8 @@ export async function POST(req: NextRequest) {
   }
 
   // Spawn Kai via Hermes Agent to generate the report
-  const ventureName = venture === 'hourbour' ? 'Hourbour' : 'Novizio'
-  const isFashion = venture !== 'hourbour'
+  const { name: ventureName, brandType } = await ventureNameAndBrand(venture)
+  const isFashion = brandType === 'fashion'
 
   // Gather data context for Kai
   let dataContext = ''

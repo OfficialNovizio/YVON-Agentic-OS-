@@ -6,11 +6,12 @@ import { cookies } from 'next/headers'
 import { callFast } from '@/lib/ai-client'
 import { getTerritoryClusters, upsertTerritoryClusters, identifyUnclaimedTerritory } from '@/lib/market-radar'
 import type { TerritoryCluster } from '@/lib/market-radar'
+import { errMsg } from '@/lib/errors'
 
 // GET /api/territory-scout
 export async function GET(): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const clusters = await getTerritoryClusters(ventureId)
   const unclaimed = identifyUnclaimedTerritory(clusters)
@@ -28,7 +29,7 @@ export async function GET(): Promise<Response> {
 // POST /api/territory-scout — Run territory scout (AI analysis)
 export async function POST(request: Request): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   let body: { brandName?: string; industry?: string; existingClusters?: TerritoryCluster[] }
   try {
@@ -37,7 +38,7 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const prompt = `You are a content territory scout. Analyze the content landscape for a brand in this space: ${body.brandName ?? 'Novizio'} ${body.industry ?? ''}.
+  const prompt = `You are a content territory scout. Analyze the content landscape for a brand in this space: ${body.brandName ?? 'yvon-os'} ${body.industry ?? ''}.
 
 Identify 10-15 topic clusters in this niche. For each cluster provide:
 1. cluster_name — concise name
@@ -87,7 +88,7 @@ Return ONLY a JSON array of objects with these exact keys. No markdown, no expla
       allClusters: mapped,
     })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

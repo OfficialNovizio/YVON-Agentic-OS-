@@ -67,7 +67,7 @@ export async function GET(request: NextRequest): Promise<Response> {
         // Log PR to agent_sessions
         await supabase.from('agent_sessions').insert({
           agent_id: 'nexus-code',
-          venture: 'novizio',
+          venture: 'yvon-os',
           task: `PR #${prNumber}: ${taskBrief}`,
           outcome: prDescription,
           system_target: 'system2',

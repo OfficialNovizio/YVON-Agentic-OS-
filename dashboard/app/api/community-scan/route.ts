@@ -4,11 +4,12 @@
 import { cookies } from 'next/headers'
 import { callFast } from '@/lib/ai-client'
 import { upsertCommunitySignal, getCommunitySignals } from '@/lib/community-intelligence'
+import { errMsg } from '@/lib/errors'
 
 // GET /api/community-scan
 export async function GET(): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const signals = await getCommunitySignals(ventureId)
   return Response.json({ ventureId, signals, count: signals.length })
@@ -24,7 +25,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
   const platform = body.platform ?? 'reddit'
 
   if (platform === 'reddit' && body.text) {
@@ -66,7 +67,7 @@ Return ONLY valid JSON array of signals:
 
       return Response.json({ scanned: platform, signalsFound: signals.length, signals })
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const msg = errMsg(err)
       return Response.json({ error: msg }, { status: 502 })
     }
   }

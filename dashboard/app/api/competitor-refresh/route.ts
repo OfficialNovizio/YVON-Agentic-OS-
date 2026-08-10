@@ -16,7 +16,7 @@
  *   6. Saves metrics + posts to DB
  *   7. Updates last_refreshed + Apify CU counter
  *
- * GET  ?venture=novizio          → check staleness, return status
+ * GET  ?venture=<slug>          → check staleness, return status
  * POST { ventureSlug }           → run refresh (with all checks)
  * POST { ventureSlug, forceAll } → skip staleness + activity checks
  */

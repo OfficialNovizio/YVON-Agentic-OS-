@@ -1,4 +1,5 @@
 import { deleteVentureSocial } from '@/lib/db'
+import { errMsg } from '@/lib/errors'
 
 export async function DELETE(
   _request: Request,
@@ -9,7 +10,7 @@ export async function DELETE(
     await deleteVentureSocial(socialId)
     return Response.json({ deleted: true })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

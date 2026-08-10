@@ -22,7 +22,7 @@ interface SessionBody {
 
 export async function POST(request: Request): Promise<Response> {
   const cookieStore = await cookies()
-  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   let body: SessionBody
   try { body = await request.json() as SessionBody }
@@ -56,7 +56,7 @@ export async function POST(request: Request): Promise<Response> {
 
 export async function GET(): Promise<Response> {
   const cookieStore = await cookies()
-  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const { data, error } = await supabase
     .from('studio_sessions')

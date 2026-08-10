@@ -87,7 +87,7 @@ export async function GET(request: NextRequest): Promise<Response> {
 
         // Create Decision Queue item for the venture owner
         await supabase.from('decisions').insert({
-          venture_id: 'novizio',
+          venture_id: 'yvon-os',
           agent_id: 'steve-qa',
           decision_text: `[QA Passed] ${taskBrief}`,
           question: `${taskBrief} passed QA — review and approve for merge.\n\nQA Notes: ${notes}`,
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest): Promise<Response> {
         // Log to agent_sessions
         await supabase.from('agent_sessions').insert({
           agent_id: 'steve-qa',
-          venture: 'novizio',
+          venture: 'yvon-os',
           task: `QA Pass: ${taskBrief}`,
           outcome: 'All checks passed. Moved to NEEDS REVIEW.',
           system_target: 'system2',
@@ -118,7 +118,7 @@ export async function GET(request: NextRequest): Promise<Response> {
         // Log to agent_sessions
         await supabase.from('agent_sessions').insert({
           agent_id: 'steve-qa',
-          venture: 'novizio',
+          venture: 'yvon-os',
           task: `QA Fail: ${taskBrief}`,
           outcome: notes,
           system_target: 'system2',

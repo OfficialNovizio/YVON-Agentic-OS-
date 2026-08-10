@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import { errMsg } from '@/lib/errors'
 
 interface EmailBody {
   briefId?: string
@@ -44,7 +45,7 @@ export async function POST(request: Request): Promise<Response> {
 
     return Response.json({ sent: true, emailId: data?.id })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

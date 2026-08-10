@@ -6,33 +6,40 @@
 //
 // Owner: raj · TS-018 WI-1/WI-2
 import type { Command, CommandContext, CommandResult } from './types'
-import { WORKSPACES } from '@/lib/workspaces'
 
-const VALID = new Map<string, string>()
-for (const w of WORKSPACES) {
-  VALID.set(w.key, w.key)
-  if (w.ventureSlug) VALID.set(w.ventureSlug, w.key)
+// TS-026: valid ventures come from the DB (no hardcoded sub-brands). Resolved
+// per-run in the command (ctx.supabase is available).
+async function validVentures(ctx: CommandContext): Promise<string[]> {
+  const slugs: string[] = ['yvon-os']
+  try {
+    const { data } = await ctx.supabase.from('ventures').select('slug')
+    for (const r of (data as unknown as { slug: string }[] | null) ?? []) slugs.push(r.slug)
+  } catch {
+    // DB unavailable — yvon-os only
+  }
+  return slugs
 }
 
 export const switchCommand: Command = {
   name: 'switch',
   aliases: ['venture', 'ws'],
   summary: 'Switch dashboard scope + agent context to a venture',
-  usage: 'switch <slug>  (yvon-os | novizio | hourbour | agentx)',
+  usage: 'switch <slug>  (yvon-os or a Settings-added venture)',
   async run(ctx: CommandContext): Promise<CommandResult> {
+    const valid = await validVentures(ctx)
     const slug = (ctx.args[0] ?? '').trim().toLowerCase()
     if (!slug) {
       return {
         ok: false,
-        message: `Usage: /switch <slug> — one of: ${Array.from(VALID.keys()).join(', ')}`,
+        message: `Usage: /switch <slug> — one of: ${valid.join(', ')}`,
         effect: { kind: 'none' },
       }
     }
-    const key = VALID.get(slug)
+    const key = valid.includes(slug) ? slug : null
     if (!key) {
       return {
         ok: false,
-        message: `Unknown venture '${slug}'. One of: ${Array.from(VALID.keys()).join(', ')}`,
+        message: `Unknown venture '${slug}'. One of: ${valid.join(', ')}`,
         effect: { kind: 'none' },
       }
     }

@@ -187,30 +187,6 @@ export async function getMissedEntries(ventureId: string): Promise<ContentCalend
   return (data ?? []).map(mapCalendarRow)
 }
 
-// ─── Content Suggestions ──────────────────────────────────────────────────────
-
-export async function getContentSuggestions(
-  ventureId: string,
-  platform?: string
-): Promise<ContentSuggestion[]> {
-  let q = supabase.from('content_suggestions').select('*').eq('venture_id', ventureId)
-  if (platform) q = q.eq('platform', platform)
-  const { data } = await q.order('created_at', { ascending: false })
-  return (data ?? []).map((r) => ({
-    id: r.id,
-    ventureId: r.venture_id,
-    platform: r.platform,
-    contentType: r.content_type as ContentType,
-    topic: r.topic ?? undefined,
-    caption: r.caption ?? undefined,
-    hashtags: r.hashtags ?? undefined,
-    audioSuggestion: r.audio_suggestion ?? undefined,
-    hook: r.hook ?? undefined,
-    hookVariants: r.hook_variants ?? undefined,
-    createdAt: r.created_at,
-  }))
-}
-
 export async function createContentSuggestion(
   data: Omit<ContentSuggestion, 'id' | 'createdAt'>
 ): Promise<ContentSuggestion> {
@@ -273,11 +249,4 @@ export async function createBrief(ventureId: string, content: string): Promise<s
     .single()
   if (error || !data) throw new Error('Failed to create brief')
   return data.id as string
-}
-
-export async function markBriefRead(briefId: string): Promise<void> {
-  await supabase
-    .from('briefs')
-    .update({ read_at: new Date().toISOString() })
-    .eq('id', briefId)
 }

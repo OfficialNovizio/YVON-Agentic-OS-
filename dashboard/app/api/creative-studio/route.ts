@@ -8,6 +8,7 @@ import { getClothingItems } from '@/lib/clothing'
 import { supabase } from '@/lib/supabase'
 import { getVentureFromDB } from '@/lib/venture-server'
 import type { ClothingItem, VentureConfig } from '@/lib/types'
+import { errMsg } from '@/lib/errors'
 
 export const maxDuration = 60
 
@@ -86,7 +87,7 @@ function buildVentureContext(v: VentureConfig): string {
 
 export async function POST(request: Request): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   // Fetch real venture profile for agent context
   let ventureContext = `VENTURE: ${ventureId}`
@@ -562,7 +563,7 @@ Return ONLY valid JSON with no markdown:
         return Response.json({ error: `Unknown action: ${body.action}` }, { status: 400 })
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

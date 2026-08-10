@@ -144,8 +144,6 @@ function compressDecision(d, dict) {
     }
     // Shorten common words in the resolved text
     text = text
-        .replace(/novizio/gi, 'nv')
-        .replace(/hourbour/gi, 'hb')
         .replace(/competitor/gi, 'cp')
         .replace(/campaign/gi, 'cg')
         .replace(/approve/gi, 'ap')

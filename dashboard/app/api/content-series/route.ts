@@ -8,10 +8,11 @@ import { cookies } from 'next/headers'
 import { supabase } from '@/lib/supabase'
 import { getContentSeries, createContentSeries, seedDefaultSeries } from '@/lib/content-series'
 import type { ContentSeries } from '@/lib/types'
+import { errMsg } from '@/lib/errors'
 
 async function getVentureId(): Promise<string> {
   const cookieStore = await cookies()
-  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
   const { data } = await supabase.from('ventures').select('id').eq('slug', slug).single()
   return (data?.id as string | undefined) ?? slug
 }
@@ -48,7 +49,7 @@ export async function POST(request: Request): Promise<Response> {
     })
     return Response.json(created, { status: 201 })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

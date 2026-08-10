@@ -1,0 +1,63 @@
+# TS-029 — Message-type (relation) classification + conditional pipeline + graph nodes
+# Operator: context injection only when the message relates to the venture; general
+# messages skip context/CAOS/RAG, go straight to answer, recorded as distinct graph nodes
+id: TS-029
+status: gated
+approved_by: operator
+approved_at: 2026-08-06
+source_message: >
+  "why there is context injection? As according to message there is no context
+  need according to the project. So input analysis also analyze the message type.
+  if related to active/selected venture it moves ahead with injection,CAOS,RAG
+  and everything or skip it and move to end result and save all these types of
+  messages in a specific place in graph nodes."
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only — no transcript inheritance
+  inject_form: .toon (this YAML is the source form)
+
+classification:
+  task_type: message-type classification + conditional pipeline + graph nodes
+  departments: [Engineering]
+  lead: dev
+  gate_0: true
+  gate_0_signoffs:
+    - operator
+
+context:
+  existing_assets:
+    - dashboard/lib/input-analysis.ts   # + relation (venture|general) + detectRelation
+    - dashboard/app/api/chat/stream/route.ts  # context injection conditional on relation; chat.general emit
+    - dashboard/app/api/chat/send/route.ts    # conversation emit passes p_kind
+    - dashboard/supabase/migrations/106_chat_commands.sql  # fn accepts p_kind (chat.conversation | chat.general)
+    - dashboard/app/chat/page.tsx       # HUD shows relation
+  conflicts:
+    - "pre-existing TS-006/007 debt (not fabricated)"
+
+discovery:
+  decisions:
+    - "relation detection: keyword-first (venture markers vs general knowledge) + LLM refine for build"
+    - "relation = venture → context injection + CAOS + RAG · relation = general → skip to answer"
+    - "general messages recorded as distinct graph node kind 'chat.general' (events table)"
+
+work_items:
+  - id: WI-1
+    owner: raj + mia
+    objective: "Relation classification — detectRelation + relation on all analysis paths; stream route injects context only for venture, emits chat.general for general; migration fn accepts p_kind"
+    produces: dashboard/lib/input-analysis.ts
+    produces: dashboard/app/api/chat/stream/route.ts
+    produces: dashboard/app/api/chat/send/route.ts
+    produces: dashboard/supabase/migrations/106_chat_commands.sql
+    produces: dashboard/app/chat/page.tsx
+
+dag:
+  critical_path: [WI-1]
+
+exit_gate:
+  owner: quinn
+  proof: "VERIFIED 2026-08-06: tsc exit 0 · deploy gate 0 findings · CAOS 6/6 · relation unit check (top-10 → general; fix cart → venture). OPERATOR-GATED: apply migration 106 update (supabase db push / SQL editor), local test — general message skips context/CAOS/RAG, venture message runs full pipeline; general recorded as chat.general node."
+
+feedback:
+  outcome: null
+  lesson: null

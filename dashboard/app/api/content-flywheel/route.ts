@@ -5,10 +5,11 @@ import { callSynthesis } from '@/lib/ai-client'
 import { getTopContent } from '@/lib/db-phase1'
 import { supabase } from '@/lib/supabase'
 import type { ContentScoreCard } from '@/lib/types'
+import { errMsg } from '@/lib/errors'
 
 export async function POST(request: Request): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   let body: { postId?: string }
   try {
@@ -93,7 +94,7 @@ Return ONLY valid JSON:
 
     return Response.json({ postId: topItem?.postId, platform: topItem?.platform, variants: parsed.variants, whyItWorked: parsed.whyItWorked, learnings: parsed.learnings })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

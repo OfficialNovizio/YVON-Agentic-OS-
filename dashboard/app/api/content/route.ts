@@ -3,6 +3,7 @@ import { createContentSuggestion } from '@/lib/db'
 import { logActivity } from '@/lib/activity'
 import { getAgent } from '@/lib/agents'
 import type { ContentType } from '@/lib/types'
+import { errMsg } from '@/lib/errors'
 
 export async function POST(request: Request): Promise<Response> {
   let body: { platform?: string; contentType?: string; topic?: string; ventureId?: string; ventureName?: string }
@@ -16,8 +17,8 @@ export async function POST(request: Request): Promise<Response> {
     platform = 'instagram',
     contentType = 'reel',
     topic = '',
-    ventureId = 'novizio',
-    ventureName = 'Novizio',
+    ventureId = 'yvon-os',
+    ventureName = 'yvon-os',
   } = body
 
   const primaryAgent   = getAgent('lena-brand')
@@ -81,7 +82,7 @@ Return ONLY valid JSON, no markdown, no explanation.`
 
     return Response.json({ ...parsed, id: suggestion.id })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

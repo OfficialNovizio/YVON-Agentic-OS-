@@ -3,7 +3,7 @@
  * Returns competitive brand health data for the Portfolio tab.
  * Reads from competitors + competitor_metrics tables. Empty when no competitors.
  *
- * GET ?venture=novizio&period=8w
+ * GET ?venture=<slug>&period=8w
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'

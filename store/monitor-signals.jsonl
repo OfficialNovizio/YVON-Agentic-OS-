@@ -1,1 +1,3 @@
 {"ts": "2026-08-05T03:25:50Z", "feedback_rejected": 9, "feedback_total": 31, "rejection_rate": 0.2903, "quarantine_count": 0, "gate_violations": 0, "top_problem_agents": [{"agent": "spark", "rejects": 9}]}
+{"ts": "2026-08-05T17:54:56Z", "feedback_rejected": 13, "feedback_total": 96, "rejection_rate": 0.1354, "quarantine_count": 0, "gate_violations": 0, "top_problem_agents": [{"agent": "spark", "rejects": 13}]}
+{"ts": "2026-08-09T23:39:08Z", "feedback_rejected": 13, "feedback_total": 104, "rejection_rate": 0.125, "quarantine_count": 0, "gate_violations": 0, "top_problem_agents": [{"agent": "spark", "rejects": 13}]}

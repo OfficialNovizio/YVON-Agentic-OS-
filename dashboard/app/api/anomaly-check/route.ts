@@ -44,7 +44,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     ? searchParams.get('ventureId') as string
     : searchParams.get('venture_id')
     ? searchParams.get('venture_id') as string
-    : 'novizio'
+    : 'yvon-os'
 
   const thresholds = resolveThresholds(req)
   const alerts: AnomalyAlert[] = []

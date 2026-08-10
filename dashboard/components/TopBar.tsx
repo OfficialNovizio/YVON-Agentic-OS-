@@ -78,6 +78,23 @@ export function TopBar({ sidebarMode: _, onToggleSidebar: _t, onMobileMenu }: To
   const breadcrumb = useBreadcrumb(pathname)
 
   // ── Command palette state ─────────────────────────────────────────────────
+  const [liveAgents, setLiveAgents] = useState(0)
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await fetch('/api/agent-status')
+        if (!res.ok) return
+        const data = (await res.json()) as { agentsLive?: number }
+        if (!cancelled && typeof data.agentsLive === 'number') setLiveAgents(data.agentsLive)
+      } catch {
+        // keep 0 — never invent a live count
+      }
+    }
+    load()
+    const t = setInterval(load, 20_000)
+    return () => { cancelled = true; clearInterval(t) }
+  }, [])
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(-1) // -1 = "Ask Henry" row
@@ -306,14 +323,14 @@ export function TopBar({ sidebarMode: _, onToggleSidebar: _t, onMobileMenu }: To
         </div>
       </div>
 
-      {/* System status */}
+      {/* System status — real live count from /api/agent-status (TS-030) */}
       <div className="hidden lg:flex items-center gap-3 text-xs text-on-surface-variant shrink-0">
         <div className="flex items-center gap-1.5">
-          <span className="live-dot" />
-          <span>System healthy</span>
+          <span className={liveAgents > 0 ? 'live-dot' : 'live-dot opacity-40'} />
+          <span>System {liveAgents > 0 ? 'healthy' : 'idle'}</span>
         </div>
         <span className="text-white/[0.15]">·</span>
-        <span>13 agents live</span>
+        <span>{liveAgents} {liveAgents === 1 ? 'agent' : 'agents'} live</span>
       </div>
 
       {/* Avatar */}

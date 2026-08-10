@@ -1,4 +1,8 @@
-export type WorkspaceKey = 'yvon-os' | 'novizio' | 'hourbour' | 'agentx'
+// lib/workspaces.ts — venture workspace resolution (TS-026 sweep).
+// NO hardcoded sub-brands. The only static workspace is the system venture
+// 'yvon-os'; every real venture comes from the DB (ventures table, added via
+// Settings). Callers pass the list of real slugs they fetched from the DB.
+export type WorkspaceKey = string
 
 export type Workspace = {
   key: WorkspaceKey
@@ -10,25 +14,32 @@ export type Workspace = {
   ventureSlug?: string
 }
 
-export const WORKSPACES: Workspace[] = [
-  { key: 'yvon-os', name: 'YVON OS', business: 'AI Operating System', theme: 'Midnight', accent: '#6366F1' },
-  { key: 'novizio', name: 'Novizio', business: 'Fashion e-commerce', theme: 'Crimson', accent: '#E94560', isVenture: true, ventureSlug: 'novizio' },
-  { key: 'hourbour', name: 'Hourbour', business: 'Fintech SaaS', theme: 'Ocean', accent: '#3B82F6', isVenture: true, ventureSlug: 'hourbour' },
-  { key: 'agentx', name: 'AgentX', business: 'Agent SaaS platform', theme: 'Aurora', accent: '#5ee0ff', isVenture: true, ventureSlug: 'agentx' },
-]
+/** The system venture — the only static workspace. Never a DB row. */
+export const YVON_OS_WORKSPACE: Workspace = {
+  key: 'yvon-os',
+  name: 'YVON OS',
+  business: 'AI Operating System',
+  theme: 'Midnight',
+  accent: '#6366F1',
+}
 
-export const WORKSPACE_MAP: Record<WorkspaceKey, Workspace> = Object.fromEntries(
-  WORKSPACES.map((w) => [w.key, w])
-) as Record<WorkspaceKey, Workspace>
+// Backward-compat exports (TS-026): the workspace list is the system venture
+// ONLY — no hardcoded sub-brands. Real ventures come from the DB via
+// /api/ventures; consumers that need them should fetch that.
+export const WORKSPACES: Workspace[] = [YVON_OS_WORKSPACE]
 
-/** Resolve the active venture from the yvon_active_venture cookie (TS-023).
- * Unknown/missing values fall back to 'yvon-os'. Single source of truth —
- * used by both send and stream routes (was duplicated). */
-export function activeWorkspace(cookieValue: string | undefined): WorkspaceKey {
+export const WORKSPACE_MAP: Record<string, Workspace> = {
+  'yvon-os': YVON_OS_WORKSPACE,
+}
+
+/**
+ * Resolve the active venture from the yvon_active_venture cookie against the
+ * REAL list of venture slugs (fetched from the DB by the caller). Unknown or
+ * missing values fall back to 'yvon-os'. Single source of truth.
+ */
+export function activeWorkspace(cookieValue: string | undefined, validSlugs: string[]): WorkspaceKey {
   const value = (cookieValue ?? '').trim().toLowerCase()
   if (!value) return 'yvon-os'
-  for (const w of WORKSPACES) {
-    if (w.key === value || w.ventureSlug === value) return w.key
-  }
+  if (value === 'yvon-os' || validSlugs.includes(value)) return value
   return 'yvon-os'
 }

@@ -1,5 +1,6 @@
 import { getVentureBySlug, getAllVentures } from '@/lib/db'
 import { getRequiredSecret, getSecret } from '@/lib/secrets'
+import { errMsg } from '@/lib/errors'
 
 const GH_API = 'https://api.github.com'
 
@@ -103,7 +104,7 @@ export async function GET(request: Request): Promise<Response> {
             }))
           return Response.json({ issues })
         } catch (issueErr) {
-          const msg = issueErr instanceof Error ? issueErr.message : String(issueErr)
+          const msg = errMsg(issueErr)
           // Issues may be disabled on the repo (GitHub 410) or restricted — return empty list gracefully
           const isDisabled = msg.includes('410') || msg.includes('disabled') || msg.includes('403')
           console.warn(`[github/issues] ${owner}/${repo}: ${msg}`)
@@ -151,7 +152,7 @@ export async function GET(request: Request): Promise<Response> {
         return Response.json({ error: `Unknown action: ${action}` }, { status: 400 })
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     console.error(`[github/${action}] ${owner}/${repo}: ${msg}`)
     return Response.json({ error: msg }, { status: 502 })
   }
@@ -230,7 +231,7 @@ export async function POST(request: Request): Promise<Response> {
         return Response.json({ error: `Unknown action: ${action}` }, { status: 400 })
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

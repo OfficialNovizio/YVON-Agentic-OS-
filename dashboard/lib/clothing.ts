@@ -2,7 +2,7 @@ import 'server-only'
 import { supabase } from '@/lib/supabase'
 import type { ClothingItem } from '@/lib/types'
 
-const NOVIZIO_DEFAULTS: Omit<ClothingItem, 'id' | 'ventureId' | 'createdAt'>[] = [
+const DEFAULT_CLOTHING_ITEMS: Omit<ClothingItem, 'id' | 'ventureId' | 'createdAt'>[] = [
   { name: 'Structured Merino Crewneck', category: 'top',       color: 'Ivory / Slate',     description: 'Clean-lined merino knit, slightly oversized with dropped shoulder.',    season: 'all',    active: true, sortOrder: 0 },
   { name: 'Relaxed Oxford Button-Down', category: 'top',       color: 'White / Blue',      description: 'Premium cotton oxford, untucked or half-tucked styling.',              season: 'all',    active: true, sortOrder: 1 },
   { name: 'Ribbed Fitted Longsleeve',   category: 'top',       color: 'Black / Ecru',      description: 'Second-skin rib knit base layer, pairs with outerwear.',              season: 'all',    active: true, sortOrder: 2 },
@@ -19,7 +19,7 @@ const NOVIZIO_DEFAULTS: Omit<ClothingItem, 'id' | 'ventureId' | 'createdAt'>[] =
 ]
 
 async function seedDefaults(ventureId: string): Promise<void> {
-  const rows = NOVIZIO_DEFAULTS.map((item, i) => ({
+  const rows = DEFAULT_CLOTHING_ITEMS.map((item, i) => ({
     venture_id:  ventureId,
     name:        item.name,
     category:    item.category,

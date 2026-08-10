@@ -1,38 +1,19 @@
 import { getAllVentures, createVenture } from '@/lib/db'
-import { VENTURES } from '@/lib/venture-context'
 import type { VentureConfig } from '@/lib/types'
+import { errMsg } from '@/lib/errors'
 
 export async function GET(): Promise<Response> {
   try {
-    let ventures = await getAllVentures()
-
-    // Seed default ventures on first access when DB table is empty
-    if (ventures.length === 0) {
-      const seeded: VentureConfig[] = []
-      for (const v of VENTURES) {
-        try {
-          const created = await createVenture({
-            name:          v.name,
-            slug:          v.slug,
-            color:         v.color,
-            igHandle:      '',
-            ytChannelId:   '',
-            liProfileUrl:  '',
-            ga4PropertyId: '',
-            // Omit migration-014 fields — they default to NULL if columns don't exist yet
-          })
-          seeded.push(created)
-        } catch {
-          // Row already exists or migration not run — fall through
-        }
-      }
-      const afterSeed = seeded.length > 0 ? seeded : await getAllVentures()
-      ventures = afterSeed
-    }
-
+    // yvon-os is now a real `ventures` row (kind='core'), inserted by
+    // dashboard/supabase/migrations/112_context_graph_columns.sql — system-harness/graph-brain/YVON-GRAPH.md §1.2.
+    // This route used to hardcode a synthetic YVON_OS object and prepend it ("always present,
+    // never a DB row"); as of 2026-08-09 that produced a duplicate 'yvon-os' entry alongside the
+    // real DB row. Removed — getAllVentures() already returns it, correctly ordered
+    // (kind='core' first) since it filters/orders by kind/sort_order/slug.
+    const ventures = await getAllVentures()
     return Response.json(ventures)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }
@@ -71,7 +52,7 @@ export async function POST(request: Request): Promise<Response> {
     })
     return Response.json(venture, { status: 201 })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

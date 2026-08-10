@@ -56,6 +56,18 @@ import os,re,json,sys
 appdir=sys.argv[1]
 pj=json.load(open(os.path.join(appdir,'package.json')))
 declared=set(pj.get('dependencies',{}))|set(pj.get('devDependencies',{}))
+# tsconfig path aliases (e.g. "@pipelines/*" → repo-root pipelines/) resolve
+# within the app's own tsconfig, so they're not undeclared dependencies.
+# Only the exact prefix counts: "@/*" → "@/" — never bare "@" (that would
+# hide real scoped packages like @supabase/supabase-js).
+alias_prefixes=[]; alias_exact=set()
+try:
+    tj=json.load(open(os.path.join(appdir,'tsconfig.json')))
+    for k in (tj.get('compilerOptions',{}).get('paths') or {}):
+        if k.endswith('/*'): alias_prefixes.append(k[:-1])   # "@pipelines/*" → "@pipelines/"
+        else: alias_exact.add(k)                             # bare key: exact spec match
+except Exception:
+    pass
 builtin={'react','react-dom'}
 node_builtins={'fs','path','os','crypto','http','https','stream','util','url','child_process',
   'events','buffer','querystring','zlib','net','tls','dns','readline','process','assert','module',
@@ -76,6 +88,7 @@ for root,_,files in os.walk(appdir):
         txt=strip_line.sub('', strip_block.sub('', txt))
         for m in imp.findall(txt):
             if m.startswith(('.','@/','/')): continue
+            if m in alias_exact or any(m.startswith(p) for p in alias_prefixes): continue
             parts=m.split('/')
             pkg='/'.join(parts[:2]) if m.startswith('@') else parts[0]
             pkg=pkg.replace('node:','')

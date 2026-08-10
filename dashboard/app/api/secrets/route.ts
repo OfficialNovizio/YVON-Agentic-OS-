@@ -9,13 +9,14 @@
 
 import { NextRequest } from 'next/server'
 import { setSecret, deleteSecret, listSecrets } from '@/lib/secrets'
+import { errMsg } from '@/lib/errors'
 
 export async function GET() {
   try {
     const list = await listSecrets()
     return Response.json({ secrets: list })
   } catch (e) {
-    return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    return Response.json({ error: errMsg(e) }, { status: 500 })
   }
 }
 
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
     await setSecret(name, value, description ?? '')
     return Response.json({ ok: true, name })
   } catch (e) {
-    return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    return Response.json({ error: errMsg(e) }, { status: 500 })
   }
 }
 
@@ -47,6 +48,6 @@ export async function DELETE(request: NextRequest) {
     const existed = await deleteSecret(name)
     return Response.json({ ok: true, name, existed })
   } catch (e) {
-    return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    return Response.json({ error: errMsg(e) }, { status: 500 })
   }
 }

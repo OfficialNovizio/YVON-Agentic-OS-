@@ -228,6 +228,14 @@ export interface VentureConfig {
   productCategories?: ProductCategory[]
   deploymentPlatforms?: string[]
   deploymentConfig?: Record<string, Record<string, string>>
+  // Context graph fields (migrations 109/111/112) — system-harness/graph-brain/YVON-GRAPH.md §1.2. All optional so the
+  // 67 existing importers of this interface are unaffected; only /brain's L3 satellites read
+  // these today.
+  kind?: 'core' | 'venture' | 'client'
+  tier?: 'internal' | 'enterprise' | 'pro' | 'free'
+  contextPath?: string
+  parentId?: string
+  sortOrder?: number
 }
 
 export interface ProductCategory {

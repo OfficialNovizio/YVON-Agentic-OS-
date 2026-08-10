@@ -9,7 +9,7 @@ export async function GET(request: Request): Promise<Response> {
   if (!month) return Response.json({ error: 'month param required (YYYY-MM)' }, { status: 400 })
 
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const startDate = `${month}-01`
   const year = parseInt(month.split('-')[0])

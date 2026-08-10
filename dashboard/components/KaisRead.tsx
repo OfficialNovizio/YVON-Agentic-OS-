@@ -7,15 +7,12 @@ import { Card } from '@/components/ui'
 
 // ── Venture accent helpers ────────────────────────────────────────────────────
 function getVentureAccent(slug: string): { accent: string; glow: string; soft: string; name: string } {
+  // TS-026: only yvon-os is static; real ventures get their identity from the
+  // DB. Unknown → yvon-os accent (never a hardcoded brand).
   const map: Record<string, { accent: string; glow: string; soft: string; name: string }> = {
-    novizio:    { accent: '#abc7ff', glow: 'rgba(171,199,255,0.35)', soft: 'rgba(171,199,255,0.14)', name: 'Novizio' },
-    hourbour:   { accent: '#5ee0ff', glow: 'rgba(94,224,255,0.32)',   soft: 'rgba(94,224,255,0.14)',   name: 'Hourbour' },
-    vibe:       { accent: '#abc7ff', glow: 'rgba(171,199,255,0.35)', soft: 'rgba(171,199,255,0.14)', name: 'Vibe with AI' },
-    canela:     { accent: '#5fd0b4', glow: 'rgba(95,208,180,0.32)',  soft: 'rgba(95,208,180,0.14)',  name: 'Canela' },
-    valhalla:   { accent: '#c08bff', glow: 'rgba(192,139,255,0.35)', soft: 'rgba(192,139,255,0.16)', name: 'Valhalla' },
-    bydesign:   { accent: '#5ee0ff', glow: 'rgba(94,224,255,0.32)',  soft: 'rgba(94,224,255,0.14)',  name: 'By Design' },
+    'yvon-os': { accent: '#6366f1', glow: 'rgba(99,102,241,0.35)', soft: 'rgba(99,102,241,0.14)', name: 'YVON OS' },
   }
-  return map[slug] ?? map.vibe
+  return map[slug] ?? map['yvon-os']
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────

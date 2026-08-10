@@ -4,6 +4,7 @@
 // Wire: Content Pipeline (Kanban), Scheduler (calendar), Shorts (distribution)
 
 import { createClient } from '@supabase/supabase-js'
+import { errMsg } from '@/lib/errors'
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
@@ -71,7 +72,7 @@ export async function GET(request: Request): Promise<Response> {
 
     return Response.json({ items, total: items.length, source: 'mock' })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg, items: MOCK_PIPELINE, total: 0, source: 'mock-fallback' })
   }
 }
@@ -82,7 +83,7 @@ export async function POST(request: Request): Promise<Response> {
     const { id, stage, scheduledDate } = body
     return Response.json({ success: true, id, stage, scheduledDate })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 500 })
   }
 }

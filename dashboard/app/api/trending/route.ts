@@ -6,6 +6,7 @@ import { sanitizeForPrompt } from '@/lib/sanitize'
 
 export const maxDuration = 30
 import type { TrendItem } from '@/lib/types'
+import { errMsg } from '@/lib/errors'
 
 // Keywords to scrape — update these for your niche
 const NICHE_URLS = [
@@ -86,7 +87,7 @@ ${combined}`,
 
     return Response.json({ trends, generatedAt: new Date().toISOString() })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

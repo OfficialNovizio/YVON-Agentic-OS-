@@ -2,7 +2,6 @@
 // Appendix B: deliberately in the first release, while /switch is partial).
 // Owner: raj · TS-018 WI-1
 import type { Command, CommandContext, CommandResult } from './types'
-import { WORKSPACES } from '@/lib/workspaces'
 import { hermesConfig } from '@/lib/hermes-client'
 
 export const whereCommand: Command = {
@@ -11,10 +10,9 @@ export const whereCommand: Command = {
   usage: 'where',
   async run(ctx: CommandContext): Promise<CommandResult> {
     const active = ctx.cookies.get('yvon_active_venture')?.value ?? 'yvon-os'
-    const ws = WORKSPACES.find((w) => w.key === active)
     const cfg = hermesConfig()
     const lines = [
-      `· venture scope — **${ws?.name ?? active}** (${active})`,
+      `· venture scope — **${active}** (from the active cookie)`,
       `· workspace key — \`${active}\``,
       `· dashboard root — ${process.cwd()} (Vercel — no repo checkout here)`,
       `· Hermes — ${cfg.configured ? `${cfg.url} (configured)` : `not configured: ${cfg.reason ?? ''}`}`,

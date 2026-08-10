@@ -14,7 +14,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   let ventureId = searchParams.get('ventureId')
   if (!ventureId) {
     const cookieStore = await cookies()
-    ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+    ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
   }
 
   const competitors = await getCompetitors(ventureId)
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   const cookieStore = await cookies()
-  const ventureId = body.ventureId ?? cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = body.ventureId ?? cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const scored = body.competitors.map((c) => {
     const score = scoreCompetitor({

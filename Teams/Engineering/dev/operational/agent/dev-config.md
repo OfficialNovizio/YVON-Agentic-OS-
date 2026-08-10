@@ -15,7 +15,7 @@ Machine-readable configuration for dev, the department's law layer.
 ```yaml
 # --- Core documents ---
 stack_profile_path: <FILL_IN>        # the per-business stack document (from the template)
-adr_ledger_path: <FILL_IN>           # append-only ADR ledger
+adr_ledger_path: system-harness/adr/ADR-LEDGER.md   # append-only ADR ledger (bound 2026-08-09, ADR-001 first entry)
 security_charter_path: <FILL_IN>     # the operator-adopted Security Charter (senior authority)
 
 # --- Delivery ---

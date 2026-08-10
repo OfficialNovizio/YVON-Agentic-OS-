@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 
 export async function GET(): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const { searchParams } = new URL('https://x')
   const topContent = await getTopContent(ventureId, 50)

@@ -5,6 +5,7 @@
  */
 
 import { callSynthesis } from '@/lib/ai-client'
+import { errMsg } from '@/lib/errors'
 
 interface PlatformMetric {
   platform: string
@@ -60,7 +61,7 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const { venture = 'Novizio', industry = 'fashion e-commerce', platforms = [], competitors = [] } = body
+  const { venture = 'yvon-os', industry = 'general', platforms = [], competitors = [] } = body
 
   const connectedPlatforms = platforms.filter(p => p.connected)
   const isZeroState = connectedPlatforms.length === 0
@@ -155,7 +156,7 @@ Rules:
 
     return Response.json({ ...parsed, isZeroState } satisfies SocialIntelligenceResponse)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

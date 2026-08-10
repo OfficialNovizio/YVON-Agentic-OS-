@@ -23,6 +23,7 @@ export interface CieContext {
     itemsInjected: number;
     itemsFiltered: number;
     timeMs: number;
+    archetype?: string;
 }
 export interface CieWeights {
     agentId: string;

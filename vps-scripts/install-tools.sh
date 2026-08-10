@@ -63,15 +63,18 @@ pipx ensurepath >/dev/null 2>&1 || true
 #   export LLM_API_KEY="$(grep -E '^OPENAI_API_KEY' /root/.hermes/.env | cut -d= -f2-)"
 #   export STRIX_LLM="openai/gpt-5.6-luna"
 
-echo "▸ 5/5  graph-brain engines (graphify structural + turbovec episodic)…"
+echo "▸ 5/5  graph-brain structural engine (graphify)…"
 # graphify (PyPI: graphifyy) — deterministic knowledge graph + Obsidian export + MCP server.
 pipx install graphifyy || pipx install --force graphifyy
 [ -x /root/.local/bin/graphify ] && ln -sf /root/.local/bin/graphify /usr/local/bin/graphify
 graphify install --platform hermes 2>/dev/null || true   # register /graphify skill for Hermes agents
 graphify install --platform agents 2>/dev/null || true   # cross-framework .agents/skills
-# turbovec — fuzzy EPISODIC vector index (no server, ~4GB/10M, search-time allowlist = isolation).
-# fastembed = local ONNX embedder (no PyTorch) that turns memory text → vectors for turbovec.
-mkvenv turbovec  "turbovec fastembed"
+# Episodic engine: turbovec is REMOVED (2026-08-09, ADR-001) — superseded by MemPalace.
+# MemPalace is NOT installed here. Phase 1 (Claude Code sessions, pgvector backend) needs
+# no VPS install. Phase 2 (VPS-resident `mempalace serve`) is scaffolded, not yet run — see
+# vps-scripts/mempalace-serve-install.md; deferred until the chat system is live.
+# An existing /opt/yvon-tools/venvs/turbovec from a prior run may still be present on the box;
+# this script no longer installs or references it — safe to leave or tear down at ops's convenience.
 
 echo ""
 echo "✓ Python/CLI tool layer installed under $BASE"
@@ -80,7 +83,6 @@ echo "  CLIs on PATH: crawl4ai, agent-reach, strix, graphify"
 echo "  libraries (import from their venv python):"
 echo "    $VENVS/browser-use/bin/python   -c 'import browser_use'"
 echo "    $VENVS/scrapegraphai/bin/python -c 'import scrapegraph_py'"
-echo "    $VENVS/turbovec/bin/python      -c 'from turbovec import TurboQuantIndex; from fastembed import TextEmbedding'"
 echo ""
 echo "  Runtime keys (set in the calling shell / systemd, NOT here):"
 echo "    scrapegraphai + strix need an LLM key · strix also needs Docker running."

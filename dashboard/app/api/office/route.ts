@@ -16,7 +16,7 @@ const supabase = createClient(
 )
 
 export type AgentStatus = 'working' | 'idle' | 'in-council' | 'errored'
-export type WorkspaceKey = 'yvon-os' | 'novizio' | 'hourbour' | 'agentx'
+export type WorkspaceKey = string
 
 export interface OfficeAgent extends FleetAgent {
   status: AgentStatus
@@ -74,7 +74,7 @@ function normalizeWorkspace(w: string | undefined): WorkspaceKey | undefined {
   if (!w) return undefined
   const v = w.toLowerCase()
   if (v === 'yvon-os' || v === 'yvon' || v === 'yvon_os') return 'yvon-os'
-  if (v === 'novizio' || v === 'hourbour' || v === 'agentx') return v as WorkspaceKey
+  return (v || 'yvon-os') as WorkspaceKey
   return undefined
 }
 

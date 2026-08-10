@@ -20,8 +20,8 @@ export async function GET(request: Request): Promise<Response> {
 
   const cookieStore = await cookies()
   const slug = isCron
-    ? 'novizio'
-    : (cookieStore.get('yvon_active_venture')?.value ?? 'novizio')
+    ? (cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os')
+    : (cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os')
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 

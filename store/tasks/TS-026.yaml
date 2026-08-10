@@ -1,0 +1,62 @@
+# TS-026 — P1: Venture truth — default yvon-os, no phantom sub-brands
+# (MASTER-PLAN.md P1)
+id: TS-026
+status: gated
+approved_by: operator
+approved_at: 2026-08-06
+source_message: "fix the venture truth . Save in memory that use engineering team to develop,verify,test, bugs, fix and delivery at last after approval."
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only — no transcript inheritance
+  inject_form: .toon (this YAML is the source form)
+
+classification:
+  task_type: venture truth — default yvon-os, no auto-seeded sub-brands
+  departments: [Engineering]
+  lead: dev
+  gate_0: true
+  gate_0_signoffs:
+    - operator
+
+context:
+  existing_assets:
+    - dashboard/app/api/ventures/route.ts    # had VENTURES auto-seeding (removed)
+    - dashboard/lib/venture-context.ts       # defaulted novizio (fixed → yvon-os)
+    - dashboard/app/chat/VentureSelector.tsx # shows /api/ventures (now yvon-os + DB only)
+  conflicts:
+    - "legacy surfaces still hardcode novizio/hourbour: council/chat, cse-reflection, chat-session — OUT OF SCOPE for P1 (chat venture truth), noted not touched"
+
+discovery:
+  decisions:
+    - "default venture = yvon-os (system), never a phantom sub-brand"
+    - "/api/ventures: NO auto-seeding of hardcoded VENTURES; returns yvon-os + real DB rows (Settings-added) only"
+    - "route file must only export handlers — YVON_OS kept module-scoped"
+
+work_items:
+  - id: WI-1
+    owner: raj + mia
+    objective: "Venture truth — remove VENTURES auto-seeding from /api/ventures; add yvon-os as the always-present system venture; flip defaults novizio→yvon-os in venture-context + selector"
+    produces: dashboard/app/api/ventures/route.ts
+    produces: dashboard/lib/venture-context.ts
+    produces: dashboard/app/chat/VentureSelector.tsx
+
+  - id: WI-2
+    owner: raj + mia
+    objective: "Full project sweep — remove ALL hardcoded venture references (workspaces → DB-driven, council/cse/chat-session/office/kahneman/cron routes, toon/compressor token maps, agent prompts, gatekeeper, secrets, defaults) — verified tsc/deploy/CAOS green"
+    produces: dashboard/lib/workspaces.ts
+    produces: dashboard/lib/venture-context.ts
+    produces: dashboard/app/api/chat/{stream,send}/route.ts
+    produces: dashboard/lib/chat-session.ts
+    produces: dashboard/lib/commands/{switch,where}.ts
+
+dag:
+  critical_path: [WI-1, WI-2]
+
+exit_gate:
+  owner: quinn
+  proof: "VERIFIED 2026-08-06: dashboard tsc --noEmit exit 0 · cli/verify-deploy.sh 0 findings · CAOS e2e 6/6 · task validate PASS. FULL SWEEP DONE: all functional hardcoded venture refs removed (workspaces, council, cse-reflection, chat-session, office, kahneman, cron routes, toon/compressor token maps, agent prompts, gatekeeper, secrets, defaults). Remaining = mock/demo pages + venture-specific DATA keyed by DB slug (flagged for operator). OPERATOR-GATED: local test + approval before push."
+
+feedback:
+  outcome: null
+  lesson: null

@@ -3,6 +3,7 @@
 
 import { cookies } from 'next/headers'
 import { getBatchHistory, getPitchesByBatch } from '@/lib/intelligence'
+import { errMsg } from '@/lib/errors'
 
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url)
@@ -10,7 +11,7 @@ export async function GET(request: Request): Promise<Response> {
   const limit = parseInt(url.searchParams.get('limit') ?? '10')
 
   const cookieStore = await cookies()
-  const vId = ventureId || (cookieStore.get('yvon_active_venture')?.value ?? 'novizio')
+  const vId = ventureId || (cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os')
 
   try {
     const batches = await getBatchHistory(vId, limit)
@@ -39,7 +40,7 @@ export async function GET(request: Request): Promise<Response> {
 
     return Response.json({ batches: result })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

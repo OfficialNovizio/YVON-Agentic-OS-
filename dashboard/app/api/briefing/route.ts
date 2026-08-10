@@ -15,7 +15,7 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const url = new URL(request.url)
-  const ventureSlug = url.searchParams.get('venture') ?? 'novizio'
+  const ventureSlug = url.searchParams.get('venture') ?? 'yvon-os'
   const venture = (await getVentureBySlug(ventureSlug)) ?? {
     id: ventureSlug, name: ventureSlug, slug: ventureSlug,
     color: '#E94560', igHandle: '', ytChannelId: '', liProfileUrl: '', ga4PropertyId: '',

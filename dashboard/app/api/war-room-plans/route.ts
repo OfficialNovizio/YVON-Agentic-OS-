@@ -2,7 +2,7 @@ import { getWarRoomPlans, deleteWarRoomPlan, deleteAllWarRoomPlans } from '@/lib
 
 export async function GET(request: Request): Promise<Response> {
   const { searchParams } = new URL(request.url)
-  const ventureName = searchParams.get('venture') ?? 'Novizio'
+  const ventureName = searchParams.get('venture') ?? 'yvon-os'
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '20'), 50)
 
   try {

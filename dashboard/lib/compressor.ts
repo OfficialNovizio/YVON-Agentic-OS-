@@ -7,7 +7,7 @@
 // Combined with TOON dense format: 65-82% total savings vs JSON.
 
 export interface Dictionary {
-  ventures: Record<string, number>   // "novizio" → 0
+  ventures: Record<string, number>   // "yvon-os" → 0
   agents: Record<string, number>     // "henry" → 0
   statuses: Record<string, number>   // "today" → 0
   actions: Record<string, number>    // "approved" → 1
@@ -185,8 +185,6 @@ export function compressDecision(d: DecisionRecord, dict: Dictionary): string {
   
   // Shorten common words in the resolved text
   text = text
-    .replace(/novizio/gi, 'nv')
-    .replace(/hourbour/gi, 'hb')
     .replace(/competitor/gi, 'cp')
     .replace(/campaign/gi, 'cg')
     .replace(/approve/gi, 'ap')

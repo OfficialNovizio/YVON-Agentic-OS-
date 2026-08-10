@@ -4,7 +4,7 @@ import type { ActivityEvent } from '@/lib/types'
 // GET — SSE stream of recent activity events (polling every 5s)
 export async function GET(request: Request): Promise<Response> {
   const url       = new URL(request.url)
-  const ventureId = url.searchParams.get('ventureId') ?? 'novizio'
+  const ventureId = url.searchParams.get('ventureId') ?? 'yvon-os'
 
   const encoder = new TextEncoder()
 

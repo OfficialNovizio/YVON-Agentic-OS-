@@ -28,6 +28,8 @@ import { callRagBridge, callRagFeedback, ragToCieInjection } from './rag-bridge'
 import { resolveExecutionGraph } from './graph-resolver'
 import { getCached, setCached } from './cache'
 import type { RagRetrieveResult } from './rag-bridge'
+import { classifyArchetype } from './archetype'
+import { resolveRetrievalShape } from './retrieval-shape'
 
 // ─── Public API ──────────────────────────────────────────────────
 
@@ -78,9 +80,11 @@ export async function buildCieContext(params: CieParams): Promise<CieContext> {
     params.venture ?? 'yvon-dashboard',
   )
 
-  // ── Step 2: Resolve execution graph ──
+  // ── Step 2: Resolve execution graph + task archetype (§14, wired 2026-08-09) ──
   const dept = resolveAgentDepartment(params.agentId)
   const graph = resolveExecutionGraph(dept, params.task, params.agentId)
+  const classifiedArchetype = classifyArchetype(params.task, dept)
+  const retrievalShape = resolveRetrievalShape(classifiedArchetype.archetype)
 
   // ── Step 3: RAG Bridge (the P0 bridge) ──
   let ragResult: RagRetrieveResult | null = null
@@ -91,7 +95,13 @@ export async function buildCieContext(params: CieParams): Promise<CieContext> {
         query: params.task,
         agentId: params.agentId,
         dept,
-        retrievalMode: params.retrievalMode ?? (graph.stages.length > 3 ? 'agentic' : 'standard'),
+        // Archetype-derived shape (§14.1/retrieval-shape.ts) is the primary signal now — an
+        // explicit params.retrievalMode still wins if the caller set one. The old
+        // graph.stages.length>3 heuristic is kept as a tertiary fallback only for the edge case
+        // where archetype resolution somehow yields a shape retrievalMode of 'standard' but the
+        // execution graph is unusually deep — archetype classification takes priority.
+        retrievalMode: params.retrievalMode ?? retrievalShape.retrievalMode,
+        topK: retrievalShape.topK,
       })
     }
   } catch {
@@ -125,6 +135,7 @@ export async function buildCieContext(params: CieParams): Promise<CieContext> {
       itemsInjected: ragResult.chunks ?? 1,
       itemsFiltered: 0,
       timeMs,
+      archetype: classifiedArchetype.archetype,
     }
   }
 
@@ -155,6 +166,7 @@ export async function buildCieContext(params: CieParams): Promise<CieContext> {
   })
 
   const context = buildInjection(selected, filtered, timeMs)
+  context.archetype = classifiedArchetype.archetype
 
   // Add graph metadata
   if (graph.stages.length > 1) {
@@ -214,3 +226,50 @@ export type { GraphStage, ExecutionPlan, GateResult } from './graph-resolver'
 export { callRagBridge, callRagFormulas, ragToCieInjection } from './rag-bridge'
 export type { RagRetrieveResult } from './rag-bridge'
 export { getCached, setCached, cacheStats, invalidateAgent, invalidateAll } from './cache'
+export { resolveEntity } from './entity-resolution'
+export type { EntityResolutionResult, EntityResolutionStatus } from './entity-resolution'
+export { queryGraph, getNeighbors, getImpactRadius } from './sources/graphify'
+export type { GraphNode, GraphEdge, QueryGraphResult } from './sources/graphify'
+export { searchMemPalace } from './sources/mempalace'
+export type { MemPalaceHit, MemPalaceSearchResult } from './sources/mempalace'
+export { resolveTeam, resolveOwnerFromPath } from './team-assignment'
+export type { TeamAssignmentResult, TeamAssignmentStatus, OwnerInfo } from './team-assignment'
+export { classifyArchetype, ARCHETYPE_TABLE, DEPARTMENT_ARCHETYPES } from './archetype'
+export type { Archetype, ArchetypeInfo, ClassifiedArchetype } from './archetype'
+export {
+  resolveToolLocation, resolveToolBinding, checkRunningServices, resolveOnDemandService,
+  invalidateToolRegistryCache, SCRAPING_ESCALATION_CHAIN,
+} from './tool-binding'
+export type { ToolLocation, ToolBindingResult, ServiceStatusResult } from './tool-binding'
+export {
+  startSession, loadSession, addExploreRound, converge, resumeSession, listSessions,
+  persistToMemPalace, SESSION_WING,
+} from './session-memory'
+export type { SessionState, SessionStatus, ExploreRound, ShortlistItem, PersistResult } from './session-memory'
+export { mineIntoMemPalace } from './sources/mempalace'
+export type { MemPalaceMineResult } from './sources/mempalace'
+export { resolveRetrievalShape } from './retrieval-shape'
+export type { RetrievalShape } from './retrieval-shape'
+export { materializeToolContext } from './tool-context'
+export type { ToolContextChunk } from './tool-context'
+export { listVentures, invalidateVenturesCache } from './sources/ventures'
+export type { VentureRow } from './sources/ventures'
+export { bridgeCrossScopeQuery } from './cross-scope-bridge'
+export type { BridgeHit, CrossScopeBridgeResult } from './cross-scope-bridge'
+export { getLooseNeighbors } from './sources/graphify'
+export { gatherCreativeContext } from './creative-retrieval'
+export type { CreativeRetrievalResult } from './creative-retrieval'
+export {
+  checkBrandVoiceConformance, checkNoveltyRepetition, checkPremortemRisk,
+  checkPredictedPerformance, recordCreativeOutcome,
+} from './creative-gate-chain'
+export type {
+  BrandVoiceResult, NoveltyResult, NoveltyFlag, PremortemResult,
+  PredictedPerformanceResult, CreativeOutcome,
+} from './creative-gate-chain'
+export { evaluateAdversarialGate } from './adversarial-gate'
+export type { AdversarialGateResult } from './adversarial-gate'
+export { captureDiscussion, DECISION_WING } from './discussion-capture'
+export type { DecisionNodeInput, CaptureDiscussionResult } from './discussion-capture'
+export { syncVentureAgents, getRealAgentRoster } from './sources/venture-agents'
+export type { SyncResult, StructureAgent, VentureAgentRow } from './sources/venture-agents'

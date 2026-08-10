@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 - Aircraft Engineering degree
 - 2 years software development at a trucking/dispatch company
 - MBA
-- Building Novizio (sustainable fashion e-commerce) and Hourbour (fintech SaaS)
+- Building the active venture
 - Based in Canada
 
 They want to reach out to:

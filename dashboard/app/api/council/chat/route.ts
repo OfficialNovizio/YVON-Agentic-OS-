@@ -19,8 +19,7 @@ import {
   closeVentureSession,
   getVentureSession,
 } from '@/lib/chat-session'
-
-const VALID_VENTURES = ['novizio', 'hourbour', 'yvon']
+import { getAllVentures } from '@/lib/db'
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,13 +30,16 @@ export async function POST(request: NextRequest) {
       action?: 'send' | 'create' | 'close' | 'status'
     }
 
-    if (!venture || !VALID_VENTURES.includes(venture)) {
-      return jsonResponse(400, { error: `Invalid venture. Valid: ${VALID_VENTURES.join(', ')}` })
+    // TS-026: valid ventures come from the DB — no hardcoded sub-brands.
+    const ventures = await getAllVentures()
+    const validVentures = ['yvon', ...ventures.map((v) => v.slug)]
+    if (!venture || !validVentures.includes(venture)) {
+      return jsonResponse(400, { error: `Invalid venture. Valid: ${validVentures.join(', ')}` })
     }
 
     // ── CREATE ────────────────────────────────────────────────────────
     if (action === 'create') {
-      const session = getOrCreateSession(venture)
+      const session = await getOrCreateSession(venture)
       return jsonResponse(200, {
         venture,
         created: true,

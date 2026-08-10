@@ -5,7 +5,7 @@ import type { TrendItem } from '@/lib/types'
 // /api/trending requires CRON_SECRET; this one only reads cached data.
 export async function GET(): Promise<Response> {
   try {
-    const items = await getTrendingItems('novizio')
+    const items = await getTrendingItems('yvon-os')
     const trends = items.slice(0, 8).map((item: TrendItem, i: number) => ({
       id: item.id,
       topic: item.keyword,

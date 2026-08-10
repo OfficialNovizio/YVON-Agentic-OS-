@@ -4,14 +4,13 @@ YVON RAG Pipeline — backwards-compatible re-exports.
 Old imports still work:
   from rag.harness import process       → from rag.harness.gates import process
   from rag.verifier import verify       → from rag.verify.grounded import verify
-  from rag.unified_pipeline import inject → from rag.core.unified import inject
+  from rag.unified_pipeline import inject → from rag.core.unified_pipeline import inject
 """
 
 # Core pipeline
 from rag.core.injector import (estimate_tokens, SentenceScorer, CitationInjector,
                                  get_compression_profile, smart_inject)
 from rag.core.destructor import destructive_inject, DestructorResult
-from rag.core.strategy import select_strategy, execute_multi_strategy, StrategyResult
 from rag.core.optimizer import (optimize_context, compute_chunk_quality,
                                  compute_chunk_reliability, classify_task_complexity)
 from rag.core.retriever import retrieve, RetrievalResult, HybridRetriever

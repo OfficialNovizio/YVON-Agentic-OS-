@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { runCompetitorPipeline } from '@/lib/competitor-pipeline'
 import { callFast } from '@/lib/ai-client'
+import { ventureNameAndBrand } from '@/lib/venture-context'
 
 export const runtime = 'nodejs'
 export const maxDuration = 180
@@ -56,14 +57,21 @@ export async function POST(req: NextRequest) {
   const { ventureSlug } = body
   if (!ventureSlug) return NextResponse.json({ error: 'ventureSlug required' }, { status: 400 })
 
-  // Resolve venture (include operating_countries for country-aware discovery)
-  const { data: ventures } = await supabase
+  // Resolve venture (include operating_countries for country-aware discovery).
+  // TS-030: graceful fallback if operating_countries doesn't exist.
+  let ventures: { id?: string; operating_countries?: string[] }[] | null = null
+  const rich = await supabase
     .from('ventures').select('id, operating_countries').eq('slug', ventureSlug).limit(1)
-  const ventureId = (ventures?.[0] as any)?.id as string | undefined
+  ventures = (rich.data as { id?: string; operating_countries?: string[] }[] | null) ?? null
+  if (!ventures?.[0]) {
+    const safe = await supabase.from('ventures').select('id').eq('slug', ventureSlug).limit(1)
+    ventures = (safe.data as { id?: string }[] | null) ?? null
+  }
+  const ventureId = ventures?.[0]?.id as string | undefined
   if (!ventureId) return NextResponse.json({ error: 'Venture not found' }, { status: 404 })
 
   // Determine primary market country
-  const rawCountry = ((ventures?.[0] as any)?.operating_countries?.[0] as string | undefined) ?? 'US'
+  const rawCountry = ventures?.[0]?.operating_countries?.[0] ?? 'US'
   const countryName = COUNTRY_NAMES[rawCountry.toUpperCase()] ?? rawCountry
 
   // Get current follower count for size-matched discovery
@@ -104,8 +112,8 @@ export async function POST(req: NextRequest) {
 
   // ── 2. Discover fresh tier-appropriate brands ───────────────────────────────
 
-  const ventureName = ventureSlug === 'hourbour' ? 'Hourbour' : 'Novizio'
-  const industry    = ventureSlug === 'hourbour' ? 'fintech' : 'fashion e-commerce'
+  const { name: ventureName, brandType } = await ventureNameAndBrand(ventureSlug)
+  const industry = brandType ?? 'general'
   const fallback    = getFallback(ventureSlug, rawCountry)
 
   let tieredBrands: Array<{ brandName: string; tier: 'benchmark' | 'stretch' | 'anchor' }>

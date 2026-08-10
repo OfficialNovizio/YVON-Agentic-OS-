@@ -23,6 +23,8 @@ import { getCached, setCached } from '../cie/cache'
 import { getConfig } from '../adapters/config'
 import type { AgentProfile } from '../agents/personalities'
 import { getAgentProfile } from '../agents/personalities'
+import { classifyArchetype } from '../cie/archetype'
+import { runGenerationTrio } from '../cie/generation-trio'
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -209,14 +211,24 @@ export async function executeCaosPipeline(
 
     calls.push(call)
 
-    // ── ♢♢♢ LLM CALL ♢♢♢ ─────────────────────────────────────
-    // In production: call Claude/DeepSeek API with the composed prompt.
-    // For now: this is the structured call that any LLM client receives.
+    // ── ♢♢♢ LLM CALL — §6.3 Layer 7.1, generation-trio.ts (built 2026-08-09) ─
+    // Archetype-gated: PRECISION_CRITICAL/ADVERSARIAL_TESTING run the full
+    // primary+adversarial+creative trio; everything else is primary-only.
     const stageStart = Date.now()
 
-    // Simulate for pipeline structure verification:
-    // In reality, this is: await llmClient.complete({ systemPrompt, ragContext, task })
-    const llmOutput = `[${stage.agentId} agent output — in production this is the LLM response]`
+    const classified = classifyArchetype(task, stage.agentDept)
+    const trioResult = await runGenerationTrio(classified.archetype, {
+      systemPrompt,
+      task,
+      ragContext: ragContext || undefined,
+    })
+
+    const llmOutput = trioResult.primary.available
+      ? trioResult.primary.content ?? ''
+      // No ANTHROPIC_API_KEY (or a call failure) — degrade loudly rather than
+      // fabricate a response, same pattern this repo uses everywhere else
+      // (kai's C4, tool-context's materialize check, etc.).
+      : `[${stage.agentId}: generation unavailable — ${trioResult.primary.reason}]`
 
     const stageMs = Date.now() - stageStart
 

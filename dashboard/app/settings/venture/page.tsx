@@ -106,12 +106,16 @@ export default function VentureSettingsPage() {
   const [deploymentPlatforms, setDeploymentPlatforms] = useState<string[]>([])
 
   // ── Load data ──────────────────────────────────────────────────────────
+  // Support ?slug=<slug> so Settings can open a SPECIFIC venture; fall back
+  // to the active workspace venture (TS-030).
   useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get('slug')
+    const targetSlug = p ?? workspace.key
     Promise.all([
       fetch('/api/ventures').then(r => r.json()),
       fetch('/api/dashboard').then(r => r.json()),
     ]).then(([ventures, dash]) => {
-      const v = (ventures as VentureData[]).find(v => v.slug === workspace.key)
+      const v = (ventures as VentureData[]).find(v => v.slug === targetSlug)
       if (v) {
         setVenture(v)
         setBrandType(v.brandType ?? '')

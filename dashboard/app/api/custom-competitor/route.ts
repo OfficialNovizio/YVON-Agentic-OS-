@@ -2,9 +2,9 @@
  * /api/custom-competitor
  * Manage manually pinned competitor brands (added from Settings).
  *
- * GET  ?venture=novizio          → list custom competitors for a venture
+ * GET  ?venture=<slug>          → list custom competitors for a venture
  * POST { ventureSlug, brandName } → add brand, run pipeline, return result
- * DELETE ?venture=novizio&id=<uuid> → remove a custom competitor
+ * DELETE ?venture=<slug>&id=<uuid> → remove a custom competitor
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'

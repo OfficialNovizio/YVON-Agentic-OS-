@@ -1,6 +1,6 @@
 /**
  * /api/competitor-gaps
- * GET ?venture=novizio → content gap analysis comparing our metrics vs competitors
+ * GET ?venture=<slug> → content gap analysis comparing our metrics vs competitors
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'

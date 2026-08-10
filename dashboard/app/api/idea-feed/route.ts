@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { errMsg } from '@/lib/errors'
 
 type Idea = {
   id: string; title: string; type: string
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   try {
     return Response.json({ ideas: MOCK_IDEAS, source: 'mock' })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ ideas: [], source: 'error', error: msg }, { status: 200 })
   }
 }

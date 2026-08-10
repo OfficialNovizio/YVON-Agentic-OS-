@@ -11,6 +11,7 @@ import { resolveSip } from '@/lib/sip-manager'
 import { getAgent } from '@/lib/agents'
 import type { AgentId } from '@/lib/types'
 import { callSynthesis } from '@/lib/ai-client'
+import { errMsg } from '@/lib/errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -89,7 +90,7 @@ Recent sessions should be analyzed for:
       note: 'Apply this distillation to SKILLS.md manually or via skill-creator tool'
     })
   } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error)
+    const msg = errMsg(error)
     return Response.json({ error: `SIP execution failed: ${msg}` }, { status: 500 })
   }
 }

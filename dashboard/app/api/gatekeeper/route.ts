@@ -19,6 +19,7 @@
 import { gatekeep, containsInjection } from '@/lib/gatekeeper'
 import { monitoring } from '@/lib/monitoring'
 import type { GatekeeperResult } from '@/lib/gatekeeper'
+import { errMsg } from '@/lib/errors'
 
 export async function POST(request: Request): Promise<Response> {
   let message: string
@@ -57,7 +58,7 @@ export async function POST(request: Request): Promise<Response> {
 
     return Response.json(result as GatekeeperResult)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     monitoring.error('Gatekeeper classification failed', { error: msg })
     return Response.json({ error: msg }, { status: 500 })
   }

@@ -1,0 +1,64 @@
+# TS-027 — P2: Input Analysis (MASTER.md PART 7 STEP 0) — tiered, hybrid
+# Operator decisions 2026-08-06: hybrid engine · dashboard route · generic
+# short messages = direct reply (no pipeline/CAOS) · HUD shows it beside CAOS
+id: TS-027
+status: gated
+approved_by: operator
+approved_at: 2026-08-06
+source_message: >
+  "Always need proper workflow design from master.md first take input, analyze
+  message, check what, why, how, end result, desired output from message inject
+  to pipeline and move ahead"  +  discussion answers: hybrid engine, dashboard
+  route, majority of messages have all fields — generic short ones reply
+  directly with no pipeline, HUD beside CAOS
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only — no transcript inheritance
+  inject_form: .toon (this YAML is the source form)
+
+classification:
+  task_type: input analysis — tiered hybrid, MASTER.md STEP 0
+  departments: [Engineering]
+  lead: dev
+  gate_0: true
+  gate_0_signoffs:
+    - operator
+
+context:
+  existing_assets:
+    - docs/MASTER.md PART 7 STEP 0 (ingress + prompt synthesis)
+    - dashboard/lib/ai-client.ts (callFast → deepseek, the sanctioned provider)
+    - dashboard/lib/pipeline.ts (analyze/context stage kinds added)
+    - vps-scripts/yvon-hermes-http/main.py (input_analysis field + [INPUT ANALYSIS] block)
+  conflicts:
+    - "generic short messages ('hi') must reply DIRECTLY with no pipeline — operator rule"
+
+discovery:
+  decisions:
+    - "engine: HYBRID — instant deterministic pre-classify → info=light analysis, build=full 5-field LLM (callFast); generic=direct reply"
+    - "where: dashboard route (/api/chat/input-analysis) before Hermes; result rides into the wrapper like agent/venture context"
+    - "missing fields: 'not specified' (never invent); venture-agnostic (works with empty DB)"
+    - "display: HUD section beside CAOS (P3 builds the full sectioned view)"
+
+work_items:
+  - id: WI-1
+    owner: raj + mia
+    objective: "Input analyzer — lib/input-analysis.ts (classifyTier + analyzeLight + analyzeFull via callFast) + /api/chat/input-analysis route + stream-route wiring (generic → direct 'done'; build → inject [INPUT ANALYSIS]) + hermes-client inputAnalysis + wrapper input_analysis field"
+    produces: dashboard/lib/input-analysis.ts
+    produces: dashboard/app/api/chat/input-analysis/route.ts
+    produces: dashboard/app/api/chat/stream/route.ts
+    produces: dashboard/lib/hermes-client.ts
+    produces: vps-scripts/yvon-hermes-http/main.py
+    produces: dashboard/lib/pipeline.ts
+
+dag:
+  critical_path: [WI-1]
+
+exit_gate:
+  owner: quinn
+  proof: "VERIFIED 2026-08-06: dashboard tsc --noEmit exit 0 · cli/verify-deploy.sh 0 findings · CAOS e2e 6/6 · py_compile clean (main.py) · task validate PASS. OPERATOR-GATED (approve before push): local test — 'hi' replies directly with no pipeline; 'fix the cart' → full 5-field analysis + CAOS; 'top 10 rappers' → info light + fast answer."
+
+feedback:
+  outcome: null
+  lesson: null

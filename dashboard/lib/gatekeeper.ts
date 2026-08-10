@@ -176,7 +176,7 @@ export function validateContext(
 
   const missing = required.filter(ctx => {
     // Check for common indicators of missing context
-    if (ctx === 'brand') return !lower.includes('novizio') && !lower.includes('hourbour')
+    if (ctx === 'brand') return false // brand is satisfied by the active venture context (TS-026)
     if (ctx === 'platform') return !lower.includes('instagram') && !lower.includes('linkedin') && !lower.includes('tiktok')
     if (ctx === 'competitor name') return !lower.includes('competitor') && !lower.includes('rival')
     if (ctx === 'metric') return !lower.includes('metric') && !lower.includes('kpi') && !lower.includes('data')
@@ -272,7 +272,7 @@ function generateReformulation(
   const suggestions: string[] = []
 
   if (missing.includes('brand') && !venture) {
-    suggestions.push('specify which brand (Novizio or Hourbour)')
+    suggestions.push('switch to the venture you mean, or mention it explicitly')
   }
 
   if (missing.includes('platform')) {

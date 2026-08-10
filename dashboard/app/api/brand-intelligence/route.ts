@@ -5,7 +5,7 @@ import { cookies } from 'next/headers'
 
 export async function POST(request: Request): Promise<Response> {
   const cookieStore = await cookies()
-  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const ventureId = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   let body: { ventureName?: string }
   try {
@@ -13,7 +13,7 @@ export async function POST(request: Request): Promise<Response> {
   } catch {
     body = {}
   }
-  const ventureName = body.ventureName ?? 'Novizio'
+  const ventureName = body.ventureName ?? 'yvon-os'
 
   const [ig, yt, li] = await Promise.all([
     getSocialStats(ventureId, 'instagram').catch(() => null),

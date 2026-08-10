@@ -48,7 +48,7 @@ function classifyOutcome(
 // ── POST — record post going live ─────────────────────────────────────────────
 export async function POST(request: Request): Promise<Response> {
   const cookieStore = await cookies()
-  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   interface PostBody {
     pitchId?: string
@@ -96,7 +96,7 @@ export async function POST(request: Request): Promise<Response> {
 // ── GET — fetch posts pending measurement (or single record by pitchId) ───────
 export async function GET(request: Request): Promise<Response> {
   const cookieStore = await cookies()
-  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   const { searchParams } = new URL(request.url)
   const pitchId = searchParams.get('pitchId')
@@ -156,7 +156,7 @@ export async function GET(request: Request): Promise<Response> {
 // ── PATCH — link calendar entry OR run measurement (manual or cron T+7) ───────
 export async function PATCH(request: Request): Promise<Response> {
   const cookieStore = await cookies()
-  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'novizio'
+  const slug = cookieStore.get('yvon_active_venture')?.value ?? 'yvon-os'
 
   interface PatchBody {
     action?: 'link_calendar' | 'measure'

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type { RoadmapItem, RoadmapStatus } from '@/lib/types'
+import { errMsg } from '@/lib/errors'
 
 export async function GET(): Promise<Response> {
   try {
@@ -22,7 +23,7 @@ export async function GET(): Promise<Response> {
 
     return Response.json({ items })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }
@@ -51,7 +52,7 @@ export async function PATCH(request: Request): Promise<Response> {
       .eq('id', body.id)
     return Response.json({ ok: true })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({ error: msg }, { status: 502 })
   }
 }

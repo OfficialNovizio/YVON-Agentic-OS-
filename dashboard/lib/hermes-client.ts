@@ -17,6 +17,11 @@ export interface HermesChatInput {
   roomId: string
   workspace?: WorkspaceKey
   mentions?: string[]
+  /** TS-025: injected real agent identity + skills (yvon-os) or venture memory (other ventures) */
+  agentContext?: string
+  ventureContext?: string
+  /** TS-027: the 5-field input analysis (what/why/how/end/desired) for build-tier turns */
+  inputAnalysis?: string
 }
 
 /** SSE event shapes from the wrapper — mirrors yvon-hermes-http/main.py.
@@ -121,6 +126,9 @@ export async function* streamHermesChat(
       room_id: input.roomId,
       workspace: input.workspace ?? undefined,
       mentions: input.mentions ?? [],
+      agent_context: input.agentContext ?? undefined,
+      venture_context: input.ventureContext ?? undefined,
+      input_analysis: input.inputAnalysis ?? undefined,
     }),
   })
 

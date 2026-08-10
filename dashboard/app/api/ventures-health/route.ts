@@ -1,6 +1,6 @@
 // app/api/ventures-health/route.ts — v6
 // OS agents (no venture param) → aggregate all projects from VPS
-// Venture agents (?venture=novizio) → per-project from VPS
+// Venture agents (?venture=<slug>) → per-project from VPS
 // VPS: configured via VPS_METRICS_URL (domain-wrapped, e.g. https://metrics.yvon.in)
 //      — real metrics from Hermes state.db. Set the env var; unset → graceful offline.
 

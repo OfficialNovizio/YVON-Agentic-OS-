@@ -3,6 +3,7 @@
 
 import { generateWithKrea } from '@/lib/krea'
 import { getSecret } from '@/lib/secrets'
+import { errMsg } from '@/lib/errors'
 
 export async function POST(request: Request): Promise<Response> {
   if (!(await getSecret('KREA_API_KEY'))) {
@@ -32,7 +33,7 @@ export async function POST(request: Request): Promise<Response> {
       })
         results.push(...generated)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const msg = errMsg(err)
       results.push({ imageUrl: `error_${msg}`, promptUsed: p.prompt, style: 'error', dimensions: '0x0', generatedAt: new Date().toISOString() })
     }
   }

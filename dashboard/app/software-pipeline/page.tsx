@@ -4,16 +4,9 @@ import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { Card, PageHeader, StatusBadge, Avatar } from '@/components/ui'
 import KaisRead from '@/components/KaisRead'
+import { PipelineCards } from '@/components/PipelineCards'
 import { useWorkspace } from '@/lib/WorkspaceContext'
 import { Github, ExternalLink, GitPullRequest, ShieldCheck, Plus, FileText } from 'lucide-react'
-
-const projects = [
-  { name: 'Idea-Feed MVP', status: 'needs you', tone: 'yellow' as const, progress: 72 },
-  { name: 'By Design', status: 'needs work', tone: 'muted' as const, progress: 48 },
-  { name: 'Canela Shop', status: 'in progress', tone: 'blue' as const, progress: 61 },
-  { name: 'Mission Control', status: 'needs work', tone: 'muted' as const, progress: 35 },
-  { name: 'Valhalla Tools', status: 'active', tone: 'green' as const, progress: 80 },
-]
 
 type Tone = 'yellow' | 'green' | 'muted' | 'blue'
 
@@ -170,21 +163,9 @@ export default function SoftwarePipelinePage() {
         </div>
       )}
 
-      {/* portfolio */}
-      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {projects.map((p) => (
-          <Card key={p.name} hover className="p-4">
-            <h3 className="mb-2 text-sm font-semibold text-on-surface">{p.name}</h3>
-            <StatusBadge tone={p.tone}>{p.status}</StatusBadge>
-            <div className="mt-3">
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                <div className="h-full rounded-full" style={{ width: `${p.progress}%`, background: 'var(--ws-accent)' }} />
-              </div>
-              <p className="mt-1 text-right text-[11px] text-on-surface-variant">{p.progress}%</p>
-            </div>
-          </Card>
-        ))}
-      </div>
+      {/* Pipeline views — real CAOS / Context / RAG / Input Analysis / Master
+          (replaces the fake venture cards) */}
+      <PipelineCards />
 
       {/* QA gate explainer — updated to show BACKLOG step */}
       <Card className="mb-4 flex flex-wrap items-center gap-3 p-3 text-[12px] text-on-surface-variant">
@@ -299,17 +280,17 @@ export default function SoftwarePipelinePage() {
               >
                 All products
               </button>
-              {projects.map((p) => (
+              {(['Input Analysis', 'Context Injection', 'CAOS', 'RAG', 'Master Pipeline'] as const).map((name) => (
                 <button
-                  key={p.name}
-                  onClick={() => setActiveProduct(p.name)}
+                  key={name}
+                  onClick={() => setActiveProduct(name)}
                   className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition ${
-                    activeProduct === p.name
+                    activeProduct === name
                       ? 'bg-white/[0.08] text-on-surface'
                       : 'text-on-surface-variant hover:bg-white/[0.04]'
                   }`}
                 >
-                  {p.name}
+                  {name}
                 </button>
               ))}
             </div>

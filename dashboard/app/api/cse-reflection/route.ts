@@ -8,7 +8,6 @@ import { getSecret } from '@/lib/secrets'
 
 export const maxDuration = 60
 
-const VENTURES = ['novizio', 'hourbour']
 const DEFAULT_WEIGHTS = { E: 0.25, R: 0.25, G: 0.20, B: 0.15, T: 0.15 }
 
 // Maps signal_type → weight factor it most affects
@@ -29,9 +28,13 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // TS-026: real ventures from the DB — no hardcoded sub-brands.
+  const { data: ventureRows } = await supabase.from('ventures').select('slug')
+  const slugs = ((ventureRows as unknown as { slug: string }[] | null) ?? []).map((r) => r.slug)
+
   const results: Array<{ venture: string; proposed: boolean; reason?: string }> = []
 
-  for (const slug of VENTURES) {
+  for (const slug of slugs) {
     // Check cooldown — skip if a proposal was rejected < 14 days ago
     const { data: recentRejected } = await supabase
       .from('scoring_weight_history')

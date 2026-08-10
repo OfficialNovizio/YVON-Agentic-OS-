@@ -1,6 +1,9 @@
 # YVON — Session Handout & Persistent Backlog
 
 *Last updated: 2026-08-01 (M1–M4 closed) · Repo: `main @ 7e9d69b` — migration fixes committed & pushed · Operator: Novy*
+*Addendum 2026-08-09: §2a added — verified-status audit against the real repo, done during the
+graph-docs (`MASTER.md`/`system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md`/`system-harness/graph-brain/YVON-GRAPH.md`) review. Everything above this
+line is the 2026-08-01 record, unedited.*
 
 > **This file is the durable memory of the project.** In-session task lists are ephemeral and
 > die with the session — anything that must survive lives here. It is written to be
@@ -18,6 +21,7 @@
 |---|---|
 | 1 | Current state (verified) |
 | 2 | **PRIORITY 0 — do these first** |
+| 2a | **Verified-status audit (2026-08-09) — Appendix A refactor is now top priority** |
 | 3 | The core finding — why nothing follows the workflow |
 | 4 | VPS — measured state + upgrade options |
 | 5 | **The 7 tools — full spec, repos, install commands, placement** |
@@ -144,6 +148,68 @@ keys, verify the :9119 Hermes API, metrics service, decommission Hostinger (§2)
 **A1** (`cli/agent-compile.py` built; all **46 agents compiled** to `.claude/agents/` — the
 `.claude/agents/` gap from §3 is closed) · **E1** (`cli/task.sh` + `task.py` record manager,
 8 commands, state machine + guards, lifecycle-tested; `validate` exits 1 for the gate).
+
+---
+
+## 2a. Verified-status audit (2026-08-09)
+
+Cross-checked every claim in §2/§8 above against the real repo state (not against what a prior
+session wrote) as part of the `MASTER.md`/`system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md`/`system-harness/graph-brain/YVON-GRAPH.md` graph-docs
+review. Two backlog items turned out to be more done than recorded (T2, A2); five are still
+exactly as open as §2 says. **New top priority below — it wasn't tracked anywhere before today.**
+
+### PRIORITY 0.1 — Appendix A refactor path fix — RESOLVED 2026-08-09
+
+Checked `rag/` directly: the refactor described in `MASTER.md` Appendix A is **real and mostly
+done** — `rag/core/`, `rag/harness/`, `rag/eval/`, `rag/monitor/`, `rag/verify/` all exist with
+the exact modules `MASTER.md` Part 0 assumes, and `rag/__init__.py` itself already imports from
+the new nested paths. Both concrete fixes below are now applied:
+
+1. **`MASTER.md` Part 1 and Part 3 cited the pre-refactor flat paths** (`rag/bridge.py`,
+   `rag/unified_pipeline.py` at root, `rag/harness.py`, `rag/verifier.py`) — none of those four
+   files existed anymore. **Fixed**: 55 references corrected to the real nested path
+   (`rag/core/bridge.py`, `rag/harness/gates.py`, `rag/verify/grounded.py`) — plus one path this
+   note originally got wrong too: `rag/unified_pipeline.py` **kept its own name**, it only moved
+   into `core/` (so the correct target is `rag/core/unified_pipeline.py`, not `rag/core/unified.py`
+   as this line previously said — the doc's own migration table had the same bug, also fixed).
+2. **Two flat leftover files at `rag/` root** — `self_improver.py`, `field_monitor.py` — diverged
+   from their real, wired counterparts (`rag/monitor/improver.py`, `rag/monitor/watcher.py`,
+   confirmed via `rag/__init__.py`'s actual imports). A third file this note originally lumped in,
+   `test_runner.py`, turned out to already correctly import the moved modules — not a duplicate,
+   left as-is. **Fixed**: first delete attempt via `allow_cowork_file_delete` was declined, so the
+   two real duplicates were converted to deprecated `ImportError` stubs instead; once the operator
+   confirmed they weren't needed, deletion was re-requested, approved, and applied —
+   `git rm rag/field_monitor.py rag/self_improver.py`, both gone as of 2026-08-09 (recoverable
+   from git history if ever needed). The moved files' docstrings no longer say the stale
+   `Usage: python3 rag/self_improver.py` — fixed to cite their own real path.
+   `docs/INPUT-ANALYSIS-DESIGN.md`'s matching flat-path references fixed the same way (5 spots).
+
+**Why this mattered:** every other doc (`MASTER.md` Part 0, this session's graph-docs work) already
+assumed the nested paths were correct — leaving Part 1/Part 3 wrong meant the next session trusting
+either Part would get misdirected. Also surfaced one real, unrelated bug in the same pass:
+`rag/monitor/improver.py`'s `sandbox_test()` calls `cli/task.py validate`, which doesn't exist
+(the real script is `cli/task.sh`) — noted here, not fixed, since it's inside the *stub's* own
+docstring explanation, not a separate open item; worth a look next time that file is touched.
+
+### Reconciled against §2/§8 above — what's actually done vs. left
+
+| Item | §2/§8 said | Verified 2026-08-09 | Status |
+|---|---|---|---|
+| **T2 — reticle** | "phantom," resolved 2026-08-01 (install + MCP registered) | Confirmed still installed. **Also fixed today:** `quinn-config.md`'s `reticle_mcp` field was still `<FILL_IN>` five weeks after install — installed but never bound into the one config quinn reads. Now filled. `MASTER.md` §8.3/§8.6/§8.8 updated to match. | **Now fully done** (was: installed but silently unbound) |
+| **A2 — `<agent>-worktree.yaml`** | listed as still-open in §8 backlog | All **46/46** exist under `Teams/<Dept>/<agent>/operational/worktree/`. | **Already done — backlog was stale, not the work** |
+| **E2 — legacy ledger backfill** | 12 records failing (TS-001…013) | `cli/task.sh validate` now fails on **6 files, 8 issues**: TS-001/002/003/004 (`approved`, no `approved_by`), TS-006/007 (`done`, empty/self-asserting `exit_gate.proof`). Real progress — down from 12 — but not closed. | **Partially done** |
+| **E3 — `task.sh validate` in `verify-deploy.sh`** | blocked on E2 | `cli/verify-deploy.sh` has zero references to `task.sh`/`validate`. | **Still open**, correctly blocked on E2 |
+| **E4 — `.claude/hooks/yvon-gate.sh`** | `[planned]` | Does not exist — `.claude/hooks/` holds only `yvon-retrieve.sh` (context injection, not a gate). | **Still open**, exactly as recorded |
+| **E5 — impeccable/Playwright as blocking gates** | `[planned]` | No hook references `impeccable`. | **Still open**, exactly as recorded |
+| **V5 — 4201 metrics service** | open, domain known only to operator | `VPS_METRICS_URL` still unset by default (`dashboard/app/api/ventures-health/route.ts` — graceful-offline fallback, not a real value); `vps-scripts/MIGRATE-TO-CONTABO.md` row 7 still literally says `**FILL_IN**` for the metrics domain. | **Still open**, exactly as recorded |
+
+### Graph-docs decisions (separate track, resolved 2026-08-09)
+
+`MASTER.md`'s Open Issues 3–6 (`belongs_to` ownership mechanism, 12GB VPS queueing policy,
+cross-brand default, pgvector/qdrant isolation tiering) were discussed and resolved with the
+operator this session — see `MASTER.md`'s Open Issues block and `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §0/§8.3/
+§15.2 for the recorded decisions. Issue 7 (`system-harness/graph-brain/YVON-GRAPH.md` vs. `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` content
+overlap) is open, next up.
 
 ---
 
@@ -489,6 +555,9 @@ escalates_to: dev
 
 **Definition of done for the whole push:** a `Write` to `dashboard/` with no active approved
 TASK-SPEC is **refused**, and the refusal names the exact command to fix it.
+
+| **F1** | **Self-improving pipeline structure (RAG · CAOS · Context Injection · Input Analysis)** | **Planned (2026-08-07)** — the operator wants the WHOLE pipeline to self-improve, not just input analysis. Design: every stage (input analysis, context injection, CAOS, RAG) becomes a **graph node in graphify** so the system can visualize + learn from its own execution; the feedback loop (analyze → log → operator feedback → self_improver proposes → sandbox-test → operator approves → apply) spans the entire pipeline, with each stage's log + feedback feeding the weekly improvement cycle. **Deferred until we build the visualization section for these** (operator decision). Prereqs: input-analysis log (`store/input-analysis-log.jsonl`), operator feedback hook, self_improver consumption of all stage logs |
+| **F2** | **Input analysis — implicit/connecting-element detection** | **Planned (2026-08-07)** — the input analysis misses IMPLICIT requirements that are linked to a message but not stated. Two concrete misses: (1) "restructure Settings" implied the existing venture-detail capability must survive (the `/settings/venture` edit view); (2) "add venture reflects throughout" implied new ventures must propagate to every surface that lists ventures (selector, switcher, settings, graph tabs) without refresh. **Lesson: input analysis must also extract implicit preservation + propagation requirements.** Redesign input analysis when we build the visuals for RAG/graphs/CAOS (with F1). |
 
 ---
 

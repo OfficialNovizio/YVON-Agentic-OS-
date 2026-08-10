@@ -17,7 +17,6 @@ sys.path.insert(0, os.path.join(TEAMS, 'Shared OS', 'logical'))
 
 MODULES = {
     'core/injector':     ('injector',     '3-layer compression engine'),
-    'core/strategy':     ('strategy',     'multi-strategy token pipeline'),
     'core/destructor':   ('destructor',   'hard budget guarantee pipeline'),
     'core/optimizer':    ('optimizer',    'dynamic context optimizer'),
     'core/retriever':    ('retriever',    'full retrieval pipeline'),

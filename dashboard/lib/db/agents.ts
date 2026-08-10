@@ -4,8 +4,6 @@ import type {
   AgentSession,
   AgentId,
   AgentSettingsSave,
-  Message,
-  BrandPsychologyNote,
   LearnedActivation,
 } from '@/lib/types'
 
@@ -92,48 +90,6 @@ export async function saveAgentSettings(
   )
 }
 
-// ─── Conversations ────────────────────────────────────────────────────────────
-
-export async function getConversation(
-  agentId: string,
-  ventureId: string
-): Promise<{ id: string } | null> {
-  const { data } = await supabase
-    .from('conversations')
-    .select('id')
-    .eq('agent_id', agentId)
-    .eq('venture_id', ventureId)
-    .order('started_at', { ascending: false })
-    .limit(1)
-    .single()
-  return data ?? null
-}
-
-export async function createConversation(
-  agentId: string,
-  ventureId: string
-): Promise<string> {
-  const { data, error } = await supabase
-    .from('conversations')
-    .insert({ agent_id: agentId, venture_id: ventureId })
-    .select('id')
-    .single()
-  if (error || !data) throw new Error('Failed to create conversation')
-  return data.id as string
-}
-
-export async function appendMessage(
-  conversationId: string,
-  message: Message
-): Promise<void> {
-  await supabase.from('messages').insert({
-    conversation_id: conversationId,
-    role: message.role,
-    content: message.content,
-    sent_at: message.timestamp,
-  })
-}
-
 // ─── Agent Sessions ───────────────────────────────────────────────────────────
 
 export async function saveAgentSession(s: Omit<AgentSession, 'id' | 'createdAt'>): Promise<void> {
@@ -158,31 +114,6 @@ export async function getAgentSessions(
     .select('id, agent_id, venture, task, outcome, system_target, tokens_used, duration_ms, created_at')
     .eq('agent_id', agentId)
     .eq('venture', venture)
-    .order('created_at', { ascending: false })
-    .limit(limit)
-  return (data ?? []).map(r => ({
-    id:           r.id as string,
-    agentId:      r.agent_id as AgentId,
-    venture:      r.venture as string,
-    task:         r.task as string,
-    outcome:      r.outcome as string,
-    systemTarget: (r.system_target as AgentSession['systemTarget']) ?? null,
-    tokensUsed:   (r.tokens_used as number | null) ?? null,
-    durationMs:   (r.duration_ms as number | null) ?? null,
-    createdAt:    r.created_at as string,
-  }))
-}
-
-export async function searchAgentSessions(
-  query: string,
-  venture: string,
-  limit = 10
-): Promise<AgentSession[]> {
-  const { data } = await supabase
-    .from('agent_sessions')
-    .select('id, agent_id, venture, task, outcome, system_target, tokens_used, duration_ms, created_at')
-    .eq('venture', venture)
-    .textSearch('session_search', query, { type: 'websearch', config: 'english' })
     .order('created_at', { ascending: false })
     .limit(limit)
   return (data ?? []).map(r => ({
@@ -304,37 +235,4 @@ export async function runSkillLifecycleTransitions(): Promise<{ staled: number; 
   }
 
   return { staled: staleIds.length, archived: archiveIds.length }
-}
-
-// ─── Brand Psychology ─────────────────────────────────────────────────────────
-
-export async function saveBrandPsychologyNote(
-  note: Omit<BrandPsychologyNote, 'id' | 'createdAt'>
-): Promise<void> {
-  await supabase.from('brand_psychology').insert({
-    brand:      note.brand,
-    surface:    note.surface ?? null,
-    category:   note.category,
-    note:       note.note,
-    confidence: note.confidence,
-  })
-}
-
-export async function getBrandPsychology(
-  brand: string,
-  category?: BrandPsychologyNote['category'],
-  limit = 20
-): Promise<BrandPsychologyNote[]> {
-  let q = supabase.from('brand_psychology').select('*').eq('brand', brand)
-  if (category) q = q.eq('category', category)
-  const { data } = await q.order('created_at', { ascending: false }).limit(limit)
-  return (data ?? []).map(r => ({
-    id:         r.id as string,
-    brand:      r.brand as string,
-    surface:    (r.surface as string | null) ?? null,
-    category:   r.category as BrandPsychologyNote['category'],
-    note:       r.note as string,
-    confidence: r.confidence as BrandPsychologyNote['confidence'],
-    createdAt:  r.created_at as string,
-  }))
 }

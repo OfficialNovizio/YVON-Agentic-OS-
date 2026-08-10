@@ -253,8 +253,14 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, description="User's message to the agent(s)")
     user_id: str = Field(..., min_length=1, description="Supabase profile id of the sender")
     room_id: str = Field(..., min_length=1, description="Chat room id (Supabase chat_rooms.id)")
-    workspace: Optional[str] = Field(default=None, description="'yvon-os' | 'novizio' | 'hourbour' | 'agentx'")
+    workspace: Optional[str] = Field(default=None, description="Active venture slug resolved by the dashboard (yvon-os or any Settings-added venture)")
     mentions: list[str] = Field(default_factory=list, description="Explicit @agent-id mentions")
+    # TS-025: injected real context from the dashboard — agent identity + skills
+    # (yvon-os) or venture memory (other ventures). Used to ground the reply so
+    # agents answer from their REAL abilities, not a generic capability list.
+    agent_context: Optional[str] = Field(default=None, description="Real agent identity + skill roster (yvon-os)")
+    venture_context: Optional[str] = Field(default=None, description="Active venture memory (non-yvon ventures)")
+    input_analysis: Optional[str] = Field(default=None, description="5-field input analysis (what/why/how/end/desired) for build-tier turns")
 
 
 # ── Chat stream endpoint ────────────────────────────────────────────────────
@@ -334,6 +340,17 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
         prompt_parts.append(f"[workspace: {req.workspace}]")
     if req.mentions:
         prompt_parts.append(f"[mentions: {', '.join('@' + m for m in req.mentions)}]")
+    # TS-025: inject the REAL per-turn context before the user message, and
+    # instruct the model to answer ONLY from these abilities (no inventing).
+    if req.agent_context:
+        prompt_parts.append("[AGENT CONTEXT — your real identity and skills; answer only from these]")
+        prompt_parts.append(req.agent_context)
+    if req.venture_context:
+        prompt_parts.append("[VENTURE CONTEXT — the active venture's memory; work in this context]")
+        prompt_parts.append(req.venture_context)
+    if req.input_analysis:
+        prompt_parts.append("[INPUT ANALYSIS — what/why/how/end/desired; execute to this intent]")
+        prompt_parts.append(req.input_analysis)
     prompt_parts.append(req.message)
     full_prompt = "\n".join(prompt_parts)
 

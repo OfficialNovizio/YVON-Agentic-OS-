@@ -2,7 +2,7 @@
 
 **Governs:** `/chat` as the primary working surface — the command layer, the
 Hermes runtime it drives, the pipeline view, and the preview/deploy loop.
-**Companion:** `docs/YVON-GRAPH.md` (shares the `events` table and
+**Companion:** `system-harness/graph-brain/YVON-GRAPH.md` (shares the `events` table and
 `context_id` contract) · `docs/MASTER.md` PART 7 (execution scenarios).
 
 **Goal:** make chat good enough to run the rest of the work from. Everything
@@ -227,7 +227,7 @@ export type WorkspaceKey = 'yvon-os' | 'novizio' | 'hourbour' | 'agentx'
 `stream/route.ts:55` hardcodes `'yvon-os'`. It must read the cookie instead.
 
 > **Contract:** the value passed as `workspace` becomes `events.context_id` via
-> `main.py` → `events.py`. Per `YVON-GRAPH.md` §1.2 that must be
+> `main.py` → `events.py`. Per `system-harness/graph-brain/YVON-GRAPH.md` §1.2 that must be
 > `ventures.context_path`, not the bare slug. `WorkspaceKey` is a static union
 > of four and cannot represent a client — it has to become a runtime lookup
 > against `ventures` when the context graph lands.
@@ -438,7 +438,7 @@ happened thirty seconds ago, and `/brain` sees only start and end.
 
 ### 5.2 Emit phases as events
 
-Same table, same `correlation` — `YVON-GRAPH.md` §1.4.
+Same table, same `correlation` — `system-harness/graph-brain/YVON-GRAPH.md` §1.4.
 
 ```
 run.started          already emitted
@@ -596,7 +596,7 @@ foundation, engineering docs).*
 
 | Thing | Missing |
 |---|---|
-| Workspace scoping | fixed for the dashboard (`stream/route.ts` reads the cookie); `WorkspaceKey` still a static union of 4 — runtime lookup against `ventures` after `YVON-GRAPH.md` §1.2 lands |
+| Workspace scoping | fixed for the dashboard (`stream/route.ts` reads the cookie); `WorkspaceKey` still a static union of 4 — runtime lookup against `ventures` after `system-harness/graph-brain/YVON-GRAPH.md` §1.2 lands |
 | Phase observability | wrapper-observable kinds emitted; `phase.retrieve` / `gate.*` / `loop.iteration` reserved until hermes-agent exposes phase hooks (probe-gated) |
 | Playwright | `--full` tier exists; pre-push hook stays tier-1 only by design (§6.3) |
 | Graphify retrieval in chat | `dashboard/lib/cie/sources/graphify.ts` is still a stub returning `''` |
@@ -634,7 +634,7 @@ a pooled multi-session process. Ever.
 ### 8.4 The `context_id` contract
 
 `workspace` → `main.py` → `events.context_id` → the graph's satellite filter.
-Three systems agree on this string; `YVON-GRAPH.md` §6.1 owns the contract. A
+Three systems agree on this string; `system-harness/graph-brain/YVON-GRAPH.md` §6.1 owns the contract. A
 change here silently stops nodes lighting.
 
 ### 8.5 Telemetry cannot break a turn
@@ -720,7 +720,7 @@ ss -tlnp | grep -E '9119|8765'
 | No terminal/shell tool listed | Defect C confirmed — toolset not loaded | pass the platform/toolset to `AIAgent` (§4.4) |
 | Tool listed, `pwd` = `/opt/yvon-hermes-http` | Defect A only | set cwd per project |
 | Tool listed, writes fail read-only | Defect B | add checkouts to `ReadWritePaths` |
-| Tool listed, `git rev-parse` fails | no checkout on the box | clone it; also blocks the Graphify cron in `YVON-GRAPH.md` §4.4 |
+| Tool listed, `git rev-parse` fails | no checkout on the box | clone it; also blocks the Graphify cron in `system-harness/graph-brain/YVON-GRAPH.md` §4.4 |
 
 Paste the output back and the patch gets written against facts.
 
@@ -735,12 +735,12 @@ First release in bold; the rest are the shape it grows into.
 | **`/help`** | lists commands from the registry | — | §2.4 |
 | **`/switch <slug>`** | scope + agent context (parts 1–2) | — | §3.1–3.2 |
 | **`/where`** | prints active venture, workspace, Hermes cwd, project root | — | §3, §4 |
-| `/agents [dept]` | fleet from `structure.json`, with live status | — | `YVON-GRAPH.md` §1.1 |
+| `/agents [dept]` | fleet from `structure.json`, with live status | — | `system-harness/graph-brain/YVON-GRAPH.md` §1.1 |
 | `/status` | Hermes health, session pool, last deploy | — | `/v1/pool`, `/healthz` |
 | `/deploy [--full]` | runs `cli/deploy.sh`, streams to the panel | **yes** | §6.3 |
 | `/preview` | pushes branch, returns Vercel preview URL | **yes** | §6.4 |
 | `/test [pattern]` | Playwright, results into chat | — | §6.3 |
-| `/graph rebuild` | triggers the Graphify rebuild | **yes** | `YVON-GRAPH.md` §4.4 |
+| `/graph rebuild` | triggers the Graphify rebuild | **yes** | `system-harness/graph-brain/YVON-GRAPH.md` §4.4 |
 | `/task <id>` | TASK-SPEC record from `store/tasks/` | — | `MASTER.md` PART 6 |
 | `/trace [correlation]` | full phase timeline for a turn | — | §5.2 |
 | `/clear` | drops the pooled session for this room | — | `/v1/pool/drop` |
@@ -758,7 +758,7 @@ need one command that states the truth about what is actually pointed where.
 | 2 | Is the YVON repo checked out on the VPS at all? | blocks `/switch` parts 3–4 *and* the Graphify cron | **blocking §3.3** |
 | 3 | Does Hermes accept a per-invocation cwd? | decides per-session vs per-project-worker (§3.3) | needs probe |
 | 4 | "CIA" / "CIAOS" | repo has **CAOS** and **CIE**; confirm which you meant, or whether a third thing exists that isn't in the repo | needs answer |
-| 5 | `WorkspaceKey` → runtime lookup | the static union of 4 cannot hold a client context | after `YVON-GRAPH.md` §1.2 lands |
+| 5 | `WorkspaceKey` → runtime lookup | the static union of 4 cannot hold a client context | after `system-harness/graph-brain/YVON-GRAPH.md` §1.2 lands |
 | 6 | Where does `/deploy` execute? | Vercel can't run `deploy.sh`; it needs the VPS or CI | after §4 |
 
 ---

@@ -1,0 +1,65 @@
+name: Graph brain — structure & drift checks
+
+# system-harness/graph-brain/YVON-GRAPH.md §4.2 / §5 / §6.1 — this repo has never had a .github/ workflow
+# (confirmed by grep before writing this; both retired design docs claimed one existed and were
+# wrong — see system-harness/graph-brain/YVON-GRAPH.md Appendix D). Two independent checks:
+#
+#   structure-check   Regenerates dashboard/public/structure.json from Teams/ and fails if the
+#                      committed copy is stale, so "adding an agent requires a push that happens
+#                      to trigger a Vercel build" (§4.2's gap) becomes a real, visible CI failure
+#                      instead of a silent drift between the repo and what /brain reads.
+#
+#   drift-check       Runs Q7 (§3, §6.1) against live Supabase events — any agent_id seen in
+#                      events that no longer exists in structure.json means a node on /brain that
+#                      will never light, with no error anywhere in the browser. Scheduled nightly
+#                      because drift can appear without any code push (an agent directory rename
+#                      merged days ago, VPS alias map never refreshed — §4.4).
+#
+# Created 2026-08-09. NOT committed by the agent that wrote it — reviewed and pushed by the
+# operator, per an explicit instruction not to touch git history for this change.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Teams/**'
+      - 'scripts/build-structure.mjs'
+      - 'dashboard/public/structure.json'
+  schedule:
+    - cron: '17 3 * * *'   # nightly, offset off the hour on purpose
+  workflow_dispatch: {}
+
+jobs:
+  structure-check:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Regenerate structure.json from Teams/
+        run: node scripts/build-structure.mjs
+      - name: Fail if the committed structure.json is stale
+        run: |
+          if ! git diff --quiet -- dashboard/public/structure.json; then
+            echo "::error::dashboard/public/structure.json is out of date with Teams/. Run 'node scripts/build-structure.mjs' and commit the result."
+            git --no-pager diff -- dashboard/public/structure.json
+            exit 1
+          fi
+          echo "structure.json is current."
+
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Regenerate structure.json (Q7 must diff against the current tree, not a stale copy)
+        run: node scripts/build-structure.mjs
+      - name: Run Q7 drift detector against live events
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node system-harness/graph-brain/ci/detect-drift.mjs

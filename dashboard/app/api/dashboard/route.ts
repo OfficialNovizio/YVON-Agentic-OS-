@@ -9,6 +9,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { FLEET, FLEET_DEPARTMENTS, fleetByDepartment } from '@/lib/fleet'
+import { errMsg } from '@/lib/errors'
 
 
 const supabase = createClient(
@@ -173,9 +174,7 @@ export async function GET(request: Request): Promise<Response> {
     } catch {
       // No ventures table yet — use static fallbacks
       ventures = [
-        { slug: 'novizio', name: 'Novizio', decisionsPending: 0 },
-        { slug: 'hourbour', name: 'Hourbour', decisionsPending: 0 },
-      ]
+              ]
     }
 
     // ── System health status ──────────────────────────────────────────────
@@ -206,7 +205,7 @@ export async function GET(request: Request): Promise<Response> {
 
     return Response.json(data)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMsg(err)
     return Response.json({
       greeting: 'Good morning',
       systemHealth: { status: 'down', agentsLive: 0, supabaseConnected: false, deepseekBalance: null, tokenSpentToday: 0 },

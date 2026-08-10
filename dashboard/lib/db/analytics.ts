@@ -316,31 +316,6 @@ export async function insertCompetitorSnapshot(
   })
 }
 
-export async function getCompetitorHistory(
-  ventureId: string,
-  platform: string,
-  days = 90
-): Promise<CompetitorSnapshot[]> {
-  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
-  const { data } = await supabase
-    .from('competitor_snapshots')
-    .select('*')
-    .eq('venture_id', ventureId)
-    .eq('platform', platform)
-    .gte('captured_at', since)
-    .order('captured_at', { ascending: false })
-    .limit(50)
-  return (data ?? []).map(r => ({
-    id:            r.id as string,
-    ventureId:     r.venture_id as string,
-    platform:      r.platform as string,
-    competitorUrl: (r.competitor_url as string | null) ?? null,
-    capturedAt:    r.captured_at as string,
-    rawContent:    r.raw_content as Record<string, unknown>,
-    kaiAnalysis:   (r.kai_analysis as Record<string, unknown> | null) ?? null,
-  }))
-}
-
 // ─── Growth Baselines ─────────────────────────────────────────────────────────
 
 export async function getGrowthBaselines(ventureId: string): Promise<GrowthBaseline[]> {

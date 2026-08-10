@@ -1,13 +1,14 @@
 /**
  * /api/venture-documents — CRUD for per-venture markdown docs stored in Supabase.
  *
- * GET    /api/venture-documents?slug=hourbour            → all 4 doc types
- * GET    /api/venture-documents?slug=hourbour&type=brand → one doc
+ * GET    /api/venture-documents?slug=<slug>            → all 4 doc types
+ * GET    /api/venture-documents?slug=<slug>&type=brand → one doc
  * POST   /api/venture-documents { slug, type, content }  → upsert
  */
 
 import { NextRequest } from 'next/server'
 import { getVentureDoc, getAllVentureDocs, setVentureDoc, VENTURE_DOC_TYPES, type VentureDocType } from '@/lib/venture-documents'
+import { errMsg } from '@/lib/errors'
 
 function isDocType(s: string): s is VentureDocType {
   return (VENTURE_DOC_TYPES as string[]).includes(s)
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
     const docs = await getAllVentureDocs(slug)
     return Response.json({ docs })
   } catch (e) {
-    return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    return Response.json({ error: errMsg(e) }, { status: 500 })
   }
 }
 
@@ -45,6 +46,6 @@ export async function POST(request: NextRequest) {
     await setVentureDoc(slug, type, content ?? '')
     return Response.json({ ok: true, slug, type })
   } catch (e) {
-    return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    return Response.json({ error: errMsg(e) }, { status: 500 })
   }
 }
