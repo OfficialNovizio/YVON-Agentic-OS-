@@ -5,9 +5,13 @@
 // data folded directly into the CAOS phase it actually belongs to, so
 // nothing is lost, it's just no longer shown as a sibling of CAOS:
 //   - Input Analysis (tier/relation/must-haves/routing)  → phase 01 CLASSIFY
-//   - Context Injection (agent skills, venture memory)   → phase 03 RESOLVE
-//     (its CAG-cache sub-step — docs/MASTER.md §6.2 — is what context
-//     injection actually is)
+//   - Context Injection, split 2026-08-11 once each half was actually
+//     checked against real code (docs/MASTER.md's CAG-cache/graph-tier
+//     story for this step turned out to be real code that's never wired
+//     into chat — see phase 03's own comment in caos-phases.ts):
+//       agent skills  → phase 02 SKILL DISCLOSURE (real matching, wired)
+//       venture memory → phase 03 RESOLVE (a plain DB lookup, wired;
+//                        graph-tier/CAG/MemPalace is NOT what runs here)
 //   - Execution (tool calls, working agent avatars)       → phase 09 GENERATION
 //   - Recording (events · graph · memory writes)           → phase 11 FEEDBACK LOOP
 //
@@ -44,17 +48,21 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
   const toggle = (id: string) => setExpanded((p) => ({ ...p, [id]: !p[id] }))
 
   const analysis = stages.find((s) => s.kind === 'analyze')
+  const disclosureStage = stages.find((s) => s.kind === 'disclosure')
   const phaseStages = (p: string) => stages.filter((s) => s.kind === p)
-  const contextStages = stages.filter((s) => s.kind === 'context')
   const toolStages = stages.filter((s) => s.kind === 'tool')
   const recordStages = stages.filter((s) => s.kind === 'record')
   const agentRows = agents.map((id) => FLEET.find((a) => a.id === id)).filter(Boolean).slice(0, 3)
 
   // Folds the old standalone sections' real stages into the CAOS phase they
   // actually belong to (see file header). Phases not listed here have no
-  // extra live source beyond their own `kind`.
+  // extra live source beyond their own `kind`. RESOLVE used to fold in a
+  // separate 'context' kind here — retired 2026-08-11: that event bundled
+  // agent-skills data (now phase 02's own signal) with venture-memory data;
+  // venture memory now emits directly as kind:'resolve' (venture.context in
+  // stream/route.ts), so it needs no folding — phaseStages('resolve') finds
+  // it on its own, same as any other phase's live stage.
   const extraForPhase: Record<string, PipelineStage[]> = {
-    resolve: contextStages,
     generation: toolStages,
     'feedback-loop': recordStages,
   }
@@ -66,7 +74,7 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
         ? 'border-[var(--chat-accent)]/40 bg-[var(--chat-accent)]/10 text-[var(--chat-accent)]'
         : 'border-[var(--chat-hairline)] bg-white/[0.03] text-[var(--chat-text-dim)]'
     return (
-      <span className={`shrink-0 rounded-full border px-1.5 py-px font-mono text-[8.5px] uppercase tracking-widest ${cls}`}>
+      <span className={`shrink-0 rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest ${cls}`}>
         {children}
       </span>
     )
@@ -77,14 +85,56 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
   function FlowRow({ n, label, chip, children }: { n: string; label: string; chip?: React.ReactNode; children?: React.ReactNode }) {
     return (
       <div>
-        <div className="flex items-center gap-2 text-[10px]">
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400/80" />
-          <span className="font-mono text-[8.5px] text-[var(--chat-text-faint)]">{n}</span>
+        <div className="flex items-center gap-2 text-[11.5px]">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400/80" />
+          <span className="font-mono text-[10px] text-[var(--chat-text-faint)]">{n}</span>
           <span className="text-[var(--chat-text-dim)]">{label}</span>
           {chip && <span className="ml-auto">{chip}</span>}
         </div>
-        {children && <div className="ml-[18px] mt-0.5 space-y-0.5 border-l border-[var(--chat-hairline-soft)] pl-2.5">{children}</div>}
+        {children && <div className="ml-[20px] mt-1 space-y-1 border-l border-[var(--chat-hairline-soft)] pl-3">{children}</div>}
       </div>
+    )
+  }
+
+  // ── Reference lines — renders a phase/gate's static process[] array.
+  // Lines that are a concrete illustrative example (start with a quote
+  // mark, e.g. '"acquire + $2M" → strategic_analysis → marcus') are styled
+  // distinctly from the abstract mechanism description, so reference copy
+  // can never be mistaken for this turn's real output (see Decision below,
+  // which is the only section fed by live events). ───────────────────────
+  function ReferenceLines({ lines, size = 'md' }: { lines: string[]; size?: 'md' | 'sm' }) {
+    const base = size === 'sm' ? 'text-[10.5px]' : 'text-[11.5px]'
+    // Examples render a size step down and indented, so they read as a
+    // caption nested under the mechanism line above them, not a second
+    // heading of equal weight.
+    const sub = size === 'sm' ? 'text-[9px]' : 'text-[10px]'
+    return (
+      <>
+        {lines.map((line, i) => {
+          const t = line.trim()
+          // Two conventions exist in the data: a quoted example ('"acquire +
+          // $2M" → …', the older phases) or a line already spelled out
+          // starting with "e.g." (phase 01, written 2026-08-11). The old
+          // check only matched the first, so phase 01's e.g. lines fell
+          // through to the mechanism-line branch and rendered identically
+          // bold/full-size — that's the bug the DOM inspection caught.
+          const hasEgPrefix = /^e\.g\.\s*/i.test(t)
+          const isExample = hasEgPrefix || t.startsWith('"')
+          const display = hasEgPrefix ? t : isExample ? `e.g. ${t}` : line
+          return (
+            <div
+              key={i}
+              className={
+                isExample
+                  ? `${sub} ml-2 leading-snug italic font-normal text-[var(--chat-text-faint)] opacity-60`
+                  : `${base} leading-snug font-semibold text-[var(--chat-text-dim)]`
+              }
+            >
+              {display}
+            </div>
+          )
+        })}
+      </>
     )
   }
 
@@ -98,6 +148,7 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
     n,
     title,
     file,
+    defaultOpen,
     children,
   }: {
     id: string
@@ -105,31 +156,34 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
     n: string
     title: string
     file?: string
+    /** Opens this pill before the user has clicked it, if true (e.g. it has
+     * live data). An explicit user toggle always overrides this afterward. */
+    defaultOpen?: boolean
     children: React.ReactNode
   }) {
-    const open = !!expanded[id]
+    const open = expanded[id] ?? defaultOpen ?? false
     return (
       <div
         className={`overflow-hidden border border-[var(--chat-hairline-soft)] transition-[border-radius] duration-200 ${
           open ? 'rounded-xl' : 'rounded-full'
         }`}
       >
-        <button onClick={() => toggle(id)} className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left">
-          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isLive ? 'bg-emerald-400/80' : 'bg-white/20'}`} />
-          <span className="font-mono text-[8.5px] text-[var(--chat-text-faint)]">{n}</span>
-          <span className="truncate text-[10px] font-semibold text-[var(--chat-text-dim)]">{title}</span>
-          <span className="ml-auto flex shrink-0 items-center gap-1.5">
-            {open && file && <span className="hidden truncate font-mono text-[8px] text-[var(--chat-text-faint)] sm:inline">{file}</span>}
+        <button onClick={() => toggle(id)} className="flex w-full items-center gap-2 px-3.5 py-2 text-left">
+          <span className={`h-2 w-2 shrink-0 rounded-full ${isLive ? 'bg-emerald-400/80' : 'bg-white/20'}`} />
+          <span className="font-mono text-[10px] text-[var(--chat-text-faint)]">{n}</span>
+          <span className="truncate text-[12.5px] font-semibold text-[var(--chat-text-dim)]">{title}</span>
+          <span className="ml-auto flex shrink-0 items-center gap-2">
+            {open && file && <span className="hidden truncate font-mono text-[9.5px] text-[var(--chat-text-faint)] sm:inline">{file}</span>}
             {open ? (
-              <ChevronDown className="h-3 w-3 shrink-0 text-[var(--chat-text-faint)]" />
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[var(--chat-text-faint)]" />
             ) : (
-              <ChevronRight className="h-3 w-3 shrink-0 text-[var(--chat-text-faint)]" />
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[var(--chat-text-faint)]" />
             )}
           </span>
         </button>
         <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
           <div className="overflow-hidden">
-            <div className="space-y-2 px-3 pb-2.5 pt-0.5">{children}</div>
+            <div className="space-y-2.5 px-3.5 pb-3 pt-1">{children}</div>
           </div>
         </div>
       </div>
@@ -140,8 +194,8 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
   function Sub({ label, children }: { label: string; children: React.ReactNode }) {
     return (
       <div>
-        <div className="text-[8.5px] font-semibold uppercase tracking-wider text-[var(--chat-text-faint)]">{label}</div>
-        <div className="mt-0.5 space-y-0.5 border-l border-[var(--chat-hairline-soft)] pl-2">{children}</div>
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--chat-text-faint)]">{label}</div>
+        <div className="mt-1 space-y-1 border-l border-[var(--chat-hairline-soft)] pl-2.5">{children}</div>
       </div>
     )
   }
@@ -159,88 +213,146 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
       .sort((a, b) => (a.ts ?? 0) - (b.ts ?? 0))
 
     const hasRichClassify = phase.id === 'classify' && !!analysis?.analysis
-    const isLive = hasRichClassify || sorted.length > 0
+    const hasRichDisclosure = phase.id === 'disclosure' && !!disclosureStage?.disclosure
+    const isLive = hasRichClassify || hasRichDisclosure || sorted.length > 0
 
     return (
-      <PillExpand id={`caos-phase-${phase.id}`} isLive={isLive} n={phase.n} title={phase.title} file={phase.file}>
-        <Sub label="Process">
-          {phase.process.map((line, i) => (
-            <div key={i} className="text-[9px] leading-snug text-[var(--chat-text-faint)]">
-              {line}
-            </div>
-          ))}
+      <PillExpand id={`caos-phase-${phase.id}`} isLive={isLive} defaultOpen={isLive} n={phase.n} title={phase.title} file={phase.file}>
+        {/* Message preview — only on the classify pill, only when live. Shows
+            what was actually sent, so Reference (generic mechanism) and
+            Decision (this turn's real result) both read against the same
+            message instead of floating with no anchor. */}
+        {hasRichClassify && analysis!.analysis!.what && (
+          <div className="truncate text-[10.5px] italic text-[var(--chat-text-faint)]">
+            &quot;{analysis!.analysis!.what}&quot;
+          </div>
+        )}
+
+        <Sub label="Reference">
+          <ReferenceLines lines={phase.process} />
         </Sub>
 
         <Sub label="Decision">
-          {hasRichClassify ? (
-            <div className="space-y-1.5">
+          {hasRichDisclosure ? (
+            <div className="space-y-2">
               <FlowRow
                 n="a"
-                label="classify"
+                label="active skills"
+                chip={
+                  disclosureStage!.disclosure!.active.length === 0 ? (
+                    <Chip tone="neutral">none matched</Chip>
+                  ) : undefined
+                }
+              >
+                {disclosureStage!.disclosure!.active.length > 0 && (
+                  <div className="space-y-1.5">
+                    {disclosureStage!.disclosure!.active.map((a) => (
+                      <div key={a.name}>
+                        <span className="text-[11.5px] font-medium text-[var(--chat-text-dim)]">{a.name}</span>
+                        <div className="text-[10px] leading-snug text-[var(--chat-text-faint)]">{a.reason}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </FlowRow>
+              <FlowRow
+                n="b"
+                label="stayed summary-only"
+                chip={<Chip tone="neutral">{disclosureStage!.disclosure!.inactiveCount} of {disclosureStage!.disclosure!.totalSkills}</Chip>}
+              />
+              <div className="border-t border-[var(--chat-hairline-soft)] pt-2 text-[11.5px] leading-snug text-[var(--chat-text-dim)]">
+                <span className="text-[var(--chat-text-faint)]">→ </span>
+                {disclosureStage!.disclosure!.totalSkills === 0
+                  ? 'this agent has no skills defined yet.'
+                  : `${disclosureStage!.disclosure!.savingsPct}% context saved, only ${disclosureStage!.disclosure!.active.length} of ${disclosureStage!.disclosure!.totalSkills} skills loaded full.`}
+              </div>
+            </div>
+          ) : hasRichClassify ? (
+            <div className="space-y-2">
+              <FlowRow
+                n="a"
+                label="message type"
                 chip={<Chip tone={analysis!.analysis!.tier === 'build' ? 'accent' : 'neutral'}>{analysis!.analysis!.tier}</Chip>}
               />
               <FlowRow
                 n="b"
-                label="relation"
-                chip={<Chip tone={analysis!.analysis!.relation === 'venture' ? 'accent' : 'neutral'}>{analysis!.analysis!.relation}</Chip>}
+                label="relates to"
+                chip={<Chip tone={analysis!.analysis!.relation === 'venture' ? 'accent' : 'neutral'}>{analysis!.analysis!.relation === 'venture' ? 'this project' : 'general'}</Chip>}
               />
-              {analysis!.analysis!.targetAgents && (
-                <FlowRow
-                  n="c"
-                  label="route"
-                  chip={
-                    <span className="flex items-center gap-1">
-                      <Chip tone="accent">{analysis!.analysis!.targetAgents!.primary}</Chip>
-                      {analysis!.analysis!.targetAgents!.team.map((t) => (
-                        <Chip key={t} tone="neutral">{t}</Chip>
-                      ))}
-                    </span>
-                  }
-                >
-                  {analysis!.analysis!.targetAgents!.reason && (
-                    <div className="text-[9px] leading-snug text-[var(--chat-text-faint)]">{analysis!.analysis!.targetAgents!.reason}</div>
-                  )}
-                </FlowRow>
-              )}
+              {analysis!.analysis!.targetAgents && (() => {
+                const { primary, team, reason } = analysis!.analysis!.targetAgents!
+                // team always includes primary (see routing.ts) — only show
+                // teammates that add information beyond the primary chip,
+                // instead of rendering the same agent twice (e.g. "META META").
+                const extraTeam = team.filter((t) => t !== primary)
+                return (
+                  <FlowRow
+                    n="c"
+                    label="handled by"
+                    chip={
+                      <span className="flex items-center gap-1">
+                        <Chip tone="accent">{primary}</Chip>
+                        {extraTeam.map((t) => (
+                          <Chip key={t} tone="neutral">{t}</Chip>
+                        ))}
+                      </span>
+                    }
+                  >
+                    {reason && <div className="text-[10.5px] leading-snug text-[var(--chat-text-faint)]">{reason}</div>}
+                  </FlowRow>
+                )
+              })()}
               {analysis!.analysis!.mustHaves && analysis!.analysis!.mustHaves!.length > 0 && (
-                <FlowRow n="d" label="must-haves">
+                <FlowRow n="d" label="success checklist">
                   {analysis!.analysis!.mustHaves!.map((mh, i) => (
-                    <div key={i} className="flex items-start gap-1.5 text-[10px]">
-                      <Check className="mt-px h-2.5 w-2.5 shrink-0 text-emerald-400" />
+                    <div key={i} className="flex items-start gap-1.5 text-[11.5px]">
+                      <Check className="mt-px h-3 w-3 shrink-0 text-emerald-400" />
                       <span className="text-[var(--chat-text-dim)]">{mh}</span>
                     </div>
                   ))}
                 </FlowRow>
               )}
+
+              {/* Outcome — the phase's actual verdict, in one line. Without
+                  this the block just trails off after "handled by X" and
+                  the reader has to infer what a/b/c actually add up to. */}
+              <div className="border-t border-[var(--chat-hairline-soft)] pt-2 text-[11.5px] leading-snug text-[var(--chat-text-dim)]">
+                <span className="text-[var(--chat-text-faint)]">→ </span>
+                {analysis!.analysis!.tier === 'generic'
+                  ? 'small talk / acknowledgment, answered directly, no pipeline run.'
+                  : analysis!.analysis!.tier === 'info'
+                    ? `info request, ${analysis!.analysis!.targetAgents?.primary ?? 'the agent'} answers directly, no build work item created.`
+                    : `build request, routed to ${analysis!.analysis!.targetAgents?.primary ?? 'the agent'}, the checklist above defines done.`}
+              </div>
             </div>
           ) : sorted.length > 0 ? (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               {sorted.map((s, i) => (
-                <div key={i} className="flex items-start gap-1.5 text-[9.5px]">
+                <div key={i} className="flex items-start gap-1.5 text-[11.5px]">
                   <span
-                    className={`mt-0.5 h-1 w-1 shrink-0 rounded-full ${
+                    className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${
                       s.status === 'error' ? 'bg-red-400/90' : s.status === 'active' ? 'animate-pulse bg-[var(--chat-accent)]' : 'bg-emerald-400/80'
                     }`}
                   />
                   <span className="text-[var(--chat-text-dim)]">{s.label}</span>
-                  {s.detail && <span className="ml-auto truncate text-[8.5px] text-[var(--chat-text-faint)]">{s.detail}</span>}
+                  {s.detail && <span className="ml-auto truncate text-[10px] text-[var(--chat-text-faint)]">{s.detail}</span>}
                 </div>
               ))}
               {phase.id === 'generation' && agentRows.length > 0 && (
-                <div className="mt-1 flex items-center gap-2">
+                <div className="mt-1.5 flex items-center gap-2">
                   <div className="flex -space-x-1.5">
                     {agentRows.map((a) => (
                       <span key={a!.id} className="rounded-full border border-[#0a0a0f]" title={a!.name}>
-                        <AgentAvatar id={a!.id} name={a!.name} size={18} />
+                        <AgentAvatar id={a!.id} name={a!.name} size={20} />
                       </span>
                     ))}
                   </div>
-                  <span className="text-[9px] italic text-[var(--chat-text-dim)]">{thinking ?? 'working'}</span>
+                  <span className="text-[10.5px] italic text-[var(--chat-text-dim)]">{thinking ?? 'working'}</span>
                 </div>
               )}
             </div>
           ) : (
-            <div className="text-[9.5px] italic leading-snug text-[var(--chat-text-faint)]">{phase.decisionFallback}</div>
+            <div className="text-[11.5px] italic leading-snug text-[var(--chat-text-faint)]">{phase.decisionFallback}</div>
           )}
         </Sub>
 
@@ -258,16 +370,12 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
                   (s.label ?? '').toLowerCase().includes(g.matchKeyword),
               )
               return (
-                <PillExpand key={g.id} id={`caos-gate-${g.id}`} isLive={!!gLive} n={String(g.n)} title={g.title}>
-                  <Sub label="Process">
-                    {g.process.map((line, i) => (
-                      <div key={i} className="text-[8.5px] leading-snug text-[var(--chat-text-faint)]">
-                        {line}
-                      </div>
-                    ))}
+                <PillExpand key={g.id} id={`caos-gate-${g.id}`} isLive={!!gLive} defaultOpen={!!gLive} n={String(g.n)} title={g.title}>
+                  <Sub label="Reference">
+                    <ReferenceLines lines={g.process} size="sm" />
                   </Sub>
                   <Sub label="Decision">
-                    <div className={`text-[9px] leading-snug ${gLive ? 'text-[var(--chat-text-dim)]' : 'italic text-[var(--chat-text-faint)]'}`}>
+                    <div className={`text-[10.5px] leading-snug ${gLive ? 'text-[var(--chat-text-dim)]' : 'italic text-[var(--chat-text-faint)]'}`}>
                       {gLive ? (gLive.status === 'error' ? `blocked · ${gLive.detail ?? ''}` : gLive.detail ?? 'passed') : g.decisionFallback}
                     </div>
                   </Sub>
@@ -283,35 +391,35 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
   return (
     <div className={`flex h-full w-full flex-col overflow-hidden border-l border-[var(--chat-hairline-soft)] bg-white/[0.015] ${disabled ? 'opacity-60' : ''}`}>
       {/* Header — CAOS + full form. Only CAOS exists in this panel. */}
-      <div className="border-b border-[var(--chat-hairline-soft)] px-4 pb-2.5 pt-3.5">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-[var(--chat-text-dim)]">CAOS</span>
+      <div className="border-b border-[var(--chat-hairline-soft)] px-4 pb-3 pt-4">
+        <div className="flex items-center gap-2">
+          <span className="text-[11.5px] font-semibold uppercase tracking-widest text-[var(--chat-text-dim)]">CAOS</span>
           {!disabled && (
-            <span className="rounded-full border border-[var(--chat-hairline-soft)] px-1.5 py-px font-mono text-[8.5px] uppercase tracking-widest text-[var(--chat-text-faint)]">{source}</span>
+            <span className="rounded-full border border-[var(--chat-hairline-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-[var(--chat-text-faint)]">{source}</span>
           )}
         </div>
-        <div className="mt-0.5 text-[9px] italic text-[var(--chat-text-faint)]">Context-Aware Orchestration System</div>
+        <div className="mt-1 text-[10.5px] italic text-[var(--chat-text-faint)]">Context-Aware Orchestration System</div>
       </div>
 
-      <div className="chat-scroll flex-1 space-y-1.5 overflow-y-auto px-3 py-3">
+      <div className="chat-scroll flex-1 space-y-2 overflow-y-auto px-3 py-3.5">
         {/* Structure is always visible, turn or no turn — each phase's own
             Decision dropdown already says "awaiting …" / "not emitted yet"
             when there's nothing live, so a separate blocking placeholder
             that hid all 12 phases was a bug, not a feature (2026-08-11). */}
         {disabled && (
-          <div className="pb-1 text-center">
-            <div className="text-[10px] text-[var(--chat-text-faint)]">Waiting for a task — send a message to start</div>
+          <div className="pb-1.5 text-center">
+            <div className="text-[11.5px] text-[var(--chat-text-faint)]">Waiting for a task, send a message to start</div>
           </div>
         )}
 
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {CAOS_PHASES.slice(0, 7).map((phase) => (
             <CaosPhaseBlock key={phase.id} phase={phase} />
           ))}
 
-          <div className="my-1 flex items-center gap-2 px-0.5">
+          <div className="my-1.5 flex items-center gap-2 px-0.5">
             <div className="h-px flex-1 bg-[var(--chat-hairline-soft)]" />
-            <span className="text-[7.5px] uppercase tracking-widest text-[var(--chat-text-faint)]">CAOS boundary · §3</span>
+            <span className="text-[9px] uppercase tracking-widest text-[var(--chat-text-faint)]">CAOS boundary · §3</span>
             <div className="h-px flex-1 bg-[var(--chat-hairline-soft)]" />
           </div>
 
@@ -322,12 +430,12 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
           {/* Phase 12 — held, static bottom view only (not per-turn, so it
               never expands — no click target, unlike every other pill above,
               but same resting pill shape for visual consistency). */}
-          <div className="overflow-hidden rounded-full border border-dashed border-[var(--chat-hairline-soft)] px-3 py-1.5 opacity-70">
-            <div className="flex items-center gap-1.5 text-[10px]">
-              <span className="font-mono text-[8.5px] text-[var(--chat-text-faint)]">{CAOS_FIELD_MONITORING.n}</span>
+          <div className="overflow-hidden rounded-full border border-dashed border-[var(--chat-hairline-soft)] px-3.5 py-2 opacity-70">
+            <div className="flex items-center gap-2 text-[12px]">
+              <span className="font-mono text-[10px] text-[var(--chat-text-faint)]">{CAOS_FIELD_MONITORING.n}</span>
               <span className="truncate font-semibold text-[var(--chat-text-dim)]">{CAOS_FIELD_MONITORING.title}</span>
             </div>
-            <div className="mt-1 text-[9px] italic leading-snug text-[var(--chat-text-faint)]">{CAOS_FIELD_MONITORING.note}</div>
+            <div className="mt-1 text-[10.5px] italic leading-snug text-[var(--chat-text-faint)]">{CAOS_FIELD_MONITORING.note}</div>
           </div>
         </div>
       </div>

@@ -24,7 +24,7 @@ import type { UploadedAttachment } from '@/lib/attachments-client'
 import type { ChatRoom } from '@/app/api/chat/rooms/route'
 import type { ChatMessage } from '@/app/api/chat/messages/route'
 import type { TurnEvent } from '@/app/api/chat/events/route'
-import { stageFromSseEvent, stageFromEventRow, upsertStage, type PipelineView, type InputAnalysisStage } from '@/lib/pipeline'
+import { stageFromSseEvent, stageFromEventRow, upsertStage, type PipelineView, type InputAnalysisStage, type SkillDisclosureStage } from '@/lib/pipeline'
 
 // Live-status chip types (moved from the removed StatusChip.tsx — page.tsx is
 // now the only consumer; the chip component itself was dead after TS-020).
@@ -387,6 +387,13 @@ export default function ChatPage() {
                 targetAgents?: { primary: string; team: string[]; reason: string }
                 title?: string
                 correlation?: string
+                active?: SkillDisclosureStage['active']
+                inactiveCount?: number
+                totalSkills?: number
+                savingsPct?: number
+                attached?: boolean
+                wing?: string
+                count?: number
               }
 
               // Live tokens → streaming bubble (TS-020)
@@ -430,14 +437,36 @@ export default function ChatPage() {
                 }))
               }
 
-              // TS-028: context-injection stage (real).
-              if (event.kind === 'context.injected') {
+              // RESOLVE (2026-08-11): venture-memory attachment — the one
+              // real, live signal RESOLVE has (replaces the old
+              // 'context.injected' event, which bundled in agent-skills
+              // data that's phase 02's job now — see stream/route.ts).
+              if (event.kind === 'venture.context') {
                 setPipeline((prev) => ({
                   stages: upsertStage(prev.stages, {
-                    id: 'context-injected',
-                    kind: 'context',
-                    label: event.label ?? 'context',
+                    id: 'venture-context',
+                    kind: 'resolve',
+                    label: event.attached ? 'venture memory attached' : 'no venture memory',
                     detail: event.detail,
+                    status: 'done',
+                    ts: Date.now(),
+                  }),
+                  source: 'live',
+                }))
+              }
+
+              // MemPalace Phase 2 (2026-08-11, PRD: docs/PRD-graph-memory-live-
+              // brands.md Work item B) — a real drawer just got written for
+              // this turn. Separate stage id, same 'resolve' kind, so it
+              // shows alongside the venture-context line rather than
+              // overwriting it (upsertStage keys on id).
+              if (event.kind === 'mempalace.drawer') {
+                setPipeline((prev) => ({
+                  stages: upsertStage(prev.stages, {
+                    id: 'mempalace-drawer',
+                    kind: 'resolve',
+                    label: `mempalace drawer saved · ${event.wing ?? '?'}`,
+                    detail: `${event.count ?? 0} row(s)`,
                     status: 'done',
                     ts: Date.now(),
                   }),
@@ -517,6 +546,32 @@ export default function ChatPage() {
                       desiredOutput: event.desiredOutput,
                       mustHaves: event.mustHaves,
                       targetAgents: event.targetAgents,
+                    },
+                  }),
+                  source: 'live',
+                }))
+              }
+
+              // Skill disclosure (2026-08-11): real per-turn skill matching
+              // from lib/context-resolver.ts's skillDisclosureFor() — which
+              // skills actually got full content injected vs stayed a
+              // one-line summary, and the real savings%. Mirrors the
+              // input.analysis handler above; same 'never fabricate' rule —
+              // absent unless this turn actually resolved an agent.
+              if (event.kind === 'skill.disclosure') {
+                setPipeline((prev) => ({
+                  stages: upsertStage(prev.stages, {
+                    id: 'skill-disclosure',
+                    kind: 'disclosure',
+                    label: `skill disclosure · ${(event.active ?? []).length} active`,
+                    detail: (event.active ?? []).map((a) => a.name).join(', ') || 'none matched',
+                    status: 'done',
+                    ts: Date.now(),
+                    disclosure: {
+                      active: event.active ?? [],
+                      inactiveCount: event.inactiveCount ?? 0,
+                      totalSkills: event.totalSkills ?? 0,
+                      savingsPct: event.savingsPct ?? 0,
                     },
                   }),
                   source: 'live',

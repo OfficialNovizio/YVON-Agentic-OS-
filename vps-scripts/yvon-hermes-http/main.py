@@ -32,6 +32,7 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.request
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -98,6 +99,61 @@ if HERMES_MODEL_DEFAULT or HERMES_PROVIDER_DEFAULT:
         HERMES_MODEL_DEFAULT,
         HERMES_PROVIDER_DEFAULT,
     )
+
+# ── Dashboard-configured provider (Settings → AI Provider, 2026-08-11) ──────
+# Settings writes to Supabase `ai_provider_keys` via /api/ai-keys — previously
+# that table had no consumer, so the "AI Provider" card was a static label
+# with no effect. This reads the is_active=true row fresh on every NEW agent
+# session (not cached, not per-message) and overrides the config.yaml-sourced
+# defaults above. Falls back to those defaults — i.e. today's known-working
+# behavior — on any error, so a bad row or a Supabase hiccup degrades to the
+# old static config instead of breaking chat.
+#
+# provider string mapping: what the dashboard/detectProviderFromUrl calls a
+# provider is not always the literal string hermes-agent's AIAgent expects
+# (confirmed live 2026-08-11 via /usr/local/lib/hermes-agent/plugins/model-providers/
+# — 'anthropic' and 'deepseek' are real plugin dirs and map straight through;
+# native OpenAI is a built-in, not a plugin, and only responds to 'openai-api'
+# per the live-tested hermes-config.contabo.yaml; anything else — a custom or
+# unrecognized OpenAI-compatible endpoint — goes through the 'custom' plugin,
+# which is what base_url + api_key are for).
+_PROVIDER_STRING_MAP = {
+    "anthropic": "anthropic",
+    "deepseek": "deepseek",
+    "openai": "openai-api",
+}
+
+
+def _fetch_active_provider_config() -> Optional[dict[str, Any]]:
+    """Return {provider, model, api_key, base_url} for the Settings-configured
+    active provider, or None (caller falls back to config.yaml defaults)."""
+    url = os.environ.get("SUPABASE_URL", "").rstrip("/")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+    if not url or not key:
+        return None
+    try:
+        req = urllib.request.Request(
+            f"{url}/rest/v1/ai_provider_keys?is_active=eq.true&select=provider,api_key,base_url,fast_model,synthesis_model&limit=1",
+            headers={"apikey": key, "Authorization": f"Bearer {key}"},
+            method="GET",
+        )
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            rows = json.loads(resp.read())
+        if not rows:
+            return None
+        row = rows[0]
+        provider_key = str(row.get("provider") or "").strip().lower()
+        if not provider_key or not row.get("api_key"):
+            return None
+        return {
+            "provider": _PROVIDER_STRING_MAP.get(provider_key, "custom"),
+            "model": row.get("synthesis_model") or row.get("fast_model") or None,
+            "api_key": row["api_key"],
+            "base_url": row.get("base_url") or None,
+        }
+    except Exception as exc:  # noqa: BLE001 — never let this block agent creation
+        log.debug("active-provider fetch failed (falling back to config.yaml): %s", exc)
+        return None
 
 try:
     from run_agent import AIAgent  # type: ignore[import-not-found]
@@ -167,10 +223,32 @@ def _agent_for(user_id: str, room_id: str) -> PooledAgent:
         pooled = _pool.get(key)
         if pooled is None:
             log.info("spawning new AIAgent for user=%s room=%s", user_id, room_id)
-            # AIAgent picks up provider/model/keys automatically from
-            # /root/.hermes/config.yaml + /root/.hermes/.env. We just supply a
-            # stable session id so conversation state persists.
-            #
+            # Provider/model resolution order (2026-08-11): Settings → AI
+            # Provider (ai_provider_keys, is_active=true) first, since that's
+            # what a person actually configured in the dashboard; falls back
+            # to /root/.hermes/config.yaml's static defaults if no row is
+            # active or the fetch fails for any reason. This only runs once
+            # per NEW (user, room) session — an existing pooled agent keeps
+            # whatever it was created with until it naturally expires
+            # (POOL_IDLE_TTL_S) or the room reopens, by design (Settings
+            # question, 2026-08-11: "new sessions only", not a forced
+            # mid-conversation switch).
+            _active = _fetch_active_provider_config()
+            if _active:
+                log.info("using Settings-configured provider=%s model=%s", _active["provider"], _active["model"])
+            _agent_kwargs = dict(
+                session_id=f"web-{user_id}-{room_id}",
+                model=(_active["model"] if _active else None) or HERMES_MODEL_DEFAULT or None,
+                provider=(_active["provider"] if _active else None) or HERMES_PROVIDER_DEFAULT or None,
+                api_key=_active["api_key"] if _active else None,
+                base_url=_active["base_url"] if _active else None,
+                max_iterations=MAX_ITERATIONS,
+                quiet_mode=True,
+                save_trajectories=False,
+                skip_context_files=False,
+                load_soul_identity=False,
+                skip_memory=False,
+            )
             # TS-018 WI-8/WI-12 — Defect C (YVON-CHAT §4.3): `terminal` and
             # `code_execution` are registered only under platform_toolsets.cli
             # (hermes-config.contabo.yaml). With no platform argument, AIAgent
@@ -179,17 +257,6 @@ def _agent_for(user_id: str, room_id: str) -> PooledAgent:
             # tools load. The exact kwarg name lives in hermes-agent source on
             # the box (not tracked here), so we degrade loudly: try `platform`,
             # then `toolset`, then bare — each fallback logs a warning.
-            _agent_kwargs = dict(
-                session_id=f"web-{user_id}-{room_id}",
-                model=HERMES_MODEL_DEFAULT or None,
-                provider=HERMES_PROVIDER_DEFAULT or None,
-                max_iterations=MAX_ITERATIONS,
-                quiet_mode=True,
-                save_trajectories=False,
-                skip_context_files=False,
-                load_soul_identity=False,
-                skip_memory=False,
-            )
             agent = None
             for _kw, _val in (("platform", "cli"), ("toolset", "cli")):
                 if agent is not None:

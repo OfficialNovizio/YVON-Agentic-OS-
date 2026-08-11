@@ -85,6 +85,19 @@ export async function POST(request: NextRequest) {
 
   try {
     const sb = getServiceClient()
+    const active = isActive ?? true
+
+    // Only one provider drives Hermes at a time (main.py's _agent_for() reads
+    // exactly one is_active=true row per new session — see route.ts header).
+    // Unset the others FIRST so a crash/partial-write between the two calls
+    // never leaves two rows active at once.
+    if (active) {
+      const { error: unsetErr } = await sb.from('ai_provider_keys').update({ is_active: false }).neq('provider', provider)
+      if (unsetErr) {
+        console.error('[ai-keys POST] unset-others error:', unsetErr.message)
+        return Response.json({ error: unsetErr.message }, { status: 500 })
+      }
+    }
 
     const { error } = await sb.from('ai_provider_keys').upsert({
       provider,
@@ -92,7 +105,7 @@ export async function POST(request: NextRequest) {
       fast_model:      fastModel ?? '',
       synthesis_model: synthesisModel ?? '',
       tertiary_model:  tertiaryModel ?? '',
-      is_active:       isActive ?? true,
+      is_active:       active,
       base_url:        baseUrl ?? null,
       updated_at:      new Date().toISOString(),
     }, { onConflict: 'provider' })
@@ -152,6 +165,13 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const sb = getServiceClient()
+
+    // Same single-active-provider invariant as POST (see comment there).
+    if (isActive === true) {
+      const { error: unsetErr } = await sb.from('ai_provider_keys').update({ is_active: false }).neq('provider', provider)
+      if (unsetErr) return Response.json({ error: unsetErr.message }, { status: 500 })
+    }
+
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
     if (fastModel !== undefined)      updates.fast_model      = fastModel
     if (synthesisModel !== undefined) updates.synthesis_model = synthesisModel

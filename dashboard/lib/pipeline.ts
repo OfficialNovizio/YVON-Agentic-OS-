@@ -18,7 +18,7 @@ export type SseLike = {
 
 export interface PipelineStage {
   id: string
-  kind: 'analyze' | 'context' | 'classify' | 'resolve' | 'retrieve' | 'tool' | 'gate' | 'loop' | 'run' | 'record'
+  kind: 'analyze' | 'context' | 'classify' | 'resolve' | 'retrieve' | 'tool' | 'gate' | 'loop' | 'run' | 'record' | 'disclosure'
   label: string
   detail?: string
   status: 'active' | 'done' | 'error' | 'pending'
@@ -28,6 +28,20 @@ export interface PipelineStage {
    * stage so the HUD renders tier/relation/fields/must-haves/routing as UI
    * (chips, checklist, agent plan), not flattened text. Absent for old rows. */
   analysis?: InputAnalysisStage
+  /** Structured skill-disclosure payload (2026-08-11) — carried on the
+   * 'disclosure' stage: which skills actually activated this turn (with
+   * full content injected), how many stayed summary-only, and the real
+   * savings percentage. Mirrors lib/context-resolver.ts's SkillDisclosureResult. */
+  disclosure?: SkillDisclosureStage
+}
+
+/** Mirrors lib/context-resolver.ts's SkillDisclosureResult, minus full
+ * SKILL.md content (the HUD shows what matched and why, not the full body). */
+export interface SkillDisclosureStage {
+  active: { name: string; summary: string; reason: string }[]
+  inactiveCount: number
+  totalSkills: number
+  savingsPct: number
 }
 
 /** The InputAnalysis shape the pipeline panel cares about — mirrors
@@ -178,8 +192,37 @@ export function stageFromEventRow(row: TurnEvent): PipelineStage | null {
       return { id: 'run-failed', kind: 'run', label: 'failed', detail: payload.error ? String(payload.error).slice(0, 120) : undefined, status: 'error', ts }
     case 'input.analysis':
       return stageFromInputAnalysisPayload(payload, ts)
+    case 'skill.disclosure':
+      // Persisted replay path — no chat_emit_skill_disclosure_event RPC/
+      // migration exists yet (2026-08-11), so past turns won't show this
+      // until one's added; the live SSE path (page.tsx) already renders it
+      // for the in-flight turn. Kept here so the shape is ready the day
+      // persistence lands, same forward-compat pattern as gate.passed above.
+      return stageFromSkillDisclosurePayload(payload, ts)
     default:
       return null
+  }
+}
+
+/** Build the disclosure stage from a persisted skill.disclosure payload. */
+export function stageFromSkillDisclosurePayload(
+  payload: Record<string, unknown>,
+  ts?: number,
+): PipelineStage | null {
+  const active = Array.isArray(payload.active) ? (payload.active as SkillDisclosureStage['active']) : []
+  return {
+    id: 'skill-disclosure',
+    kind: 'disclosure',
+    label: `skill disclosure · ${active.length} active`,
+    detail: active.map((a) => a.name).join(', ') || 'none matched',
+    status: 'done',
+    ts,
+    disclosure: {
+      active,
+      inactiveCount: Number(payload.inactiveCount ?? 0),
+      totalSkills: Number(payload.totalSkills ?? 0),
+      savingsPct: Number(payload.savingsPct ?? 0),
+    },
   }
 }
 

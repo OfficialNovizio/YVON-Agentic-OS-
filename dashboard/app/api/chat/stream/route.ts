@@ -111,18 +111,25 @@ export async function GET(request: Request): Promise<Response> {
 
       let turnCorrelation: string | null = null
       let correlationPersisted = false
+      // Hoisted out of the try block below (content/analysis are block-scoped
+      // there) so the MemPalace drawer write after the try/catch can still
+      // read this turn's message text and venture-relation gate.
+      let turnContent = ''
+      let turnRelation: string | undefined
 
       try {
         const content = userMsg.content ?? ''
+        turnContent = content
         const mentions: string[] = Array.isArray(userMsg.mentions) ? userMsg.mentions : []
 
         // TS-027/TS-028: Input Analysis + Context, INLINED (no self-fetch —
         // the old NEXT_PUBLIC_SITE_URL fetch broke the pipeline events when the
         // env wasn't set / port differed, leaving the HUD on "waiting").
         const { analyzeMessage } = await import('@pipelines/input-analysis')
-        const { agentContextFor, ventureContextFor } = await import('@/lib/context-resolver')
+        const { skillDisclosureFor, ventureContextFor } = await import('@/lib/context-resolver')
 
         const analysis = await analyzeMessage(content)
+        turnRelation = analysis.relation
         const tier = analysis.tier
         let inputAnalysis: string | null = null
         if (tier === 'build' && analysis.analyzed) {
@@ -239,49 +246,68 @@ export async function GET(request: Request): Promise<Response> {
           return
         }
 
-        // TS-029: context injection ONLY for venture-related messages. General
-        // messages skip context/CAOS/RAG and go straight to the answer.
+        // Which agent actually answers: an explicit @mention wins; otherwise
+        // fall back to what CLASSIFY/ROUTE (pipelines/input-analysis) already
+        // decided. Previously targetAgents was computed and shown on the HUD
+        // but never consumed here — Hermes got no identity unless the user
+        // typed @agent, so it answered as itself instead of the routed agent
+        // (2026-08-11 fix). Identity is cheap (one skills-roster block), so
+        // it's injected regardless of relation; venture memory stays gated
+        // to relation === 'venture' since that's genuinely project-specific
+        // and general chat shouldn't pull it in (TS-029).
+        const effectiveAgentId = mentions[0] ?? analysis.targetAgents?.primary ?? ''
         let agentContext: string | undefined
         let ventureContext: string | undefined
+        if (effectiveAgentId) {
+          // TS-027/CAOS phase 02 (2026-08-11): real progressive-disclosure
+          // skill matching, not just a flat list — see lib/context-resolver.ts
+          // for why the match logic differs from rag/harness/disclosure.py's
+          // (that one's trigger-heading parsing never matches real files).
+          const { prompt, disclosure } = await skillDisclosureFor(effectiveAgentId, content)
+          agentContext = prompt ?? undefined
+          if (disclosure) {
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  kind: 'skill.disclosure',
+                  active: disclosure.active,
+                  inactiveCount: disclosure.inactiveCount,
+                  totalSkills: disclosure.totalSkills,
+                  savingsPct: disclosure.savingsPct,
+                  correlation: turnCorrelation,
+                })}\n\n`,
+              ),
+            )
+          }
+        }
+        // RESOLVE (2026-08-11): was two duplicate 'context.injected' emissions
+        // carrying both an agent-skills signal and a venture-memory signal
+        // bundled together. The agent-skills half is phase 02's job now
+        // (skill.disclosure, above) — src/cie/graph-resolver.ts's graph-tier/
+        // CAG-cache/MemPalace story that RESOLVE's Reference used to describe
+        // isn't wired into chat at all (checked: only imported by the
+        // standalone src/cie/ CIE pipeline, never dashboard/ or the Hermes
+        // wrapper). The one real, RESOLVE-relevant fact this turn has is
+        // whether venture memory attached — so that's the whole signal now,
+        // honest and un-padded, instead of implying a richer mechanism ran.
         if (analysis.relation === 'venture') {
-          agentContext = (await agentContextFor(mentions[0] ?? '')) ?? undefined
           ventureContext = (await ventureContextFor(workspace)) ?? undefined
         }
-        // Emit the context stage always (real, or honest 'none defined').
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({
-              kind: 'context.injected',
-              label: 'context',
-              detail: agentContext
-                ? ventureContext
-                  ? 'agent skills · venture memory'
-                  : 'agent skills'
-                : ventureContext
-                  ? 'venture memory'
-                  : 'no context defined',
+              kind: 'venture.context',
+              attached: !!ventureContext,
+              // Strip the prompt-block prefix and swap the "name — desc" em
+              // dash for a comma — this renders straight into the HUD, and
+              // rendered UI text stays em-dash-free (2026-08-11 house rule).
+              detail: ventureContext
+                ? ventureContext.replace(/^VENTURE MEMORY:\s*/, '').replace(/\s+—\s+/, ', ')
+                : undefined,
               correlation: turnCorrelation,
             })}\n\n`,
           ),
         )
-
-        // TS-028: context-injection stage event (real — resolved above).
-        if (agentContext || ventureContext) {
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({
-                kind: 'context.injected',
-                label: 'context',
-                detail: agentContext
-                  ? ventureContext
-                    ? 'agent skills · venture memory'
-                    : 'agent skills'
-                  : 'venture memory',
-                correlation: turnCorrelation,
-              })}\n\n`,
-            ),
-          )
-        }
 
         for await (const event of streamHermesChat(
           {
@@ -327,8 +353,10 @@ export async function GET(request: Request): Promise<Response> {
 
           if (event.kind === 'done') {
             replyContent = event.response
-            replyAuthorId = mentions[0] ?? 'meta'
-            replyAuthorName = mentions[0] ?? 'meta'
+            // Was hardcoded 'meta' regardless of who CLASSIFY actually
+            // routed to — now the same effectiveAgentId used for context.
+            replyAuthorId = effectiveAgentId || 'meta'
+            replyAuthorName = effectiveAgentId || 'meta'
           } else if (event.kind === 'error') {
             replyContent = `[Hermes error] ${event.message}`
             replyAuthorId = 'system'
@@ -396,18 +424,24 @@ export async function GET(request: Request): Promise<Response> {
       }
 
       // ── Save agent reply to DB ──────────────────────────────────────────
+      let agentMessageId: string | undefined
       try {
-        const { error: agentErr } = await supabase.from('chat_messages').insert({
-          room_id: userMsg.room_id,
-          author_kind: 'agent',
-          author_id: replyAuthorId,
-          author_name: replyAuthorName,
-          content: replyContent,
-          mentions: [],
-          correlation: correlationPersisted ? turnCorrelation ?? undefined : undefined,
-        })
+        const { data: agentRow, error: agentErr } = await supabase
+          .from('chat_messages')
+          .insert({
+            room_id: userMsg.room_id,
+            author_kind: 'agent',
+            author_id: replyAuthorId,
+            author_name: replyAuthorName,
+            content: replyContent,
+            mentions: [],
+            correlation: correlationPersisted ? turnCorrelation ?? undefined : undefined,
+          })
+          .select('id')
+          .single()
 
         if (!agentErr) {
+          agentMessageId = (agentRow as { id?: string } | null)?.id
           // Best-effort push notification
           try {
             const { data: subs } = await supabase
@@ -435,6 +469,70 @@ export async function GET(request: Request): Promise<Response> {
         }
       } catch {
         // Best-effort — user message is already saved
+      }
+
+      // ── MemPalace Phase 2 (2026-08-11) ───────────────────────────────────
+      // Work item B, docs/PRD-graph-memory-live-brands.md. Same gate RESOLVE
+      // already uses (relation === 'venture', and yvon-os is explicitly "no
+      // venture" — see ventureContextFor) so a general-relation turn writes
+      // nothing, matching the PRD's acceptance criteria. One row per
+      // (chat_messages.id, role) — mempalace_drawers' own unique constraint
+      // (migration 114) makes a retried write a no-op, not a duplicate,
+      // satisfying the design doc's "one verbatim drawer per message,
+      // idempotent" invariant without extra application-level dedup logic.
+      if (turnRelation === 'venture' && workspace && workspace !== 'yvon-os') {
+        try {
+          const drawerRows: {
+            wing: string
+            room_id: string
+            source_message_id: string
+            correlation: string | null
+            role: 'user' | 'agent'
+            actor: string | null
+            content: string
+          }[] = [
+            {
+              wing: workspace,
+              room_id: userMsg.room_id,
+              source_message_id: userMessageId,
+              correlation: turnCorrelation,
+              role: 'user',
+              actor: null,
+              content: turnContent,
+            },
+          ]
+          if (agentMessageId) {
+            drawerRows.push({
+              wing: workspace,
+              room_id: userMsg.room_id,
+              source_message_id: agentMessageId,
+              correlation: turnCorrelation,
+              role: 'agent',
+              actor: replyAuthorId,
+              content: replyContent,
+            })
+          }
+          const { error: drawerErr } = await supabase
+            .from('mempalace_drawers')
+            .upsert(drawerRows, { onConflict: 'source_message_id,role', ignoreDuplicates: true })
+          if (!drawerErr) {
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  kind: 'mempalace.drawer',
+                  wing: workspace,
+                  count: drawerRows.length,
+                  correlation: turnCorrelation,
+                })}\n\n`,
+              ),
+            )
+          } else {
+            // eslint-disable-next-line no-console
+            console.warn('mempalace_drawers write failed:', drawerErr.message)
+          }
+        } catch {
+          // Best-effort — memory persistence never breaks the turn
+        }
       }
 
       controller.close()

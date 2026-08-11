@@ -57,42 +57,65 @@ export interface CaosGate {
 
 export const CAOS_PHASES: CaosPhase[] = [
   {
+    // Was pointed at src/cie/classifier.ts — the CAOS classifier docs/MASTER.md
+    // §3.1 describes, but NOT what actually produces the Decision data below.
+    // The chat turn's real classify step is pipelines/input-analysis (TS-027),
+    // called directly from the stream route — corrected 2026-08-11 so
+    // Reference describes the live code, not a different, unrelated module.
     n: '01',
     id: 'classify',
     title: 'CLASSIFY',
-    file: 'src/cie/classifier.ts',
+    file: 'input-analysis',
     kind: 'classify',
     process: [
-      'keyword/domain match → task_type + agent_id',
-      '"acquire + $2M" → strategic_analysis → marcus',
-      '"GDPR + retention" → legal_review → comply',
+      'classifyTier(msg) → generic / info / build, keyword + regex match',
+      'e.g. no exact greeting, no question shape, no action verb (build/fix/deploy/…) → defaults to info, not build',
+      'routeAgents(msg) → primary agent + team, from keyword → skill match',
+      'e.g. no keyword matched → primary "meta", the general fallback',
     ],
     decisionFallback: 'awaiting phase.classify event',
   },
   {
+    // Was pointed at rag/harness/disclosure.py — real code, but its trigger
+    // match only fires on a "## Triggers" heading, and none of the 194 real
+    // SKILL.md files in Teams/ have one (docs/MASTER.md §4's own correction
+    // confirms the verified template has no such section). Wired for real
+    // 2026-08-11 via lib/context-resolver.ts instead, matching against what
+    // actually exists on disk: frontmatter triggers (40/194 skills), the
+    // "When to Use" bullets (all 194 skills have this), then name match.
     n: '02',
     id: 'disclosure',
     title: 'SKILL DISCLOSURE',
-    file: 'rag/harness/disclosure.py',
+    file: 'context-resolver.ts',
+    kind: 'disclosure',
     process: [
-      'agent_id → load skill DESCRIPTIONS only, match query against triggers',
-      '2–5 relevant skills activate → load full SKILL.md',
-      'inactive skills stay as ~8-token one-line summaries (40–60% savings)',
+      'matchSkillsToQuery(msg) → frontmatter triggers, then When-to-Use overlap, then name match',
+      'e.g. no frontmatter trigger, but 2+ words overlap a When-to-Use bullet → matched',
+      'top 5 matches → full SKILL.md injected, rest → one-line summary only',
+      'e.g. nothing matches → all skills stay summary-only, 100% savings',
     ],
-    decisionFallback: 'not emitted — no dedicated event kind yet',
+    decisionFallback: 'awaiting phase.disclosure event',
   },
   {
+    // Was pointed at src/cie/graph-resolver.ts's graph-tier/CAG-cache/
+    // MemPalace design — real code, checked 2026-08-11: only imported by
+    // the standalone src/cie/ CIE pipeline (src/cie/index.ts,
+    // src/pipelines/caos-executor.ts), never dashboard/ or the Hermes
+    // wrapper. It does not run for a single live chat message. What
+    // actually runs is much smaller: ventureContextFor() in
+    // context-resolver.ts, a plain DB lookup gated to relation === 'venture'
+    // (TS-029) — no graph tiers, no cache, no MemPalace. Corrected here
+    // instead of describing the unwired design as if it were live.
     n: '03',
     id: 'resolve',
     title: 'RESOLVE',
-    file: 'src/cie/graph-resolver.ts',
+    file: 'context-resolver.ts',
     kind: 'resolve',
     process: [
-      'graph-tier authorization — Master Graph vs brand graph vs tenant graph',
-      '(isolation boundary, pgvector/qdrant namespace per agent+tenant)',
-      'CAG check [cie/cache.ts, LRU] — stable context served from cache;',
-      'only volatile context proceeds to RETRIEVE',
-      'source fan-out: graphify (structural) + MemPalace (episodic/semantic)',
+      'ventureContextFor(workspace) → DB lookup, ventures table',
+      'e.g. relation === "general" → skipped entirely, no lookup made',
+      'attached → venture name + description injected into the prompt',
+      'e.g. yvon-os (no specific venture) or DB miss → no venture memory',
     ],
     decisionFallback: 'awaiting phase.resolve event',
   },

@@ -12,7 +12,7 @@ export function routeAgents(message: string): AgentRoute {
 
   // ── Primary agent by skills/tools (from the message's need) ──────────────
   let primary = 'meta'
-  let reason = 'orchestrator fallback — no clear agent match'
+  let reason = 'no specific agent skill matched, so meta handles it as the general fallback'
   if (need(['frontend', 'ui', 'button', 'page', 'component', 'css', 'design system'])) { primary = 'mia'; reason = 'frontend/UI work' }
   else if (need(['api', 'backend', 'endpoint', 'route', 'server'])) { primary = 'raj'; reason = 'backend/API work' }
   else if (need(['data', 'schema', 'database', 'migration', 'query'])) { primary = 'dana'; reason = 'data/DB work' }

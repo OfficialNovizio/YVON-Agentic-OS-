@@ -61,20 +61,41 @@ export async function POST(request: NextRequest) {
     // Only add auth header if API key is provided (local servers don't need it)
     if (apiKey && apiKey !== 'none') headers['Authorization'] = `Bearer ${apiKey}`
 
-    const res = await fetch(`${resolvedBase}/chat/completions`, {
-      method:  'POST',
-      headers,
-      body: JSON.stringify({
-        model:      testModel,
-        max_tokens: 5,
-        messages:   [{ role: 'user', content: 'hi' }],
-      }),
-    })
+    // Newer-generation models (o1-series, and some project-scoped custom
+    // aliases — confirmed live 2026-08-11 against a project whose only
+    // available model is a custom alias) reject `max_tokens` and require
+    // `max_completion_tokens` instead. Try the legacy param first since it's
+    // still what most OpenAI-compatible servers (DeepSeek, Ollama, etc.)
+    // expect; on that exact "Unsupported parameter" shape, retry once with
+    // the new one rather than misreporting a working key as broken.
+    async function callChat(tokenParam: 'max_tokens' | 'max_completion_tokens') {
+      return fetch(`${resolvedBase}/chat/completions`, {
+        method:  'POST',
+        headers,
+        body: JSON.stringify({
+          model:        testModel,
+          messages:     [{ role: 'user', content: 'hi' }],
+          [tokenParam]: 5,
+        }),
+      })
+    }
+
+    let res = await callChat('max_tokens')
+    let errBody: { error?: { message?: string; param?: string } | string } | null = null
+    if (!res.ok) {
+      try { errBody = await res.clone().json() } catch { /* keep status text */ }
+      const msg = typeof errBody?.error === 'string' ? errBody.error : errBody?.error?.message ?? ''
+      const param = typeof errBody?.error === 'object' ? errBody?.error?.param : undefined
+      if (res.status === 400 && (param === 'max_tokens' || /max_tokens.*not supported/i.test(msg))) {
+        res = await callChat('max_completion_tokens')
+        errBody = null
+      }
+    }
 
     if (!res.ok) {
       let errMsg = `HTTP ${res.status}`
       try {
-        const err = await res.json() as { error?: { message?: string } | string }
+        const err = errBody ?? (await res.json() as { error?: { message?: string } | string })
         errMsg = typeof err.error === 'string'
           ? err.error
           : (err.error?.message ?? errMsg)

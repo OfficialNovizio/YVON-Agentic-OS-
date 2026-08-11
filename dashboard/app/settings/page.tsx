@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { PageHeader, StatusBadge, Card } from '@/components/ui'
+import { PageHeader, Card } from '@/components/ui'
 import { useWorkspace } from '@/lib/WorkspaceContext'
 import {
   Bell, Cpu, Loader2, ToggleLeft, ToggleRight, Plus, Globe, Check, ChevronRight,
 } from 'lucide-react'
+import AIProviderCard from './AIProviderCard'
 
 // ── YVON-wide preferences (localStorage) ─────────────────────────────────────
 const LS = {
@@ -137,17 +138,7 @@ export default function SettingsPage() {
 
         {/* ── Content ───────────────────────────────────────────────────── */}
         <div className="min-w-0 flex-1">
-          {tab === 'provider' && (
-            <Card className="p-5">
-              <div className="flex items-center gap-2 mb-3"><Cpu size={16} style={{ color: 'var(--ws-accent)' }} /><h3 className="text-sm font-semibold text-on-surface">AI Provider</h3></div>
-              <p className="text-[13px] text-on-surface">DeepSeek v4 Pro</p>
-              <p className="text-[12px] text-on-surface-variant/60 mt-1">Balance: {s?.deepseekBalance != null ? `$${s.deepseekBalance.toFixed(2)}` : 'Loading...'}</p>
-              <StatusBadge tone={s?.deepseekBalance != null && s.deepseekBalance > 1 ? 'green' : 'yellow'}>
-                {s?.deepseekBalance != null ? `$${s.deepseekBalance.toFixed(2)}` : '—'}
-              </StatusBadge>
-              <p className="mt-3 text-[12px] text-on-surface-variant/60">System-wide model provider. Not per-venture.</p>
-            </Card>
-          )}
+          {tab === 'provider' && <AIProviderCard />}
 
           {tab === 'prefs' && (
             <Card className="p-5">
