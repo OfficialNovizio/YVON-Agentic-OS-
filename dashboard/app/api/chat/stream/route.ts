@@ -150,10 +150,15 @@ export async function GET(request: Request): Promise<Response> {
             `FORMAT: ${analysis.format ?? ''}`
         }
 
-        // Emit the analysis event UNCONDITIONALLY (except generic) so the HUD
-        // leaves "waiting" and shows the analysis for every turn. Dynamic
-        // fields: info → type/subject/scope/expected/format; build → 5 fields.
-        if (tier !== 'generic') {
+        // Emit the analysis event UNCONDITIONALLY, including generic, so the
+        // HUD's CLASSIFY phase leaves "waiting" and shows real classifier
+        // output for every turn (bug found 2026-08-11: the comment already
+        // said "every turn" but the code excluded generic — classifyTier()
+        // ran either way to produce the tier value, so this was free to emit
+        // and just wasn't). Dynamic fields: info → type/subject/scope/
+        // expected/format; build → 5 fields; generic → tier/relation only,
+        // the rest come back empty from analyzeMessage() and that's fine.
+        {
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({
@@ -184,7 +189,9 @@ export async function GET(request: Request): Promise<Response> {
         // best-effort like the TS-029 emit below; never breaks the turn. If
         // migration 106 isn't pushed yet, this silently no-ops (degrading
         // loudly: live HUD unaffected, past turns show no analysis until push).
-        if (tier !== 'generic') {
+        // Unconditional now too (see emit above) — generic-tier turns get a
+        // persisted CLASSIFY record same as everything else.
+        {
           try {
             await (supabase as unknown as {
               rpc: (fn: string, args: Record<string, unknown>) => Promise<{ error: { message: string } | null }>
