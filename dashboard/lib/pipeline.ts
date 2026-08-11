@@ -61,6 +61,7 @@ export function stageFromSseEvent(ev: SseLike): PipelineStage | null {
         label: ev.toolName ?? 'tool',
         detail: ev.argsPreview ? ev.argsPreview.slice(0, 120) : undefined,
         status: 'active',
+        ts: Date.now(),
       }
     case 'tool_call.end':
       return {
@@ -69,15 +70,17 @@ export function stageFromSseEvent(ev: SseLike): PipelineStage | null {
         label: ev.toolName ?? 'tool',
         detail: ev.summary ? ev.summary.slice(0, 120) : undefined,
         status: ev.ok ? 'done' : 'error',
+        ts: Date.now(),
       }
     case 'thinking':
-      return { id: 'thinking', kind: 'run', label: 'thinking', status: 'active' }
+      return { id: 'thinking', kind: 'run', label: 'thinking', status: 'active', ts: Date.now() }
     case 'notice':
       return {
         id: `notice-${(ev.message ?? '').slice(0, 24)}`,
         kind: 'run',
         label: (ev.message ?? 'notice').slice(0, 80),
         status: 'active',
+        ts: Date.now(),
       }
     case 'error':
       return {
@@ -86,6 +89,7 @@ export function stageFromSseEvent(ev: SseLike): PipelineStage | null {
         label: 'failed',
         detail: ev.message ?? undefined,
         status: 'error',
+        ts: Date.now(),
       }
     default:
       return null
@@ -144,10 +148,15 @@ export function stageFromEventRow(row: TurnEvent): PipelineStage | null {
         ts,
       }
     case 'gate.passed':
-      return { id: 'gate', kind: 'gate', label: 'gate passed', detail: payload.gate ? String(payload.gate) : undefined, status: 'done', ts }
+      // id keyed by which gate (payload.gate), not a flat 'gate' — otherwise every
+      // gate in the 5-gate sequence overwrites the previous one and only the last
+      // survives to render (CAOS restructure, 2026-08-11). Reserved/not emitted by
+      // hermes-agent yet (docs/YVON-CHAT.md §Phase observability) — this just makes
+      // the UI forward-compatible for whenever it is.
+      return { id: `gate-${payload.gate ? String(payload.gate) : 'unknown'}`, kind: 'gate', label: 'gate passed', detail: payload.gate ? String(payload.gate) : undefined, status: 'done', ts }
     case 'gate.blocked':
       return {
-        id: 'gate-blocked',
+        id: `gate-${payload.gate ? String(payload.gate) : 'unknown'}`,
         kind: 'gate',
         label: `gate blocked${payload.gate ? ` · ${String(payload.gate)}` : ''}`,
         detail: payload.reason ? String(payload.reason) : undefined,

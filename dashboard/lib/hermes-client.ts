@@ -22,6 +22,13 @@ export interface HermesChatInput {
   ventureContext?: string
   /** TS-027: the 5-field input analysis (what/why/how/end/desired) for build-tier turns */
   inputAnalysis?: string
+  /** Repo-mode toggle (2026-08-11): 'github' + repoUrl tells the VPS agent to
+   * clone/pull that repo and steer its terminal/code_execution tools there
+   * for this turn, instead of its default local working directory. Only
+   * ever the active venture's own configured repoUrl — never an arbitrary
+   * client-supplied URL (see RepoModeToggle.tsx / stream/route.ts). */
+  repoMode?: 'local' | 'github'
+  repoUrl?: string
 }
 
 /** SSE event shapes from the wrapper — mirrors yvon-hermes-http/main.py.
@@ -129,6 +136,8 @@ export async function* streamHermesChat(
       agent_context: input.agentContext ?? undefined,
       venture_context: input.ventureContext ?? undefined,
       input_analysis: input.inputAnalysis ?? undefined,
+      repo_mode: input.repoMode ?? undefined,
+      repo_url: input.repoUrl ?? undefined,
     }),
   })
 

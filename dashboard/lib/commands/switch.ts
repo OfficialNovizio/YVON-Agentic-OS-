@@ -60,7 +60,7 @@ export const switchCommand: Command = {
         `Scope switched to **${scope}**. ` +
         `Agent context follows on the next message (stream reads the cookie). ` +
         `Hermes working directory unchanged (not yet wired — Appendix A probe). ` +
-        `Graphify retrieval unchanged (dashboard source still a stub).`,
+        `Graphify retrieval unchanged (chat's context injection doesn't route through CIE/graphify — YVON-CHAT §3.4).`,
       effect: { kind: 'reload' },
       detail: { venture: key, parts: { scope: true, context: true, cwd: false, graphify: false } },
     }

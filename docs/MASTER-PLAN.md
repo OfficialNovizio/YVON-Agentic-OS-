@@ -7,7 +7,10 @@ turbovec, belongs_to/last_worked_by auto-stamp, tiered pgvector/qdrant isolation
 default, canonical 4-layer stack — see `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §0/§6/§18/§23 and `MASTER.md`'s
 Open Issues block).
 **Owner:** Engineering (dev sequencing · mia frontend · raj backend · dana pipeline · ops deploy
-· quinn gate) — full roster and skills in `docs/CHAT-ENGINEERING.md` §2.
+· quinn gate) — full roster and skills in each agent's `Teams/Engineering/<agent>/agent.md` +
+`operational/`, sequencing in `Teams/Engineering/DEPARTMENT-WORKFLOW.md` (`docs/CHAT-ENGINEERING.md`
+retired 2026-08-10 — frozen since 2026-08-04, never updated past TS-018; its roster table was a
+convenience rollup of these same per-agent files, which stay the real source).
 **Supersedes:** the 2026-08-06 version of this file (P1–P6, "next phase of work"). That plan is
 **mostly built** — see §1. This version corrects the record against the real repo and adds the
 work `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md`'s 2026-08-09 decisions newly require.
@@ -341,7 +344,7 @@ what gets wired to write into. Nothing here is deployed until you approve each s
 
 ---
 
-*This is the working plan as of 2026-08-09. Sources: `docs/YVON-CHAT.md`, `docs/CHAT-ENGINEERING.md`,
+*This is the working plan as of 2026-08-09. Sources: `docs/YVON-CHAT.md`,
 `docs/MASTER.md` (Open Issues block + §6), `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` (§0, §6, §14, §16.3, §18,
 §23), `docs/SESSION-HANDOUT.md` §2a/§8 F1-F2, `store/tasks/TS-018..029.yaml`,
 `vps-scripts/hermes-patch-notes.md`, `vps-scripts/yvon-hermes-http/main.py`, live Supabase project

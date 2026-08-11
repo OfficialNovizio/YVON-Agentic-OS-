@@ -16,7 +16,9 @@ import { DockRail } from './DockRail'
 import { TeamsPanel } from './TeamsPanel'
 import { LiveStrip } from './LiveStrip'
 import { PipelineHud } from './PipelineHud'
+import { TaskProposalPrompt, type PendingTaskProposal } from './TaskProposalPrompt'
 import { VentureSelector } from './VentureSelector'
+import { RepoModeToggle } from './RepoModeToggle'
 import './chat.css'
 import type { UploadedAttachment } from '@/lib/attachments-client'
 import type { ChatRoom } from '@/app/api/chat/rooms/route'
@@ -93,6 +95,10 @@ export default function ChatPage() {
   const [userId, setUserId] = useState<string>('')
   const [statusChips, setStatusChips] = useState<StatusChipData[]>([])
   const [pipeline, setPipeline] = useState<PipelineView>({ stages: [], source: 'none' })
+  // Chat-as-task (2026-08-11): the agent's inline "ready to start this as a
+  // task?" offer, parsed server-side from a fenced marker (see
+  // /api/chat/stream). null = nothing pending.
+  const [taskProposal, setTaskProposal] = useState<PendingTaskProposal | null>(null)
   const [streamingText, setStreamingText] = useState<string | null>(null)
   // Default-visible on desktop (TS-021): teams panel + CAOS card show by
   // default; on mobile they're overlays toggled on demand.
@@ -244,6 +250,7 @@ export default function ChatPage() {
     lastMessageIdRef.current = null
     setPipeline({ stages: [], source: 'none' })
     setStreamingText(null)
+    setTaskProposal(null)
     loadMessages(activeRoom.id)
     const t = setInterval(() => {
       if (activeRoom) loadMessages(activeRoom.id, { silent: true })
@@ -287,6 +294,9 @@ export default function ChatPage() {
       setStatusChips([])
       setPipeline({ stages: [], source: 'live' })
       setStreamingText('')
+      // A new turn starting supersedes any unresolved proposal from the
+      // previous one — sending a follow-up message is itself "discuss more".
+      setTaskProposal(null)
       const abort = new AbortController()
       sendAbortRef.current = abort
 
@@ -375,6 +385,8 @@ export default function ChatPage() {
                 relation?: string
                 mustHaves?: string[]
                 targetAgents?: { primary: string; team: string[]; reason: string }
+                title?: string
+                correlation?: string
               }
 
               // Live tokens → streaming bubble (TS-020)
@@ -433,8 +445,19 @@ export default function ChatPage() {
                 }))
               }
 
-              // TS-028: recording stage — every turn records to events/graph.
-              if (event.kind === 'done') {
+              // TS-028: recording stage — only a REAL CAOS turn records to
+              // events/graph. Bug fix (2026-08-11): this used to fire
+              // unconditionally on every 'done', including the generic
+              // small-talk shortcut a few lines up in stream/route.ts, which
+              // never touches Hermes, never gets a correlation, and never
+              // writes to events/graph/memory at all — yet the panel was
+              // claiming "recorded · events · graph · memory" anyway. main.py
+              // stamps a real correlation on every genuine Hermes 'done'
+              // event (vps-scripts/yvon-hermes-http/main.py:438); the generic
+              // shortcut sends `correlation: null`. Use that as the honest
+              // signal instead of fabricating a stage for turns that never
+              // ran through CAOS at all.
+              if (event.kind === 'done' && event.correlation) {
                 setPipeline((prev) => ({
                   stages: upsertStage(prev.stages, {
                     id: 'recording',
@@ -498,6 +521,18 @@ export default function ChatPage() {
                   }),
                   source: 'live',
                 }))
+              }
+
+              // Chat-as-task (2026-08-11): the agent judged this discussion
+              // resolved and offered a task. Real event, parsed server-side
+              // from a fenced marker (/api/chat/stream) — never fabricated
+              // client-side.
+              if (event.kind === 'task.proposed' && event.title && event.summary) {
+                setTaskProposal({
+                  title: event.title,
+                  summary: event.summary,
+                  correlation: event.correlation ?? null,
+                })
               }
 
               if (event.kind === 'error') {
@@ -566,11 +601,35 @@ export default function ChatPage() {
   }, [])
 
   // ── Derived: live strip + HUD inputs ─────────────────────────────────────
+  // Bug fix (2026-08-11): this used to map only the 4 raw kinds
+  // (classify/resolve/retrieve/gate) — but those are never emitted live
+  // (main.py writes phase.classify/phase.resolve straight to the events
+  // table, never through the SSE queue; gate.* isn't emitted at all yet).
+  // Live turns only ever produce analyze/context/tool/record kinds, so the
+  // LiveStrip's phase badge was dark for the entire live portion of every
+  // send, even while phase pills 01/03/09/11 were visibly lighting up in
+  // the CAOS panel right next to it. Map every real kind onto the CAOS
+  // phase it belongs to (mirrors PipelineHud's extraForPhase folding), and
+  // fall back to the most recent real stage when nothing is literally
+  // mid-flight — most of these events are point-in-time, not spans, so
+  // requiring status==='active' left the badge blank almost always.
   const activePhase = useMemo<string | null>(() => {
-    const active = pipeline.stages.find((s) => s.status === 'active')
-    if (!active) return null
-    const map: Record<string, string> = { classify: 'CLASSIFY', resolve: 'RESOLVE', retrieve: 'RETRIEVE', gate: 'GATE' }
-    return map[active.kind] ?? null
+    const map: Record<string, string> = {
+      analyze: 'CLASSIFY',
+      classify: 'CLASSIFY',
+      context: 'RESOLVE',
+      resolve: 'RESOLVE',
+      retrieve: 'RETRIEVE',
+      tool: 'GENERATION',
+      gate: 'GATE',
+      record: 'FEEDBACK LOOP',
+    }
+    const inFlight = pipeline.stages.find((s) => s.status === 'active' && map[s.kind])
+    if (inFlight) return map[inFlight.kind]
+    const latest = [...pipeline.stages]
+      .filter((s) => map[s.kind])
+      .sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0))[0]
+    return latest ? map[latest.kind] : null
   }, [pipeline.stages])
 
   const thinking = useMemo<string | null>(() => {
@@ -632,6 +691,7 @@ export default function ChatPage() {
           <span className="text-[11px] text-[var(--chat-text-faint)]">{topSubtitle}</span>
         </div>
         <div className="flex items-center gap-2">
+          <RepoModeToggle />
           <VentureSelector />
           {memberCount != null && (
             <span className="rounded-full border border-[var(--chat-hairline-soft)] px-2 py-0.5 font-mono text-[9.5px] text-[var(--chat-text-faint)]">
@@ -699,6 +759,11 @@ export default function ChatPage() {
             active={awaitingReply}
             phase={activePhase}
             thinking={thinking}
+          />
+          <TaskProposalPrompt
+            proposal={taskProposal}
+            roomId={activeRoom?.id ?? ''}
+            onResolved={() => setTaskProposal(null)}
           />
           <Composer
             sending={sending}

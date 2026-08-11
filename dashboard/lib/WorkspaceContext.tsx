@@ -46,6 +46,13 @@ export interface VentureLite {
   contextPath?: string
   parentId?: string
   sortOrder?: number
+  /** Linked GitHub repo (migration 014_venture_profile_socials.sql, repo_url
+   * column) — already exposed in Settings → Venture → Technical. Reused as
+   * the sole source for the /chat repo-mode toggle's GitHub option: a
+   * venture with no repoUrl simply can't select GitHub mode (the allowlist
+   * is implicit — only what's configured in Settings is ever selectable,
+   * chat never accepts an arbitrary pasted URL). 2026-08-11. */
+  repoUrl?: string
 }
 
 type Ctx = {

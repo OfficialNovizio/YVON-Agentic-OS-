@@ -14,6 +14,7 @@ import { clearCommand } from './clear'
 import { confirmCommand } from './confirm'
 import { deployCommand } from './deploy'
 import { previewCommand } from './preview'
+import { assignTaskCommand } from './assign-task'
 
 export const COMMANDS: Command[] = [
   helpCommand,
@@ -23,6 +24,7 @@ export const COMMANDS: Command[] = [
   confirmCommand,
   deployCommand,
   previewCommand,
+  assignTaskCommand,
 ]
 
 const BY_NAME = new Map<string, Command>()

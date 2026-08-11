@@ -62,15 +62,28 @@ export async function GET(request: Request): Promise<Response> {
     .eq('id', userMsg.room_id)
     .single()
   const cookieStore = await cookies()
-  // Real ventures from the DB — no hardcoded sub-brands (TS-026).
+  // Real ventures from the DB — no hardcoded sub-brands (TS-026). Also pulls
+  // repo_url so the repo-mode toggle (2026-08-11) can resolve the active
+  // venture's linked repo without a second query.
   let validVentureSlugs: string[] = []
+  let ventureRepoUrls: Record<string, string> = {}
   try {
-    const { data: ventureRows } = await supabase.from('ventures').select('slug')
-    validVentureSlugs = ((ventureRows as unknown as { slug: string }[] | null) ?? []).map((r) => r.slug)
+    const { data: ventureRows } = await supabase.from('ventures').select('slug, repo_url')
+    const rows = (ventureRows as unknown as { slug: string; repo_url: string | null }[] | null) ?? []
+    validVentureSlugs = rows.map((r) => r.slug)
+    ventureRepoUrls = Object.fromEntries(rows.filter((r) => r.repo_url).map((r) => [r.slug, r.repo_url as string]))
   } catch {
     // fall through with yvon-os only
   }
   const workspace: WorkspaceKey = activeWorkspace(cookieStore.get('yvon_active_venture')?.value, validVentureSlugs)
+
+  // Repo-mode toggle (2026-08-11, RepoModeToggle.tsx): 'github' only ever
+  // pairs with the ACTIVE venture's own configured repo_url — the allowlist
+  // from discovery. A stale 'github' cookie for a venture with no linked
+  // repo silently falls back to local rather than sending a bad/missing URL.
+  const repoModeCookie = cookieStore.get('yvon_repo_mode')?.value
+  const repoUrl = ventureRepoUrls[workspace]
+  const repoMode: 'local' | 'github' = repoModeCookie === 'github' && repoUrl ? 'github' : 'local'
 
   const cfg = hermesConfig()
   if (!cfg.configured) {
@@ -280,6 +293,8 @@ export async function GET(request: Request): Promise<Response> {
             agentContext,
             ventureContext,
             inputAnalysis: inputAnalysis ?? undefined,
+            repoMode,
+            repoUrl: repoMode === 'github' ? repoUrl : undefined,
           },
           cfg,
         )) {
@@ -328,6 +343,56 @@ export async function GET(request: Request): Promise<Response> {
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify({ kind: 'error', message: msg })}\n\n`),
         )
+      }
+
+      // ── Task-proposal marker (2026-08-11) ────────────────────────────────
+      // The agent may end a reply with a fenced ```task-proposal block (see
+      // the prompt instruction in vps-scripts/yvon-hermes-http/main.py) when
+      // a discussion reaches an actionable conclusion. Strip it out of the
+      // visible/stored message and emit it as a `task.proposed` event
+      // instead of raw text — mirrors the input.analysis event pattern
+      // (052/106 migrations). A malformed block is stripped but never
+      // fabricated into a fake proposal; it just silently produces no event.
+      const PROPOSAL_RE = /```task-proposal\s*\n([\s\S]*?)```/
+      const proposalMatch = replyContent.match(PROPOSAL_RE)
+      let taskProposal: { title: string; summary: string } | null = null
+      if (proposalMatch) {
+        replyContent = replyContent.replace(PROPOSAL_RE, '').trim()
+        try {
+          const parsed = JSON.parse(proposalMatch[1].trim())
+          if (parsed && typeof parsed.title === 'string' && typeof parsed.summary === 'string') {
+            taskProposal = { title: parsed.title.slice(0, 200), summary: parsed.summary.slice(0, 800) }
+          }
+        } catch {
+          // Malformed block — already stripped above; no proposal event fires.
+        }
+      }
+
+      if (taskProposal) {
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({
+              kind: 'task.proposed',
+              title: taskProposal.title,
+              summary: taskProposal.summary,
+              correlation: turnCorrelation,
+            })}\n\n`,
+          ),
+        )
+        try {
+          await (supabase as unknown as {
+            rpc: (fn: string, args: Record<string, unknown>) => Promise<{ error: { message: string } | null }>
+          }).rpc('chat_emit_task_proposal_event', {
+            p_context_id: workspace,
+            p_correlation: turnCorrelation ?? randomUUID(),
+            p_room_id: userMsg.room_id,
+            p_author_id: replyAuthorId,
+            p_payload: { title: taskProposal.title, summary: taskProposal.summary },
+            p_kind: 'task.proposed',
+          })
+        } catch {
+          // observability never breaks the send
+        }
       }
 
       // ── Save agent reply to DB ──────────────────────────────────────────

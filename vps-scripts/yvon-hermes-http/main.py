@@ -27,6 +27,8 @@ import asyncio
 import json
 import logging
 import os
+import re
+import subprocess
 import sys
 import threading
 import time
@@ -111,6 +113,14 @@ POOL_IDLE_TTL_S = int(os.environ.get("YVON_HERMES_POOL_TTL", "1800"))  # 30 min
 MAX_ITERATIONS = int(os.environ.get("YVON_HERMES_MAX_ITER", "40"))
 STREAM_KEEPALIVE_S = float(os.environ.get("YVON_HERMES_KEEPALIVE", "15"))
 HERMES_API_URL = os.environ.get("HERMES_API_URL", "http://127.0.0.1:9119")
+# Repo-mode toggle (2026-08-11, dashboard RepoModeToggle.tsx): clone/pull
+# destination for GitHub-mode turns, and the one shared PAT for private repos
+# (discovery decision — one token, not per-user OAuth). Neither is set by
+# install.sh; GITHUB_PAT is optional (public repos clone fine without it —
+# see _ensure_repo_clone's degrade-loudly behavior on auth failure).
+REPO_WORKSPACES_DIR = os.environ.get("YVON_REPO_WORKSPACES_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "workspaces"))
+GITHUB_PAT = os.environ.get("GITHUB_PAT", "").strip()
+REPO_CLONE_TIMEOUT_S = int(os.environ.get("YVON_REPO_CLONE_TIMEOUT", "120"))
 
 log = logging.getLogger("yvon-hermes-http")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -213,6 +223,69 @@ def _prune_idle_agents() -> None:
             log.info("pruned idle agent user=%s room=%s", k[0], k[1])
 
 
+_TOKEN_IN_URL_RE = re.compile(r"://[^@/]+@")
+
+
+def _redact(text: str) -> str:
+    """Strip any embedded credentials from a URL before it hits a log line or
+    an SSE event — git error messages sometimes echo the remote URL back
+    verbatim, and that URL may carry GITHUB_PAT (see _ensure_repo_clone)."""
+    return _TOKEN_IN_URL_RE.sub("://***@", text)
+
+
+def _repo_slug(repo_url: str) -> str:
+    """'https://github.com/org/repo.git' → 'org-repo'. Falls back to a hash
+    of the URL if it doesn't parse cleanly — never lets a malformed URL
+    become a path-traversal-shaped directory name."""
+    cleaned = repo_url.strip().rstrip("/")
+    if cleaned.endswith(".git"):
+        cleaned = cleaned[: -len(".git")]
+    parts = [p for p in re.split(r"[/:]", cleaned) if p]
+    tail = "-".join(parts[-2:]) if len(parts) >= 2 else (parts[-1] if parts else "repo")
+    safe = re.sub(r"[^a-zA-Z0-9_.-]", "_", tail)
+    return safe or f"repo-{abs(hash(repo_url)) % 10_000}"
+
+
+def _ensure_repo_clone(repo_url: str, room_id: str) -> tuple[Optional[str], Optional[str]]:
+    """Repo-mode toggle (2026-08-11): clone `repo_url` into a deterministic
+    per-room workspace dir, or `git pull --ff-only` if it's already there
+    (discovery decision: clone once, pull every turn). Runs synchronously —
+    callers must dispatch it off the event loop (asyncio.to_thread).
+
+    Returns (workdir_path, None) on success, or (None, redacted_error) on
+    failure — the caller degrades loudly rather than silently falling back
+    (see chat_stream). GITHUB_PAT is optional: public repos clone fine
+    without it; a private repo without it fails with a clear auth message
+    the caller surfaces verbatim (redacted) to the dashboard.
+    """
+    os.makedirs(REPO_WORKSPACES_DIR, exist_ok=True)
+    workdir = os.path.join(REPO_WORKSPACES_DIR, room_id, _repo_slug(repo_url))
+
+    auth_url = repo_url
+    if GITHUB_PAT and repo_url.startswith("https://"):
+        auth_url = repo_url.replace("https://", f"https://x-access-token:{GITHUB_PAT}@", 1)
+
+    try:
+        if os.path.isdir(os.path.join(workdir, ".git")):
+            proc = subprocess.run(
+                ["git", "-C", workdir, "pull", "--ff-only"],
+                capture_output=True, text=True, timeout=REPO_CLONE_TIMEOUT_S,
+            )
+        else:
+            os.makedirs(workdir, exist_ok=True)
+            proc = subprocess.run(
+                ["git", "clone", auth_url, workdir],
+                capture_output=True, text=True, timeout=REPO_CLONE_TIMEOUT_S,
+            )
+        if proc.returncode != 0:
+            return None, _redact((proc.stderr or proc.stdout or "git exited non-zero").strip()[:500])
+        return workdir, None
+    except subprocess.TimeoutExpired:
+        return None, f"git operation timed out after {REPO_CLONE_TIMEOUT_S}s"
+    except Exception as exc:  # noqa: BLE001 — surface any clone failure, never swallow
+        return None, _redact(str(exc))[:500]
+
+
 # ── App ──────────────────────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -261,6 +334,11 @@ class ChatRequest(BaseModel):
     agent_context: Optional[str] = Field(default=None, description="Real agent identity + skill roster (yvon-os)")
     venture_context: Optional[str] = Field(default=None, description="Active venture memory (non-yvon ventures)")
     input_analysis: Optional[str] = Field(default=None, description="5-field input analysis (what/why/how/end/desired) for build-tier turns")
+    # Repo-mode toggle (2026-08-11, dashboard RepoModeToggle.tsx): 'github'
+    # only ever arrives paired with repo_url — the dashboard resolves it from
+    # the active venture's own repo_url column, never an arbitrary client URL.
+    repo_mode: Optional[str] = Field(default=None, description="'local' (default) or 'github' — see repo_url")
+    repo_url: Optional[str] = Field(default=None, description="Venture's linked GitHub repo, only set when repo_mode='github'")
 
 
 # ── Chat stream endpoint ────────────────────────────────────────────────────
@@ -300,8 +378,10 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
 
     # TS-018 WI-4 (YVON-CHAT §5.2): every SSE event carries the turn's
     # correlation so the dashboard can link the message row to its events with
-    # one indexed query. `_correlation` is assigned below, before any callback
-    # fires (they run inside run_agent) — late binding is safe here.
+    # one indexed query. Assigned here (moved up from below, 2026-08-11) so
+    # the repo-mode clone/pull notice below can also carry it.
+    _correlation = str(uuid.uuid4())
+
     def _sse(event: dict[str, Any]) -> None:
         loop.call_soon_threadsafe(queue.put_nowait, {**event, "correlation": _correlation})
 
@@ -351,6 +431,50 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     if req.input_analysis:
         prompt_parts.append("[INPUT ANALYSIS — what/why/how/end/desired; execute to this intent]")
         prompt_parts.append(req.input_analysis)
+    # Repo-mode toggle (2026-08-11, dashboard RepoModeToggle.tsx): clone/pull
+    # the venture's repo BEFORE the agent turn starts, then STEER it there via
+    # a prompt instruction rather than mutating the pooled AIAgent's own
+    # terminal.cwd config — that per-session override isn't a confirmed-safe
+    # kwarg (see _agent_for's own comment above), so this is the same
+    # prompt-steering pattern as the task-proposal marker below: a strong
+    # nudge, not a hard guarantee the agent will actually `cd` there.
+    # Degrades loudly on failure — a `notice` SSE event either way, so the
+    # dashboard's CAOS panel shows the real outcome, never a silent no-op.
+    if req.repo_mode == "github" and req.repo_url:
+        repo_workdir, repo_error = await asyncio.to_thread(_ensure_repo_clone, req.repo_url, req.room_id)
+        if repo_workdir:
+            on_notice("info", f"repo ready · {req.repo_url} → {repo_workdir}")
+            prompt_parts.append(
+                f"[WORKING REPO] Your working repo for this turn is checked out at: {repo_workdir}\n"
+                f"`cd {repo_workdir}` before running any terminal/code_execution commands this turn — "
+                f"do not work in your default directory."
+            )
+        else:
+            on_notice("error", f"repo clone/pull failed ({req.repo_url}): {repo_error} — staying in default directory")
+            prompt_parts.append(
+                f"[WORKING REPO] Cloning/pulling {req.repo_url} failed: {repo_error}. "
+                f"Continue in your default working directory and tell the user the clone failed."
+            )
+    # Task-proposal marker (2026-08-11): instructs the model to self-signal
+    # when a discussion has just reached a concrete, actionable conclusion
+    # the user could hand off as real work. This is prompt steering, not a
+    # hard guarantee — there's no function-calling grammar constraining the
+    # model's output here, so compliance is best-effort, not deterministic.
+    # dashboard/app/api/chat/stream/route.ts looks for this fenced block,
+    # strips it from the visible reply, and emits it as a `task.proposed`
+    # event (jsonb payload, correlated to the turn) instead of raw text.
+    prompt_parts.append(
+        "[TASK PROPOSAL — optional] If, and only if, this discussion has just "
+        "reached a concrete, actionable conclusion the user could hand off as "
+        "real work (not for routine questions or ongoing exploration), end "
+        "your reply with a fenced block exactly like this, on its own lines:\n"
+        "```task-proposal\n"
+        '{"title": "<short task title>", "summary": "<1-3 sentence summary of what would be done>"}\n'
+        "```\n"
+        "Do not include this block unless the discussion is genuinely resolved "
+        "and ready to move to execution. Never fabricate a title or summary "
+        "that misrepresents what was actually discussed."
+    )
     prompt_parts.append(req.message)
     full_prompt = "\n".join(prompt_parts)
 
@@ -359,7 +483,6 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     # ── run lifecycle → event log (architecture §5.4) ───────────────────────
     # One event per mentioned agent; unaddressed turns are attributed to 'system'.
     # Fire-and-forget: emit() never blocks and never raises (see events.py).
-    _correlation = str(uuid.uuid4())
     # TS-023 (#3): unaddressed turns are attributed to the orchestrator agent
     # 'meta' (real fleet agent) instead of the anonymous 'system' — so events,
     # the pipeline panel and the graph show WHO handled the turn honestly.

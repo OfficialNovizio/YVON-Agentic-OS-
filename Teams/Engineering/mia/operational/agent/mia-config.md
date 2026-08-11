@@ -54,3 +54,15 @@ baseline_consumer: ops
 ## Fallback
 
 Unfilled config degrades loudly. Brand values always resolve through atlas's kit + tokens; verification degrades to labeled manual checks, never silent passes.
+
+## Marketplace skills
+
+- **scroll-world** (`marketplace/scroll-world/`, adopted 2026-08-10) — scroll-scrubbed
+  cinematic landing-page builder. Generation backend: **krea.ai**, not Higgsfield/Monid
+  (the upstream default) — swapped at install per operator decision. Credential:
+  `KREA_API_KEY`, name only — already registered in `dashboard/lib/secrets.ts`'s
+  `MOVABLE_SECRETS` (Supabase Vault-backed). This config file does not hold the secret
+  value; the operator sets it directly in Vault or `dashboard/.env.local`. Route this
+  skill's Step 8 (QA the seams) through `frontend-verification` (quinn's gate) before
+  shipping any page built with it — the skill's own SKILL.md says so too, cross-referenced
+  here so the config layer agrees with the skill layer.

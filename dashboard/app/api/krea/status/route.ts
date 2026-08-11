@@ -3,7 +3,12 @@ import { errMsg } from '@/lib/errors'
 
 // Krea.ai Job Status — poll a generation job until completion
 // GET /api/krea/status?jobId=xxx
-// Returns: { status: 'pending' | 'completed' | 'failed', imageUrl?: string }
+// Returns: { status: 'pending' | 'completed' | 'failed', imageUrl?: string, resultUrl?: string }
+//
+// `imageUrl` is kept for existing callers (originally still-only). `resultUrl` is the
+// same value under a provider-neutral name, added when /api/krea/generate-video was
+// introduced (scroll-world skill install, 2026-08-10) so video callers aren't stuck
+// reading a field named "imageUrl" for an mp4.
 
 const KREA_BASE = 'https://api.krea.ai'
 
@@ -45,7 +50,8 @@ export async function GET(request: Request): Promise<Response> {
     // Job is complete when completed_at is set
     if (job.completed_at) {
       if (job.status === 'completed' && job.result?.urls?.[0]) {
-        return Response.json({ status: 'completed', imageUrl: job.result.urls[0] })
+        const url = job.result.urls[0]
+        return Response.json({ status: 'completed', imageUrl: url, resultUrl: url })
       }
       // completed_at set but status isn't 'completed' — treat as failed
       return Response.json({ status: 'failed' })
