@@ -235,13 +235,35 @@ export async function GET(request: Request): Promise<Response> {
           }
         }
 
-        // Generic messages are answered directly by the client — no Hermes call.
+        // Generic messages (bare greetings etc.) are answered directly by the
+        // client — no Hermes call. Bug found 2026-08-11: this used to close
+        // the stream here without ever saving the reply, and the client's
+        // 'done' handler never read event.response either — so the canned
+        // reply was silently dropped end to end (user saw nothing). Now it's
+        // saved to chat_messages like any other agent reply (author 'meta',
+        // the fleet's default identity) so it persists, survives a reload,
+        // and renders via the normal message-list path instead of needing
+        // special client-side handling.
         if (tier === 'generic') {
+          const genericReply = 'Hey! How can I help?'
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ kind: 'done', response: 'Hey! How can I help?', correlation: turnCorrelation })}\n\n`,
+              `data: ${JSON.stringify({ kind: 'done', response: genericReply, correlation: turnCorrelation })}\n\n`,
             ),
           )
+          try {
+            await supabase.from('chat_messages').insert({
+              room_id: userMsg.room_id,
+              author_kind: 'agent',
+              author_id: 'meta',
+              author_name: 'meta',
+              content: genericReply,
+              mentions: [],
+            })
+          } catch {
+            // Best-effort — user message is already saved; worst case the
+            // canned reply just doesn't persist for this one turn.
+          }
           controller.close()
           return
         }
