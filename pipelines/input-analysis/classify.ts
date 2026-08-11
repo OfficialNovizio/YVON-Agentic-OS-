@@ -9,8 +9,13 @@ import type { InputTier, MessageRelation } from './types'
 const ACTION_VERBS = /\b(fix|debug|build|implement|deploy|refactor|change|update|edit|create|add|remove|test|review)\b/i
 
 // Keywords suggesting the message relates to the active venture / project.
+// Bug found 2026-08-11: "the project"/"the repo"/etc. only matched a literal
+// "the" — "this project", "this repo", "that codebase" (all natural, common
+// phrasing) silently missed every marker and fell through to 'general',
+// which meant genuinely venture-relevant questions never triggered the
+// MemPalace drawer write. Widened to accept this/that/the uniformly.
 const VENTURE_MARKERS = [
-  /\b(our|the project|the repo|the codebase|the brand|the app|the site|the product|the venture)\b/i,
+  /\b(our|(?:this|that|the)\s+(?:project|repo|repository|codebase|brand|app|site|product|venture))\b/i,
   ACTION_VERBS,
   /\b(cart|checkout|dashboard|api|route|component|page|migration|schema|bug|issue|task|roadmap|feature)\b/i,
   /\b(venture|repo|repository|github|supabase|vercel|deploy|release|sprint|standup)\b/i,
