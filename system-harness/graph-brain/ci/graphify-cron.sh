@@ -33,6 +33,15 @@ REPO_ROOT="${GRAPH_REPO_ROOT:-/root/YVON-Agentic-OS-}"
 ALIAS_DEPLOY_PATH="${HERMES_ALIAS_PATH:-/opt/yvon-hermes-http/agent-alias.json}"
 SUPABASE_URL="${SUPABASE_URL:?SUPABASE_URL must be set}"
 SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:?SUPABASE_SERVICE_ROLE_KEY must be set}"
+# Optional: some OpenAI-compatible keys are project-scoped to a single non-default
+# model (confirmed live 2026-08-11 — the VPS's OPENAI_API_KEY's project only has
+# access to a custom alias, not graphify's stock default). Set GRAPHIFY_MODEL in
+# the same env file as the two vars above to override; left unset, graphify picks
+# its own backend default.
+GRAPHIFY_MODEL_ARGS=()
+if [ -n "${GRAPHIFY_MODEL:-}" ]; then
+  GRAPHIFY_MODEL_ARGS=(--model "$GRAPHIFY_MODEL")
+fi
 
 cd "$REPO_ROOT"
 
@@ -40,7 +49,7 @@ echo "[1/5] git pull"
 git pull --ff-only
 
 echo "[2/5] graphify extract ."
-graphify extract .   # writes graphify-out/graph.json (repo root, per graphify's own convention)
+graphify extract . "${GRAPHIFY_MODEL_ARGS[@]}"   # writes graphify-out/graph.json (repo root, per graphify's own convention)
 
 echo "[3/5] node scripts/build-structure.mjs"
 node scripts/build-structure.mjs   # refreshes dashboard/public/structure.json
