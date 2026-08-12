@@ -193,12 +193,22 @@ export function stageFromEventRow(row: TurnEvent): PipelineStage | null {
     case 'input.analysis':
       return stageFromInputAnalysisPayload(payload, ts)
     case 'skill.disclosure':
-      // Persisted replay path — no chat_emit_skill_disclosure_event RPC/
-      // migration exists yet (2026-08-11), so past turns won't show this
-      // until one's added; the live SSE path (page.tsx) already renders it
-      // for the in-flight turn. Kept here so the shape is ready the day
-      // persistence lands, same forward-compat pattern as gate.passed above.
+      // Persisted via chat_emit_skill_disclosure_event (migration 117,
+      // 2026-08-11) — mirrors the live SSE shape exactly.
       return stageFromSkillDisclosurePayload(payload, ts)
+    case 'venture.context':
+      // Persisted via chat_emit_venture_context_event (migration 117,
+      // 2026-08-11) — mirrors page.tsx's live 'venture.context' handler
+      // exactly (same id/kind/label/detail), so RESOLVE renders identically
+      // whether the turn is live or reconstructed from a past correlation.
+      return {
+        id: 'venture-context',
+        kind: 'resolve',
+        label: payload.attached ? 'venture memory attached' : 'no venture memory',
+        detail: payload.detail ? String(payload.detail) : undefined,
+        status: 'done',
+        ts,
+      }
     default:
       return null
   }

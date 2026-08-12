@@ -314,6 +314,27 @@ export async function GET(request: Request): Promise<Response> {
                 })}\n\n`,
               ),
             )
+            // Persist so past turns render the same rich phase 02 breakdown
+            // as live ones (migration 117 — this never had a DB write path
+            // before, unlike phase 01's chat_emit_input_analysis_event).
+            try {
+              await (supabase as unknown as {
+                rpc: (fn: string, args: Record<string, unknown>) => Promise<{ error: { message: string } | null }>
+              }).rpc('chat_emit_skill_disclosure_event', {
+                p_context_id: workspace,
+                p_correlation: turnCorrelation,
+                p_room_id: userMsg.room_id,
+                p_author_id: user.id,
+                p_payload: {
+                  active: disclosure.active,
+                  inactiveCount: disclosure.inactiveCount,
+                  totalSkills: disclosure.totalSkills,
+                  savingsPct: disclosure.savingsPct,
+                },
+              })
+            } catch {
+              // observability never breaks the send
+            }
           }
         }
         // RESOLVE (2026-08-11): was two duplicate 'context.injected' emissions
@@ -344,6 +365,28 @@ export async function GET(request: Request): Promise<Response> {
             })}\n\n`,
           ),
         )
+        // Persist so past turns render the same rich phase 03 breakdown as
+        // live ones (migration 117 — venture.context never had a DB write
+        // path before; past turns fell back to the sparse Hermes-only
+        // phase.resolve event, 'targets → meta' with no venture-memory info).
+        try {
+          await (supabase as unknown as {
+            rpc: (fn: string, args: Record<string, unknown>) => Promise<{ error: { message: string } | null }>
+          }).rpc('chat_emit_venture_context_event', {
+            p_context_id: workspace,
+            p_correlation: turnCorrelation,
+            p_room_id: userMsg.room_id,
+            p_author_id: user.id,
+            p_payload: {
+              attached: !!ventureContext,
+              detail: ventureContext
+                ? ventureContext.replace(/^VENTURE MEMORY:\s*/, '').replace(/\s+—\s+/, ', ')
+                : undefined,
+            },
+          })
+        } catch {
+          // observability never breaks the send
+        }
 
         // Safety net: normally userMsg.correlation is already set (send/route.ts
         // sets it at insert time), so this is a no-op. Only fires for rows that
