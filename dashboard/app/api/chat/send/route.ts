@@ -143,6 +143,19 @@ export async function POST(request: Request): Promise<Response> {
   const parsedMentions = Array.from(content.matchAll(MENTION_RE), (m) => m[1])
   const mentions = Array.from(new Set([...(body.mentions ?? []), ...parsedMentions]))
 
+  // TS-018 WI-2 fix (2026-08-11): correlation used to be assigned three
+  // separate times for one turn — here (chat.conversation, random), again in
+  // stream/route.ts for input.analysis (random), again for chat.general
+  // (random), and Hermes mints its own on the VPS besides. Migration 106's
+  // reconstruction query (/api/chat/events?correlation=) only ever matched
+  // whichever one happened to land on chat_messages.correlation, so past-turn
+  // reconstruction silently returned an incomplete event set — the CAOS panel
+  // fell back to sparse Hermes-only data instead of the rich breakdown. Now
+  // minted ONCE here, at creation, set directly on the row (no later UPDATE
+  // race), and threaded through send → stream → Hermes → every event this
+  // turn emits, so one correlation always finds the whole turn.
+  const correlation = randomUUID()
+
   // Insert the user message. RLS blocks rooms the caller can't see.
   const { data: userMsg, error: userErr } = await supabase
     .from('chat_messages')
@@ -153,6 +166,7 @@ export async function POST(request: Request): Promise<Response> {
       author_name: authorName,
       content,
       mentions,
+      correlation,
     })
     .select('id, created_at')
     .single()
@@ -174,11 +188,13 @@ export async function POST(request: Request): Promise<Response> {
   const userMessageId = (userMsg as { id: string; created_at: string } | null)?.id
 
   // TS-023 #2 — emit a chat.conversation event so /brain + the pipeline panel
-  // see this message in the graph, linked by its own correlation. Best-effort.
+  // see this message in the graph. Same correlation as the row above (was a
+  // fresh randomUUID() here, unrelated to everything else the turn emits —
+  // see the comment at the top of this handler).
   try {
     await (supabase as unknown as DbClient).rpc('chat_emit_conversation_event', {
       p_context_id: contextId,
-      p_correlation: randomUUID(),
+      p_correlation: correlation,
       p_room_id: roomId,
       p_author_id: user.id,
       p_kind: 'chat.conversation',

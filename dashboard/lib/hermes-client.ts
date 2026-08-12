@@ -29,6 +29,12 @@ export interface HermesChatInput {
    * client-supplied URL (see RepoModeToggle.tsx / stream/route.ts). */
   repoMode?: 'local' | 'github'
   repoUrl?: string
+  /** TS-018 WI-2 fix (2026-08-11): the dashboard's turn correlation, forwarded
+   * so Hermes reuses it for run.started/phase.classify/phase.resolve/
+   * run.completed instead of minting its own (main.py previously always
+   * generated a fresh uuid4(), disconnected from every other event the turn
+   * emitted — see app/api/chat/send/route.ts's header comment). */
+  correlation?: string
 }
 
 /** SSE event shapes from the wrapper — mirrors yvon-hermes-http/main.py.
@@ -138,6 +144,7 @@ export async function* streamHermesChat(
       input_analysis: input.inputAnalysis ?? undefined,
       repo_mode: input.repoMode ?? undefined,
       repo_url: input.repoUrl ?? undefined,
+      correlation: input.correlation ?? undefined,
     }),
   })
 

@@ -48,7 +48,7 @@ export async function GET(request: Request): Promise<Response> {
   // ── Read user message + room context ──────────────────────────────────────
   const { data: userMsg, error: msgErr } = await supabase
     .from('chat_messages')
-    .select('id, room_id, content, mentions')
+    .select('id, room_id, content, mentions, correlation')
     .eq('id', userMessageId)
     .single()
 
@@ -109,8 +109,14 @@ export async function GET(request: Request): Promise<Response> {
       let replyAuthorId = '[unknown]'
       let replyAuthorName = '[unknown]'
 
-      let turnCorrelation: string | null = null
-      let correlationPersisted = false
+      // TS-018 WI-2 fix (2026-08-11): correlation is now minted ONCE by
+      // /api/chat/send at message-creation time (chat_messages.correlation),
+      // not scattered across three separate randomUUID() calls plus whatever
+      // Hermes made up on its own — see send/route.ts's header comment for
+      // the full story. Falling back to a fresh id only covers pre-fix rows
+      // or the (should-be-rare) case send's write failed.
+      let turnCorrelation: string = (userMsg as { correlation?: string }).correlation ?? randomUUID()
+      let correlationPersisted = !!(userMsg as { correlation?: string }).correlation
       // Hoisted out of the try block below (content/analysis are block-scoped
       // there) so the MemPalace drawer write after the try/catch can still
       // read this turn's message text and venture-relation gate.
@@ -197,7 +203,7 @@ export async function GET(request: Request): Promise<Response> {
               rpc: (fn: string, args: Record<string, unknown>) => Promise<{ error: { message: string } | null }>
             }).rpc('chat_emit_input_analysis_event', {
               p_context_id: workspace,
-              p_correlation: turnCorrelation ?? randomUUID(),
+              p_correlation: turnCorrelation,
               p_room_id: userMsg.room_id,
               p_author_id: user.id,
               p_payload: {
@@ -231,7 +237,7 @@ export async function GET(request: Request): Promise<Response> {
               rpc: (fn: string, args: Record<string, unknown>) => Promise<{ error: { message: string } | null }>
             }).rpc('chat_emit_conversation_event', {
               p_context_id: workspace,
-              p_correlation: randomUUID(),
+              p_correlation: turnCorrelation,
               p_room_id: userMsg.room_id,
               p_author_id: user.id,
               p_kind: 'chat.general',
@@ -266,6 +272,7 @@ export async function GET(request: Request): Promise<Response> {
               author_name: 'meta',
               content: genericReply,
               mentions: [],
+              correlation: turnCorrelation,
             })
           } catch {
             // Best-effort — user message is already saved; worst case the
@@ -338,6 +345,26 @@ export async function GET(request: Request): Promise<Response> {
           ),
         )
 
+        // Safety net: normally userMsg.correlation is already set (send/route.ts
+        // sets it at insert time), so this is a no-op. Only fires for rows that
+        // predate that fix or if send's write somehow failed.
+        if (!correlationPersisted) {
+          const { error: corrErr } = await supabase
+            .from('chat_messages')
+            .update({ correlation: turnCorrelation })
+            .eq('id', userMessageId)
+            .is('correlation', null)
+          if (corrErr) {
+            // eslint-disable-next-line no-console
+            console.warn(
+              'chat_messages.correlation write failed (migration 106 not applied?):',
+              corrErr.message,
+            )
+          } else {
+            correlationPersisted = true
+          }
+        }
+
         for await (const event of streamHermesChat(
           {
             message: content,
@@ -350,35 +377,18 @@ export async function GET(request: Request): Promise<Response> {
             inputAnalysis: inputAnalysis ?? undefined,
             repoMode,
             repoUrl: repoMode === 'github' ? repoUrl : undefined,
+            // TS-018 WI-2 fix (2026-08-11): forward the dashboard's turn
+            // correlation so Hermes reuses it instead of minting its own
+            // (main.py used to always uuid4() a fresh one, completely
+            // disconnected from everything else the turn emits — see
+            // send/route.ts's header comment). Requires the matching VPS
+            // change (main.py reads req.correlation) to be deployed.
+            correlation: turnCorrelation,
           },
           cfg,
         )) {
           const data = JSON.stringify(event)
           controller.enqueue(encoder.encode(`data: ${data}\n\n`))
-
-          // TS-018 WI-2 (YVON-CHAT §5.2): capture the turn's correlation from
-          // the first event that carries it, then link the user message row so
-          // the pipeline panel can reconstruct the turn with one query.
-          // Best-effort (WI-11 live fix): if migration 106 isn't applied the
-          // write fails quietly and the turn still completes — correlation
-          // simply isn't persisted until the migration runs.
-          if (!turnCorrelation && event.correlation) {
-            turnCorrelation = event.correlation
-            const { error: corrErr } = await supabase
-              .from('chat_messages')
-              .update({ correlation: turnCorrelation })
-              .eq('id', userMessageId)
-              .is('correlation', null)
-            if (corrErr) {
-              // eslint-disable-next-line no-console
-              console.warn(
-                'chat_messages.correlation write failed (migration 106 not applied?):',
-                corrErr.message,
-              )
-            } else {
-              correlationPersisted = true
-            }
-          }
 
           if (event.kind === 'done') {
             replyContent = event.response
@@ -441,7 +451,7 @@ export async function GET(request: Request): Promise<Response> {
             rpc: (fn: string, args: Record<string, unknown>) => Promise<{ error: { message: string } | null }>
           }).rpc('chat_emit_task_proposal_event', {
             p_context_id: workspace,
-            p_correlation: turnCorrelation ?? randomUUID(),
+            p_correlation: turnCorrelation,
             p_room_id: userMsg.room_id,
             p_author_id: replyAuthorId,
             p_payload: { title: taskProposal.title, summary: taskProposal.summary },

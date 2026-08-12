@@ -406,6 +406,13 @@ class ChatRequest(BaseModel):
     # the active venture's own repo_url column, never an arbitrary client URL.
     repo_mode: Optional[str] = Field(default=None, description="'local' (default) or 'github' — see repo_url")
     repo_url: Optional[str] = Field(default=None, description="Venture's linked GitHub repo, only set when repo_mode='github'")
+    # TS-018 WI-2 fix (2026-08-11): the dashboard now mints one correlation per
+    # turn at message-creation time and forwards it here. Previously this
+    # endpoint always minted its own uuid4() below, disconnected from the
+    # dashboard's input.analysis/chat.conversation events for the same turn —
+    # past-turn reconstruction (dashboard's /api/chat/events?correlation=)
+    # only ever found this wrapper's own run.*/phase.* events as a result.
+    correlation: Optional[str] = Field(default=None, description="Turn correlation minted by the dashboard; reused verbatim if present")
 
 
 # ── Chat stream endpoint ────────────────────────────────────────────────────
@@ -447,7 +454,12 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     # correlation so the dashboard can link the message row to its events with
     # one indexed query. Assigned here (moved up from below, 2026-08-11) so
     # the repo-mode clone/pull notice below can also carry it.
-    _correlation = str(uuid.uuid4())
+    # Fix (2026-08-11): reuse the dashboard's own correlation when it sends
+    # one (req.correlation, see ChatRequest above) instead of always minting
+    # a fresh, disconnected one — this is what unifies run.started/
+    # phase.classify/phase.resolve/run.completed with the dashboard's own
+    # input.analysis/chat.conversation events under one id per turn.
+    _correlation = req.correlation or str(uuid.uuid4())
 
     def _sse(event: dict[str, Any]) -> None:
         loop.call_soon_threadsafe(queue.put_nowait, {**event, "correlation": _correlation})
