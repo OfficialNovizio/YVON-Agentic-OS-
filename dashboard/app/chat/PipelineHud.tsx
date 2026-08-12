@@ -247,6 +247,18 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
             &quot;{analysis.analysis.what}&quot;
           </div>
         )}
+        {/* Same continuity, one phase further (2026-08-12 per direct
+            request): RESOLVE shows what phase 02 just decided — which agent,
+            which skill(s) — before its own Reference, instead of RESOLVE
+            floating with no link back to what fed into it. */}
+        {phase.id === 'resolve' && disclosureStage?.disclosure && (
+          <div className="truncate text-[10.5px] italic text-[var(--chat-text-faint)]">
+            {analysis?.analysis?.targetAgents?.primary ?? 'the agent'} · using{' '}
+            {disclosureStage.disclosure.active.length > 0
+              ? disclosureStage.disclosure.active.map((a) => a.name).join(', ')
+              : 'no matched skill'}
+          </div>
+        )}
 
         <Sub label="Reference">
           <ReferenceLines lines={phase.process} />
@@ -254,39 +266,57 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
 
         <Sub label="Decision">
           {hasRichDisclosure ? (
-            <div className="space-y-2">
-              <FlowRow
-                n="a"
-                label="active skills"
-                chip={
-                  disclosureStage!.disclosure!.active.length === 0 ? (
-                    <Chip tone="neutral">none matched</Chip>
-                  ) : undefined
-                }
-              >
-                {disclosureStage!.disclosure!.active.length > 0 && (
-                  <div className="space-y-1.5">
-                    {disclosureStage!.disclosure!.active.map((a) => (
-                      <div key={a.name}>
-                        <span className="text-[11.5px] font-medium text-[var(--chat-text-dim)]">{a.name}</span>
-                        <div className="text-[10px] leading-snug text-[var(--chat-text-faint)]">{a.reason}</div>
+            (() => {
+              // Which agent this disclosure ran for — same targetAgents.primary
+              // CLASSIFY's 'handled by' chip already shows (phase 02 always
+              // matches skills against the one agent phase 01 routed to, see
+              // effectiveAgentId in stream/route.ts). Not carried on the
+              // disclosure payload itself, so read it off the shared analyze
+              // stage — both stages describe the same turn.
+              const agentId = analysis?.analysis?.targetAgents?.primary ?? 'the agent'
+              const skillNames = disclosureStage!.disclosure!.active.map((a) => a.name)
+              return (
+                <div className="space-y-2">
+                  <FlowRow n="a" label="agent" chip={<Chip tone="accent">{agentId}</Chip>} />
+                  <FlowRow
+                    n="b"
+                    label="active skills"
+                    chip={
+                      disclosureStage!.disclosure!.active.length === 0 ? (
+                        <Chip tone="neutral">none matched</Chip>
+                      ) : undefined
+                    }
+                  >
+                    {disclosureStage!.disclosure!.active.length > 0 && (
+                      <div className="space-y-1.5">
+                        {disclosureStage!.disclosure!.active.map((a) => (
+                          <div key={a.name}>
+                            <span className="text-[11.5px] font-medium text-[var(--chat-text-dim)]">{a.name}</span>
+                            <div className="text-[10px] leading-snug text-[var(--chat-text-faint)]">{a.reason}</div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
+                  </FlowRow>
+                  <FlowRow
+                    n="c"
+                    label="stayed summary-only"
+                    chip={<Chip tone="neutral">{disclosureStage!.disclosure!.inactiveCount} of {disclosureStage!.disclosure!.totalSkills}</Chip>}
+                  />
+                  {/* Outcome — the actual decision, named: which agent, which
+                      skill(s), so this isn't just an abstract savings stat
+                      (2026-08-12 per direct request). */}
+                  <div className="border-t border-[var(--chat-hairline-soft)] pt-2 text-[11.5px] leading-snug text-[var(--chat-text-dim)]">
+                    <span className="text-[var(--chat-text-faint)]">→ </span>
+                    {disclosureStage!.disclosure!.totalSkills === 0
+                      ? `${agentId} has no skills defined yet — answers from general knowledge.`
+                      : skillNames.length === 0
+                        ? `${agentId} had no matching skill for this message — answers from general knowledge, ${disclosureStage!.disclosure!.savingsPct}% context saved.`
+                        : `${agentId} uses ${skillNames.join(', ')} to handle this — ${disclosureStage!.disclosure!.savingsPct}% context saved, only ${disclosureStage!.disclosure!.active.length} of ${disclosureStage!.disclosure!.totalSkills} skills loaded full.`}
                   </div>
-                )}
-              </FlowRow>
-              <FlowRow
-                n="b"
-                label="stayed summary-only"
-                chip={<Chip tone="neutral">{disclosureStage!.disclosure!.inactiveCount} of {disclosureStage!.disclosure!.totalSkills}</Chip>}
-              />
-              <div className="border-t border-[var(--chat-hairline-soft)] pt-2 text-[11.5px] leading-snug text-[var(--chat-text-dim)]">
-                <span className="text-[var(--chat-text-faint)]">→ </span>
-                {disclosureStage!.disclosure!.totalSkills === 0
-                  ? 'this agent has no skills defined yet.'
-                  : `${disclosureStage!.disclosure!.savingsPct}% context saved, only ${disclosureStage!.disclosure!.active.length} of ${disclosureStage!.disclosure!.totalSkills} skills loaded full.`}
-              </div>
-            </div>
+                </div>
+              )
+            })()
           ) : hasRichClassify ? (
             <div className="space-y-2">
               <FlowRow
