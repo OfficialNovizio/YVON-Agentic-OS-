@@ -731,6 +731,56 @@ async def transcribe_audio(request: Request) -> JSONResponse:
         return JSONResponse({"error": str(exc)}, status_code=500)
 
 
+# ── Venture graphify trigger (artifact 4 of 4, client-onboarding pipeline,
+# 2026-08-12) ────────────────────────────────────────────────────────────────
+# Fires system-harness/graph-brain/ci/graphify-venture.sh in the background
+# when a venture's repoUrl+github_pat are set/changed on the dashboard side
+# (dashboard/lib/db/venture-graphify.ts calls this). Fire-and-forget from the
+# caller's perspective — the script itself upserts build status into
+# Supabase's venture_graphs table (migration 118) as it progresses, so the
+# dashboard polls that instead of this response.
+GRAPHIFY_VENTURE_SCRIPT = os.environ.get(
+    "GRAPHIFY_VENTURE_SCRIPT",
+    "/root/YVON-Agentic-OS-/system-harness/graph-brain/ci/graphify-venture.sh",
+)
+
+
+class VentureGraphifyRequest(BaseModel):
+    venture_slug: str
+    repo_url: str
+    github_pat: str
+
+
+@app.post("/v1/venture/graphify", dependencies=[Depends(require_bearer)])
+async def venture_graphify(req: VentureGraphifyRequest) -> JSONResponse:
+    """Kick off graphify-venture.sh for one venture, in the background.
+
+    Returns 202 as soon as the subprocess is launched — the script runs for
+    minutes (clone/pull, graphify extract, commit+push) and reports its own
+    status into venture_graphs, so this response only confirms the launch,
+    not completion. Never logs req.github_pat.
+    """
+    if not os.path.isfile(GRAPHIFY_VENTURE_SCRIPT):
+        return JSONResponse(
+            {"error": f"graphify-venture.sh not found at {GRAPHIFY_VENTURE_SCRIPT}"},
+            status_code=500,
+        )
+
+    try:
+        subprocess.Popen(
+            ["bash", GRAPHIFY_VENTURE_SCRIPT, req.venture_slug, req.repo_url, req.github_pat],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,  # detach so it survives this request's worker cycling
+        )
+    except Exception as exc:
+        log.exception("failed to launch graphify-venture.sh for %s", req.venture_slug)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+    log.info("launched graphify-venture.sh for venture=%s", req.venture_slug)
+    return JSONResponse({"started": True, "venture_slug": req.venture_slug}, status_code=202)
+
+
 # ── Hermes API proxy (TS-018: full Hermes control) ─────────────────────────
 # Catch-all proxy that forwards ANY /api/* request to Hermes's own API server
 # (127.0.0.1:9119). This exposes all 176 Hermes endpoints to the dashboard
