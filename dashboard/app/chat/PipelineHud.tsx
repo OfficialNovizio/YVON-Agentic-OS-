@@ -34,6 +34,7 @@ import type { PipelineStage } from '@/lib/pipeline'
 import { FLEET } from '@/lib/fleet'
 import { AgentAvatar } from './AgentAvatar'
 import { CAOS_PHASES, CAOS_FIELD_MONITORING, type CaosPhase } from '@/lib/caos-phases'
+import { useWorkspace } from '@/lib/WorkspaceContext'
 
 interface PipelineHudProps {
   stages: PipelineStage[]
@@ -46,6 +47,22 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
   const disabled = source === 'none'
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const toggle = (id: string) => setExpanded((p) => ({ ...p, [id]: !p[id] }))
+
+  // Bug fix (2026-08-12): the 'relates to' chip hardcoded the generic label
+  // 'this project' regardless of which venture was actually active. Reads
+  // the yvon_active_venture cookie against the live `ventures` list — same
+  // pattern RepoModeToggle.tsx uses on this same page, and deliberately NOT
+  // useWorkspace().workspace: VentureSelector.tsx writes the cookie directly
+  // via /api/set-venture + a full page reload, it never calls this context's
+  // setWorkspace(), so `workspace` itself never reflects a real venture pick
+  // (WORKSPACE_MAP only has a static 'yvon-os' entry to begin with).
+  const { ventures } = useWorkspace()
+  const activeVentureSlugRaw = typeof document !== 'undefined'
+    ? document.cookie.match(/(?:^|;\s*)yvon_active_venture=([^;]+)/)?.[1]
+    : undefined
+  const activeVentureSlug = activeVentureSlugRaw ? decodeURIComponent(activeVentureSlugRaw) : undefined
+  const activeVenture = ventures.find((v) => v.slug === activeVentureSlug)
+  const ventureLabel = activeVenture?.name ?? 'this project'
 
   const analysis = stages.find((s) => s.kind === 'analyze')
   const disclosureStage = stages.find((s) => s.kind === 'disclosure')
@@ -277,7 +294,7 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
               <FlowRow
                 n="b"
                 label="relates to"
-                chip={<Chip tone={analysis!.analysis!.relation === 'venture' ? 'accent' : 'neutral'}>{analysis!.analysis!.relation === 'venture' ? 'this project' : 'general'}</Chip>}
+                chip={<Chip tone={analysis!.analysis!.relation === 'venture' ? 'accent' : 'neutral'}>{analysis!.analysis!.relation === 'venture' ? ventureLabel : 'general'}</Chip>}
               />
               {analysis!.analysis!.targetAgents && (() => {
                 const { primary, team, reason } = analysis!.analysis!.targetAgents!
