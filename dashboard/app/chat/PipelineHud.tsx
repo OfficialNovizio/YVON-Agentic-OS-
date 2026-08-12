@@ -235,13 +235,16 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
 
     return (
       <PillExpand id={`caos-phase-${phase.id}`} isLive={isLive} defaultOpen={isLive} n={phase.n} title={phase.title} file={phase.file}>
-        {/* Message preview — only on the classify pill, only when live. Shows
-            what was actually sent, so Reference (generic mechanism) and
-            Decision (this turn's real result) both read against the same
-            message instead of floating with no anchor. */}
-        {hasRichClassify && analysis!.analysis!.what && (
+        {/* Message preview — classify + disclosure pills, only when live.
+            Shows what was actually sent, so Reference (generic mechanism)
+            and Decision (this turn's real result) both read against the
+            same message instead of floating with no anchor. Shown on
+            disclosure too (2026-08-12) — skill matching runs against this
+            same message, so seeing it here keeps phase 01→02 continuity
+            instead of the message only ever appearing on phase 01. */}
+        {(hasRichClassify || hasRichDisclosure) && analysis?.analysis?.what && (
           <div className="truncate text-[10.5px] italic text-[var(--chat-text-faint)]">
-            &quot;{analysis!.analysis!.what}&quot;
+            &quot;{analysis.analysis.what}&quot;
           </div>
         )}
 
@@ -319,8 +322,40 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
                   </FlowRow>
                 )
               })()}
+              {/* d — the actual input-analysis output for this message: the
+                  tier-specific fields analyzeMessage() extracted (info →
+                  type/subject/scope/expected/format, build → why/how/end
+                  result/desired output), not just the a/b/c summary chips
+                  above. 'what' is already shown as the italic preview at the
+                  top, so it's excluded here to avoid repeating it. Added
+                  2026-08-12 per direct request — this data always existed
+                  (it's what gets sent to Hermes as inputAnalysis context)
+                  but was never surfaced in the HUD before. */}
+              {(() => {
+                const a = analysis!.analysis!
+                const rows: [string, string | undefined][] =
+                  a.tier === 'build'
+                    ? [['why', a.why], ['how', a.how], ['end result', a.endResult], ['desired output', a.desiredOutput]]
+                    : a.tier === 'info'
+                      ? [['type', a.type], ['subject', a.subject], ['scope', a.scope], ['expected', a.expected], ['format', a.format]]
+                      : []
+                const filled = rows.filter(([, v]) => v && v !== 'not specified')
+                if (filled.length === 0) return null
+                return (
+                  <FlowRow n="d" label="input-analysis output">
+                    <div className="space-y-1">
+                      {filled.map(([k, v]) => (
+                        <div key={k} className="text-[10.5px] leading-snug">
+                          <span className="text-[var(--chat-text-faint)]">{k}: </span>
+                          <span className="text-[var(--chat-text-dim)]">{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </FlowRow>
+                )
+              })()}
               {analysis!.analysis!.mustHaves && analysis!.analysis!.mustHaves!.length > 0 && (
-                <FlowRow n="d" label="success checklist">
+                <FlowRow n="e" label="success checklist">
                   {analysis!.analysis!.mustHaves!.map((mh, i) => (
                     <div key={i} className="flex items-start gap-1.5 text-[11.5px]">
                       <Check className="mt-px h-3 w-3 shrink-0 text-emerald-400" />
