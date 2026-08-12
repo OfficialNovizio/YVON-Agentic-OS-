@@ -71,6 +71,45 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
   const recordStages = stages.filter((s) => s.kind === 'record')
   const agentRows = agents.map((id) => FLEET.find((a) => a.id === id)).filter(Boolean).slice(0, 3)
 
+  // ── Decision trail (2026-08-12, per direct request) ─────────────────────
+  // Each phase's real decision feeds forward into every phase after it — like
+  // a prompt building up turn by turn. Replaces the three one-off preview
+  // blocks that used to live on classify/disclosure/resolve individually
+  // (each only showing its own single predecessor) with one accumulating
+  // list, shown above Reference on every phase pill. Phases with no live
+  // signal of their own (04 onward — none of those are wired to real data
+  // yet, see file header) just carry the same trail forward unchanged rather
+  // than showing nothing new, which is an honest reflection of what's
+  // actually live vs. still a placeholder.
+  const CAOS_TRAIL_ORDER = [
+    'classify', 'disclosure', 'resolve', 'retrieve', 'formula', 'optimizer',
+    'gate', 'strategy-routing', 'generation', 'post-hoc-verification', 'feedback-loop',
+  ]
+  const trailEntries: { sourcePhase: string; text: string; isQuote?: boolean }[] = []
+  if (analysis?.analysis?.what) {
+    trailEntries.push({ sourcePhase: 'classify', text: analysis.analysis.what, isQuote: true })
+  }
+  if (disclosureStage?.disclosure) {
+    const agentId = analysis?.analysis?.targetAgents?.primary ?? 'the agent'
+    const skillNames = disclosureStage.disclosure.active.map((a) => a.name)
+    trailEntries.push({
+      sourcePhase: 'disclosure',
+      text: skillNames.length > 0 ? `${agentId} uses ${skillNames.join(', ')}` : `${agentId} — no matched skill`,
+    })
+  }
+  const resolveTrailStage = phaseStages('resolve').find((s) => s.id === 'venture-context')
+  if (resolveTrailStage) {
+    trailEntries.push({
+      sourcePhase: 'resolve',
+      text: resolveTrailStage.detail ? `${resolveTrailStage.label} · ${resolveTrailStage.detail}` : resolveTrailStage.label,
+    })
+  }
+  function trailFor(phaseId: string) {
+    const idx = CAOS_TRAIL_ORDER.indexOf(phaseId)
+    if (idx === -1) return []
+    return trailEntries.filter((e) => CAOS_TRAIL_ORDER.indexOf(e.sourcePhase) <= idx)
+  }
+
   // Folds the old standalone sections' real stages into the CAOS phase they
   // actually belong to (see file header). Phases not listed here have no
   // extra live source beyond their own `kind`. RESOLVE used to fold in a
@@ -235,30 +274,29 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
 
     return (
       <PillExpand id={`caos-phase-${phase.id}`} isLive={isLive} defaultOpen={isLive} n={phase.n} title={phase.title} file={phase.file}>
-        {/* Message preview — classify + disclosure pills, only when live.
-            Shows what was actually sent, so Reference (generic mechanism)
-            and Decision (this turn's real result) both read against the
-            same message instead of floating with no anchor. Shown on
-            disclosure too (2026-08-12) — skill matching runs against this
-            same message, so seeing it here keeps phase 01→02 continuity
-            instead of the message only ever appearing on phase 01. */}
-        {(hasRichClassify || hasRichDisclosure) && analysis?.analysis?.what && (
-          <div className="truncate text-[10.5px] italic text-[var(--chat-text-faint)]">
-            &quot;{analysis.analysis.what}&quot;
-          </div>
-        )}
-        {/* Same continuity, one phase further (2026-08-12 per direct
-            request): RESOLVE shows what phase 02 just decided — which agent,
-            which skill(s) — before its own Reference, instead of RESOLVE
-            floating with no link back to what fed into it. */}
-        {phase.id === 'resolve' && disclosureStage?.disclosure && (
-          <div className="truncate text-[10.5px] italic text-[var(--chat-text-faint)]">
-            {analysis?.analysis?.targetAgents?.primary ?? 'the agent'} · using{' '}
-            {disclosureStage.disclosure.active.length > 0
-              ? disclosureStage.disclosure.active.map((a) => a.name).join(', ')
-              : 'no matched skill'}
-          </div>
-        )}
+        {/* Decision trail — every real decision from this phase and every
+            phase before it, so Reference never floats disconnected from
+            what actually happened upstream (2026-08-12, see trailFor()). */}
+        {(() => {
+          const trail = trailFor(phase.id)
+          if (trail.length === 0) return null
+          return (
+            <div className="mb-2 space-y-1 rounded-r-md border-l-2 border-[var(--chat-accent)]/40 bg-[var(--chat-accent)]/[0.06] py-1.5 pl-2.5 pr-2">
+              {trail.map((e, i) => (
+                <div key={i} className="truncate text-[10px] leading-snug text-[var(--chat-text-faint)]">
+                  {e.isQuote ? (
+                    <span className="italic text-[var(--chat-text-dim)]">&quot;{e.text}&quot;</span>
+                  ) : (
+                    <>
+                      <span className="text-[var(--chat-text-faint)]">→ </span>
+                      {e.text}
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )
+        })()}
 
         <Sub label="Reference">
           <ReferenceLines lines={phase.process} />
