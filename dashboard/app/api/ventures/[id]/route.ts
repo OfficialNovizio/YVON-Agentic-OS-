@@ -1,5 +1,5 @@
 import { updateVenture, deleteVenture } from '@/lib/db'
-import { triggerVentureGraphify } from '@/lib/db/venture-graphify'
+import { triggerVentureOnboarding } from '@/lib/db/venture-graphify'
 import type { VentureConfig } from '@/lib/types'
 import { errMsg } from '@/lib/errors'
 
@@ -19,14 +19,14 @@ export async function PATCH(
   try {
     await updateVenture(id, body)
 
-    // Artifact 4 (2026-08-12): if this save touched repoUrl, check whether a
-    // write-scoped PAT is already on file (set via POST
-    // /api/ventures/[id]/graphify) and fire the build automatically if so.
-    // Best-effort — a venture save must never fail because Hermes is
-    // slow/unreachable, and most saves won't have a PAT yet until Settings
-    // grows a field for it.
+    // Artifacts 2+3+4 (2026-08-12): if this save touched repoUrl, check
+    // whether a write-scoped PAT is already on file (set via POST
+    // /api/ventures/[id]/graphify) and fire both the graphify and MemPalace
+    // builds automatically if so. Best-effort — a venture save must never
+    // fail because Hermes is slow/unreachable, and most saves won't have a
+    // PAT yet until Settings grows a field for it.
     if (body.repoUrl !== undefined) {
-      triggerVentureGraphify(id).catch(() => {})
+      triggerVentureOnboarding(id).catch(() => {})
     }
 
     return Response.json({ updated: true })

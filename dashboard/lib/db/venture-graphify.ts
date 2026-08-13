@@ -39,26 +39,16 @@ export async function getVentureRepoAndPat(
   }
 }
 
-/**
- * Fires the VPS graphify build for a venture. Best-effort and never throws —
- * callers (the PATCH auto-trigger, the dedicated /graphify route) treat this
- * as fire-and-forget so a slow/unreachable Hermes never blocks a venture
- * save. Actual build progress is reported by graphify-venture.sh into
- * Supabase (venture_graphs, migration 118), not through this call's result.
- */
-export async function triggerVentureGraphify(id: string): Promise<{ ok: boolean; reason?: string }> {
-  const info = await getVentureRepoAndPat(id)
-  if (!info) return { ok: false, reason: 'venture not found' }
-  if (!info.repoUrl) return { ok: false, reason: 'no repoUrl set' }
-  if (!info.githubPat) return { ok: false, reason: 'no githubPat set' }
-
+async function postToHermes(
+  path: string,
+  info: { slug: string; repoUrl: string; githubPat: string }
+): Promise<{ ok: boolean; reason?: string }> {
   const cfg = hermesConfig()
   if (!cfg.configured || !cfg.url || !cfg.token) {
     return { ok: false, reason: cfg.reason ?? 'Hermes not configured' }
   }
-
   try {
-    const res = await fetch(`${cfg.url}/v1/venture/graphify`, {
+    const res = await fetch(`${cfg.url}${path}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -79,4 +69,57 @@ export async function triggerVentureGraphify(id: string): Promise<{ ok: boolean;
   } catch (err) {
     return { ok: false, reason: err instanceof Error ? err.message : String(err) }
   }
+}
+
+/**
+ * Fires the VPS graphify build for a venture. Best-effort and never throws —
+ * callers (the PATCH auto-trigger, the dedicated /graphify route) treat this
+ * as fire-and-forget so a slow/unreachable Hermes never blocks a venture
+ * save. Actual build progress is reported by graphify-venture.sh into
+ * Supabase (venture_graphs, migration 118), not through this call's result.
+ */
+export async function triggerVentureGraphify(id: string): Promise<{ ok: boolean; reason?: string }> {
+  const info = await getVentureRepoAndPat(id)
+  if (!info) return { ok: false, reason: 'venture not found' }
+  if (!info.repoUrl) return { ok: false, reason: 'no repoUrl set' }
+  if (!info.githubPat) return { ok: false, reason: 'no githubPat set' }
+  return postToHermes('/v1/venture/graphify', {
+    slug: info.slug,
+    repoUrl: info.repoUrl,
+    githubPat: info.githubPat,
+  })
+}
+
+/**
+ * Fires the VPS MemPalace repo-knowledge build for a venture (artifact 3,
+ * ADR-002) — semantic knowledge, sibling to triggerVentureGraphify's
+ * structural graph. Same fire-and-forget contract; status lands in
+ * venture_repo_knowledge (migration 118).
+ */
+export async function triggerVentureMempalace(id: string): Promise<{ ok: boolean; reason?: string }> {
+  const info = await getVentureRepoAndPat(id)
+  if (!info) return { ok: false, reason: 'venture not found' }
+  if (!info.repoUrl) return { ok: false, reason: 'no repoUrl set' }
+  if (!info.githubPat) return { ok: false, reason: 'no githubPat set' }
+  return postToHermes('/v1/venture/mempalace', {
+    slug: info.slug,
+    repoUrl: info.repoUrl,
+    githubPat: info.githubPat,
+  })
+}
+
+/**
+ * Fires BOTH the graphify and MemPalace builds for a venture — the combined
+ * "graph + memory" step per the original request (structural graph +
+ * semantic knowledge, together, whenever a venture's repo is (re)configured).
+ * Returns both results independently; one failing doesn't block the other.
+ */
+export async function triggerVentureOnboarding(
+  id: string
+): Promise<{ graphify: { ok: boolean; reason?: string }; mempalace: { ok: boolean; reason?: string } }> {
+  const [graphify, mempalace] = await Promise.all([
+    triggerVentureGraphify(id),
+    triggerVentureMempalace(id),
+  ])
+  return { graphify, mempalace }
 }

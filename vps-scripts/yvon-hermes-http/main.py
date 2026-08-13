@@ -781,6 +781,54 @@ async def venture_graphify(req: VentureGraphifyRequest) -> JSONResponse:
     return JSONResponse({"started": True, "venture_slug": req.venture_slug}, status_code=202)
 
 
+# ── Venture MemPalace repo-knowledge trigger (artifact 3 of 4, 2026-08-12) ──
+# Sibling to /v1/venture/graphify above — semantic knowledge instead of
+# structural graph. Reopens ADR-001's Phase 2 deferral narrowly, per
+# system-harness/adr/ADR-002-mempalace-venture-repo-mining.md: this is an
+# ephemeral per-build CLI invocation (mempalace-venture.sh), not the
+# VPS-resident `mempalace serve` daemon, which stays gated behind
+# MASTER-PLAN.md P9. Requires the mempalace CLI + MEMPALACE_PGVECTOR_DSN —
+# see vps-scripts/install-mempalace.md.
+MEMPALACE_VENTURE_SCRIPT = os.environ.get(
+    "MEMPALACE_VENTURE_SCRIPT",
+    "/root/YVON-Agentic-OS-/system-harness/graph-brain/ci/mempalace-venture.sh",
+)
+
+
+class VentureMempalaceRequest(BaseModel):
+    venture_slug: str
+    repo_url: str
+    github_pat: str
+
+
+@app.post("/v1/venture/mempalace", dependencies=[Depends(require_bearer)])
+async def venture_mempalace(req: VentureMempalaceRequest) -> JSONResponse:
+    """Kick off mempalace-venture.sh for one venture, in the background.
+
+    Returns 202 as soon as the subprocess is launched. Status lands in
+    venture_repo_knowledge (migration 118). Never logs req.github_pat.
+    """
+    if not os.path.isfile(MEMPALACE_VENTURE_SCRIPT):
+        return JSONResponse(
+            {"error": f"mempalace-venture.sh not found at {MEMPALACE_VENTURE_SCRIPT}"},
+            status_code=500,
+        )
+
+    try:
+        subprocess.Popen(
+            ["bash", MEMPALACE_VENTURE_SCRIPT, req.venture_slug, req.repo_url, req.github_pat],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except Exception as exc:
+        log.exception("failed to launch mempalace-venture.sh for %s", req.venture_slug)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+    log.info("launched mempalace-venture.sh for venture=%s", req.venture_slug)
+    return JSONResponse({"started": True, "venture_slug": req.venture_slug}, status_code=202)
+
+
 # ── Hermes API proxy (TS-018: full Hermes control) ─────────────────────────
 # Catch-all proxy that forwards ANY /api/* request to Hermes's own API server
 # (127.0.0.1:9119). This exposes all 176 Hermes endpoints to the dashboard

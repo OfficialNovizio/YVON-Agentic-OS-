@@ -12,6 +12,7 @@ for rejected proposals.
 | # | Title | Date | Status | Domain(s) | Reviewed by | Supersedes / Superseded by |
 |---|-------|------|--------|-----------|-------------|----------------------------|
 | ADR-001 | Episodic/semantic memory backend — MemPalace, staged install (replaces turbovec) | 2026-08-09 | accepted | data, engineering | dana (data), dev (leader) | — |
+| ADR-002 | MemPalace venture-repo mining — narrow, ephemeral exception to ADR-001's Phase 2 gate | 2026-08-12 | accepted | data, engineering | operator | extends ADR-001 |
 
 ## Reading the ledger
 - **Current architecture** = all rows with status `accepted`.
