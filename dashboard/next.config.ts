@@ -68,6 +68,33 @@ const nextConfig: NextConfig = {
       { source: '/skill-workshop',  destination: '/foundry/skills',           permanent: true },
     ]
   },
+  // 2026-08-12 outage fix: middleware.ts (Edge Runtime) crashed site-wide with
+  // "ReferenceError: __dirname is not defined". Root cause: next/server itself
+  // transitively bundles ua-parser-js (confirmed via middleware.js.map's
+  // sourcesContent), which references __dirname internally. Local `next build`
+  // tree-shakes that code path away since we never call any UA-parsing helper
+  // — so it never reproduced here — but Vercel's actual deployed Edge Function
+  // bundler doesn't tree-shake it the same way (known Next.js/Vercel platform
+  // gap, not specific to any one package: same symptom is separately reported
+  // against next-intl, next-auth, and @supabase/ssr — see
+  // github.com/vercel/next.js/issues/53968 and
+  // github.com/supabase/supabase/issues/21009). Upgrading @supabase/ssr
+  // (0.5.2 → 0.12.4, same day) did not fix it, confirming the reference isn't
+  // coming from that package specifically.
+  //
+  // Fix: force-define __dirname as a literal string for the edge compilation
+  // only, so if webpack (on any platform's bundler) ever encounters the
+  // token, it resolves to a constant instead of throwing at runtime. Scoped
+  // to nextRuntime === 'edge' so the Node.js server compilation (which has a
+  // real __dirname) is untouched.
+  webpack(config, { nextRuntime, webpack }) {
+    if (nextRuntime === 'edge') {
+      config.plugins.push(
+        new webpack.DefinePlugin({ __dirname: JSON.stringify('/') })
+      )
+    }
+    return config
+  },
 }
 
 export default nextConfig
