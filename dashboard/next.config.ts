@@ -1,11 +1,4 @@
 import type { NextConfig } from 'next'
-import { fileURLToPath } from 'node:url'
-import { dirname } from 'node:path'
-
-// Repo has two package.json roots (yvon-engine at repo root + yvon-dashboard here).
-// Pin Next's workspace root to THIS directory so the file-tracer picks the
-// correct package-lock and stops warning about multiple lockfiles.
-const HERE = dirname(fileURLToPath(import.meta.url))
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -29,11 +22,13 @@ const csp = [
 ].join('; ')
 
 const nextConfig: NextConfig = {
-  // Required for outputFileTracingIncludes to work
-  output: 'standalone',
-  // Pin workspace root to this dir — silences 'multiple lockfiles' warning and
-  // ensures dashboard/package-lock.json is authoritative for the file-tracer.
-  outputFileTracingRoot: HERE,
+  // 2026-08-12 (same day, follow-up to the DefinePlugin below): `output:
+  // 'standalone'` (+ its `outputFileTracingRoot`) removed — Vercel advises
+  // against standalone output on their own platform (they produce their own
+  // optimized deployment output; combining the two is a documented source of
+  // bundling inconsistencies). The middleware `__dirname` outage survived the
+  // DefinePlugin alone, so this was the recorded next step. Vercel traces and
+  // bundles edge code itself; nothing here needs the standalone trace.
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -87,6 +82,13 @@ const nextConfig: NextConfig = {
   // token, it resolves to a constant instead of throwing at runtime. Scoped
   // to nextRuntime === 'edge' so the Node.js server compilation (which has a
   // real __dirname) is untouched.
+  //
+  // Status 2026-08-12 evening: the DefinePlugin alone did NOT stop the live
+  // outage (still MIDDLEWARE_INVOCATION_FAILED after the fix deploy) — hence
+  // the standalone-output removal above. Kept here as belt-and-braces: if the
+  // edge bundle ever references __dirname it now resolves to a constant. If
+  // the outage STILL persists after dropping standalone, the next lever is
+  // aliasing ua-parser-js to an empty stub in this edge-only webpack block.
   webpack(config, { nextRuntime, webpack }) {
     if (nextRuntime === 'edge') {
       config.plugins.push(

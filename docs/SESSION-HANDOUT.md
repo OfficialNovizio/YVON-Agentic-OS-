@@ -8,7 +8,9 @@ line is the 2026-08-01 record, unedited.*
 *Addendum 2026-08-12: §9 #16 added — production-wide middleware outage (`yvon.in` 500 on every
 request), diagnosed and a fix pushed same day (commits `3fc7de6`, `48158fe`). **Status: fix
 pushed, live verification pending as of this writing** — check `yvon.in` loads before trusting
-this closed. Also this session (not yet written up in full): the per-venture graphify +
+this closed. (Evening follow-up: operator confirmed the outage was STILL LIVE after that fix —
+round-2 change, dropping `output: 'standalone'`, prepared in the working tree but not yet
+pushed — see §9 #16.) Also this session (not yet written up in full): the per-venture graphify +
 MemPalace client-onboarding pipeline (artifacts 1–4, `ADR-002`), turn-correlation unification
 across dashboard + Hermes, and the CAOS panel redesign — a fuller §-level writeup of that work is
 still owed to this handout.*
@@ -654,6 +656,18 @@ TASK-SPEC is **refused**, and the refusal names the exact command to fix it.
       output — combining the two is a separate known source of bundling inconsistencies; not
       touched this round since it's also used for `outputFileTracingIncludes` and the narrower
       fix was tried first).
+    - **⚠️ Follow-up (2026-08-12 evening):** operator confirmed the outage was **STILL LIVE**
+      after the DefinePlugin deploy — same `MIDDLEWARE_INVOCATION_FAILED` / `__dirname` error.
+      The recorded next step was then executed: `output: 'standalone'` (+ `outputFileTracingRoot`
+      and the now-unused `fileURLToPath`/`dirname` imports) removed from `dashboard/next.config.ts`
+      — Vercel advises against standalone output on their platform. The DefinePlugin is kept as
+      belt-and-braces. **Status: edit prepared in the working tree, NOT yet committed/pushed.**
+      Commit → `bash cli/deploy.sh` (gate → push → watch Vercel → classify) → check `yvon.in`
+      before marking this resolved. **If it STILL fails after that:** alias `ua-parser-js` to an
+      empty stub inside the edge-only webpack block in `next.config.ts` (removes the reference
+      from the edge bundle entirely — the diagnosis says the code path is dead, so a stub is
+      safe) and check the Vercel project env vars (`HERMES_URL`/`HERMES_TOKEN`) for the separate
+      chat env gap.
     - **Lesson for future sessions:** a clean local `next build` does not prove an Edge
       Function/middleware bundle is safe on Vercel — their platform bundles Edge Runtime code
       differently (tree-shaking behavior differs at minimum). The only real verification for an
