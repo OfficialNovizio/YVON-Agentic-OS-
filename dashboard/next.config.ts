@@ -1,4 +1,9 @@
 import type { NextConfig } from 'next'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+
+// Absolute path to the edge-only ua-parser-js stub (round 3, see webpack()).
+const EDGE_STUB = join(dirname(fileURLToPath(import.meta.url)), 'lib', 'edge-stubs', 'ua-parser-js.js')
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -86,14 +91,21 @@ const nextConfig: NextConfig = {
   // Status 2026-08-12 evening: the DefinePlugin alone did NOT stop the live
   // outage (still MIDDLEWARE_INVOCATION_FAILED after the fix deploy) — hence
   // the standalone-output removal above. Kept here as belt-and-braces: if the
-  // edge bundle ever references __dirname it now resolves to a constant. If
-  // the outage STILL persists after dropping standalone, the next lever is
-  // aliasing ua-parser-js to an empty stub in this edge-only webpack block.
+  // edge bundle ever references __dirname it now resolves to a constant.
+  // Round 3 (2026-08-12, after round 2 also failed): alias ua-parser-js to a
+  // local stub so its __dirname reference never enters the edge bundle at all
+  // (see lib/edge-stubs/ua-parser-js.js). Edge-only — the Node build keeps
+  // the real package.
   webpack(config, { nextRuntime, webpack }) {
     if (nextRuntime === 'edge') {
       config.plugins.push(
         new webpack.DefinePlugin({ __dirname: JSON.stringify('/') })
       )
+      config.resolve = config.resolve || {}
+      config.resolve.alias = {
+        ...(config.resolve.alias || {}),
+        'ua-parser-js': EDGE_STUB,
+      }
     }
     return config
   },
