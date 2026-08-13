@@ -5,6 +5,14 @@
 graph-docs (`MASTER.md`/`system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md`/`system-harness/graph-brain/YVON-GRAPH.md`) review. Everything above this
 line is the 2026-08-01 record, unedited.*
 
+*Addendum 2026-08-12: §9 #16 added — production-wide middleware outage (`yvon.in` 500 on every
+request), diagnosed and a fix pushed same day (commits `3fc7de6`, `48158fe`). **Status: fix
+pushed, live verification pending as of this writing** — check `yvon.in` loads before trusting
+this closed. Also this session (not yet written up in full): the per-venture graphify +
+MemPalace client-onboarding pipeline (artifacts 1–4, `ADR-002`), turn-correlation unification
+across dashboard + Hermes, and the CAOS panel redesign — a fuller §-level writeup of that work is
+still owed to this handout.*
+
 > **This file is the durable memory of the project.** In-session task lists are ephemeral and
 > die with the session — anything that must survive lives here. It is written to be
 > **self-contained and exportable**: a fresh session, a different AI, or a human should be
@@ -606,6 +614,52 @@ TASK-SPEC is **refused**, and the refusal names the exact command to fix it.
     (`vps-scripts/yvon-hermes-dashboard.service`), `LISTEN 127.0.0.1:9119`, enabled + Restart=always.
     `/api/hermes/*` proxy has a live backend. Lesson: "verified" must mean a live check, not a
     marked box — the same class as §3's "browsers tell the truth".
+16. **⚠️ 2026-08-12 — site-wide production outage: every `yvon.in` request 500'd**
+    (`MIDDLEWARE_INVOCATION_FAILED`, `ReferenceError: __dirname is not defined`, in
+    `dashboard/middleware.ts` — the auth gate that runs on every route). **Fix pushed same day,
+    live verification still pending as of this writing — do not mark this resolved without
+    checking `yvon.in` loads.**
+    - **Diagnosis path, in order (each step ruled out one theory):**
+      1. Rolled back Vercel to a 24h-old deployment (`37f7350`, "Promote to Production" — this
+         re-aliases an existing build, it does NOT rebuild) → **same crash**. This ruled out
+         every code change from this session's earlier work (turn-correlation unification,
+         artifacts 1–4) as the cause, since that deployment predates all of it.
+      2. Checked Vercel Project Settings → Environment Variables → `NEXT_PUBLIC_SUPABASE_URL` /
+         `NEXT_PUBLIC_SUPABASE_ANON_KEY` present, Production-scoped, unchanged since Jul 28 →
+         **ruled out missing/misconfigured env vars.**
+      3. Upgraded `@supabase/ssr` 0.5.2 → 0.12.4 (commit `3fc7de6`) on the theory that an old,
+         known-buggy version of the package was the source — pushed, redeployed (cache
+         disabled) → **same crash, same error, on a fresh commit.** Confirmed this package
+         version was NOT the (sole) cause.
+      4. Inspected the actual compiled `.next/server/middleware.js` + its sourcemap locally.
+         Found `middleware.js.map`'s `sourcesContent` includes `ua-parser-js` — pulled in
+         *transitively by `next/server` itself* (our `middleware.ts` never imports it directly,
+         never calls any UA-parsing helper). `ua-parser-js` references `__dirname` internally.
+         Confirmed as a known Next.js/Vercel platform gap, not package-specific — the identical
+         symptom is separately reported against `next-intl`, `next-auth`, and `@supabase/ssr`
+         (`vercel/next.js#53968`, `supabase/supabase#21009`). Local `next build` tree-shakes the
+         dead UA-parsing code path away (we never call it) — reproduces as a clean build every
+         time locally — but Vercel's actual deployed Edge Function bundler does not tree-shake
+         it the same way, so the reference survives only in their build output.
+    - **Fix (commit `48158fe`):** `dashboard/next.config.ts`'s `webpack()` hook now injects a
+      `DefinePlugin` that force-resolves `__dirname` to a literal string, scoped to
+      `nextRuntime === 'edge'` only (the Node.js server compilation, which has a real
+      `__dirname`, is untouched). This is the community-verified workaround for this exact bug
+      class. **Could not be verified locally before pushing** — the failure is specific to
+      Vercel's platform bundler, `next build` has never reproduced it once, before or after this
+      fix.
+    - **If still broken next session:** the next thing worth trying is dropping
+      `output: 'standalone'` from `next.config.ts` (Vercel generally advises against that
+      setting on their own platform, since Vercel already produces its own optimized deployment
+      output — combining the two is a separate known source of bundling inconsistencies; not
+      touched this round since it's also used for `outputFileTracingIncludes` and the narrower
+      fix was tried first).
+    - **Lesson for future sessions:** a clean local `next build` does not prove an Edge
+      Function/middleware bundle is safe on Vercel — their platform bundles Edge Runtime code
+      differently (tree-shaking behavior differs at minimum). The only real verification for an
+      Edge Runtime bug is a live Vercel deployment, same "browsers tell the truth" class of
+      lesson as §3 and #15 above, one level deeper (a build that *compiles* clean is not the
+      same as a build that *runs* clean on the actual target platform).
 
 ---
 
