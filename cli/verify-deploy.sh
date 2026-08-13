@@ -356,7 +356,13 @@ for app in $APPS; do
     if [ -z "$out" ]; then ok "$label"
     else while IFS= read -r line; do
       [ -z "$line" ] && continue
-      bump "${line#FAIL::}"
+      # Informational skip lines (e.g. "skip: no middleware.ts") are gray, not
+      # findings. Latent bug fixed 2026-08-12: they were counted as failures,
+      # which blocked the legitimate "no middleware" config (round 6).
+      case "$line" in
+        *"(skip:"*) gray "$line" ;;
+        *) bump "${line#FAIL::}" ;;
+      esac
     done <<< "$out"
     fi
   done
