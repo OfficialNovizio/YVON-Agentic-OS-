@@ -92,10 +92,14 @@ const nextConfig: NextConfig = {
   // outage (still MIDDLEWARE_INVOCATION_FAILED after the fix deploy) — hence
   // the standalone-output removal above. Kept here as belt-and-braces: if the
   // edge bundle ever references __dirname it now resolves to a constant.
-  // Round 3 (2026-08-12, after round 2 also failed): alias ua-parser-js to a
-  // local stub so its __dirname reference never enters the edge bundle at all
-  // (see lib/edge-stubs/ua-parser-js.js). Edge-only — the Node build keeps
-  // the real package.
+  // Round 5 (2026-08-12): ROOT CAUSE confirmed — next/server's internal
+  // user-agent module requires "next/dist/compiled/ua-parser-js" (the copy
+  // compiled INSIDE next/dist), which references __dirname. Rounds 1–4
+  // (DefinePlugin, drop standalone, alias bare 'ua-parser-js', drop
+  // @supabase/ssr from middleware) all failed because the reference comes
+  // from that internal path, pulled in by ANY middleware that imports
+  // next/server. Alias BOTH specifiers — bare AND internal — to the stub.
+  // Edge-only; the Node build keeps the real package.
   webpack(config, { nextRuntime, webpack }) {
     if (nextRuntime === 'edge') {
       config.plugins.push(
@@ -105,6 +109,7 @@ const nextConfig: NextConfig = {
       config.resolve.alias = {
         ...(config.resolve.alias || {}),
         'ua-parser-js': EDGE_STUB,
+        'next/dist/compiled/ua-parser-js': EDGE_STUB,
       }
     }
     return config

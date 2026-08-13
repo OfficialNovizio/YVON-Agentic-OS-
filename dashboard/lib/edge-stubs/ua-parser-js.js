@@ -1,26 +1,29 @@
-// Edge-runtime stub for ua-parser-js (2026-08-12 outage, round 3).
+// Edge-runtime stub for ua-parser-js (2026-08-12 outage, round 5).
 //
-// next/server bundles ua-parser-js transitively, and its code references
-// `__dirname`, which does not exist in Vercel's Edge isolate — that is the
-// root cause of the site-wide `MIDDLEWARE_INVOCATION_FAILED` crash. Our
-// middleware (dashboard/middleware.ts) never parses a User-Agent string, so
-// the module is dead weight in the edge bundle. Aliasing it to this stub in
-// next.config.ts (edge compilation only) removes the reference entirely.
+// ROOT CAUSE (confirmed): next/server's internal user-agent module
+// (next/dist/server/web/spec-extension/user-agent.js:27) does
+//   require("next/dist/compiled/ua-parser-js")
+// — the copy of ua-parser-js COMPILED INSIDE next/dist. That code
+// references `__dirname`, which does not exist in Vercel's Edge (V8)
+// runtime → MIDDLEWARE_INVOCATION_FAILED / "ReferenceError: __dirname
+// is not defined", site-wide. It is pulled in by ANY middleware that
+// imports `next/server`, regardless of what we do with our own imports
+// (rounds 1–4 confirmed this). Local `next build` never reproduces it
+// because the platform's Edge bundler is what trips over the reference.
 //
-// If Next ever legitimately needs UA parsing on an edge path, the no-op
-// UAParser below is a functional placeholder, and a real call would surface
-// as a TypeError at the call site — loud, not silent.
+// Fix: alias BOTH specifiers — the bare `ua-parser-js` AND Next's
+// internal `next/dist/compiled/ua-parser-js` — to this stub, edge-only.
+// user-agent.js calls the default export AS A FUNCTION and spreads the
+// result, so the default must be callable and return an object.
+//
+// If real UA parsing is ever needed on an edge path, this no-op will
+// surface as a loud TypeError at the call site — never silent.
 'use strict'
 
-class UAParser {
-  constructor() {}
-  getResult() { return {} }
-  getUA() { return '' }
-  setUA() { return this }
-  setMaxAge() { return this }
-  clone() { return new UAParser() }
+function uaParserStub() {
+  return {}
 }
 
-module.exports = { UAParser }
-module.exports.default = { UAParser }
-module.exports.UAParser = UAParser
+module.exports = uaParserStub
+module.exports.default = uaParserStub
+module.exports.UAParser = uaParserStub
