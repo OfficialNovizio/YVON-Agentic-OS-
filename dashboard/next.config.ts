@@ -66,6 +66,10 @@ const nextConfig: NextConfig = {
       { source: '/agent-manager',   destination: '/agents',                    permanent: true },
       // TS-011: Skill Workshop renamed → Foundry hub; skills page lives under /foundry/skills.
       { source: '/skill-workshop',  destination: '/foundry/skills',           permanent: true },
+      // Root: move the app's landing to the decision queue (router-level, not a
+      // throwing redirect() — the app-layer page.tsx version 404'd on Vercel
+      // after the middleware removal in round 6).
+      { source: '/', destination: '/decision-queue', permanent: false },
     ]
   },
   // 2026-08-12 outage fix: middleware.ts (Edge Runtime) crashed site-wide with
