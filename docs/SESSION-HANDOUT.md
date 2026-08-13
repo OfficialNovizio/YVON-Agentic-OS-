@@ -9,8 +9,8 @@ line is the 2026-08-01 record, unedited.*
 request), diagnosed and a fix pushed same day (commits `3fc7de6`, `48158fe`). **Status: fix
 pushed, live verification pending as of this writing** — check `yvon.in` loads before trusting
 this closed. (Evening follow-up: operator confirmed the outage was STILL LIVE after that fix —
-round-2 change, dropping `output: 'standalone'`, prepared in the working tree but not yet
-pushed — see §9 #16.) Also this session (not yet written up in full): the per-venture graphify +
+round-2 change, dropping `output: 'standalone'`, was committed as `d3a9d1efb` and pushed —
+deploy-gate PASS 8/8 — see §9 #16.) Also this session (not yet written up in full): the per-venture graphify +
 MemPalace client-onboarding pipeline (artifacts 1–4, `ADR-002`), turn-correlation unification
 across dashboard + Hermes, and the CAOS panel redesign — a fuller §-level writeup of that work is
 still owed to this handout.*
@@ -661,13 +661,33 @@ TASK-SPEC is **refused**, and the refusal names the exact command to fix it.
       The recorded next step was then executed: `output: 'standalone'` (+ `outputFileTracingRoot`
       and the now-unused `fileURLToPath`/`dirname` imports) removed from `dashboard/next.config.ts`
       — Vercel advises against standalone output on their platform. The DefinePlugin is kept as
-      belt-and-braces. **Status: edit prepared in the working tree, NOT yet committed/pushed.**
-      Commit → `bash cli/deploy.sh` (gate → push → watch Vercel → classify) → check `yvon.in`
-      before marking this resolved. **If it STILL fails after that:** alias `ua-parser-js` to an
+      belt-and-braces. **Status: committed `d3a9d1efb` + pushed 2026-08-12 evening (deploy-gate
+      PASS 8/8). Live verification still pending** — `curl -I https://yvon.in` must return 200
+      before marking resolved. **If it STILL fails after this deploy:** alias `ua-parser-js` to an
       empty stub inside the edge-only webpack block in `next.config.ts` (removes the reference
       from the edge bundle entirely — the diagnosis says the code path is dead, so a stub is
       safe) and check the Vercel project env vars (`HERMES_URL`/`HERMES_TOKEN`) for the separate
       chat env gap.
+    - **⚠️ Rounds 3–5 (2026-08-12 late night) — ALL FAILED, platform verdict:** each was pushed
+      (deploy-gate PASS 8/8, production READY) and each still 500'd identically. Round 3 aliased
+      bare `ua-parser-js`; round 4 removed `@supabase/ssr` from middleware (jose JWT validation);
+      round 5 aliased BOTH bare and `next/dist/compiled/ua-parser-js` (stub confirmed present in
+      the deployed bundle's sourcemap). **Decisive evidence:** local `dashboard/.next/server/
+      middleware.js` (107,524 B) contains ZERO `__dirname` references (verified `grep`), yet the
+      identical build crashes on Vercel. Conclusion: **Vercel's platform-side edge bundler injects
+      `__dirname` into the middleware function — a platform bug, not our code.** Rounds 1–5 could
+      not fix it from the app side. (External reports confirm the same `MIDDLEWARE_INVOCATION_FAILED`
+      class with no app-level fix; see stackoverflow vercel-middleware-crash + vercel-status
+      middleware incidents.)
+    - **ROUND 6 — the fix (recommended + operator-approved):** remove the edge middleware entirely
+      so Vercel's bundler has nothing to crash, and replace the gate with a client-side session
+      check. Changes: `dashboard/middleware.ts` deleted (`git rm`); `dashboard/app/session-gate.tsx`
+      added (client component: reads `sb-<ref>-auth-token` cookie, checks JWT expiry in-browser,
+      redirects to `/login` with `?next`, exempts `/login` + `/auth/*`); `dashboard/app/layout.tsx`
+      wraps children in `<SessionGate>`. Real data security stays server-side (API routes auth
+      independently). **Reversible:** `git restore dashboard/middleware.ts dashboard/app/layout.tsx
+      && git rm dashboard/app/session-gate.tsx` restores the pre-round-6 state. **Verification
+      pending:** `curl -I https://yvon.in` must return 200 before marking resolved.
     - **Lesson for future sessions:** a clean local `next build` does not prove an Edge
       Function/middleware bundle is safe on Vercel — their platform bundles Edge Runtime code
       differently (tree-shaking behavior differs at minimum). The only real verification for an

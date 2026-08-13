@@ -7,6 +7,7 @@ import { Shell } from '@/components/Shell'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { RegisterServiceWorker } from '@/components/RegisterServiceWorker'
 import AgentationToolbar from '@/components/AgentationToolbar'
+import SessionGate from '@/app/session-gate'
 
 export const metadata: Metadata = {
   title: 'YVON OS · Mission Control',
@@ -31,11 +32,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="dark">
       <body className="bg-background text-on-surface bg-yvon-image min-h-screen">
-        <WorkspaceProvider>
-          <ErrorBoundary>
-            <Shell>{children}</Shell>
-          </ErrorBoundary>
-        </WorkspaceProvider>
+        <SessionGate>
+          <WorkspaceProvider>
+            <ErrorBoundary>
+              <Shell>{children}</Shell>
+            </ErrorBoundary>
+          </WorkspaceProvider>
+        </SessionGate>
         <RegisterServiceWorker />
         <AgentationToolbar />
         <Analytics />
