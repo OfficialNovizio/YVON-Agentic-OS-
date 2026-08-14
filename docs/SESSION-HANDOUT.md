@@ -616,11 +616,16 @@ TASK-SPEC is **refused**, and the refusal names the exact command to fix it.
     (`vps-scripts/yvon-hermes-dashboard.service`), `LISTEN 127.0.0.1:9119`, enabled + Restart=always.
     `/api/hermes/*` proxy has a live backend. Lesson: "verified" must mean a live check, not a
     marked box — the same class as §3's "browsers tell the truth".
-16. **⚠️ 2026-08-12 — site-wide production outage: every `yvon.in` request 500'd**
-    (`MIDDLEWARE_INVOCATION_FAILED`, `ReferenceError: __dirname is not defined`, in
-    `dashboard/middleware.ts` — the auth gate that runs on every route). **Fix pushed same day,
-    live verification still pending as of this writing — do not mark this resolved without
-    checking `yvon.in` loads.**
+16. **✅ RESOLVED 2026-08-12 (operator-confirmed) — site-wide production outage: every `yvon.in`
+    request 500'd** (`MIDDLEWARE_INVOCATION_FAILED`, `ReferenceError: __dirname is not defined`,
+    in `dashboard/middleware.ts` — the auth gate that ran on every route). Took 6 rounds across
+    two sessions to actually close — rounds 1–5 (below) were all app-side attempts that each
+    passed the deploy gate and still crashed identically in production; round 6 was the fix:
+    **the edge middleware was removed entirely** (`dashboard/middleware.ts` deleted) and replaced
+    with a client-side session gate (`dashboard/app/session-gate.tsx`, wrapping children in
+    `dashboard/app/layout.tsx`) plus a router-level root redirect (`dashboard/app/page.tsx` +
+    `next.config.ts`) to replace what middleware used to handle. **Operator confirmed `yvon.in`
+    loads correctly as of this writing — closed.**
     - **Diagnosis path, in order (each step ruled out one theory):**
       1. Rolled back Vercel to a 24h-old deployment (`37f7350`, "Promote to Production" — this
          re-aliases an existing build, it does NOT rebuild) → **same crash**. This ruled out
@@ -679,15 +684,18 @@ TASK-SPEC is **refused**, and the refusal names the exact command to fix it.
       not fix it from the app side. (External reports confirm the same `MIDDLEWARE_INVOCATION_FAILED`
       class with no app-level fix; see stackoverflow vercel-middleware-crash + vercel-status
       middleware incidents.)
-    - **ROUND 6 — the fix (recommended + operator-approved):** remove the edge middleware entirely
-      so Vercel's bundler has nothing to crash, and replace the gate with a client-side session
-      check. Changes: `dashboard/middleware.ts` deleted (`git rm`); `dashboard/app/session-gate.tsx`
-      added (client component: reads `sb-<ref>-auth-token` cookie, checks JWT expiry in-browser,
-      redirects to `/login` with `?next`, exempts `/login` + `/auth/*`); `dashboard/app/layout.tsx`
-      wraps children in `<SessionGate>`. Real data security stays server-side (API routes auth
-      independently). **Reversible:** `git restore dashboard/middleware.ts dashboard/app/layout.tsx
-      && git rm dashboard/app/session-gate.tsx` restores the pre-round-6 state. **Verification
-      pending:** `curl -I https://yvon.in` must return 200 before marking resolved.
+    - **ROUND 6 — the fix (recommended + operator-approved), CONFIRMED WORKING:** remove the edge
+      middleware entirely so Vercel's bundler has nothing to crash, and replace the gate with a
+      client-side session check. Changes: `dashboard/middleware.ts` deleted (`git rm`);
+      `dashboard/app/session-gate.tsx` added (client component: reads `sb-<ref>-auth-token`
+      cookie, checks JWT expiry in-browser, redirects to `/login` with `?next`, exempts `/login`
+      + `/auth/*`); `dashboard/app/layout.tsx` wraps children in `<SessionGate>`. Real data
+      security stays server-side (API routes auth independently). A follow-up
+      (`fix: root redirect at router level`) was needed for a 404 that appeared at `/` after
+      middleware removal (middleware used to own that redirect). **Reversible:**
+      `git restore dashboard/middleware.ts dashboard/app/layout.tsx && git rm
+      dashboard/app/session-gate.tsx` restores the pre-round-6 state, if ever needed. **Operator
+      confirmed `yvon.in` loads — RESOLVED.**
     - **Lesson for future sessions:** a clean local `next build` does not prove an Edge
       Function/middleware bundle is safe on Vercel — their platform bundles Edge Runtime code
       differently (tree-shaking behavior differs at minimum). The only real verification for an
