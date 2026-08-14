@@ -187,6 +187,65 @@ for ATTEMPT in 1 2; do
   # Only ever writes inside knowledge/ — deliberately never touches the
   # top-level README.md, which graphify-venture.sh owns, so the two scripts
   # can run in either order without clobbering each other.
+
+  # entities.json (2026-08-14): the one file `mempalace init` writes inside
+  # the repo itself ($WORKDIR/entities.json, from step [3/6]) — detected
+  # people/projects/rooms. Per-repo, same isolation guarantee as
+  # graphify-out/, safe to push. NOT the same as ~/.mempalace/ (global
+  # config shared across every venture on the VPS — deliberately never
+  # pushed anywhere; would leak other clients' wing data into this repo).
+  cp "$WORKDIR/entities.json" knowledge/entities.json 2>/dev/null \
+    || echo "  (no entities.json to copy — non-fatal, some repos produce none)"
+
+  # entries.json (2026-08-14): the actual mined content, not just a count.
+  # `mine` (step [4/6]) writes into a per-venture pgvector table — mempalace
+  # itself has no CLI flag to dump it, so this queries the table directly.
+  # Reuses the mempalace venv's own python (guaranteed to have whichever pg
+  # driver `mempalace[pgvector]` installed, psycopg or psycopg2 — this
+  # sandbox can't confirm which without VPS shell access, so the export
+  # tries both). Table name carries a hash suffix mempalace generates
+  # internally (confirmed live: mempalace_venture_novizio_<hash>_mempalace_drawers)
+  # — discovered by LIKE match on venture_slug rather than assumed literal.
+  # Embedding vectors are deliberately excluded (large, not human-readable
+  # in a diff); id/document/metadata/updated_at only. Best-effort/non-fatal
+  # — a missing driver or table shouldn't fail the whole build, same
+  # philosophy as ENTRY_COUNT parsing above.
+  MEMPALACE_PYTHON="$(dirname "$MEMPALACE_BIN")/python3"
+  if [ -x "$MEMPALACE_PYTHON" ]; then
+    EXPORT_OUT=$("$MEMPALACE_PYTHON" - "$MEMPALACE_PGVECTOR_DSN" "$VENTURE_SLUG" <<'PYEOF' 2>&1
+import sys, json
+dsn, slug = sys.argv[1], sys.argv[2]
+try:
+    import psycopg
+except ImportError:
+    import psycopg2 as psycopg
+conn = psycopg.connect(dsn)
+cur = conn.cursor()
+cur.execute(
+    "select table_name from information_schema.tables where table_name like %s and table_name like %s",
+    (f"mempalace_venture_{slug}_%", "%_mempalace_drawers"),
+)
+row = cur.fetchone()
+if not row:
+    with open("knowledge/entries.json", "w") as f:
+        json.dump([], f)
+    print("no drawers table found for this venture yet")
+else:
+    table = row[0]
+    cur.execute(f'select id, document, metadata, updated_at from "{table}" order by updated_at')
+    cols = [c.name for c in cur.description]
+    entries = [dict(zip(cols, r)) for r in cur.fetchall()]
+    with open("knowledge/entries.json", "w") as f:
+        json.dump(entries, f, indent=2, default=str)
+    print(f"exported {len(entries)} entries from {table}")
+conn.close()
+PYEOF
+) || echo "  (entries.json export warning, non-fatal: $EXPORT_OUT)"
+    echo "  $EXPORT_OUT"
+  else
+    echo "  (mempalace venv python not found at $MEMPALACE_PYTHON — skipping entries.json export, non-fatal)"
+  fi
+
   cat > knowledge/manifest.json <<EOF
 {
   "venture_slug": "$VENTURE_SLUG",
@@ -200,18 +259,24 @@ EOF
   cat > knowledge/README.md <<EOF
 # MemPalace repo knowledge — $VENTURE_SLUG
 
-Semantic knowledge mined from this repo by YVON's onboarding pipeline. The
-actual content lives in a shared pgvector palace on Supabase Postgres
-(namespace \`venture-$VENTURE_SLUG\`), not in this git branch — this file is
-just a pointer. Search it with:
+Semantic knowledge mined from this repo by YVON's onboarding pipeline.
+Searchable live via the shared pgvector palace on Supabase Postgres
+(namespace \`venture-$VENTURE_SLUG\`):
 
     mempalace search "<query>" --wing $VENTURE_SLUG --backend pgvector
+
+A point-in-time copy of the same data is also checked in here, for anyone
+without VPS/pgvector access:
+
+- \`entities.json\` — people/projects/rooms mempalace detected in this repo
+- \`entries.json\` — every mined drawer (id, document, metadata, updated_at — no embedding vectors)
+- \`manifest.json\` — build metadata (entry count, mined-at timestamp)
 
 Do not edit by hand — rebuilt on every mempalace-venture.sh run.
 
 Last mined: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
-  git add knowledge/manifest.json knowledge/README.md
+  git add -A knowledge
   if git diff --cached --quiet; then
     echo "  no changes since last mine — skipping commit"
   else
