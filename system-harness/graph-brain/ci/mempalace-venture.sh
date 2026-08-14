@@ -119,7 +119,8 @@ echo "[2/6] clone or pull $REPO_URL"
 if [ -d "$WORKDIR/.git" ]; then
   DEFAULT_BRANCH=$(git -C "$WORKDIR" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@') \
     || DEFAULT_BRANCH="main"
-  git -C "$WORKDIR" checkout "$DEFAULT_BRANCH" 2>&1 || fail "checkout $DEFAULT_BRANCH failed"
+  DEFAULT_CHECKOUT_OUT=$(git -C "$WORKDIR" checkout "$DEFAULT_BRANCH" 2>&1) \
+    || fail "checkout $DEFAULT_BRANCH failed: $DEFAULT_CHECKOUT_OUT"
   PULL_OUT=$(git -C "$WORKDIR" pull --ff-only 2>&1) || fail "git pull failed: $PULL_OUT"
 else
   CLONE_OUT=$(git clone "$AUTH_URL" "$WORKDIR" 2>&1) || fail "git clone failed: $CLONE_OUT"
@@ -147,9 +148,19 @@ echo "[5/6] write knowledge/ manifest to $BRANCH (reuses graphify-venture.sh's b
 git config user.name "yvon-mempalace"
 git config user.email "mempalace@yvon.bot"
 if git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
-  git checkout -B "$BRANCH" "origin/$BRANCH" 2>&1 || fail "checkout existing $BRANCH failed"
+  # -f: step [3/6]/[4/6] (mempalace init/mine) can leave uncommitted changes
+  # to already-tracked files in the main-branch working tree (e.g. init
+  # touching .gitignore) — plain `checkout -B` refuses to switch away from
+  # those ("local changes would be overwritten"), even with -B. Nothing in
+  # that working tree needs to survive the switch: mine's real output is
+  # already in the external pgvector store, and knowledge/ gets rewritten
+  # fresh below regardless. Found live (2026-08-14, Novizio-Web, second
+  # onboarding run) — real git error was masked (see output-capture fix
+  # below), only "checkout existing yvon-graph failed" reached the DB.
+  CHECKOUT_OUT=$(git checkout -f -B "$BRANCH" "origin/$BRANCH" 2>&1) \
+    || fail "checkout existing $BRANCH failed: $CHECKOUT_OUT"
 else
-  git checkout --orphan "$BRANCH" 2>&1 || fail "orphan checkout failed"
+  CHECKOUT_OUT=$(git checkout --orphan "$BRANCH" -f 2>&1) || fail "orphan checkout failed: $CHECKOUT_OUT"
   git rm -rf . >/dev/null 2>&1 || true
 fi
 mkdir -p knowledge
