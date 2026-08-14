@@ -200,7 +200,7 @@ function buildLayout(DEPARTMENTS: Dept[], seed = 20260803): { placed: Placed[]; 
     const y = CY + Math.sin(ang) * rad * 1.0;
     const dx = (x - CX) / 1.46, dy = (y - CY) / 1.0;
     if (Math.hypot(dx, dy) < 215) continue;
-    stars.push({ x, y, r: 1.4 + rnd() * 2.8, o: 0.05 + rnd() * 0.24 });
+    stars.push({ x, y, r: 2.2 + rnd() * 4.6, o: 0.14 + rnd() * 0.42 });
   }
   return { placed, stars };
 }
@@ -359,6 +359,43 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
         s: baseS, duration: 0.5, ease: "power3.inOut",
         onUpdate: () => setView({ x: proxy.x, y: proxy.y, s: proxy.s }),
       });
+  }, []);
+
+  /* ── Real zoom-toward-card camera (2026-08-14, replaces punchZoom for the
+     specific "open a card" / "close a card" transitions) ────────────────
+     Unlike the level-swap transitions above (satellite open/close, scope
+     tabs), L1's department cards and L3's satellite-ring cards live in the
+     SAME shared world space as `view` — CX,CY-centered, same transform —
+     so a click can drive a genuine directed pan+zoom onto that card's own
+     (p.x, p.y), not just a symmetric scale pulse in place. We fly the
+     camera in, and only swap to DetailView once the card fills the frame
+     (onComplete), so the cut lands inside the zoom instead of interrupting
+     it. Closing reverses it: DetailView unmounts, the canvas remounts
+     already framed on the zoomed-in shot (view was never reset while
+     DetailView was open), then eases back out to the pre-zoom framing
+     stashed in preOpenViewRef — "emerging out of the node." */
+  const preOpenViewRef = useRef(view);
+  const zoomIntoCard = useCallback((p: { x: number; y: number }, andThen: () => void) => {
+    const proxy = { ...viewRef.current };
+    preOpenViewRef.current = { ...viewRef.current };
+    gsap.killTweensOf(proxy);
+    const targetS = Math.min(3.6, proxy.s * 3.1);
+    const targetX = window.innerWidth / 2 - p.x * targetS;
+    const targetY = window.innerHeight / 2 - p.y * targetS;
+    gsap.to(proxy, {
+      x: targetX, y: targetY, s: targetS, duration: 0.5, ease: "power2.in",
+      onUpdate: () => setView({ x: proxy.x, y: proxy.y, s: proxy.s }),
+      onComplete: andThen,
+    });
+  }, []);
+  const zoomOutOfCard = useCallback(() => {
+    const proxy = { ...viewRef.current };
+    const target = preOpenViewRef.current;
+    gsap.killTweensOf(proxy);
+    gsap.to(proxy, {
+      x: target.x, y: target.y, s: target.s, duration: 0.6, ease: "power3.out",
+      onUpdate: () => setView({ x: proxy.x, y: proxy.y, s: proxy.s }),
+    });
   }, []);
 
   useEffect(() => {
@@ -582,7 +619,7 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
           onChange={(e) => setQ(e.target.value)} />
       )}
       {open && (
-        <button style={S.back} onClick={() => { punchZoom(); setOpen(null); }}>
+        <button style={S.back} onClick={() => { zoomOutOfCard(); setOpen(null); }}>
           ← {openSatellite ? openSatellite.name.toUpperCase() : "All departments"}
         </button>
       )}
@@ -622,17 +659,19 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
               ))}
               {placed.map((p) => (
                 <line key={p.id} x1={CX} y1={CY} x2={p.x} y2={p.y}
-                  stroke="rgba(255,255,255,0.045)" strokeWidth={1} />
+                  stroke="rgba(200,195,255,0.34)" strokeWidth={1.8}
+                  style={{ filter: "drop-shadow(0 0 3px rgba(180,170,255,.35))" }} />
               ))}
               {/* Grant edges (doc §2.4) — thin, static, low opacity, visually distinct (dashed,
                   violet-tinted) from department spokes. Membership, not execution. */}
               {satellites.map((s) => (
                 <line key={"sat-edge-" + s.ctx.slug} x1={CX} y1={CY} x2={s.x} y2={s.y}
-                  stroke="rgba(142,123,240,0.16)" strokeWidth={1.2} strokeDasharray="2 5" />
+                  stroke="rgba(160,140,255,0.4)" strokeWidth={1.8} strokeDasharray="2 5"
+                  style={{ filter: "drop-shadow(0 0 3px rgba(160,140,255,.4))" }} />
               ))}
               {satellites.flatMap((s) => s.children.map((c) => (
                 <line key={"sub-edge-" + c.ctx.slug} x1={s.x} y1={s.y} x2={c.x} y2={c.y}
-                  stroke="rgba(142,123,240,0.22)" strokeWidth={1} strokeDasharray="1.5 4" />
+                  stroke="rgba(160,140,255,0.45)" strokeWidth={1.4} strokeDasharray="1.5 4" />
               )))}
               {/* Nerve pulses (2026-08-14) — traveling dots along every spoke/edge above,
                   "info flowing along a nerve." Stable per-index timing (not Math.random() at
@@ -658,7 +697,7 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
             {placed.map((p) => {
               const st = rolled[p.id] ?? "idle";
               return (
-                <div key={p.id} onClick={() => { punchZoom(); setOpen(p); }}
+                <div key={p.id} onClick={() => zoomIntoCard(p, () => setOpen(p))}
                   style={{ ...S.deptCardPos, left: p.x, top: p.y, opacity: dim(p.name) ? 0.2 : 1 }}>
                   <div className="yg-breathe" style={S.deptCard}>
                     <div style={S.deptHead}>
@@ -744,7 +783,8 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
               ))}
               {satelliteRing.placed.map((p) => (
                 <line key={p.id} x1={CX} y1={CY} x2={p.x} y2={p.y}
-                  stroke="rgba(255,255,255,0.045)" strokeWidth={1} />
+                  stroke={codeGraphMode ? "rgba(140,225,235,0.34)" : "rgba(200,195,255,0.34)"} strokeWidth={1.8}
+                  style={{ filter: `drop-shadow(0 0 3px ${codeGraphMode ? "rgba(140,225,235,.35)" : "rgba(180,170,255,.35)"})` }} />
               ))}
               {satelliteRing.placed.map((p, i) => (
                 <NerveLinePulse key={"pulse-" + p.id} x1={CX} y1={CY} x2={p.x} y2={p.y}
@@ -780,7 +820,7 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
             {satelliteRing.placed.map((p) => {
               const st = rolled[p.id] ?? "idle";
               return (
-                <div key={p.id} onClick={() => { punchZoom(); setOpen(p); }}
+                <div key={p.id} onClick={() => zoomIntoCard(p, () => setOpen(p))}
                   style={{ ...S.deptCardPos, left: p.x, top: p.y, opacity: dim(p.name) ? 0.2 : 1 }}>
                   <div className="yg-breathe" style={S.deptCard}>
                     <div style={S.deptHead}>
@@ -855,7 +895,7 @@ function DetailView({ dept, status }: { dept: Dept; status: Record<string, Statu
         {Array.from({ length: 70 }).map((_, i) => {
           const r = rngFrom(9000 + i * 37);
           const x = 250 + r() * 720, y = 50 + r() * 900;
-          return <circle key={i} cx={x} cy={y} r={2 + r() * 5} fill={`rgba(200,206,218,${0.05 + r() * 0.15})`} />;
+          return <circle key={i} cx={x} cy={y} r={3 + r() * 6.5} fill={`rgba(210,216,228,${0.14 + r() * 0.32})`} />;
         })}
 
         {rows.map((r) => {
@@ -864,9 +904,9 @@ function DetailView({ dept, status }: { dept: Dept; status: Record<string, Statu
             <path key={r.id} id={`nerve-hub-${r.id}`}
               d={`M ${HUB.x} ${HUB.y} C ${HUB.x + 120} ${HUB.y}, ${r.x - 160} ${r.y}, ${r.x - 20} ${r.y}`}
               fill="none"
-              stroke={on ? "rgba(140,225,235,.55)" : "rgba(255,255,255,.13)"}
-              strokeWidth={on ? 2 : 1}
-              style={on ? { filter: "drop-shadow(0 0 6px rgba(140,225,235,.6))" } : undefined} />
+              stroke={on ? "rgba(140,225,235,.65)" : "rgba(190,195,210,.4)"}
+              strokeWidth={on ? 2.2 : 1.6}
+              style={{ filter: on ? "drop-shadow(0 0 6px rgba(140,225,235,.6))" : "drop-shadow(0 0 2.5px rgba(190,195,210,.3))" }} />
           );
         })}
 
