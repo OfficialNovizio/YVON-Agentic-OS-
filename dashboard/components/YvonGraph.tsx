@@ -488,7 +488,7 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
                   <div style={S.numLabel}>{p.metricLabel}</div>
                   <div style={S.sparkRow}>
                     {p.bars.map((h, i) => (
-                      <i key={i} style={{ flex: 1, height: `${h}%`, background: "rgba(255,255,255,.19)", borderRadius: 0.5 }} />
+                      <i key={i} style={{ flex: 1, height: `${h}%`, background: "rgba(255,255,255,.32)", borderRadius: 0.5 }} />
                     ))}
                   </div>
                   <div style={S.deptFoot}>{p.agents.length} AGENTS</div>
@@ -587,7 +587,7 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
                   <div style={S.numLabel}>GRANTED AGENTS</div>
                   <div style={S.sparkRow}>
                     {p.bars.map((h, i) => (
-                      <i key={i} style={{ flex: 1, height: `${h}%`, background: "rgba(255,255,255,.19)", borderRadius: 0.5 }} />
+                      <i key={i} style={{ flex: 1, height: `${h}%`, background: "rgba(255,255,255,.32)", borderRadius: 0.5 }} />
                     ))}
                   </div>
                   <div style={S.deptFoot}>{p.agents.length} AGENTS</div>
@@ -675,7 +675,7 @@ function DetailView({ dept, status }: { dept: Dept; status: Record<string, Statu
         <div style={{ ...S.sparkRow, height: 54, marginTop: 22 }}>
           {Array.from({ length: 34 }).map((_, i) => {
             const r = rngFrom(400 + i * 91)();
-            return <i key={i} style={{ flex: 1, height: `${12 + r * 84}%`, background: "rgba(255,255,255,.22)", borderRadius: 0.5 }} />;
+            return <i key={i} style={{ flex: 1, height: `${12 + r * 84}%`, background: "rgba(255,255,255,.36)", borderRadius: 0.5 }} />;
           })}
         </div>
       </div>
@@ -752,14 +752,14 @@ const S: Record<string, React.CSSProperties> = {
     display: "flex", justifyContent: "space-between", alignItems: "flex-start", pointerEvents: "none",
     background: "linear-gradient(180deg,rgba(10,10,12,.92),transparent)",
   },
-  brand: { fontSize: 12.5, fontWeight: 600, letterSpacing: "0.18em", color: "#c8cbd2" },
-  sub: { fontSize: 10, color: "#4d5057", marginTop: 5, letterSpacing: "0.1em" },
+  brand: { fontSize: 12.5, fontWeight: 700, letterSpacing: "0.18em", color: "#ffffff" },
+  sub: { fontSize: 10, color: "#7b7f87", marginTop: 5, letterSpacing: "0.1em" },
   tab: {
-    background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.09)",
-    color: "#7b7f87", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase",
+    background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.14)",
+    color: "#aeb2ba", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase",
     padding: "6px 13px", borderRadius: 999, cursor: "pointer", fontFamily: "inherit", backdropFilter: "blur(10px)",
   },
-  tabOn: { background: "rgba(142,123,240,.17)", borderColor: "rgba(142,123,240,.42)", color: "#c5bef6" },
+  tabOn: { background: "rgba(158,140,255,.24)", borderColor: "rgba(158,140,255,.55)", color: "#e4dfff" },
   search: {
     position: "fixed", top: 22, left: "50%", transform: "translateX(-50%)", zIndex: 20,
     width: 250, padding: "8px 15px", borderRadius: 999,
@@ -768,8 +768,8 @@ const S: Record<string, React.CSSProperties> = {
   },
   back: {
     position: "fixed", top: 74, left: 28, zIndex: 22,
-    background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.11)",
-    color: "#a8acb4", fontSize: 11, padding: "7px 15px", borderRadius: 999,
+    background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.16)",
+    color: "#d3d6db", fontSize: 11, padding: "7px 15px", borderRadius: 999,
     cursor: "pointer", fontFamily: "inherit", backdropFilter: "blur(12px)",
   },
 
@@ -777,31 +777,31 @@ const S: Record<string, React.CSSProperties> = {
   orbGlow: {
     position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)",
     width: 620, height: 620, borderRadius: "50%", filter: "blur(22px)",
-    background: "radial-gradient(circle, rgba(142,123,240,.18) 0%, rgba(142,123,240,.05) 40%, transparent 70%)",
+    background: "radial-gradient(circle, rgba(158,140,255,.32) 0%, rgba(158,140,255,.10) 40%, transparent 70%)",
   },
   orbBody: {
     position: "relative", width: 264, height: 264, borderRadius: "50%",
-    background: "radial-gradient(circle at 36% 30%, #bcb6f7 0%, #9f97ec 26%, #857ada 48%, #6e64bf 70%, #4f4b88 100%)",
-    boxShadow: "0 0 100px rgba(142,123,240,.3), inset -24px -28px 66px rgba(20,16,50,.55), inset 15px 13px 44px rgba(255,255,255,.15)",
+    background: "radial-gradient(circle at 36% 30%, #e4e0ff 0%, #c3baff 22%, #a99cf5 44%, #8f7fe8 66%, #6c5fc7 100%)",
+    boxShadow: "0 0 130px rgba(158,140,255,.42), inset -24px -28px 66px rgba(20,16,50,.45), inset 15px 13px 44px rgba(255,255,255,.24)",
     display: "flex", alignItems: "center", justifyContent: "center",
   },
-  orbSheen: { position: "absolute", inset: 0, borderRadius: "50%", background: "radial-gradient(circle at 34% 26%, rgba(255,255,255,.32), transparent 46%)" },
-  orbLabel: { position: "relative", zIndex: 2, fontSize: 21, fontWeight: 500, letterSpacing: "0.15em", color: "rgba(255,255,255,.92)" },
+  orbSheen: { position: "absolute", inset: 0, borderRadius: "50%", background: "radial-gradient(circle at 34% 26%, rgba(255,255,255,.46), transparent 46%)" },
+  orbLabel: { position: "relative", zIndex: 2, fontSize: 21, fontWeight: 600, letterSpacing: "0.15em", color: "#ffffff" },
 
   deptCard: {
     position: "absolute", transform: "translate(-50%,-50%)", width: 232,
-    background: "rgba(255,255,255,0.055)", border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.20)",
     borderRadius: 20, padding: "16px 18px 14px",
     backdropFilter: "blur(22px)", WebkitBackdropFilter: "blur(22px)",
-    boxShadow: "0 14px 44px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.09)",
+    boxShadow: "0 14px 44px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.16)",
     cursor: "pointer", transition: "opacity .25s",
   },
   deptHead: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 },
-  deptName: { fontSize: 13.5, fontWeight: 500, color: "#e8eaee" },
-  bigNum: { fontSize: 40, fontWeight: 200, color: "#f0f2f5", lineHeight: 1, marginTop: 12, letterSpacing: "-0.02em" },
-  numLabel: { fontSize: 10.5, color: "#83888f", marginTop: 6 },
+  deptName: { fontSize: 13.5, fontWeight: 600, color: "#ffffff" },
+  bigNum: { fontSize: 40, fontWeight: 300, color: "#ffffff", lineHeight: 1, marginTop: 12, letterSpacing: "-0.02em" },
+  numLabel: { fontSize: 10.5, color: "#b3b8c2", marginTop: 6 },
   sparkRow: { display: "flex", alignItems: "flex-end", gap: 1.5, height: 30, marginTop: 14 },
-  deptFoot: { fontSize: 8.5, color: "#4f545c", letterSpacing: "0.14em", marginTop: 10 },
+  deptFoot: { fontSize: 8.5, color: "#82878f", letterSpacing: "0.14em", marginTop: 10 },
 
   /* L3 — satellite orbs (doc §2.3) */
   satOrb: {
@@ -812,9 +812,9 @@ const S: Record<string, React.CSSProperties> = {
     boxShadow: "0 10px 30px rgba(0,0,0,.4)", transition: "opacity .25s, transform .2s",
   },
   satChild: { boxShadow: "0 6px 18px rgba(0,0,0,.35)" },
-  satLabel: { fontSize: 11, fontWeight: 600, color: "#eef0f3", letterSpacing: "0.04em" },
-  satLabelSm: { fontSize: 8.5, fontWeight: 600, color: "#eef0f3", letterSpacing: "0.03em" },
-  satSub: { fontSize: 8, color: "#b7b2e6", letterSpacing: "0.06em", marginTop: 3 },
+  satLabel: { fontSize: 11, fontWeight: 700, color: "#ffffff", letterSpacing: "0.04em" },
+  satLabelSm: { fontSize: 8.5, fontWeight: 700, color: "#ffffff", letterSpacing: "0.03em" },
+  satSub: { fontSize: 8, color: "#d6d0ff", letterSpacing: "0.06em", marginTop: 3 },
   satEmptyNote: {
     position: "absolute", transform: "translate(-50%,-50%)", fontSize: 11.5,
     color: "#83888f", letterSpacing: "0.03em", whiteSpace: "nowrap",
@@ -830,24 +830,24 @@ const S: Record<string, React.CSSProperties> = {
   },
   detailDept: {
     position: "absolute", left: "24%", top: "50%", transform: "translate(-50%,-50%)", width: 330,
-    background: "rgba(255,255,255,0.062)", border: "1px solid rgba(255,255,255,0.13)",
+    background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.22)",
     borderRadius: 26, padding: "24px 26px 22px",
     backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
-    boxShadow: "0 20px 60px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.10)",
+    boxShadow: "0 20px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.18)",
   },
   agentPill: {
     position: "absolute", transform: "translate(-50%,-50%)",
     display: "flex", alignItems: "center", gap: 12, minWidth: 210,
-    background: "rgba(255,255,255,0.052)", border: "1px solid rgba(255,255,255,.10)",
+    background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,.18)",
     borderRadius: 14, padding: "9px 16px 9px 11px",
     backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
-    boxShadow: "0 8px 26px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.07)",
+    boxShadow: "0 8px 26px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.12)",
     transition: "border-color .3s",
   },
   avatar: { width: 30, height: 30, borderRadius: "50%", flex: "none", display: "block" },
   agentText: { display: "flex", flexDirection: "column", flex: 1 },
-  agentName: { fontSize: 14, fontWeight: 450, color: "#eef0f3" },
-  agentTag: { fontSize: 11, color: "#82878f", fontStyle: "normal", marginTop: 1 },
+  agentName: { fontSize: 14, fontWeight: 550, color: "#ffffff" },
+  agentTag: { fontSize: 11, color: "#a3a8b0", fontStyle: "normal", marginTop: 1 },
   agentPip: { width: 8, height: 8, borderRadius: "50%", flex: "none" },
   halo1: {
     position: "absolute", left: 26, top: "50%", width: 42, height: 42, borderRadius: "50%",
@@ -859,6 +859,6 @@ const S: Record<string, React.CSSProperties> = {
   },
 
   legend: { position: "fixed", bottom: 20, left: 28, zIndex: 20, display: "flex", gap: 16 },
-  lg: { display: "flex", alignItems: "center", gap: 6, fontSize: 9.5, color: "#4d5057", letterSpacing: "0.06em" },
-  hint: { position: "fixed", bottom: 20, right: 28, zIndex: 20, fontSize: 9.5, color: "#4d5057", letterSpacing: "0.06em" },
+  lg: { display: "flex", alignItems: "center", gap: 6, fontSize: 9.5, color: "#7b7f87", letterSpacing: "0.06em" },
+  hint: { position: "fixed", bottom: 20, right: 28, zIndex: 20, fontSize: 9.5, color: "#7b7f87", letterSpacing: "0.06em" },
 };
