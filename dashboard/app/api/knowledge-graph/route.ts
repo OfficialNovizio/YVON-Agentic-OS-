@@ -36,9 +36,79 @@ export interface LibraryDoc {
   findings: string
 }
 
+/**
+ * 2026-08-14 — real per-venture data path. `?venture=<slug>` switches the
+ * whole response from the generic agent_memory-based "fleet memory" view
+ * (unchanged below) to one venture's actual graphify structural graph
+ * (venture_graphs.graph_data, migration 120) + mempalace mined knowledge
+ * (venture_repo_knowledge.entries/entities, same migration). Shapes match
+ * GraphNode/GraphEdge/LibraryDoc exactly, so brain-wiki's existing force-
+ * graph and Library renderers need no changes — only a venture selector
+ * to pick which fetch this becomes.
+ */
+async function ventureKnowledgeGraph(slug: string, visibility: string): Promise<Response> {
+  const [{ data: graphRow }, { data: knowledgeRow }] = await Promise.all([
+    supabase.from('venture_graphs').select('graph_data, node_count').eq('venture_slug', slug).maybeSingle(),
+    supabase.from('venture_repo_knowledge').select('entries, entities, entry_count').eq('venture_slug', slug).maybeSingle(),
+  ])
+
+  const rawNodes: Array<Record<string, unknown>> = (graphRow?.graph_data as { nodes?: Array<Record<string, unknown>> } | null)?.nodes ?? []
+  const rawLinks: Array<Record<string, unknown>> = (graphRow?.graph_data as { links?: Array<Record<string, unknown>> } | null)?.links ?? []
+  const colors = ['#abc7ff', '#5fd0b4', '#c08bff', '#5ee0ff', '#ffb693', '#8effb0', '#ff9ecf']
+
+  const nodes: GraphNode[] = rawNodes.map((n) => {
+    const community = Number(n.community ?? 0)
+    return {
+      id: String(n.id),
+      label: String(n.label ?? n.id),
+      size: 24, // graphify nodes are file/symbol-level, not aggregate counts like agent_memory topics — flat size, community carries the visual grouping via color
+      color: colors[community % colors.length],
+      visibility: 'workspace',
+      workspace: slug,
+      connections: [],
+    }
+  })
+  const nodeIds = new Set(nodes.map((n) => n.id))
+  const edges: GraphEdge[] = rawLinks
+    .filter((l) => nodeIds.has(String(l.source)) && nodeIds.has(String(l.target)))
+    .map((l) => ({ source: String(l.source), target: String(l.target), weight: Number(l.weight ?? 0.5) }))
+
+  const entries: Array<{ id?: string; document?: string; metadata?: Record<string, unknown>; updated_at?: string }> =
+    (knowledgeRow?.entries as typeof entries | null) ?? []
+  const docs: LibraryDoc[] = entries.map((e, i) => {
+    const sourceFile = (e.metadata?.source_file as string | undefined) ?? (e.metadata?.room as string | undefined) ?? 'mined knowledge'
+    const text = e.document ?? ''
+    return {
+      id: e.id ?? `entry-${i}`,
+      title: sourceFile,
+      category: 'mempalace',
+      visibility: 'workspace',
+      workspace: slug,
+      updatedAt: e.updated_at ?? new Date().toISOString(),
+      answer: text.slice(0, 300),
+      findings: text.slice(0, 500),
+    }
+  })
+
+  const filteredNodes = visibility === 'all' ? nodes : nodes.filter((n) => n.visibility === visibility)
+  const filteredDocs = visibility === 'all' ? docs : docs.filter((d) => d.visibility === visibility)
+
+  return Response.json({
+    nodes: filteredNodes,
+    edges,
+    docs: filteredDocs,
+    topicsCount: filteredNodes.length,
+    documentsCount: filteredDocs.length,
+    source: graphRow || knowledgeRow ? 'live' : 'empty',
+    venture: slug,
+  })
+}
+
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url)
   const visibility = url.searchParams.get('visibility') ?? 'all'
+  const venture = url.searchParams.get('venture')
+  if (venture) return ventureKnowledgeGraph(venture, visibility)
 
   try {
     const { data: memories } = await supabase
