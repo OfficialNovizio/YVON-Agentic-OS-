@@ -39,10 +39,20 @@ SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:?SUPABASE_SERVICE_ROLE_KE
 MEMPALACE_PGVECTOR_DSN="${MEMPALACE_PGVECTOR_DSN:?MEMPALACE_PGVECTOR_DSN must be set — Postgres connection string, see vps-scripts/install-mempalace.md}"
 MEMPALACE_BIN="${MEMPALACE_BIN:-/opt/yvon-tools/venvs/mempalace/bin/mempalace}"
 
-# Same workspace as graphify-venture.sh — reuses the clone if that script
-# already ran for this venture in this cycle instead of cloning twice.
+# 2026-08-14 fix: this used to share graphify-venture.sh's exact workspace
+# dir ($WORKSPACES_DIR/$VENTURE_SLUG) to reuse its clone instead of cloning
+# twice. In practice the dashboard fires both scripts together
+# (triggerVentureOnboarding) as two independent background processes on the
+# VPS — main.py's endpoints return 202 immediately, so there is no point at
+# which one script is guaranteed to have finished cloning before the other
+# starts. First live test (2026-08-14, Novizio-Web) hit exactly this: both
+# scripts raced to `git clone` into the same directory, the loser failed
+# with "could not create work tree dir ... File exists". Own suffix removes
+# the shared path entirely — costs one extra clone per venture (seconds, on
+# an infrequent onboarding-triggered operation), not worth a locking scheme
+# for that.
 WORKSPACES_DIR="${VENTURE_GRAPH_WORKSPACES_DIR:-/opt/yvon-venture-graphs}"
-WORKDIR="$WORKSPACES_DIR/$VENTURE_SLUG"
+WORKDIR="$WORKSPACES_DIR/$VENTURE_SLUG-mempalace"
 BRANCH="yvon-graph"
 
 # Pgvector backend selection + isolation — one namespace per venture, mirrors
