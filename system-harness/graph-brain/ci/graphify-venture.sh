@@ -53,12 +53,12 @@ fi
 # from raw git/graphify stderr). ────────────────────────────────────────────
 upsert_status() {
   local status="$1" error="${2:-}" commit_sha="${3:-}" node_count="${4:-}" \
-        edge_count="${5:-}" community_count="${6:-}"
+        edge_count="${5:-}" community_count="${6:-}" graph_data_file="${7:-}"
   python3 - "$SUPABASE_URL" "$SUPABASE_SERVICE_ROLE_KEY" "$VENTURE_SLUG" \
     "$REPO_URL" "$BRANCH" "$status" "$error" "$commit_sha" \
-    "$node_count" "$edge_count" "$community_count" <<'PYEOF'
+    "$node_count" "$edge_count" "$community_count" "$graph_data_file" <<'PYEOF'
 import sys, json, datetime, urllib.request
-url, key, slug, repo_url, branch, status, error, sha, nodes, edges, communities = sys.argv[1:12]
+url, key, slug, repo_url, branch, status, error, sha, nodes, edges, communities, graph_data_file = sys.argv[1:13]
 payload = {
     "venture_slug": slug,
     "repo_url": repo_url,
@@ -70,6 +70,18 @@ payload = {
     "edge_count": int(edges) if edges else None,
     "community_count": int(communities) if communities else None,
 }
+# 2026-08-14: migration 120 added graph_data (jsonb) so the dashboard can read
+# graphify's real output from Postgres instead of a live GitHub round-trip.
+# Passed as a file path (not inline argv) — graph.json can run past shell
+# ARG_MAX at scale; this venture's is small (108 nodes) but the path is the
+# same regardless of size. Read failures are non-fatal — the status upsert
+# (and the git push, the durable copy) still goes through without it.
+if graph_data_file:
+    try:
+        with open(graph_data_file) as f:
+            payload["graph_data"] = json.load(f)
+    except Exception as e:  # noqa: BLE001
+        print(f"  ! graph_data read failed, upserting status without it: {e}", file=sys.stderr)
 if status == "ready":
     payload["built_at"] = datetime.datetime.utcnow().isoformat() + "Z"
 req = urllib.request.Request(
@@ -176,5 +188,5 @@ COMMIT_SHA=$(git rev-parse HEAD)
 echo "[6/6] push $BRANCH"
 PUSH_OUT=$(git push "$AUTH_URL" "$BRANCH:$BRANCH" 2>&1) || fail "git push failed: $PUSH_OUT"
 
-upsert_status "ready" "" "$COMMIT_SHA" "$NODE_COUNT" "$EDGE_COUNT" "$COMMUNITY_COUNT"
+upsert_status "ready" "" "$COMMIT_SHA" "$NODE_COUNT" "$EDGE_COUNT" "$COMMUNITY_COUNT" "graphify-out/graph.json"
 echo "Done. $VENTURE_SLUG's graph is live on $BRANCH @ $COMMIT_SHA."

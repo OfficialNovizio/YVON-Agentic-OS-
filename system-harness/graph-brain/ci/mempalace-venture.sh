@@ -70,11 +70,13 @@ fi
 # ── Supabase status upsert into venture_repo_knowledge (same pattern as
 # graphify-venture.sh's upsert_status — python for correct JSON escaping). ──
 upsert_status() {
-  local status="$1" error="${2:-}" commit_sha="${3:-}" entry_count="${4:-}"
+  local status="$1" error="${2:-}" commit_sha="${3:-}" entry_count="${4:-}" \
+        entries_file="${5:-}" entities_file="${6:-}"
   python3 - "$SUPABASE_URL" "$SUPABASE_SERVICE_ROLE_KEY" "$VENTURE_SLUG" \
-    "$REPO_URL" "$BRANCH" "$status" "$error" "$commit_sha" "$entry_count" <<'PYEOF'
+    "$REPO_URL" "$BRANCH" "$status" "$error" "$commit_sha" "$entry_count" \
+    "$entries_file" "$entities_file" <<'PYEOF'
 import sys, json, datetime, urllib.request
-url, key, slug, repo_url, branch, status, error, sha, entries = sys.argv[1:10]
+url, key, slug, repo_url, branch, status, error, sha, entry_count, entries_file, entities_file = sys.argv[1:12]
 payload = {
     "venture_slug": slug,
     "repo_url": repo_url,
@@ -82,8 +84,19 @@ payload = {
     "status": status,
     "error": error or None,
     "commit_sha": sha or None,
-    "entry_count": int(entries) if entries else None,
+    "entry_count": int(entry_count) if entry_count else None,
 }
+# 2026-08-14: migration 120 added entries/entities (jsonb) — same read-from-
+# Postgres-not-GitHub rationale as graphify-venture.sh's graph_data. File
+# paths, not inline argv, same reasoning (size). Non-fatal on read failure.
+for field, path in (("entries", entries_file), ("entities", entities_file)):
+    if not path:
+        continue
+    try:
+        with open(path) as f:
+            payload[field] = json.load(f)
+    except Exception as e:  # noqa: BLE001
+        print(f"  ! {field} read failed, upserting status without it: {e}", file=sys.stderr)
 if status == "ready":
     payload["built_at"] = datetime.datetime.utcnow().isoformat() + "Z"
 req = urllib.request.Request(
@@ -293,5 +306,5 @@ EOF
   echo "  push rejected (likely graphify-venture.sh pushed $BRANCH concurrently) — retrying: $PUSH_OUT"
 done
 
-upsert_status "ready" "" "$COMMIT_SHA" "${ENTRY_COUNT:-}"
+upsert_status "ready" "" "$COMMIT_SHA" "${ENTRY_COUNT:-}" "knowledge/entries.json" "knowledge/entities.json"
 echo "Done. $VENTURE_SLUG's repo knowledge is live in the pgvector palace @ $COMMIT_SHA."
