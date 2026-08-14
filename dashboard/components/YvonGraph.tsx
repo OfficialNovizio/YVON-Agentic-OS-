@@ -1,10 +1,71 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import gsap from "gsap";
 import { supabaseSource } from "@/lib/events/supabase-source";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { applyEvent, bubbleUp, DECAY_MS } from "@/lib/events";
 import { useWorkspace } from "@/lib/WorkspaceContext";
+import { graphDataToDepartments, type RawGraphData } from "@/lib/graph/venture-code-graph";
+
+/* ── Nerve pulse (2026-08-14) — a small glowing dot traveling repeatedly
+   along a line or path: "info traveling along a nerve," per operator
+   request. Two variants:
+     NerveLinePulse — straight line, plain lerp between two points. No DOM
+       measurement needed, used for the orb→card spokes.
+     NervePathPulse — reads a real rendered <path>'s geometry via
+       getPointAtLength (by id, since these paths live inside a mapped
+       list — an id lookup is simpler than threading a ref array through).
+       Used for DetailView's curved bezier connections, where linear
+       interpolation would visibly cut the corner.
+   Both drive a plain {t} proxy object with gsap.to(..., {onUpdate}) and
+   write straight to the circle's cx/cy/opacity attributes via a ref —
+   never touching React-controlled style/props — so there's no fight with
+   React re-rendering this component's own position. */
+function NerveLinePulse({ x1, y1, x2, y2, color = "rgba(200,220,255,.9)", duration = 2.2, delay = 0 }: {
+  x1: number; y1: number; x2: number; y2: number; color?: string; duration?: number; delay?: number;
+}) {
+  const dotRef = useRef<SVGCircleElement | null>(null);
+  useEffect(() => {
+    const proxy = { t: 0 };
+    const tw = gsap.to(proxy, {
+      t: 1, duration, delay, repeat: -1, ease: "power1.inOut",
+      onUpdate: () => {
+        const el = dotRef.current;
+        if (!el) return;
+        el.setAttribute("cx", String(x1 + (x2 - x1) * proxy.t));
+        el.setAttribute("cy", String(y1 + (y2 - y1) * proxy.t));
+        el.setAttribute("opacity", String(Math.sin(proxy.t * Math.PI)));
+      },
+    });
+    return () => { tw.kill(); };
+  }, [x1, y1, x2, y2, duration, delay]);
+  return <circle ref={dotRef} r={2.6} fill={color} style={{ filter: `drop-shadow(0 0 4px ${color})` }} />;
+}
+
+function NervePathPulse({ pathId, color = "rgba(150,230,240,.9)", duration = 1.8, delay = 0 }: {
+  pathId: string; color?: string; duration?: number; delay?: number;
+}) {
+  const dotRef = useRef<SVGCircleElement | null>(null);
+  useEffect(() => {
+    const proxy = { t: 0 };
+    const tw = gsap.to(proxy, {
+      t: 1, duration, delay, repeat: -1, ease: "power1.inOut",
+      onUpdate: () => {
+        const path = document.getElementById(pathId) as unknown as SVGPathElement | null;
+        const dot = dotRef.current;
+        if (!path || !dot) return;
+        const len = path.getTotalLength();
+        const pt = path.getPointAtLength(proxy.t * len);
+        dot.setAttribute("cx", String(pt.x));
+        dot.setAttribute("cy", String(pt.y));
+        dot.setAttribute("opacity", String(Math.sin(proxy.t * Math.PI)));
+      },
+    });
+    return () => { tw.kill(); };
+  }, [pathId, duration, delay]);
+  return <circle ref={dotRef} r={3} fill={color} style={{ filter: `drop-shadow(0 0 5px ${color})` }} />;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════
    YVON GRAPH VIEWER  —  three levels
@@ -231,8 +292,74 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
   // Grants (doc §1.3/§3 Q3) — venture_slug → Set<agent_id>, enabled=true only.
   const [grants, setGrants] = useState<Record<string, Set<string>>>({});
 
+  /* ── Code Graph mode (2026-08-14) ─────────────────────────────────────
+     A satellite normally shows "which YVON agents are granted to this
+     brand" (ringFor, below). This is a second data source for the same
+     ring/detail rendering: a venture's own graphify structural graph
+     (venture_graphs.graph_data, migration 120), communities standing in
+     for departments and file-nodes for agents — see
+     lib/graph/venture-code-graph.ts. Direct Supabase read, not an API
+     route: venture_graphs already ships RLS allowing any `authenticated`
+     select (migration 118), same trust boundary as the venture_agents
+     fetch below. */
+  const [codeGraphMode, setCodeGraphMode] = useState(false);
+  const [graphDataBySlug, setGraphDataBySlug] = useState<Record<string, RawGraphData | null>>({});
+  const [graphDataLoading, setGraphDataLoading] = useState(false);
+
+  useEffect(() => {
+    setCodeGraphMode(false);
+  }, [openSatellite]);
+
+  useEffect(() => {
+    if (!openSatellite || !codeGraphMode) return;
+    const slug = openSatellite.slug;
+    if (slug in graphDataBySlug) return; // cached (incl. explicit null = "checked, none found")
+    let cancelled = false;
+    setGraphDataLoading(true);
+    supabaseBrowser()
+      .from("venture_graphs")
+      .select("graph_data")
+      .eq("venture_slug", slug)
+      .maybeSingle()
+      .then(({ data }: { data: { graph_data: RawGraphData | null } | null }) => {
+        if (cancelled) return;
+        setGraphDataBySlug((prev) => ({ ...prev, [slug]: data?.graph_data ?? null }));
+        setGraphDataLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [openSatellite, codeGraphMode, graphDataBySlug]);
+
   const [view, setView] = useState({ x: 0, y: 0, s: 0.52 });
   const drag = useRef({ on: false, px: 0, py: 0 });
+  // Mirror of `view` for reading the latest value inside stable (empty-deps)
+  // callbacks — animateView/punchZoom below don't want to be recreated (and
+  // re-passed to every card's onClick) every time the user pans/zooms.
+  const viewRef = useRef(view);
+  useEffect(() => { viewRef.current = view; }, [view]);
+
+  /* ── GSAP zoom-in/out transition (2026-08-14) ────────────────────────
+     Requested: "great zooming in animation" on navigation. A full
+     coordinate-matched camera move isn't coherent here — L1/L2/L3 each
+     recenter their own content on the same CX,CY rather than sharing one
+     continuous world space (L2's HUB, for instance, lives in a totally
+     different local coordinate system, 0..1900/0..1000, not CX/CY at
+     all) — so this is a "zoom breath" cue instead: punch the scale up,
+     then ease it back down, right as the view swaps. Consistent, cheap,
+     and reads as "diving into the node" without a geometrically-fake pan. */
+  const punchZoom = useCallback(() => {
+    const proxy = { ...viewRef.current };
+    const baseS = proxy.s;
+    gsap.killTweensOf(proxy);
+    gsap.timeline()
+      .to(proxy, {
+        s: Math.min(2.2, baseS * 1.18), duration: 0.26, ease: "power2.out",
+        onUpdate: () => setView({ x: proxy.x, y: proxy.y, s: proxy.s }),
+      })
+      .to(proxy, {
+        s: baseS, duration: 0.5, ease: "power3.inOut",
+        onUpdate: () => setView({ x: proxy.x, y: proxy.y, s: proxy.s }),
+      });
+  }, []);
 
   useEffect(() => {
     fetch("/structure.json")
@@ -303,11 +430,38 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
 
   // The scoped ring for whichever satellite is currently open — its own filtered department
   // list, re-laid-out with a seed derived from its own slug (doc §2.3).
+  // codeGraphMode swaps the source list from grants (ringFor) to this venture's
+  // own graphify communities — same buildLayout, different seed suffix so the
+  // two modes never share a frozen layout (doc §2.5 layout-stability rule).
   const satelliteRing = useMemo(() => {
     if (!openSatellite) return null;
+    if (codeGraphMode) {
+      const gd = graphDataBySlug[openSatellite.slug];
+      const depts = graphDataToDepartments(gd);
+      return buildLayout(depts, seedFromSlug(openSatellite.slug + "-code"));
+    }
     const depts = ringFor(openSatellite.slug, openSatellite.kind);
     return buildLayout(depts, seedFromSlug(openSatellite.slug));
-  }, [openSatellite, ringFor]);
+  }, [openSatellite, ringFor, codeGraphMode, graphDataBySlug]);
+
+  /* ── Breathing (2026-08-14) — orb + cards + satellite orbs + agent pills
+     get a slow, staggered, randomized-phase scale pulse ("life") whenever
+     the set of rendered .yg-breathe elements changes (view level, mode
+     toggle, satellite switch). gsap.to on a class selector batches every
+     current match into one tween group; re-running it on the relevant
+     deps below picks up newly mounted elements after React commits them —
+     effects fire after the DOM update, so this is never racing the render. */
+  useEffect(() => {
+    const tw = gsap.to(".yg-breathe", {
+      scale: 1.035,
+      duration: 2.4,
+      repeat: -1,
+      yoyo: true,
+      ease: "sine.inOut",
+      stagger: { each: 0.15, from: "random" },
+    });
+    return () => { tw.kill(); };
+  }, [open, openSatellite, codeGraphMode, placed.length, satellites.length, satelliteRing?.placed.length]);
 
   useEffect(() => {
     setView({ x: window.innerWidth / 2 - CX * 0.52, y: window.innerHeight / 2 - CY * 0.52, s: 0.52 });
@@ -391,9 +545,11 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
         <div>
           <div style={S.brand}>YVON</div>
           <div style={S.sub}>
-            {open ? `${open.name.toUpperCase()} · ${open.agents.length} AGENTS`
+            {open ? `${open.name.toUpperCase()} · ${open.agents.length} ${codeGraphMode ? "NODES" : "AGENTS"}`
               : openSatellite && satelliteRing
-                ? `${openSatellite.name.toUpperCase()} · ${satelliteRing.placed.length} ACTIVE DEPTS · ${satelliteRing.placed.reduce((n, x) => n + x.agents.length, 0)} GRANTED AGENTS`
+                ? codeGraphMode
+                  ? `${openSatellite.name.toUpperCase()} · CODE GRAPH · ${satelliteRing.placed.length} CLUSTERS · ${satelliteRing.placed.reduce((n, x) => n + x.agents.length, 0)} NODES`
+                  : `${openSatellite.name.toUpperCase()} · ${satelliteRing.placed.length} ACTIVE DEPTS · ${satelliteRing.placed.reduce((n, x) => n + x.agents.length, 0)} GRANTED AGENTS`
                 : `${DEPARTMENTS.length} DEPARTMENTS · ${DEPARTMENTS.reduce((n, x) => n + x.agents.length, 0)} AGENTS${demo ? ` · ${activeCount} ACTIVE` : ""}`}
           </div>
         </div>
@@ -405,6 +561,7 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
           {scopes.map(([id, label]) => (
             <button key={id} style={{ ...S.tab, ...(scope === id ? S.tabOn : {}) }}
               onClick={() => {
+                punchZoom();
                 setScope(id);
                 setStatus({});
                 setOpen(null);
@@ -425,15 +582,27 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
           onChange={(e) => setQ(e.target.value)} />
       )}
       {open && (
-        <button style={S.back} onClick={() => setOpen(null)}>
+        <button style={S.back} onClick={() => { punchZoom(); setOpen(null); }}>
           ← {openSatellite ? openSatellite.name.toUpperCase() : "All departments"}
         </button>
       )}
       {openSatellite && !open && (
         <button style={S.back}
-          onClick={() => { setOpenSatellite(null); setScope("yvon-os"); setStatus({}); }}>
+          onClick={() => { punchZoom(); setOpenSatellite(null); setScope("yvon-os"); setStatus({}); }}>
           ← Universe
         </button>
+      )}
+
+      {/* Team / Code Graph toggle (2026-08-14) — same satellite, two data
+          sources: YVON agents granted to this brand, vs. this brand's own
+          graphify structural graph (lib/graph/venture-code-graph.ts). */}
+      {openSatellite && !open && (
+        <div style={S.modeToggle}>
+          <button style={{ ...S.tab, ...(!codeGraphMode ? S.tabOn : {}) }}
+            onClick={() => setCodeGraphMode(false)}>Team</button>
+          <button style={{ ...S.tab, ...(codeGraphMode ? S.tabOn : {}) }}
+            onClick={() => setCodeGraphMode(true)}>Code Graph</button>
+        </div>
       )}
 
       {/* ══ LEVEL 1 — universe: core ring + every satellite at once (doc §2.3) ══ */}
@@ -465,11 +634,22 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
                 <line key={"sub-edge-" + c.ctx.slug} x1={s.x} y1={s.y} x2={c.x} y2={c.y}
                   stroke="rgba(142,123,240,0.22)" strokeWidth={1} strokeDasharray="1.5 4" />
               )))}
+              {/* Nerve pulses (2026-08-14) — traveling dots along every spoke/edge above,
+                  "info flowing along a nerve." Stable per-index timing (not Math.random() at
+                  render time) so status/activity re-renders don't reset them mid-flight. */}
+              {placed.map((p, i) => (
+                <NerveLinePulse key={"pulse-dept-" + p.id} x1={CX} y1={CY} x2={p.x} y2={p.y}
+                  color="rgba(190,180,255,.85)" duration={2.6 + (i % 4) * 0.35} delay={(i % 7) * 0.22} />
+              ))}
+              {satellites.map((s, i) => (
+                <NerveLinePulse key={"pulse-sat-" + s.ctx.slug} x1={CX} y1={CY} x2={s.x} y2={s.y}
+                  color="rgba(170,150,255,.9)" duration={3.2 + (i % 3) * 0.4} delay={(i % 5) * 0.3} />
+              ))}
             </svg>
 
             <div style={{ ...S.orbWrap, left: CX, top: CY }}>
               <div style={S.orbGlow} />
-              <div style={S.orbBody}>
+              <div className="yg-breathe" style={S.orbBody}>
                 <div style={S.orbSheen} />
                 <span style={S.orbLabel}>YVON</span>
               </div>
@@ -478,20 +658,22 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
             {placed.map((p) => {
               const st = rolled[p.id] ?? "idle";
               return (
-                <div key={p.id} onClick={() => setOpen(p)}
-                  style={{ ...S.deptCard, left: p.x, top: p.y, opacity: dim(p.name) ? 0.2 : 1 }}>
-                  <div style={S.deptHead}>
-                    <span style={S.deptName}>{p.name}</span>
-                    <Pip status={st} />
+                <div key={p.id} onClick={() => { punchZoom(); setOpen(p); }}
+                  style={{ ...S.deptCardPos, left: p.x, top: p.y, opacity: dim(p.name) ? 0.2 : 1 }}>
+                  <div className="yg-breathe" style={S.deptCard}>
+                    <div style={S.deptHead}>
+                      <span style={S.deptName}>{p.name}</span>
+                      <Pip status={st} />
+                    </div>
+                    <div style={S.bigNum}>{p.metric}</div>
+                    <div style={S.numLabel}>{p.metricLabel}</div>
+                    <div style={S.sparkRow}>
+                      {p.bars.map((h, i) => (
+                        <i key={i} style={{ flex: 1, height: `${h}%`, background: "rgba(255,255,255,.32)", borderRadius: 0.5 }} />
+                      ))}
+                    </div>
+                    <div style={S.deptFoot}>{p.agents.length} AGENTS</div>
                   </div>
-                  <div style={S.bigNum}>{p.metric}</div>
-                  <div style={S.numLabel}>{p.metricLabel}</div>
-                  <div style={S.sparkRow}>
-                    {p.bars.map((h, i) => (
-                      <i key={i} style={{ flex: 1, height: `${h}%`, background: "rgba(255,255,255,.32)", borderRadius: 0.5 }} />
-                    ))}
-                  </div>
-                  <div style={S.deptFoot}>{p.agents.length} AGENTS</div>
                 </div>
               );
             })}
@@ -502,37 +684,43 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
                 affordance rather than being hidden. */}
             {satellites.map((s) => {
               const empty = s.agentCount === 0;
-              const openThis = () => { setOpenSatellite(s.ctx); setScope(s.ctx.contextPath ?? s.ctx.slug); setStatus({}); };
+              const openThis = () => {
+                punchZoom();
+                setOpenSatellite(s.ctx); setScope(s.ctx.contextPath ?? s.ctx.slug); setStatus({});
+              };
               return (
                 <React.Fragment key={s.ctx.slug}>
                   <div onClick={openThis}
-                    style={{
-                      ...S.satOrb,
-                      left: s.x, top: s.y, width: s.r * 2, height: s.r * 2,
+                    style={{ ...S.satOrbPos, left: s.x, top: s.y, width: s.r * 2, height: s.r * 2, opacity: empty ? 0.55 : 1 }}>
+                    <div className="yg-breathe" style={{
+                      ...S.satOrbInner,
                       borderColor: empty ? "rgba(255,255,255,.14)" : `${s.ctx.color}66`,
                       background: empty
                         ? "rgba(255,255,255,.03)"
                         : `radial-gradient(circle at 36% 30%, ${s.ctx.color}55, ${s.ctx.color}18 60%, transparent 100%)`,
-                      opacity: empty ? 0.55 : 1,
                     }}>
-                    <span style={S.satLabel}>{s.ctx.name}</span>
-                    <span style={S.satSub}>
-                      {empty ? "NO AGENTS GRANTED" : `${s.deptCount} DEPT · ${s.agentCount} AGENTS`}
-                    </span>
+                      <span style={S.satLabel}>{s.ctx.name}</span>
+                      <span style={S.satSub}>
+                        {empty ? "NO AGENTS GRANTED" : `${s.deptCount} DEPT · ${s.agentCount} AGENTS`}
+                      </span>
+                    </div>
                   </div>
                   {s.children.map((c) => {
                     const cEmpty = c.agentCount === 0;
                     return (
                       <div key={c.ctx.slug}
-                        onClick={() => { setOpenSatellite(c.ctx); setScope(c.ctx.contextPath ?? c.ctx.slug); setStatus({}); }}
-                        style={{
-                          ...S.satOrb, ...S.satChild,
-                          left: c.x, top: c.y, width: c.r * 2, height: c.r * 2,
+                        onClick={() => {
+                          punchZoom();
+                          setOpenSatellite(c.ctx); setScope(c.ctx.contextPath ?? c.ctx.slug); setStatus({});
+                        }}
+                        style={{ ...S.satOrbPos, left: c.x, top: c.y, width: c.r * 2, height: c.r * 2, opacity: cEmpty ? 0.5 : 0.92 }}>
+                        <div className="yg-breathe" style={{
+                          ...S.satOrbInner, ...S.satChild,
                           borderColor: cEmpty ? "rgba(255,255,255,.14)" : `${c.ctx.color}66`,
                           background: cEmpty ? "rgba(255,255,255,.03)" : `${c.ctx.color}30`,
-                          opacity: cEmpty ? 0.5 : 0.92,
                         }}>
-                        <span style={S.satLabelSm}>{c.ctx.name}</span>
+                          <span style={S.satLabelSm}>{c.ctx.name}</span>
+                        </div>
                       </div>
                     );
                   })}
@@ -558,17 +746,32 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
                 <line key={p.id} x1={CX} y1={CY} x2={p.x} y2={p.y}
                   stroke="rgba(255,255,255,0.045)" strokeWidth={1} />
               ))}
+              {satelliteRing.placed.map((p, i) => (
+                <NerveLinePulse key={"pulse-" + p.id} x1={CX} y1={CY} x2={p.x} y2={p.y}
+                  color={codeGraphMode ? "rgba(140,225,235,.9)" : "rgba(190,180,255,.85)"}
+                  duration={2.4 + (i % 4) * 0.35} delay={(i % 7) * 0.22} />
+              ))}
             </svg>
 
             <div style={{ ...S.orbWrap, left: CX, top: CY }}>
               <div style={{ ...S.orbGlow, background: `radial-gradient(circle, ${openSatellite.color}30 0%, ${openSatellite.color}0d 40%, transparent 70%)` }} />
-              <div style={{ ...S.orbBody, background: `radial-gradient(circle at 36% 30%, ${openSatellite.color}dd 0%, ${openSatellite.color}99 48%, ${openSatellite.color}55 100%)` }}>
+              <div className="yg-breathe" style={{ ...S.orbBody, background: `radial-gradient(circle at 36% 30%, ${openSatellite.color}dd 0%, ${openSatellite.color}99 48%, ${openSatellite.color}55 100%)` }}>
                 <div style={S.orbSheen} />
                 <span style={S.orbLabel}>{openSatellite.name.toUpperCase()}</span>
               </div>
             </div>
 
-            {satelliteRing.placed.length === 0 && (
+            {satelliteRing.placed.length === 0 && codeGraphMode && graphDataLoading && (
+              <div style={{ ...S.satEmptyNote, left: CX, top: CY + 260 }}>
+                Loading {openSatellite.name}&rsquo;s code graph…
+              </div>
+            )}
+            {satelliteRing.placed.length === 0 && codeGraphMode && !graphDataLoading && (
+              <div style={{ ...S.satEmptyNote, left: CX, top: CY + 260 }}>
+                No code graph built for {openSatellite.name} yet — trigger a build from Settings → Technical.
+              </div>
+            )}
+            {satelliteRing.placed.length === 0 && !codeGraphMode && (
               <div style={{ ...S.satEmptyNote, left: CX, top: CY + 260 }}>
                 No agents granted to {openSatellite.name} yet — grant access in Settings.
               </div>
@@ -577,20 +780,22 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
             {satelliteRing.placed.map((p) => {
               const st = rolled[p.id] ?? "idle";
               return (
-                <div key={p.id} onClick={() => setOpen(p)}
-                  style={{ ...S.deptCard, left: p.x, top: p.y, opacity: dim(p.name) ? 0.2 : 1 }}>
-                  <div style={S.deptHead}>
-                    <span style={S.deptName}>{p.name}</span>
-                    <Pip status={st} />
+                <div key={p.id} onClick={() => { punchZoom(); setOpen(p); }}
+                  style={{ ...S.deptCardPos, left: p.x, top: p.y, opacity: dim(p.name) ? 0.2 : 1 }}>
+                  <div className="yg-breathe" style={S.deptCard}>
+                    <div style={S.deptHead}>
+                      <span style={S.deptName}>{p.name}</span>
+                      {!codeGraphMode && <Pip status={st} />}
+                    </div>
+                    <div style={S.bigNum}>{p.agents.length}</div>
+                    <div style={S.numLabel}>{codeGraphMode ? "FILE NODES" : "GRANTED AGENTS"}</div>
+                    <div style={S.sparkRow}>
+                      {p.bars.map((h, i) => (
+                        <i key={i} style={{ flex: 1, height: `${h}%`, background: "rgba(255,255,255,.32)", borderRadius: 0.5 }} />
+                      ))}
+                    </div>
+                    <div style={S.deptFoot}>{p.agents.length} {codeGraphMode ? "NODES" : "AGENTS"}</div>
                   </div>
-                  <div style={S.bigNum}>{p.agents.length}</div>
-                  <div style={S.numLabel}>GRANTED AGENTS</div>
-                  <div style={S.sparkRow}>
-                    {p.bars.map((h, i) => (
-                      <i key={i} style={{ flex: 1, height: `${h}%`, background: "rgba(255,255,255,.32)", borderRadius: 0.5 }} />
-                    ))}
-                  </div>
-                  <div style={S.deptFoot}>{p.agents.length} AGENTS</div>
                 </div>
               );
             })}
@@ -629,8 +834,21 @@ function DetailView({ dept, status }: { dept: Dept; status: Record<string, Statu
   const HUB = { x: 880, y: 500 };
   const activeRows = rows.filter((r) => (status[r.id] ?? "idle") === "active");
 
+  // Entrance animation (2026-08-14) — the whole view fades/scales in on mount,
+  // then agent pills stagger in behind it. Runs once per dept.id (a new
+  // DetailView instance per department since it's swapped in/out by the
+  // parent, not re-parented — dept.id is enough to key a fresh mount).
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      gsap.fromTo(stageRef.current, { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.5, ease: "power3.out" });
+      gsap.fromTo(".yg-agent-pill", { opacity: 0, x: -18 }, { opacity: 1, x: 0, duration: 0.4, delay: 0.12, stagger: 0.045, ease: "power2.out" });
+    }, stageRef);
+    return () => ctx.revert();
+  }, [dept.id]);
+
   return (
-    <div style={S.detailStage}>
+    <div ref={stageRef} style={S.detailStage}>
       <div style={S.edgeGlow} />
 
       <svg style={S.detailSvg} viewBox="0 0 1900 1000" preserveAspectRatio="xMidYMid slice">
@@ -643,7 +861,7 @@ function DetailView({ dept, status }: { dept: Dept; status: Record<string, Statu
         {rows.map((r) => {
           const on = (status[r.id] ?? "idle") === "active";
           return (
-            <path key={r.id}
+            <path key={r.id} id={`nerve-hub-${r.id}`}
               d={`M ${HUB.x} ${HUB.y} C ${HUB.x + 120} ${HUB.y}, ${r.x - 160} ${r.y}, ${r.x - 20} ${r.y}`}
               fill="none"
               stroke={on ? "rgba(140,225,235,.55)" : "rgba(255,255,255,.13)"}
@@ -663,9 +881,23 @@ function DetailView({ dept, status }: { dept: Dept; status: Record<string, Statu
               style={{ filter: "drop-shadow(0 0 7px rgba(150,230,240,.5))" }} />
           );
         })}
+
+        {/* Nerve pulses — one per HUB→agent connection, always running (dim/slow
+            when idle, bright/fast when active) so the "info traveling" feel
+            doesn't disappear the moment nothing's actually running. Stable
+            per-row-index delay, not Math.random(), so a status change elsewhere
+            doesn't reset every pulse's position mid-flight on re-render. */}
+        {rows.map((r, i) => {
+          const on = (status[r.id] ?? "idle") === "active";
+          return (
+            <NervePathPulse key={"np-" + r.id} pathId={`nerve-hub-${r.id}`}
+              color={on ? "rgba(140,225,235,.95)" : "rgba(160,165,175,.45)"}
+              duration={on ? 1.05 : 2.6} delay={(i % 6) * 0.28} />
+          );
+        })}
       </svg>
 
-      <div style={S.detailDept}>
+      <div className="yg-breathe" style={S.detailDept}>
         <div style={S.deptHead}>
           <span style={{ ...S.deptName, fontSize: 22 }}>{dept.name}</span>
           <Pip status={status[dept.id] ?? "idle"} big />
@@ -684,28 +916,32 @@ function DetailView({ dept, status }: { dept: Dept; status: Record<string, Statu
         const st = status[r.id] ?? "idle";
         return (
           <div key={r.id} style={{
-            ...S.agentPill,
+            ...S.agentPillPos,
             left: `${(r.x / 1900) * 100}%`,
             top: `${(r.y / 1000) * 100}%`,
-            borderColor: st === "active" ? "rgba(61,220,151,.34)"
-              : st === "error" ? "rgba(255,107,96,.42)" : "rgba(255,255,255,.10)",
           }}>
-            {st === "active" && <><span style={S.halo1} /><span style={S.halo2} /></>}
-            <span style={{
-              ...S.avatar,
-              background: st === "active" ? MINT : "rgba(255,255,255,.08)",
-              border: st === "error" ? `2.5px solid ${CORAL}` : "none",
-              boxShadow: st === "active" ? `0 0 18px ${MINT}aa` : "none",
-            }} />
-            <span style={S.agentText}>
-              <b style={S.agentName}>{r.name}</b>
-              <i style={S.agentTag}>{r.tag}</i>
-            </span>
-            <span style={{
-              ...S.agentPip,
-              background: st === "active" ? MINT : st === "error" ? CORAL : "rgba(255,255,255,.2)",
-              boxShadow: st === "active" ? `0 0 10px ${MINT}` : "none",
-            }} />
+            <div className="yg-breathe yg-agent-pill" style={{
+              ...S.agentPill,
+              borderColor: st === "active" ? "rgba(61,220,151,.34)"
+                : st === "error" ? "rgba(255,107,96,.42)" : "rgba(255,255,255,.10)",
+            }}>
+              {st === "active" && <><span style={S.halo1} /><span style={S.halo2} /></>}
+              <span style={{
+                ...S.avatar,
+                background: st === "active" ? MINT : "rgba(255,255,255,.08)",
+                border: st === "error" ? `2.5px solid ${CORAL}` : "none",
+                boxShadow: st === "active" ? `0 0 18px ${MINT}aa` : "none",
+              }} />
+              <span style={S.agentText}>
+                <b style={S.agentName}>{r.name}</b>
+                <i style={S.agentTag}>{r.tag}</i>
+              </span>
+              <span style={{
+                ...S.agentPip,
+                background: st === "active" ? MINT : st === "error" ? CORAL : "rgba(255,255,255,.2)",
+                boxShadow: st === "active" ? `0 0 10px ${MINT}` : "none",
+              }} />
+            </div>
           </div>
         );
       })}
@@ -772,6 +1008,10 @@ const S: Record<string, React.CSSProperties> = {
     color: "#d3d6db", fontSize: 11, padding: "7px 15px", borderRadius: 999,
     cursor: "pointer", fontFamily: "inherit", backdropFilter: "blur(12px)",
   },
+  modeToggle: {
+    position: "fixed", top: 118, left: 28, zIndex: 22,
+    display: "flex", gap: 5, pointerEvents: "auto",
+  },
 
   orbWrap: { position: "absolute", transform: "translate(-50%,-50%)" },
   orbGlow: {
@@ -788,8 +1028,14 @@ const S: Record<string, React.CSSProperties> = {
   orbSheen: { position: "absolute", inset: 0, borderRadius: "50%", background: "radial-gradient(circle at 34% 26%, rgba(255,255,255,.46), transparent 46%)" },
   orbLabel: { position: "relative", zIndex: 2, fontSize: 21, fontWeight: 600, letterSpacing: "0.15em", color: "#ffffff" },
 
+  // 2026-08-14: split into a positioning wrapper (React-owned — left/top/
+  // dim-opacity change every render, this is what setOpen(p)'s click target
+  // sizing needs) and an inner visual style (GSAP-owned via .yg-breathe —
+  // React never touches transform/scale here, so the breathing tween never
+  // gets fought by a re-render). Same split applied to satOrb and agentPill
+  // below, same reason.
+  deptCardPos: { position: "absolute", transform: "translate(-50%,-50%)", width: 232 },
   deptCard: {
-    position: "absolute", transform: "translate(-50%,-50%)", width: 232,
     background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.20)",
     borderRadius: 20, padding: "16px 18px 14px",
     backdropFilter: "blur(22px)", WebkitBackdropFilter: "blur(22px)",
@@ -803,13 +1049,14 @@ const S: Record<string, React.CSSProperties> = {
   sparkRow: { display: "flex", alignItems: "flex-end", gap: 1.5, height: 30, marginTop: 14 },
   deptFoot: { fontSize: 8.5, color: "#82878f", letterSpacing: "0.14em", marginTop: 10 },
 
-  /* L3 — satellite orbs (doc §2.3) */
-  satOrb: {
-    position: "absolute", transform: "translate(-50%,-50%)", borderRadius: "50%",
+  /* L3 — satellite orbs (doc §2.3) — Pos/Inner split, see deptCardPos note above. */
+  satOrbPos: { position: "absolute", transform: "translate(-50%,-50%)", borderRadius: "50%", cursor: "pointer" },
+  satOrbInner: {
+    width: "100%", height: "100%", borderRadius: "50%",
     border: "1.5px solid", display: "flex", flexDirection: "column", alignItems: "center",
-    justifyContent: "center", textAlign: "center", cursor: "pointer", padding: 6,
+    justifyContent: "center", textAlign: "center", padding: 6,
     backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
-    boxShadow: "0 10px 30px rgba(0,0,0,.4)", transition: "opacity .25s, transform .2s",
+    boxShadow: "0 10px 30px rgba(0,0,0,.4)", transition: "opacity .25s",
   },
   satChild: { boxShadow: "0 6px 18px rgba(0,0,0,.35)" },
   satLabel: { fontSize: 11, fontWeight: 700, color: "#ffffff", letterSpacing: "0.04em" },
@@ -835,8 +1082,9 @@ const S: Record<string, React.CSSProperties> = {
     backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
     boxShadow: "0 20px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.18)",
   },
+  agentPillPos: { position: "absolute", transform: "translate(-50%,-50%)" },
   agentPill: {
-    position: "absolute", transform: "translate(-50%,-50%)",
+    position: "relative", // halo1/halo2 anchor to this (was the outer, positioned div before the split)
     display: "flex", alignItems: "center", gap: 12, minWidth: 210,
     background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,.18)",
     borderRadius: 14, padding: "9px 16px 9px 11px",
