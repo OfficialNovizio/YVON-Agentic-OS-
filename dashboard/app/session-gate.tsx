@@ -9,32 +9,27 @@
 // all confirmed it. Fix: NO edge middleware. This client component enforces
 // the same session gate in the browser.
 //
-// It reads the Supabase session cookie (`sb-<ref>-auth-token`, a JWT), checks
-// expiry, and redirects to /login (preserving ?next) when invalid. /login and
+// Redirects to /login (preserving ?next) when not authenticated. /login and
 // /auth/* are exempt. Real data security remains server-side (API routes
 // already auth independently); this gate restores the route-level UX gate.
+//
+// 2026-08-12 follow-up fix (login loop): the original version hand-parsed
+// document.cookie for an exact `sb-<ref>-auth-token` cookie. @supabase/ssr
+// chunks that cookie into `sb-<ref>-auth-token.0`, `.1`, ... whenever the
+// encoded session exceeds 3180 bytes — true for basically any real session
+// (JWT + refresh token + user metadata). The regex never matched a chunked
+// cookie, so this always concluded "not logged in" and bounced back to
+// /login in an infinite loop, even with a fully valid session (proven by
+// /api/ventures returning 200 in the same request cycle — server-side code
+// reassembles chunks correctly via @supabase/ssr's own logic). Fix: don't
+// reimplement cookie/chunk parsing in the browser — ask a tiny server route
+// (/api/auth/session) that reuses the same supabaseServer() helper every
+// other API route already uses correctly.
 //
 // Owner: raj · TS-009 WI-0
 'use client'
 
 import { useEffect, useState } from 'react'
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-const PROJECT_REF = SUPABASE_URL.match(/^https:\/\/([^.]+)\.supabase\.co/)?.[1] ?? ''
-const AUTH_COOKIE = PROJECT_REF ? `sb-${PROJECT_REF}-auth-token` : 'sb-auth-token'
-
-function hasValidSession(): boolean {
-  const match = document.cookie.match(new RegExp(`(?:^|; )${AUTH_COOKIE}=([^;]+)`))
-  const token = match?.[1]
-  if (!token) return false
-  try {
-    const payloadJson = atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
-    const payload = JSON.parse(payloadJson)
-    return typeof payload.exp === 'number' && payload.exp * 1000 > Date.now()
-  } catch {
-    return false
-  }
-}
 
 export default function SessionGate({ children }: { children: React.ReactNode }) {
   const [ok, setOk] = useState<boolean | null>(null)
@@ -48,14 +43,29 @@ export default function SessionGate({ children }: { children: React.ReactNode })
       return
     }
 
-    if (hasValidSession()) {
-      setOk(true)
-      return
-    }
+    let cancelled = false
 
-    // Not logged in → /login, preserving intent.
-    const next = pathname !== '/' ? encodeURIComponent(pathname + search) : ''
-    window.location.replace(next ? `/login?next=${next}` : '/login')
+    fetch('/api/auth/session')
+      .then((res) => (res.ok ? res.json() : { authenticated: false }))
+      .then(({ authenticated }: { authenticated: boolean }) => {
+        if (cancelled) return
+        if (authenticated) {
+          setOk(true)
+          return
+        }
+        const next = pathname !== '/' ? encodeURIComponent(pathname + search) : ''
+        window.location.replace(next ? `/login?next=${next}` : '/login')
+      })
+      .catch(() => {
+        // Network hiccup — fail open on the redirect (don't lock the user
+        // out over a flaky request) but don't render protected content
+        // either; the effect will re-run on next navigation.
+        if (!cancelled) setOk(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   // Blank until the check resolves (prevents flashing protected content).
