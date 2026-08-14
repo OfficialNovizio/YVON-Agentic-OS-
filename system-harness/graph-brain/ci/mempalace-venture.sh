@@ -147,27 +147,47 @@ echo "  entries≈${ENTRY_COUNT:-unknown}"
 echo "[5/6] write knowledge/ manifest to $BRANCH (reuses graphify-venture.sh's branch if present)"
 git config user.name "yvon-mempalace"
 git config user.email "mempalace@yvon.bot"
-if git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
-  # -f: step [3/6]/[4/6] (mempalace init/mine) can leave uncommitted changes
-  # to already-tracked files in the main-branch working tree (e.g. init
-  # touching .gitignore) — plain `checkout -B` refuses to switch away from
-  # those ("local changes would be overwritten"), even with -B. Nothing in
-  # that working tree needs to survive the switch: mine's real output is
-  # already in the external pgvector store, and knowledge/ gets rewritten
-  # fresh below regardless. Found live (2026-08-14, Novizio-Web, second
-  # onboarding run) — real git error was masked (see output-capture fix
-  # below), only "checkout existing yvon-graph failed" reached the DB.
-  CHECKOUT_OUT=$(git checkout -f -B "$BRANCH" "origin/$BRANCH" 2>&1) \
-    || fail "checkout existing $BRANCH failed: $CHECKOUT_OUT"
-else
-  CHECKOUT_OUT=$(git checkout --orphan "$BRANCH" -f 2>&1) || fail "orphan checkout failed: $CHECKOUT_OUT"
-  git rm -rf . >/dev/null 2>&1 || true
-fi
-mkdir -p knowledge
-# Only ever writes inside knowledge/ — deliberately never touches the
-# top-level README.md, which graphify-venture.sh owns, so the two scripts
-# can run in either order without clobbering each other.
-cat > knowledge/manifest.json <<EOF
+# Third live run (Novizio-Web, 2026-08-14) got past the checkout fix but
+# then hit a rejected push: "fetch first" — remote had moved on. Cause:
+# step [2/6] only pulls $DEFAULT_BRANCH on a reused workspace; it never
+# refreshes refs/remotes/origin/$BRANCH. Since graphify-venture.sh's own
+# run pushes to this same $BRANCH (both scripts share it by design — see
+# header comment) and both fire together on every "Rebuild Now", mempalace's
+# local knowledge of $BRANCH's tip is stale the moment graphify pushes
+# first. Explicit fetch here — right before basing the manifest commit on
+# it — makes the base always current, whichever script happens to push
+# second.
+# Steps 5-6 retry as a unit (max 2 attempts): fetch-then-checkout closes
+# most of the race with graphify-venture.sh pushing the same $BRANCH, but
+# a small window remains between this fetch and the push below — if
+# graphify lands a push in that exact gap, the push still gets rejected.
+# One retry (re-fetch, re-base onto the new tip, re-push) covers that
+# remaining sliver without a full locking scheme; two ships racing this
+# closely twice in a row is not worth engineering further for.
+PUSH_OK=0
+for ATTEMPT in 1 2; do
+  FETCH_OUT=$(git fetch origin "$BRANCH" 2>&1) || echo "  (fetch $BRANCH warning — may not exist yet: $FETCH_OUT)"
+  if git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
+    # -f: step [3/6]/[4/6] (mempalace init/mine) can leave uncommitted changes
+    # to already-tracked files in the main-branch working tree (e.g. init
+    # touching .gitignore) — plain `checkout -B` refuses to switch away from
+    # those ("local changes would be overwritten"), even with -B. Nothing in
+    # that working tree needs to survive the switch: mine's real output is
+    # already in the external pgvector store, and knowledge/ gets rewritten
+    # fresh below regardless. Found live (2026-08-14, Novizio-Web, second
+    # onboarding run) — real git error was masked (see output-capture fix
+    # below), only "checkout existing yvon-graph failed" reached the DB.
+    CHECKOUT_OUT=$(git checkout -f -B "$BRANCH" "origin/$BRANCH" 2>&1) \
+      || fail "checkout existing $BRANCH failed: $CHECKOUT_OUT"
+  else
+    CHECKOUT_OUT=$(git checkout --orphan "$BRANCH" -f 2>&1) || fail "orphan checkout failed: $CHECKOUT_OUT"
+    git rm -rf . >/dev/null 2>&1 || true
+  fi
+  mkdir -p knowledge
+  # Only ever writes inside knowledge/ — deliberately never touches the
+  # top-level README.md, which graphify-venture.sh owns, so the two scripts
+  # can run in either order without clobbering each other.
+  cat > knowledge/manifest.json <<EOF
 {
   "venture_slug": "$VENTURE_SLUG",
   "wing": "$VENTURE_SLUG",
@@ -177,7 +197,7 @@ cat > knowledge/manifest.json <<EOF
   "mined_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 EOF
-cat > knowledge/README.md <<EOF
+  cat > knowledge/README.md <<EOF
 # MemPalace repo knowledge — $VENTURE_SLUG
 
 Semantic knowledge mined from this repo by YVON's onboarding pipeline. The
@@ -191,17 +211,22 @@ Do not edit by hand — rebuilt on every mempalace-venture.sh run.
 
 Last mined: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
-git add knowledge/manifest.json knowledge/README.md
-if git diff --cached --quiet; then
-  echo "  no changes since last mine — skipping commit"
-else
-  git commit -m "yvon: refresh repo knowledge — entries≈${ENTRY_COUNT:-unknown}" >&2 \
-    || fail "commit failed"
-fi
-COMMIT_SHA=$(git rev-parse HEAD)
+  git add knowledge/manifest.json knowledge/README.md
+  if git diff --cached --quiet; then
+    echo "  no changes since last mine — skipping commit"
+  else
+    git commit -m "yvon: refresh repo knowledge — entries≈${ENTRY_COUNT:-unknown}" >&2 \
+      || fail "commit failed"
+  fi
+  COMMIT_SHA=$(git rev-parse HEAD)
 
-echo "[6/6] push $BRANCH"
-PUSH_OUT=$(git push "$AUTH_URL" "$BRANCH:$BRANCH" 2>&1) || fail "git push failed: $PUSH_OUT"
+  echo "[6/6] push $BRANCH (attempt $ATTEMPT/2)"
+  PUSH_OUT=$(git push "$AUTH_URL" "$BRANCH:$BRANCH" 2>&1) && { PUSH_OK=1; break; }
+  if [ "$ATTEMPT" -eq 2 ]; then
+    fail "git push failed after retry: $PUSH_OUT"
+  fi
+  echo "  push rejected (likely graphify-venture.sh pushed $BRANCH concurrently) — retrying: $PUSH_OUT"
+done
 
 upsert_status "ready" "" "$COMMIT_SHA" "${ENTRY_COUNT:-}"
 echo "Done. $VENTURE_SLUG's repo knowledge is live in the pgvector palace @ $COMMIT_SHA."
