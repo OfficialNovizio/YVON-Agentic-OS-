@@ -372,6 +372,15 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
 
   const [view, setView] = useState({ x: 0, y: 0, s: 0.52 });
   const drag = useRef({ on: false, px: 0, py: 0 });
+  // Distance-from-mousedown tracker (2026-08-14) — a native click event still
+  // fires after a drag-pan (mousedown/mouseup land on the same element
+  // regardless of how far the pointer traveled between them), so the
+  // background "click empty space to go back" handler below needs its own
+  // signal to tell a real click apart from a drag that happened to end where
+  // it started. dragStart is the mousedown point; dragMoved flips once total
+  // travel crosses a small threshold, checked in the mousemove loop below.
+  const dragStart = useRef({ x: 0, y: 0 });
+  const dragMoved = useRef(false);
   // Mirror of `view` for reading the latest value inside stable (empty-deps)
   // callbacks — animateView/punchZoom below don't want to be recreated (and
   // re-passed to every card's onClick) every time the user pans/zooms.
@@ -438,6 +447,25 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
       onUpdate: () => setView({ x: proxy.x, y: proxy.y, s: proxy.s }),
     });
   }, []);
+
+  /* ── Click-empty-space-to-go-back (2026-08-15, replaces the fixed "←"
+     buttons) ────────────────────────────────────────────────────────────
+     Those buttons sat at a raw viewport offset (top:74/left:28) that, in
+     embedded mode, landed on top of the real dashboard's own sidebar and
+     blocked its nav links. Operator's ask: no button, click anywhere in
+     the open canvas to zoom out a level. `data-yg-card` marks every real
+     clickable (cards/orbs) so the ancestor check below only fires on
+     genuine background, and dragMoved (tracked in the mousemove loop
+     above) filters out the native click a drag-pan still emits when
+     mousedown/mouseup land on the same element. */
+  const goBackFromSatellite = useCallback((e: React.MouseEvent) => {
+    if (dragMoved.current) return;
+    if ((e.target as HTMLElement).closest("[data-yg-card]")) return;
+    punchZoom();
+    setOpenSatellite(null);
+    setScope("yvon-os");
+    setStatus({});
+  }, [punchZoom]);
 
   useEffect(() => {
     fetch("/structure.json")
@@ -600,6 +628,9 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
   useEffect(() => {
     const mv = (e: MouseEvent) => {
       if (!drag.current.on) return;
+      if (!dragMoved.current && Math.hypot(e.clientX - dragStart.current.x, e.clientY - dragStart.current.y) > 6) {
+        dragMoved.current = true;
+      }
       setView((v) => ({ ...v, x: v.x + e.clientX - drag.current.px, y: v.y + e.clientY - drag.current.py }));
       drag.current.px = e.clientX; drag.current.py = e.clientY;
     };
@@ -625,7 +656,7 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
         backgroundPosition: `${view.x * 0.05}px ${view.y * 0.05}px`,
       }} />
 
-      <div style={S.hud}>
+      <div style={{ ...S.hud, position: embedded ? "absolute" : "fixed" }}>
         <div>
           <div style={S.brand}>YVON</div>
           <div style={S.sub}>
@@ -662,26 +693,22 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
       </div>
 
       {!open && !openSatellite && (
-        <input style={S.search} placeholder="Search departments…" value={q}
+        <input style={{ ...S.search, position: embedded ? "absolute" : "fixed" }} placeholder="Search departments…" value={q}
           onChange={(e) => setQ(e.target.value)} />
       )}
-      {open && (
-        <button style={S.back} onClick={() => { zoomOutOfCard(); setOpen(null); }}>
-          ← {openSatellite ? openSatellite.name.toUpperCase() : "All departments"}
-        </button>
-      )}
-      {openSatellite && !open && (
-        <button style={S.back}
-          onClick={() => { punchZoom(); setOpenSatellite(null); setScope("yvon-os"); setStatus({}); }}>
-          ← Universe
-        </button>
-      )}
+      {/* Back navigation (2026-08-15 rewrite) — was a fixed-position button
+          top-left; in embedded mode that sat at a raw viewport offset that
+          landed on top of the dashboard's own sidebar, blocking its nav
+          links (reported: "sidebar tabs not work"). Replaced per operator
+          request: click empty space anywhere in the canvas to zoom out a
+          level, no button. See the stage onClick handlers below (L3) and
+          DetailView's onBack (L2). */}
 
       {/* Team / Code Graph toggle (2026-08-14) — same satellite, two data
           sources: YVON agents granted to this brand, vs. this brand's own
           graphify structural graph (lib/graph/venture-code-graph.ts). */}
       {openSatellite && !open && (
-        <div style={S.modeToggle}>
+        <div style={{ ...S.modeToggle, position: embedded ? "absolute" : "fixed" }}>
           <button style={{ ...S.tab, ...(!codeGraphMode ? S.tabOn : {}) }}
             onClick={() => setCodeGraphMode(false)}>Team</button>
           <button style={{ ...S.tab, ...(codeGraphMode ? S.tabOn : {}) }}
@@ -692,7 +719,11 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
       {/* ══ LEVEL 1 — universe: core ring + every satellite at once (doc §2.3) ══ */}
       {!open && !openSatellite && (
         <div style={S.stage} onWheel={onWheel}
-          onMouseDown={(e) => (drag.current = { on: true, px: e.clientX, py: e.clientY })}>
+          onMouseDown={(e) => {
+            drag.current = { on: true, px: e.clientX, py: e.clientY };
+            dragStart.current = { x: e.clientX, y: e.clientY };
+            dragMoved.current = false;
+          }}>
           <div style={{ position: "absolute", transformOrigin: "0 0",
             transform: `translate(${view.x}px,${view.y}px) scale(${view.s})` }}>
 
@@ -734,7 +765,7 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
               ))}
             </svg>
 
-            <div style={{ ...S.orbWrap, left: CX, top: CY }}>
+            <div data-yg-card="1" style={{ ...S.orbWrap, left: CX, top: CY }}>
               <div style={S.orbGlow} />
               <div className="yg-breathe" style={S.orbBody}>
                 <div style={S.orbSheen} />
@@ -745,7 +776,7 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
             {placed.map((p) => {
               const st = rolled[p.id] ?? "idle";
               return (
-                <div key={p.id} onClick={() => zoomIntoCard(p, () => setOpen(p))}
+                <div key={p.id} data-yg-card="1" onClick={() => zoomIntoCard(p, () => setOpen(p))}
                   style={{ ...S.deptCardPos, left: p.x, top: p.y, opacity: dim(p.name) ? 0.2 : 1 }}>
                   <div className="yg-breathe" style={S.deptCard}>
                     <div style={S.deptHead}>
@@ -777,7 +808,7 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
               };
               return (
                 <React.Fragment key={s.ctx.slug}>
-                  <div onClick={openThis}
+                  <div data-yg-card="1" onClick={openThis}
                     style={{ ...S.satOrbPos, left: s.x, top: s.y, width: s.r * 2, height: s.r * 2, opacity: empty ? 0.55 : 1 }}>
                     <div className="yg-breathe" style={{
                       ...S.satOrbInner,
@@ -795,7 +826,7 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
                   {s.children.map((c) => {
                     const cEmpty = c.agentCount === 0;
                     return (
-                      <div key={c.ctx.slug}
+                      <div key={c.ctx.slug} data-yg-card="1"
                         onClick={() => {
                           punchZoom();
                           setOpenSatellite(c.ctx); setScope(c.ctx.contextPath ?? c.ctx.slug); setStatus({});
@@ -820,8 +851,12 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
 
       {/* ══ LEVEL 3 — one satellite's scoped ring: active departments, granted agents only ══ */}
       {openSatellite && !open && satelliteRing && (
-        <div style={S.stage} onWheel={onWheel}
-          onMouseDown={(e) => (drag.current = { on: true, px: e.clientX, py: e.clientY })}>
+        <div style={S.stage} onWheel={onWheel} onClick={goBackFromSatellite}
+          onMouseDown={(e) => {
+            drag.current = { on: true, px: e.clientX, py: e.clientY };
+            dragStart.current = { x: e.clientX, y: e.clientY };
+            dragMoved.current = false;
+          }}>
           <div style={{ position: "absolute", transformOrigin: "0 0",
             transform: `translate(${view.x}px,${view.y}px) scale(${view.s})` }}>
 
@@ -839,7 +874,7 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
               ))}
             </svg>
 
-            <div style={{ ...S.orbWrap, left: CX, top: CY }}>
+            <div data-yg-card="1" style={{ ...S.orbWrap, left: CX, top: CY }}>
               <div style={{ ...S.orbGlow, background: `radial-gradient(circle, ${openSatellite.color}30 0%, ${openSatellite.color}0d 40%, transparent 70%)` }} />
               <div className="yg-breathe" style={{ ...S.orbBody, background: `radial-gradient(circle at 36% 30%, ${openSatellite.color}dd 0%, ${openSatellite.color}99 48%, ${openSatellite.color}55 100%)` }}>
                 <div style={S.orbSheen} />
@@ -866,7 +901,7 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
             {satelliteRing.placed.map((p) => {
               const st = rolled[p.id] ?? "idle";
               return (
-                <div key={p.id} onClick={() => zoomIntoCard(p, () => setOpen(p))}
+                <div key={p.id} data-yg-card="1" onClick={() => zoomIntoCard(p, () => setOpen(p))}
                   style={{ ...S.deptCardPos, left: p.x, top: p.y, opacity: dim(p.name) ? 0.2 : 1 }}>
                   <div className="yg-breathe" style={S.deptCard}>
                     <div style={S.deptHead}>
@@ -890,23 +925,32 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
       )}
 
       {/* ══ LEVEL 2 ══ */}
-      {open && <DetailView dept={open} status={rolled} />}
+      {open && (
+        <DetailView dept={open} status={rolled} embedded={embedded}
+          onBack={() => { zoomOutOfCard(); setOpen(null); }} />
+      )}
 
-      <div style={S.legend}>
+      <div style={{ ...S.legend, position: embedded ? "absolute" : "fixed" }}>
         {([["ACTIVE", MINT], ["ERROR", CORAL], ["IDLE", "#5a5f68"], ["CORE", VIOLET]] as [string, string][]).map(([l, c]) => (
           <div key={l} style={S.lg}>
             <i style={{ width: 7, height: 7, borderRadius: "50%", background: c, display: "block" }} />{l}
           </div>
         ))}
       </div>
-      {!open && <div style={S.hint}>CLICK A DEPARTMENT · SCROLL TO ZOOM · DRAG TO PAN</div>}
-      <div style={S.vig} />
+      {!open && (
+        <div style={{ ...S.hint, position: embedded ? "absolute" : "fixed" }}>
+          CLICK A DEPARTMENT · SCROLL TO ZOOM · DRAG TO PAN · CLICK EMPTY SPACE TO GO BACK
+        </div>
+      )}
+      <div style={{ ...S.vig, position: embedded ? "absolute" : "fixed" }} />
     </div>
   );
 }
 
 /* ══ DETAIL VIEW ══ */
-function DetailView({ dept, status }: { dept: Dept; status: Record<string, Status> }) {
+function DetailView({ dept, status, embedded, onBack }: {
+  dept: Dept; status: Record<string, Status>; embedded: boolean; onBack: () => void;
+}) {
   const n = dept.agents.length;
 
   /* ── row layout (2026-08-14 rewrite) ──────────────────────────────────
@@ -955,8 +999,18 @@ function DetailView({ dept, status }: { dept: Dept; status: Record<string, Statu
     return () => ctx.revert();
   }, [dept.id]);
 
+  // Click empty space to go back (2026-08-15) — same convention as L1/L3's
+  // stage handler, no drag exists here so no dragMoved check needed. A
+  // click while the agent panel is open closes the panel first (one level
+  // of "back" at a time) rather than jumping straight out of the department.
+  const handleStageClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("[data-yg-card]")) return;
+    if (selected) { setSelected(null); return; }
+    onBack();
+  };
+
   return (
-    <div ref={stageRef} style={S.detailStage}>
+    <div ref={stageRef} style={S.detailStage} onClick={handleStageClick}>
       <div style={S.edgeGlow} />
 
       <svg style={S.detailSvg} viewBox="0 0 1900 1000" preserveAspectRatio="xMidYMid slice">
@@ -1012,7 +1066,7 @@ function DetailView({ dept, status }: { dept: Dept; status: Record<string, Statu
         })}
       </svg>
 
-      <div className="yg-breathe" style={{
+      <div data-yg-card="1" className="yg-breathe" style={{
         ...S.detailDept,
         left: `${(DEPT_ANCHOR.x / 1900) * 100}%`,
         top: `${(DEPT_ANCHOR.y / 1000) * 100}%`,
@@ -1034,7 +1088,7 @@ function DetailView({ dept, status }: { dept: Dept; status: Record<string, Statu
       {rows.map((r) => {
         const st = status[r.id] ?? "idle";
         return (
-          <div key={r.id} style={{
+          <div key={r.id} data-yg-card="1" style={{
             ...S.agentPillPos,
             left: `${(r.x / 1900) * 100}%`,
             top: `${(r.y / 1000) * 100}%`,
@@ -1074,7 +1128,7 @@ function DetailView({ dept, status }: { dept: Dept; status: Record<string, Statu
           parsed into an API route, not yet built). Slides in from the
           right so it never covers the fan itself. */}
       {selected && (
-        <AgentDetailPanel agent={selected} dept={dept}
+        <AgentDetailPanel agent={selected} dept={dept} embedded={embedded}
           status={status[selected.id] ?? "idle"} onClose={() => setSelected(null)} />
       )}
     </div>
@@ -1108,7 +1162,9 @@ function bareAgentId(agentId: string, deptId: string): string {
 
 type ReaderDoc = { title: string; meta: string; content: string };
 
-function AgentDetailPanel({ agent, dept, status, onClose }: { agent: Agent; dept: Dept; status: Status; onClose: () => void }) {
+function AgentDetailPanel({ agent, dept, status, embedded, onClose }: {
+  agent: Agent; dept: Dept; status: Status; embedded: boolean; onClose: () => void;
+}) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [detail, setDetail] = useState<AgentDetail | null>(agentDetailsCache?.[agent.id] ?? null);
   const [reading, setReading] = useState<ReaderDoc | null>(null);
@@ -1130,7 +1186,7 @@ function AgentDetailPanel({ agent, dept, status, onClose }: { agent: Agent; dept
   const bareId = bareAgentId(agent.id, dept.id);
 
   return (
-    <div ref={panelRef} style={S.agentPanel}>
+    <div ref={panelRef} data-yg-card="1" style={{ ...S.agentPanel, position: embedded ? "absolute" : "fixed" }}>
       <button style={S.agentPanelClose} onClick={reading ? () => setReading(null) : onClose}>
         {reading ? "←" : "✕"}
       </button>
