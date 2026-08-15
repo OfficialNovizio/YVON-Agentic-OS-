@@ -7,6 +7,7 @@ import { supabaseBrowser } from "@/lib/supabase-browser";
 import { applyEvent, bubbleUp, DECAY_MS } from "@/lib/events";
 import { useWorkspace } from "@/lib/WorkspaceContext";
 import { graphDataToDepartments, type RawGraphData } from "@/lib/graph/venture-code-graph";
+import { AgentAvatar } from "@/app/chat/AgentAvatar";
 
 /* ── Nerve pulse (2026-08-14) — a small glowing dot traveling repeatedly
    along a line or path: "info traveling along a nerve," per operator
@@ -110,6 +111,22 @@ interface Dept {
 
 /* Real structure, generated from Teams/ by scripts/build-structure.mjs (doc §1.1). */
 interface Structure { version: number; departments: Dept[] }
+
+/* Agent detail tree, generated from each Teams/<Dept>/<agent>/agent.md by
+   scripts/build-agent-details.mjs (2026-08-15) — Purpose, Skill Roster (with
+   the actual SKILL.md content each row points at), Operational Layer's 5
+   files (with content), Logical Layer. Fetched lazily from
+   /agent-details.json, keyed by the same id scheme as structure.json. */
+interface SkillRosterEntry {
+  skill: string; location: string; purpose: string;
+  kind: "own" | "shared" | "unresolved"; path: string | null; content: string | null;
+}
+interface OperationalLayerEntry { subfolder: string; file: string; summary: string; content: string | null }
+interface LogicalLayer { summary: string; content: string | null }
+interface AgentDetail {
+  id: string; purpose: string; skillRoster: SkillRosterEntry[];
+  skillChain: string; operationalLayer: OperationalLayerEntry[]; logicalLayer: LogicalLayer | null;
+}
 
 /* Context graph — Supabase `ventures` (doc §1.2), shape as returned by /api/ventures. */
 interface Context {
@@ -1031,11 +1048,12 @@ function DetailView({ dept, status }: { dept: Dept; status: Record<string, Statu
             }}>
               {st === "active" && <><span style={S.halo1} /><span style={S.halo2} /></>}
               <span style={{
-                ...S.avatar,
-                background: st === "active" ? MINT : "rgba(255,255,255,.08)",
+                ...S.avatar, padding: 0, overflow: "hidden",
                 border: st === "error" ? `2.5px solid ${CORAL}` : "none",
                 boxShadow: st === "active" ? `0 0 18px ${MINT}aa` : "none",
-              }} />
+              }}>
+                <AgentAvatar id={bareAgentId(r.id, dept.id)} name={r.name} size={30} />
+              </span>
               <span style={S.agentText}>
                 <b style={S.agentName}>{r.name}</b>
                 <i style={S.agentTag}>{r.tag}</i>
@@ -1063,8 +1081,45 @@ function DetailView({ dept, status }: { dept: Dept; status: Record<string, Statu
   );
 }
 
+/* ── Agent-details cache (2026-08-15) ────────────────────────────────────
+   /agent-details.json (scripts/build-agent-details.mjs) is ~1.7MB across
+   all 46 agents — fetched once, lazily, on the FIRST time any panel opens
+   in this browser session (not on every DetailView mount), then kept in a
+   module-level variable so switching between agents/departments never
+   re-fetches. Module scope (not React state) because the fetch needs to
+   survive DetailView unmounting when the user backs out to the universe
+   view and opens a different department. */
+let agentDetailsCache: Record<string, AgentDetail> | null = null;
+let agentDetailsPromise: Promise<Record<string, AgentDetail>> | null = null;
+function loadAgentDetails(): Promise<Record<string, AgentDetail>> {
+  if (agentDetailsCache) return Promise.resolve(agentDetailsCache);
+  if (!agentDetailsPromise) {
+    agentDetailsPromise = fetch("/agent-details.json")
+      .then((r) => r.json())
+      .then((d: { agents: Record<string, AgentDetail> }) => (agentDetailsCache = d.agents))
+      .catch(() => (agentDetailsCache = {}));
+  }
+  return agentDetailsPromise;
+}
+
+function bareAgentId(agentId: string, deptId: string): string {
+  return agentId.startsWith(deptId + "-") ? agentId.slice(deptId.length + 1) : agentId;
+}
+
+type ReaderDoc = { title: string; meta: string; content: string };
+
 function AgentDetailPanel({ agent, dept, status, onClose }: { agent: Agent; dept: Dept; status: Status; onClose: () => void }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const [detail, setDetail] = useState<AgentDetail | null>(agentDetailsCache?.[agent.id] ?? null);
+  const [reading, setReading] = useState<ReaderDoc | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setReading(null);
+    loadAgentDetails().then((all) => { if (!cancelled) setDetail(all[agent.id] ?? null); });
+    return () => { cancelled = true; };
+  }, [agent.id]);
+
   useEffect(() => {
     const ctx = gsap.context(() => {
       gsap.fromTo(panelRef.current, { opacity: 0, x: 24 }, { opacity: 1, x: 0, duration: 0.32, ease: "power2.out" });
@@ -1072,32 +1127,163 @@ function AgentDetailPanel({ agent, dept, status, onClose }: { agent: Agent; dept
     return () => ctx.revert();
   }, [agent.id]);
 
+  const bareId = bareAgentId(agent.id, dept.id);
+
   return (
     <div ref={panelRef} style={S.agentPanel}>
-      <button style={S.agentPanelClose} onClick={onClose}>✕</button>
-      <span style={{
-        ...S.avatar, width: 46, height: 46,
-        background: status === "active" ? MINT : "rgba(255,255,255,.08)",
-        border: status === "error" ? `2.5px solid ${CORAL}` : "none",
-        boxShadow: status === "active" ? `0 0 18px ${MINT}aa` : "none",
-      }} />
-      <div style={S.agentPanelName}>{agent.name}</div>
-      <div style={S.agentPanelTag}>{agent.tag}</div>
-      <div style={S.agentPanelRow}>
-        <span style={S.agentPanelLabel}>Department</span>
-        <span style={S.agentPanelVal}>{dept.name}</span>
-      </div>
-      <div style={S.agentPanelRow}>
-        <span style={S.agentPanelLabel}>Status</span>
-        <span style={{ ...S.agentPanelVal, textTransform: "capitalize" }}>{status}</span>
-      </div>
-      <div style={S.agentPanelNote}>
-        Purpose, skill roster, and Books connections pull from this agent&rsquo;s
-        agent.md — not wired into the frontend yet. This panel shows what&rsquo;s
-        live today; the rest is queued.
-      </div>
+      <button style={S.agentPanelClose} onClick={reading ? () => setReading(null) : onClose}>
+        {reading ? "←" : "✕"}
+      </button>
+
+      {reading ? (
+        <>
+          <div style={S.readerTitle}>{reading.title}</div>
+          <div style={S.readerMeta}>{reading.meta}</div>
+          <div style={S.readerBody}><Markdownish text={reading.content} /></div>
+        </>
+      ) : (
+        <>
+          <span style={{
+            ...S.avatar, width: 46, height: 46, padding: 0, overflow: "hidden",
+            border: status === "error" ? `2.5px solid ${CORAL}` : "none",
+            boxShadow: status === "active" ? `0 0 18px ${MINT}aa` : "none",
+          }}>
+            <AgentAvatar id={bareId} name={agent.name} size={46} />
+          </span>
+          <div style={S.agentPanelName}>{agent.name}</div>
+          <div style={S.agentPanelTag}>{agent.tag}</div>
+          <div style={S.agentPanelRow}>
+            <span style={S.agentPanelLabel}>Department</span>
+            <span style={S.agentPanelVal}>{dept.name}</span>
+          </div>
+          <div style={S.agentPanelRow}>
+            <span style={S.agentPanelLabel}>Status</span>
+            <span style={{ ...S.agentPanelVal, textTransform: "capitalize" }}>{status}</span>
+          </div>
+
+          {detail === null && (
+            <div style={S.agentPanelNote}>Loading skills tree…</div>
+          )}
+
+          {detail && (
+            <div style={S.treeScroll}>
+              {detail.purpose && (
+                <div style={S.treeSection}>
+                  <div style={S.treeSectionLabel}>Purpose</div>
+                  <div style={S.treeSummary}>{detail.purpose}</div>
+                </div>
+              )}
+
+              {detail.skillRoster.length > 0 && (
+                <div style={S.treeSection}>
+                  <div style={S.treeSectionLabel}>Skills ({detail.skillRoster.length})</div>
+                  {detail.skillRoster.map((sk) => (
+                    <div key={sk.skill}
+                      style={{ ...S.skillCard, cursor: sk.content ? "pointer" : "default", opacity: sk.content ? 1 : 0.55 }}
+                      onClick={() => sk.content && setReading({
+                        title: sk.skill,
+                        meta: sk.kind === "shared" ? "Shared OS skill" : "Skill",
+                        content: sk.content,
+                      })}>
+                      <div style={S.skillCardHead}>
+                        <span style={S.skillCardName}>{sk.skill}</span>
+                        {sk.kind === "shared" && <span style={S.skillBadge}>SHARED</span>}
+                      </div>
+                      <div style={S.skillCardPurpose}>{sk.purpose || sk.location}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {detail.operationalLayer.length > 0 && (
+                <div style={S.treeSection}>
+                  <div style={S.treeSectionLabel}>Operational Layer</div>
+                  {detail.operationalLayer.map((op) => (
+                    <div key={op.subfolder}
+                      style={{ ...S.skillCard, cursor: op.content ? "pointer" : "default", opacity: op.content ? 1 : 0.55 }}
+                      onClick={() => op.content && setReading({ title: op.subfolder, meta: op.file, content: op.content })}>
+                      <div style={S.skillCardHead}>
+                        <span style={{ ...S.skillCardName, textTransform: "capitalize" }}>{op.subfolder}</span>
+                      </div>
+                      <div style={S.skillCardPurpose}>{op.summary}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {detail.logicalLayer && (
+                <div style={S.treeSection}>
+                  <div style={S.treeSectionLabel}>Logical Layer · Books</div>
+                  <div
+                    style={{ ...S.skillCard, cursor: detail.logicalLayer.content ? "pointer" : "default", opacity: detail.logicalLayer.content ? 1 : 0.55 }}
+                    onClick={() => detail.logicalLayer?.content && setReading({
+                      title: "Book requirements", meta: "Logical Layer", content: detail.logicalLayer.content,
+                    })}>
+                    <div style={S.skillCardPurpose}>{detail.logicalLayer.summary}</div>
+                  </div>
+                </div>
+              )}
+
+              {!detail.purpose && detail.skillRoster.length === 0 && detail.operationalLayer.length === 0 && !detail.logicalLayer && (
+                <div style={S.agentPanelNote}>
+                  This agent&rsquo;s agent.md didn&rsquo;t parse into any of the sections this
+                  panel understands yet — the doc may use a different template.
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
+}
+
+/* ── Minimal markdown-ish reader (2026-08-15) ────────────────────────────
+   No markdown dependency in this project — these files mix prose, bullet
+   lists, ASCII pipeline diagrams (fenced ``` blocks), and the occasional
+   heading, so a full parser isn't warranted. This handles just those four
+   shapes: fenced code (monospace block), #-headings, -/* bullet lists, and
+   plain paragraphs — enough to make a skill's real file genuinely readable
+   instead of a wall of raw text. */
+function Markdownish({ text }: { text: string }) {
+  const lines = text.split("\n");
+  const blocks: React.ReactNode[] = [];
+  let i = 0, key = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (line.trim() === "") { i++; continue; }
+    if (line.startsWith("```")) {
+      const code: string[] = [];
+      i++;
+      while (i < lines.length && !lines[i].startsWith("```")) { code.push(lines[i]); i++; }
+      i++;
+      blocks.push(<pre key={key++} style={S.skillCode}>{code.join("\n")}</pre>);
+      continue;
+    }
+    const heading = line.match(/^(#{1,4})\s+(.*)$/);
+    if (heading) {
+      blocks.push(<div key={key++} style={{ ...S.skillHeading, fontSize: 16 - heading[1].length }}>{heading[2]}</div>);
+      i++;
+      continue;
+    }
+    if (/^[-*]\s+/.test(line.trim())) {
+      const items: string[] = [];
+      while (i < lines.length && /^[-*]\s+/.test(lines[i].trim())) { items.push(lines[i].trim().replace(/^[-*]\s+/, "")); i++; }
+      blocks.push(
+        <ul key={key++} style={S.skillList}>
+          {items.map((it, j) => <li key={j} style={S.skillListItem}>{it}</li>)}
+        </ul>
+      );
+      continue;
+    }
+    const para: string[] = [];
+    while (i < lines.length && lines[i].trim() !== "" && !lines[i].startsWith("```") &&
+      !/^#{1,4}\s/.test(lines[i]) && !/^[-*]\s+/.test(lines[i].trim())) {
+      para.push(lines[i]); i++;
+    }
+    blocks.push(<p key={key++} style={S.skillPara}>{para.join(" ")}</p>);
+  }
+  return <>{blocks}</>;
 }
 
 function Pip({ status, big }: { status: Status; big?: boolean }) {
@@ -1262,24 +1448,56 @@ const S: Record<string, React.CSSProperties> = {
   },
 
   agentPanel: {
-    position: "fixed", top: 90, right: 28, zIndex: 24, width: 280,
-    background: "rgba(20,20,26,0.72)", border: "1px solid rgba(255,255,255,0.16)",
+    position: "fixed", top: 90, right: 28, bottom: 60, zIndex: 24, width: 380,
+    background: "rgba(18,18,23,0.78)", border: "1px solid rgba(255,255,255,0.16)",
     borderRadius: 22, padding: "26px 22px 22px",
     backdropFilter: "blur(26px)", WebkitBackdropFilter: "blur(26px)",
     boxShadow: "0 20px 60px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.14)",
     display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4,
+    overflow: "hidden",
   },
   agentPanelClose: {
     position: "absolute", top: 16, right: 16, background: "rgba(255,255,255,.08)",
     border: "1px solid rgba(255,255,255,.14)", color: "#d3d6db", width: 26, height: 26,
-    borderRadius: "50%", cursor: "pointer", fontSize: 11, lineHeight: 1, fontFamily: "inherit",
+    borderRadius: "50%", cursor: "pointer", fontSize: 11, lineHeight: 1, fontFamily: "inherit", flex: "none",
   },
   agentPanelName: { fontSize: 18, fontWeight: 650, color: "#ffffff", marginTop: 14 },
   agentPanelTag: { fontSize: 12, color: "#a3a8b0", marginBottom: 16 },
-  agentPanelRow: { display: "flex", justifyContent: "space-between", width: "100%", padding: "9px 0", borderTop: "1px solid rgba(255,255,255,.08)" },
+  agentPanelRow: { display: "flex", justifyContent: "space-between", width: "100%", padding: "9px 0", borderTop: "1px solid rgba(255,255,255,.08)", flex: "none" },
   agentPanelLabel: { fontSize: 10.5, color: "#82878f", letterSpacing: "0.08em", textTransform: "uppercase" },
   agentPanelVal: { fontSize: 12.5, color: "#e2e4e9", fontWeight: 500 },
   agentPanelNote: { fontSize: 11, color: "#83888f", lineHeight: 1.5, marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,.08)" },
+
+  // Skills tree (2026-08-15) — scrolls independently inside the fixed-height panel.
+  treeScroll: { width: "100%", overflowY: "auto", marginTop: 6, paddingRight: 4, flex: 1 },
+  treeSection: { marginTop: 18 },
+  treeSectionLabel: { fontSize: 10.5, color: "#9e8cff", letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700, marginBottom: 8 },
+  treeSummary: { fontSize: 12, color: "#c3c6cd", lineHeight: 1.55 },
+  skillCard: {
+    background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.10)",
+    borderRadius: 12, padding: "10px 12px", marginBottom: 7, transition: "background .2s, border-color .2s",
+  },
+  skillCardHead: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  skillCardName: { fontSize: 12.5, fontWeight: 600, color: "#ffffff" },
+  skillBadge: {
+    fontSize: 8.5, letterSpacing: "0.08em", color: "#c9beff", background: "rgba(158,140,255,.18)",
+    border: "1px solid rgba(158,140,255,.4)", borderRadius: 999, padding: "1.5px 7px", flex: "none",
+  },
+  skillCardPurpose: { fontSize: 11, color: "#9a9fa8", lineHeight: 1.45, marginTop: 4 },
+
+  // Skill reader (2026-08-15) — replaces the tree body in-place when a card is clicked.
+  readerTitle: { fontSize: 17, fontWeight: 650, color: "#ffffff", marginTop: 14 },
+  readerMeta: { fontSize: 11, color: "#9e8cff", letterSpacing: "0.04em", marginBottom: 14 },
+  readerBody: { width: "100%", overflowY: "auto", flex: 1, paddingRight: 4 },
+  skillHeading: { fontWeight: 700, color: "#ffffff", marginTop: 14, marginBottom: 4 },
+  skillPara: { fontSize: 12, color: "#c3c6cd", lineHeight: 1.6, marginBottom: 10 },
+  skillList: { margin: "0 0 10px", paddingLeft: 18 },
+  skillListItem: { fontSize: 12, color: "#c3c6cd", lineHeight: 1.55, marginBottom: 5 },
+  skillCode: {
+    fontFamily: "'SF Mono',Menlo,Consolas,monospace", fontSize: 10.5, color: "#a9e8dd", lineHeight: 1.5,
+    background: "rgba(0,0,0,.35)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 10,
+    padding: "10px 12px", marginBottom: 10, overflowX: "auto", whiteSpace: "pre",
+  },
 
   legend: { position: "fixed", bottom: 20, left: 28, zIndex: 20, display: "flex", gap: 16 },
   lg: { display: "flex", alignItems: "center", gap: 6, fontSize: 9.5, color: "#7b7f87", letterSpacing: "0.06em" },
