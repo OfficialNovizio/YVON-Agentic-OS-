@@ -106,6 +106,15 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    // Operator-only personal module (2026-08-15) — not a Teams/ agent-fleet
+    // surface, kept separate from Command Center on purpose.
+    heading: 'Personal',
+    workspaces: YVON_ONLY,
+    items: [
+      { label: 'Job Hunt', href: '/job-hunt', icon: 'work' },
+    ],
+  },
+  {
     heading: 'Revenue',
     workspaces: BRAND_ONLY,
     items: [
