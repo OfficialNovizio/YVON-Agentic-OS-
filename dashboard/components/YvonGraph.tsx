@@ -480,7 +480,7 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
   );
 
   // Layout computed ONCE per structure, from stable sorted ids → never reshuffles.
-  const { placed, stars } = useMemo(() => buildLayout(DEPARTMENTS), [DEPARTMENTS]);
+  const { placed } = useMemo(() => buildLayout(DEPARTMENTS), [DEPARTMENTS]);
 
   // L3 satellite positions — recomputed only when contexts or grants change, not on every
   // status tick (doc §2.5.1).
@@ -602,7 +602,11 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
     <div style={embedded ? S.rootEmbedded : S.root}>
       <style>{CSS}</style>
 
-      <div style={{ ...S.starfield, backgroundPosition: `${view.x * 0.05}px ${view.y * 0.05}px` }} />
+      <div style={{
+        ...S.starfield,
+        position: embedded ? "absolute" : "fixed",
+        backgroundPosition: `${view.x * 0.05}px ${view.y * 0.05}px`,
+      }} />
 
       <div style={S.hud}>
         <div>
@@ -680,9 +684,10 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
                 <ellipse key={r} cx={CX} cy={CY} rx={r * 1.45} ry={r * 0.99} fill="none"
                   stroke={`rgba(255,255,255,${0.038 - i * 0.006})`} strokeWidth={1} />
               ))}
-              {stars.map((s, i) => (
-                <circle key={i} cx={s.x} cy={s.y} r={s.r} fill={`rgba(205,210,222,${s.o})`} />
-              ))}
+              {/* Local star cluster removed (2026-08-14) — the global starfield
+                  below now covers the whole box; this array visibly "clumped"
+                  around the orb and dragged with it as one group when panning,
+                  which read as a bounded blob rather than open space. */}
               {placed.map((p) => (
                 <line key={p.id} x1={CX} y1={CY} x2={p.x} y2={p.y}
                   stroke="rgba(200,195,255,0.34)" strokeWidth={1.8}
@@ -804,9 +809,7 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
             transform: `translate(${view.x}px,${view.y}px) scale(${view.s})` }}>
 
             <svg style={{ position: "absolute", overflow: "visible", pointerEvents: "none" }} width={3600} height={2400}>
-              {satelliteRing.stars.map((s, i) => (
-                <circle key={i} cx={s.x} cy={s.y} r={s.r} fill={`rgba(205,210,222,${s.o})`} />
-              ))}
+              {/* Local star cluster removed here too — see L1 note above. */}
               {satelliteRing.placed.map((p) => (
                 <line key={p.id} x1={CX} y1={CY} x2={p.x} y2={p.y}
                   stroke={codeGraphMode ? "rgba(140,225,235,0.34)" : "rgba(200,195,255,0.34)"} strokeWidth={1.8}
