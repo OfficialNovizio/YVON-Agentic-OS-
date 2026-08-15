@@ -471,6 +471,13 @@ function agents() {
     'Product': 'Product & Growth',
     'AI & Agents': 'Agent Operations',
     'Brand Studio': 'Creative & Marketing',
+    // 2026-08-15 — 6 new departments merged in from origin.
+    'Client Success': 'Customer Health & Retention',
+    'Comms & PR': 'Media & Communications',
+    'Global Expansion': 'Market Entry & Localization',
+    'Growth & Partnerships': 'Sales & Partnerships',
+    'People & Culture': 'People & Workforce',
+    'Risk & ESG': 'Risk & Sustainability',
   }
   for (const dept of fs.readdirSync(memDir)) {
     const dp = path.join(memDir, dept)

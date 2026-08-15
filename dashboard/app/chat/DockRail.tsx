@@ -5,7 +5,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Landmark, Terminal, Sparkles, Shield, Package, Scale, Bot, Orbit } from 'lucide-react'
+import { Landmark, Terminal, Sparkles, Shield, Package, Scale, Bot, Orbit, HeartHandshake, Megaphone, Globe2, TrendingUp, Users, ShieldAlert } from 'lucide-react'
 import { FLEET, FLEET_DEPARTMENTS, type FleetDepartment } from '@/lib/fleet'
 import { deptTint } from '@/lib/chat-theme'
 import type { ChatRoom } from '@/app/api/chat/rooms/route'
@@ -19,6 +19,13 @@ const ICON: Record<FleetDepartment, typeof Terminal> = {
   Product: Package,
   Governance: Scale,
   'AI & Agents': Bot,
+  // 2026-08-15 — 6 new departments, icons matched to lib/chat-theme.ts's deptIcon().
+  'Client Success': HeartHandshake,
+  'Comms & PR': Megaphone,
+  'Global Expansion': Globe2,
+  'Growth & Partnerships': TrendingUp,
+  'People & Culture': Users,
+  'Risk & ESG': ShieldAlert,
 }
 
 interface DockRailProps {

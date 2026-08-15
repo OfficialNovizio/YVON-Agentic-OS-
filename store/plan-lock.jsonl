@@ -177,3 +177,12 @@
 {"ts": "2026-08-10T07:07:09Z", "plan_id": "e64748cbd5d3cc92", "agent_id": "marcus", "department": "Executive Office", "query_hash": "24b5af45273d7767", "status": "locked"}
 {"ts": "2026-08-10T07:07:09Z", "plan_id": "48ccbe180b3ce972", "agent_id": "board", "department": "Governance", "query_hash": "d4e4f9f37d5570b7", "status": "locked"}
 {"ts": "2026-08-10T07:07:26Z", "plan_id": "0788af5cd25f179e", "agent_id": "spark", "department": "Brand Studio", "query_hash": "9855824735300bcb", "status": "locked"}
+{"ts": "2026-08-15T06:24:58Z", "plan_id": "0788af5cd25f179e", "agent_id": "spark", "department": "Brand Studio", "query_hash": "9855824735300bcb", "status": "locked"}
+{"ts": "2026-08-15T06:25:04Z", "plan_id": "4fd28a8cc11cb30f", "agent_id": "ally", "department": "Client Success", "query_hash": "3c70bc98732a9f87", "status": "blocked"}
+{"ts": "2026-08-15T06:25:22Z", "plan_id": "4fd28a8cc11cb30f", "agent_id": "ally", "department": "Client Success", "query_hash": "3c70bc98732a9f87", "status": "locked"}
+{"ts": "2026-08-15T06:25:26Z", "plan_id": "4fd28a8cc11cb30f", "agent_id": "ally", "department": "Client Success", "query_hash": "3c70bc98732a9f87", "status": "locked"}
+{"ts": "2026-08-15T06:25:32Z", "plan_id": "4fd28a8cc11cb30f", "agent_id": "ally", "department": "Client Success", "query_hash": "3c70bc98732a9f87", "status": "locked"}
+{"ts": "2026-08-15T06:25:49Z", "plan_id": "9b305f10e797d379", "agent_id": "spark", "department": "Brand Studio", "query_hash": "747de73a8cf40223", "status": "locked"}
+{"ts": "2026-08-15T06:25:53Z", "plan_id": "4fd28a8cc11cb30f", "agent_id": "ally", "department": "Client Success", "query_hash": "3c70bc98732a9f87", "status": "locked"}
+{"ts": "2026-08-15T06:26:41Z", "plan_id": "9b305f10e797d379", "agent_id": "spark", "department": "Brand Studio", "query_hash": "747de73a8cf40223", "status": "locked"}
+{"ts": "2026-08-15T06:26:55Z", "plan_id": "034f427a8950301e", "agent_id": "ally", "department": "Client Success", "query_hash": "ac4163b6742eefa8", "status": "locked"}

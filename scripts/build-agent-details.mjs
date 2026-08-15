@@ -69,29 +69,89 @@ function resolveSkillContent(agentDir, skillName, locationRaw) {
   return { kind: 'unresolved', path: null, content: null }
 }
 
+// Third real template variant, found 2026-08-15 in the Client Success / Comms
+// & PR / Global Expansion / Growth & Partnerships / Risk & ESG batch: no
+// "## Skill Roster" or "## Operational Layer" tables at all — skills appear as
+// "## Skills (N)" with optional "### n. `skill-name`" prose subheadings, and
+// the real, authoritative file list lives in a "## File Layout" ASCII tree
+// instead. Parsed by probing the filesystem directly (custom/ then
+// marketplace/ for each `<name>/SKILL.md` the tree mentions, operational/<sub>/
+// <file> for each operational entry) rather than trusting free-text — the
+// tree can be incomplete prose, the filesystem can't lie.
+function parseSkillsFromDescriptions(md) {
+  const m = md.match(/^##\s+Skills\s*\(\d+\)\s*$/mi)
+  if (!m) return new Map()
+  const rest = md.slice(m.index + m[0].length)
+  const end = rest.search(/^##\s+/m)
+  const block = end === -1 ? rest : rest.slice(0, end)
+  const out = new Map()
+  const re = /^###\s+\d+\.\s+`([a-z0-9-]+)`\s*$/gim
+  let hit
+  const heads = []
+  while ((hit = re.exec(block))) heads.push({ name: hit[1], at: hit.index + hit[0].length })
+  for (let i = 0; i < heads.length; i++) {
+    const stop = i + 1 < heads.length ? block.indexOf('###', heads[i].at) : block.length
+    out.set(heads[i].name, block.slice(heads[i].at, stop === -1 ? block.length : stop).trim())
+  }
+  return out
+}
+
+function parseFileLayoutFallback(md, agentDir) {
+  const layout = section(md, 'File Layout')
+  if (!layout) return { skillRoster: [], operationalLayer: [] }
+  const descriptions = parseSkillsFromDescriptions(md)
+
+  const skillNames = [...new Set([...layout.matchAll(/([a-z0-9-]+)\/SKILL\.md/gi)].map((m) => m[1]))]
+  const skillRoster = skillNames.map((skill) => {
+    const customContent = readIfExists(join(agentDir, 'custom', skill, 'SKILL.md'))
+    const marketContent = customContent === null ? readIfExists(join(agentDir, 'marketplace', skill, 'SKILL.md')) : null
+    return {
+      skill, location: customContent !== null ? 'custom/' : marketContent !== null ? 'marketplace/' : '',
+      purpose: descriptions.get(skill) ?? '', kind: 'own', path: null, content: customContent ?? marketContent,
+    }
+  })
+
+  const opMatches = [...layout.matchAll(/\b(skill|commands|principles|agent|tool)\/([a-z0-9_-]+\.md)/gi)]
+  const seen = new Set()
+  const operationalLayer = []
+  for (const [, subfolder, file] of opMatches) {
+    const key = `${subfolder}/${file}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    operationalLayer.push({ subfolder, file, summary: '', content: readIfExists(join(agentDir, 'operational', subfolder, file)) })
+  }
+  return { skillRoster, operationalLayer }
+}
+
 function parseAgent(agentDir, id) {
   const mdPath = join(agentDir, 'agent.md')
   const md = readIfExists(mdPath)
   if (!md) return { id, purpose: '', skillRoster: [], skillChain: '', operationalLayer: [], logicalLayer: null }
 
-  const purpose = section(md, 'Purpose') ?? ''
+  const purpose = section(md, 'Purpose') ?? section(md, 'Identity & Scope') ?? ''
   const skillChain = section(md, 'Skill Chain \\(summary\\)') ?? section(md, 'Skill Chain') ?? ''
 
-  // Two real template variants in the fleet (2026-08-15 finding): most agents use
-  // "| Skill | Location | One-line purpose |" (3 cols); a handful (AI & Agents,
-  // Cybersecurity depts) use "| Skill | Folder | Status | Notes |" (4 cols). Take
-  // col 0/1 positionally (skill/location are stable across both), join whatever's
-  // left as the description rather than assuming a fixed column count.
-  const skillRoster = table(section(md, 'Skill Roster')).map(([skill, location, ...rest]) => {
+  // Three real template variants in the fleet (2026-08-15 finding): most agents
+  // use "| Skill | Location | One-line purpose |" (3 cols); a handful (AI &
+  // Agents, Cybersecurity depts) use "| Skill | Folder | Status | Notes |" (4
+  // cols); a third batch (Client Success, Comms & PR, Global Expansion, Growth
+  // & Partnerships, Risk & ESG) has no table at all — see parseFileLayoutFallback.
+  let skillRoster = table(section(md, 'Skill Roster')).map(([skill, location, ...rest]) => {
     const resolved = resolveSkillContent(agentDir, skill, location)
     return { skill, location: stripMd(location), purpose: rest.filter(Boolean).join(' — '), ...resolved }
   })
 
-  const operationalLayer = table(section(md, 'Operational Layer')).map(([subfolder, file, summary]) => {
+  let operationalLayer = table(section(md, 'Operational Layer')).map(([subfolder, file, summary]) => {
     const fileName = stripMd(file)
     const p = join(agentDir, 'operational', subfolder, fileName)
     return { subfolder, file: fileName, summary: summary ?? '', content: readIfExists(p) }
   })
+
+  if (skillRoster.length === 0 && operationalLayer.length === 0) {
+    const fallback = parseFileLayoutFallback(md, agentDir)
+    skillRoster = fallback.skillRoster
+    operationalLayer = fallback.operationalLayer
+  }
 
   const logicalRaw = section(md, 'Logical Layer')
   let logicalLayer = null

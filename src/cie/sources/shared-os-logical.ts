@@ -93,7 +93,10 @@ function getAgentScripts(agentId: string): string[] {
 
   // Search all departments for this agent
   const depts = ['Executive Office', 'Governance', 'Engineering', 'Cybersecurity',
-    'Product', 'AI & Agents', 'Brand Studio']
+    'Product', 'AI & Agents', 'Brand Studio',
+    // 2026-08-15 — 6 new departments merged in from origin.
+    'Client Success', 'Comms & PR', 'Global Expansion',
+    'Growth & Partnerships', 'People & Culture', 'Risk & ESG']
 
   for (const dept of depts) {
     const breqPath = join(teamsDir, dept, agentId, 'logical', 'book-requirements.md')
@@ -189,7 +192,10 @@ export function getSharedOsContext(
 export function getAllAgentScriptMappings(): Record<string, string[]> {
   const result: Record<string, string[]> = {}
   for (const dept of ['Executive Office', 'Governance', 'Engineering', 'Cybersecurity',
-    'Product', 'AI & Agents', 'Brand Studio']) {
+    'Product', 'AI & Agents', 'Brand Studio',
+    // 2026-08-15 — 6 new departments merged in from origin.
+    'Client Success', 'Comms & PR', 'Global Expansion',
+    'Growth & Partnerships', 'People & Culture', 'Risk & ESG']) {
     const deptPath = join(resolve(__dirname, '..', '..', '..', 'Teams'), dept)
     if (!existsSync(deptPath)) continue
     try {

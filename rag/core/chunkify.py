@@ -139,7 +139,10 @@ def extract_agent_context(filepath: str, teams_root: str) -> Dict:
     # Validate department name
     valid_depts = ['Executive Office', 'Governance', 'Engineering',
                    'Cybersecurity', 'Product', 'AI & Agents', 'Brand Studio',
-                   'Shared OS']
+                   'Shared OS',
+                   # 2026-08-15 — 6 new departments merged in from origin.
+                   'Client Success', 'Comms & PR', 'Global Expansion',
+                   'Growth & Partnerships', 'People & Culture', 'Risk & ESG']
     if dept not in valid_depts:
         dept = 'Shared OS'  # Fallback for top-level files
 
@@ -486,9 +489,12 @@ def run_tests(teams_dir: str) -> bool:
             depts_found = {d for d in dirs if not d.startswith('.')}
             break
     expected = {'Executive Office', 'Governance', 'Engineering', 'Cybersecurity',
-                'Product', 'AI & Agents', 'Brand Studio', 'Shared OS'}
-    check(f'All 7 departments (8 with Shared OS) found: {len(depts_found & expected)}/{len(expected)}',
-          len(depts_found & expected) >= 7,
+                'Product', 'AI & Agents', 'Brand Studio', 'Shared OS',
+                # 2026-08-15 — 6 new departments merged in from origin.
+                'Client Success', 'Comms & PR', 'Global Expansion',
+                'Growth & Partnerships', 'People & Culture', 'Risk & ESG'}
+    check(f'All 13 departments (14 with Shared OS) found: {len(depts_found & expected)}/{len(expected)}',
+          len(depts_found & expected) >= 13,
           f'Missing: {expected - depts_found}')
 
     # Test 2: Find a specific known file and chunk it
