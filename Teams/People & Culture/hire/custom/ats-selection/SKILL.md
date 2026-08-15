@@ -1,0 +1,242 @@
+<!--
+Custom skill — adopted from the Anthropic hiring-ats-stinger plugin, then heavily genericized
+per §0.4b and consolidated into a single SKILL.md.
+
+Source plugin: /var/folders/.../claude-hostloop-plugins/.../skills/hiring-ats-stinger/SKILL.md
+Note: the plugin's referenced guides/, templates/, examples/, and research/ subfolders
+do NOT ship with the packaged plugin — only SKILL.md exists. Rather than fabricate depth
+per §0.5, this skill consolidates everything the source SKILL.md actually contains, cites
+the source honestly, and flags every point that would need a book-grounded deeper build later.
+
+Genericization strip (§0.4b) applied:
+- name: hiring-ats-stinger → ats-selection
+- "hiring-ats-worker-bee" (Legion invoker) → hire (this agent, per YVON routing)
+- "security-worker-bee" (PII escalation) → veil (Cybersecurity/data-protection per CLAUDE.md §2)
+- "hris-worker-bee" (future integration) → placeholder: "future HRIS-config skill (not yet built)"
+- "stinger-forge", "Legion AI Army", "Bees", "Command Brief" — stripped
+- "payments-worker-bee" etc. — stripped or retargeted
+- 2026 pricing data + Greenhouse API 2026-08-31 deprecation warning — KEPT verbatim (real market data)
+
+Escalation retargets (locked in this build):
+- PII / candidate-data GDPR → veil
+- App-security review of ATS integrations → aegis
+- Immigration → operator (no immigration agent exists in YVON)
+- Deep HRIS configuration → placeholder for a future HRIS skill
+
+§0.6 flags preserved:
+- 2026 pricing figures are point-in-time; skill instructs operator to verify at vendor.
+- Predictive-validity numbers (0.51 structured / 0.20 unstructured) are Tier-B canonical
+  (Schmidt & Hunter 1998 via Bock 2015), same anchor as hiring-kit — not re-flagged here.
+- Platform recommendations are matrix-driven judgment, not formula. Tier-B until an
+  ATS-benchmarking book grounds a Shared OS/logical/ script.
+-->
+---
+name: ats-selection
+type: custom
+status: adopted from marketplace source, genericized and consolidated
+sources_referenced:
+  - "Anthropic knowledge-work-plugins — hiring-ats-stinger plugin (2026-07-06 packaged version). SKILL.md is the sole shipping file; referenced guide/template/example/research subfolders were not included in the package."
+  - "Greenhouse (public) — published data on anonymous scorecard grading uplift (6.5-10% pass-through improvement across all candidate groups)."
+  - "Bock, Laszlo (2015). Work Rules! ch.4 — structured interview + BARS predictive validity. Already anchored in hiring-kit; re-cited here."
+  - "Schmidt, F. L. & Hunter, J. E. (1998). Meta-analysis of 85 years of personnel-selection research. Cited by Bock ch.4."
+fulfills_catalog_entry: n/a (skill added beyond the catalog's 8-skill floor per §2)
+genericization_notes:
+  - "'Stinger' / 'Bee' / 'Legion AI Army' wrapper terminology stripped."
+  - "security-worker-bee → veil (Cybersecurity, data protection)."
+  - "hris-worker-bee → placeholder for future HRIS-config skill."
+  - "payments-worker-bee → not retargeted; ATS scope does not touch invoice flows."
+assigned_agent: hire (People & Culture / Lead)
+portable: true
+date_added: 2026-07-29
+tier: 3
+description: Applicant Tracking System selection, pipeline stage design, scorecard calibration (BARS + debrief-before-submit), D&I funnel reporting, and take-home-test ethics. Trigger on "which ATS should we use", "Ashby vs Greenhouse", "audit our scorecards", "set up hiring pipeline", "take-home test paid or unpaid", "D&I funnel reporting", or "ATS-to-HRIS handoff".
+triggers:
+  - which ATS should we use
+  - ATS comparison
+  - Ashby vs Greenhouse
+  - audit our scorecards
+  - set up hiring pipeline
+  - pipeline stages
+  - take-home test paid or unpaid
+  - D&I funnel reporting
+  - EEOC funnel metrics
+  - ATS to HRIS handoff
+---
+
+# ATS Selection
+
+## Introduction
+
+This skill packages ATS platform selection, pipeline stage design, scorecard calibration, D&I funnel reporting, take-home-test ethics, and the ATS-to-HRIS handoff into one place. It was adopted from Anthropic's `hiring-ats-stinger` plugin, then genericized per §0.4b (Legion / Bee / Stinger wrapper terminology stripped; escalation routing retargeted to real YVON agents) and consolidated into this single file because the source plugin's referenced guide subfolders were not included in the shipping package.
+
+Content that came from the source plugin is preserved verbatim where it is factual (platform positioning, 2026 pricing bands, the Greenhouse Harvest API deprecation warning). Content that would have required fabricating depth from empty referenced folders (e.g., the source's `guides/00-platform-selection.md` deep matrix) is not manufactured here — it is left as `<FILL_IN>` for a later book-grounded build. Per §0.5 this skill does not invent detail it did not receive.
+
+## Purpose
+
+Prevents three failure modes that occur when hire runs the loop without a considered ATS choice:
+
+1. **Wrong platform for the stage.** The right ATS at 20 hires/year is wrong at 300 hires/year. Recommendations made without headcount tier + existing-HRIS context waste months of implementation work.
+2. **Broken calibration.** Scorecards exist in the platform but interviewers submit them after the debrief instead of before; free-form comment fields become EEOC discovery risk; free-text fields replace evidence anchors.
+3. **Take-home ethics blind spot.** Unpaid extended assessments drop candidate throughput and carry equity risk that is invisible until reported publicly.
+
+This skill owns the ATS surface end-to-end from platform selection through pipeline architecture through scorecard hygiene through D&I funnel reporting. It hands off to `hiring-kit` for the hiring workflow itself and to `payroll-and-eor` post-offer.
+
+## When to Use
+
+Trigger on any of these:
+
+- "Which ATS should we use?" / "ATS comparison" / "Ashby vs Greenhouse" / "Are we outgrowing Workable?"
+- "Our scorecards aren't being used consistently" / "audit our scorecards"
+- "Set up our hiring pipeline" / "How many stages should we have?" / "pipeline stage design"
+- "How do we add D&I reporting to our pipeline?" / "EEOC funnel diversity metrics"
+- "Is our take-home test too long?" / "Should we pay for take-home tests?"
+- "ATS to HRIS handoff" / "ATS to Rippling offer flow"
+- "Set up calibration sessions" / "structured interviews" (calibration side; interview generation stays with `interview-prep`)
+
+Do NOT use for:
+
+- Interview question generation → `interview-prep` (marketplace, this agent).
+- The hiring workflow itself (scorecard, loop, refs, offer) → `hiring-kit` (custom, this agent).
+- W-2 vs 1099 vs EOR classification post-offer → `payroll-and-eor` (custom, this agent).
+- ATS deep configuration on a specific platform's admin UI → operator; this skill produces the decision and the audit, not the click-through configuration.
+- Sourcing tool integration wiring (Gem / hireEZ / LinkedIn RSC) → deferred; source's sourcing-integrations guide did not ship, and this skill does not fabricate the wiring detail.
+
+## Structure / Protocol
+
+The ATS decision runs as a 3-question intake, routing to the applicable sub-topic:
+
+```
+Intake questions (ask before opening any topic):
+  1. Current state — no ATS yet / evaluating platforms / have ATS and want to improve it / specific pain point?
+  2. Headcount + hiring velocity — ~10 hires/year, 50-200, 200+?
+  3. What HRIS are you on — Rippling / BambooHR / Workday / none / other?
+
+Routing table (which topic below):
+  Evaluating or selecting ATS            → Topic A: Platform selection
+  Pipeline too long / broken stages      → Topic B: Pipeline stage design
+  Scorecards inconsistent / calibration  → Topic C: Scorecard calibration
+  D&I / diversity reporting need         → Topic D: D&I funnel reporting
+  Take-home test ethics question         → Topic E: Take-home ethics
+  Offer flow to HRIS broken              → Topic F: HRIS handoff (deferred — see §Instructions)
+```
+
+The 3 intake questions are non-optional. A platform recommendation made without headcount tier and existing HRIS context violates Principle 2 below.
+
+## Instructions
+
+### Topic A — Platform selection
+
+Ask the 3 intake questions if the user hasn't answered them. Then apply the 6-platform decision matrix:
+
+| Platform | Best fit | Key trait |
+|---|---|---|
+| **Ashby** | Series A–C tech startups (50–1,000 employees), data-driven TA teams | Analytics maturity described in market coverage as several years ahead of peers |
+| **Greenhouse** | Enterprise, dedicated TA teams, compliance-heavy shops | Custom pricing only — de facto inaccessible to small teams |
+| **Workable** | SMBs (1–100 employees), hiring generalists, budget-conscious | Only major platform with transparent public pricing |
+| **Lever** | Mid-market to enterprise, collaborative hiring | Broad ecosystem; confirmed LinkedIn Recruiter System Connect (RSC) support |
+| **Pinpoint** | Mid-market in-house TA teams with bias-reduction focus | Blind screening built into the platform |
+| **Rippling Recruiting** | Teams already on Rippling HRIS | Eliminates the ATS-to-HRIS handoff entirely |
+
+**Rippling shortcut** (apply first if it applies): if the requester is already on Rippling HRIS, ask whether Rippling Recruiting meets their needs before evaluating other platforms. It eliminates the handoff problem entirely and is often the right answer for that specific starting condition.
+
+**Pricing bands (2026, verify at vendor — pricing changes semi-annually and is often custom-quoted):** the source plugin recorded these directional bands: Gusto-adjacent SMB payroll platforms in the mid-$40s base + $6–$12/employee; Rippling around $8 base + modules for a typical $20–$30 total/employee; enterprise ATS (Greenhouse, Workday) are custom-quoted with no published rate. Do NOT quote a specific number as authoritative — always append "verify with vendor" per Principle 4.
+
+**Time-sensitive fact (as of source packaging 2026-07-06, still active per this build date 2026-07-29):**
+
+> **Greenhouse Harvest API v1/v2 is deprecated and unavailable after 2026-08-31.** Any team with existing Greenhouse integrations (sourcing tools, HRIS handoff, custom workflows) built on Harvest v1/v2 MUST migrate to Harvest API v3 by that date. Surface this warning proactively any time the user mentions Greenhouse integrations, until the date has passed and the warning is retired.
+
+### Topic B — Pipeline stage design
+
+The source plugin's dedicated stage-design guide was not included in the packaged plugin. What is inherited and verifiable:
+
+- Stages should be **as few as possible** for the role's information needs. Every additional stage is candidate drop-off; a 6-stage loop for a Series-A engineering hire is a self-inflicted funnel leak.
+- Each stage has a stated **SLA** (calendar days from candidate entry to decision or advance). Stages without an SLA silently stretch and become the hidden cause of long time-to-fill.
+- Every stage has a **decision owner** (one accountable person, not a committee). Committees own audits, not stage advances.
+- Deeper stage-design rules (`<FILL_IN>` — needs sourcing from a published hiring-ops book, e.g., Yamnitsky/Recruiting Operations material, before it can be stated with confidence per §0.5).
+
+### Topic C — Scorecard calibration
+
+Structured interviews with behaviorally-anchored scorecards have ~0.51 predictive validity for job performance; unstructured have 0.14–0.20 (Schmidt & Hunter 1998, cited by Bock 2015 ch.4). To realize that validity in an ATS platform:
+
+1. **BARS anchors.** Every score level (1–4) is tied to a concrete observable behavior — not "meets expectations" or "exceeds expectations" as bare adjectives. If the scorecard levels are adjective-only, the calibration is fake.
+2. **Debrief-before-submit is banned.** Interviewers submit scorecards independently BEFORE the group debrief starts. Most ATS platforms (Ashby, Greenhouse, Lever, Pinpoint) can enforce this — turn the setting on. If the platform can't enforce it, the manual rule stands and requires audit.
+3. **Free-form comment fields are EEOC discovery risk.** Restrict comment fields to "evidence of behavior" prompts only — "quote what the candidate said that scored this" — never "impressions" or "vibes." Free-form vibes fields have surfaced in real EEOC cases as evidence of unstructured decision-making.
+4. **Calibration sessions.** Run one at the start of each new role, and again if a loop stretches past ~10 candidates. Calibration recovers score drift; without it, interviewer 1's "3" and interviewer 5's "3" drift apart within weeks.
+
+### Topic D — D&I funnel reporting
+
+The source plugin's dedicated D&I reporting guide was not included in the packaged plugin. What is inherited and verifiable:
+
+- **Voluntary self-ID** at application. Never inferred; never mandatory; declining does not affect candidacy.
+- **Aggregate-level reporting only.** Individual demographic data never enters the interview loop, ever. (This constraint is enforced upstream by `hiring-kit` Phase 3 as well.)
+- **EEOC funnel metrics.** Standard funnel: applied → screened → interviewed → offered → hired, broken by self-ID category, reported quarterly. Deviations at any stage flag a potential bias point to audit (not to instantly-conclude — funnel deltas can have many causes).
+- **Anonymous grading.** Greenhouse-published data (see `sources_referenced`) shows anonymous scorecard grading — hiding candidate name/photo from the interviewer's view of the scorecard — increases pass-through rates by **6.5–10% for all candidates**. Enable this whenever the ATS supports it.
+- Deeper reporting-obligation detail (US EEO-1 filing thresholds, Canadian pay-equity reporting requirements, EU pay-transparency directive obligations) → escalate to a future legal-compliance skill (does not exist yet) or to the operator.
+
+### Topic E — Take-home-test ethics
+
+**The threshold rule from the source:**
+
+- Roughly 59% of candidates skip postings with lengthy unpaid take-homes (public ATS-vendor data).
+- 68% find assessments burdensome when they exceed 2–4 hours.
+- **Default recommendation: pay for any take-home over 2 hours.**
+
+**Additional rules:**
+
+- **Anonymous grading** (as in Topic D) applies here too: grade the take-home before you know whose it is. Greenhouse data: 6.5–10% pass-through uplift.
+- **Right-to-refuse.** Candidates who decline a take-home should have an equivalent path (live pair, work-sample interview, portfolio review) — refusing to accommodate = filtering on a proxy for wealth/time, not skill.
+
+### Topic F — HRIS handoff (deferred)
+
+The source plugin's dedicated HRIS-handoff guide (`guides/06-hris-handoff.md`) did not ship in the packaged plugin. **This topic is a placeholder** — no HRIS-config skill exists yet in the YVON fleet, and this skill will not fabricate handoff detail per §0.5. When a user asks about an ATS-to-HRIS handoff:
+
+- Confirm the source HRIS (Rippling / BambooHR / Workday / other).
+- If Rippling, note the Rippling Recruiting shortcut from Topic A.
+- Otherwise, route to the operator for now with a written statement of the handoff need; flag that a future HRIS-config skill will own this. Do NOT invent handoff mechanics.
+
+## Output Format
+
+Each invocation produces one of:
+
+- **Platform-selection memo** — 3 intake answers stated back, applicable platforms ranked (usually top-2), rationale citing the matrix above, open questions the operator must answer (pricing verification, integration surface), Greenhouse API warning if applicable.
+- **Pipeline-audit memo** — current stage list, SLA gaps, decision-owner gaps, drop-off hotspots, recommended stage consolidations. `<FILL_IN>` sections named explicitly for the deeper stage-design rules not yet sourced.
+- **Scorecard-audit memo** — for each competency: BARS anchor present/absent, comment-field type (evidence prompt vs free-form vibes), independent-submit setting on/off in the platform, calibration cadence status. Findings with severity + fix.
+- **D&I funnel report** — quarterly funnel by self-ID category, deltas flagged, next-audit recommendations. Aggregate-level only.
+- **Take-home ethics review** — hours estimate, paid/unpaid status, anonymous-grading status, right-to-refuse alternative path status, recommendation.
+
+## Principles
+
+The 4 hard rules from the source plugin, adapted for ATS scope (source called these "the four hard rules; every recommendation must honor them, regardless of which topic is being applied"):
+
+1. **Classify before recommending.** Current state + headcount tier + existing HRIS come first; platform recommendation comes second. Recommending Ashby to a 6-person team is as wrong as recommending Workable to a 300-person team.
+2. **Size the company every time.** Headcount (current + 12-month projection), US states with employees, countries with workers, funding stage, and equity maturity are all inputs. Do not skip this step even when the user seems impatient — a fast wrong answer costs months.
+3. **Surface bias / equity risk explicitly.** Unpaid extended take-homes, free-form scorecard comment fields, non-anonymous grading — surface each of these proactively when observed, even if the user did not ask. These are the failure modes that most often turn into public findings.
+4. **Hold the legal-advice fence.** This skill provides decision frameworks and flags risk; it does not provide legal opinions. When the question touches employment law (EEOC filing obligations, pay-transparency-law compliance, take-home-test wage claims) route to the operator with a note that legal counsel should confirm.
+5. **Pricing is directional, never authoritative.** Every pricing number in this skill is a band that changes semi-annually and is often custom-quoted. Every recommendation names "verify with vendor" as an operator step. Never assert a specific dollar rate without that footnote.
+6. **Reasoning-based per §0.6.** Platform recommendations are matrix-driven judgment, not formula-derived. Flagged reasoning-based until an ATS-benchmarking book grounds a `Shared OS/logical/ats_selection.py` script — same status as `hiring-kit`'s Principle 8.
+
+## Fallback
+
+- **User can't answer the 3 intake questions.** Do not recommend a platform. Say what's missing and ask for it. Silent guessing on any of the three produces the specific "right ATS at the wrong stage" failure mode this skill exists to prevent.
+- **User names a platform not in the 6-platform matrix (e.g., a niche vertical ATS, a home-grown system).** Say the matrix does not cover it; offer to run the 3-question intake and describe *what to look for* rather than pretending to know the specific platform. Route to operator for a specific platform review.
+- **User asks for exact pricing.** Give the source's directional band + the "verify with vendor" note. Never quote a specific number as authoritative (Principle 5).
+- **User asks about ATS-to-HRIS handoff for a non-Rippling HRIS.** Route to the operator (Topic F — no HRIS skill exists yet); do not fabricate handoff detail.
+- **PII / GDPR question about candidate data in the ATS.** Escalate to `veil` (Cybersecurity — data protection). Candidate data is PII; right-to-erasure and data-residency questions are outside this skill's scope.
+- **App-security review of an ATS integration** (e.g., a new SSO wiring, a new webhook endpoint). Escalate to `aegis` (Engineering — app security). Do not sign off on integration security here.
+- **Employment-law questions** (EEOC filing thresholds, pay-transparency-law compliance, take-home wage claims). Route to operator with a note that employment counsel should confirm. No CLO agent exists in YVON yet to hand off to.
+- **Immigration / visa questions.** Route to operator — outside YVON's fleet coverage; source correctly says "consult an immigration attorney."
+
+## Boundaries with Other Skills
+
+| Hands off to | For | Direction |
+|---|---|---|
+| `hiring-kit` (custom, hire) | The hiring workflow itself (scorecard, loop, refs, offer) that runs *inside* the chosen ATS | Downstream: this skill picks the tool, `hiring-kit` runs the process |
+| `interview-prep` (marketplace, hire) | Interview question bank + rubric that a scorecard framework enables | Two-hop downstream via `hiring-kit` phase 5 |
+| `payroll-and-eor` (custom, hire) | Post-offer worker classification and payroll onboarding | Downstream at accepted-offer |
+| `workforce-planning` (custom, hire) | Headcount and hiring-velocity forecast that feeds intake question 2 | Upstream: workforce-planning tells this skill the numbers |
+| `veil` (Cybersecurity — data protection) | Candidate-data PII, GDPR right-to-erasure, ATS data-residency | Escalation only; not a call-and-return |
+| `aegis` (Engineering — app security) | Security review of ATS integrations (SSO, webhooks, sourcing-tool connections) | Escalation only |
+| `Shared OS: verification-before-completion` | Evidence gate on any recommendation before it ships | Cross-cutting on every output |
+| Future HRIS-config skill | Deep ATS-to-HRIS handoff configuration (non-Rippling) | Deferred — placeholder in Topic F |
+| Future comp-benchmarking skill | Comp band data referenced in job posts and in the platform-selection headcount-projection question | Deferred |
+| Future legal-compliance skill | Employment-law confirmation on any pay-transparency, EEOC, or wage-claim question surfaced here | Deferred |
