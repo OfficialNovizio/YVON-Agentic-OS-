@@ -139,6 +139,30 @@ const CX = 1500, CY = 980;
 const CARD_W = 232, CARD_H = 176;
 const ORB_R = 132;
 
+/* ── infinite starfield (2026-08-14) ──────────────────────────────────
+   The per-view `stars` arrays below are baked into world coordinates
+   inside each transformed layer, so they only cover a fixed island
+   around CX,CY — pan far enough and you fall off the edge into flat
+   black. This is a separate layer entirely: a small tile of randomly
+   scattered dots, CSS-repeated to infinity, rendered fixed behind
+   everything so it covers the viewport no matter where you pan or how
+   far you zoom. A touch of parallax (tied to `view.x/y`, not `view.s` —
+   real starfields don't scale with camera zoom) sells the depth without
+   coupling it to world space. Built once at module scope, never
+   recomputed per render. */
+const STARFIELD_BG = (() => {
+  const rnd = rngFrom(77123);
+  const layers: string[] = [];
+  for (let i = 0; i < 70; i++) {
+    const x = (rnd() * 100).toFixed(1);
+    const y = (rnd() * 100).toFixed(1);
+    const size = (0.7 + rnd() * 2.1).toFixed(2);
+    const o = (0.12 + rnd() * 0.5).toFixed(2);
+    layers.push(`radial-gradient(${size}px ${size}px at ${x}% ${y}%, rgba(255,255,255,${o}) 0%, rgba(255,255,255,0) 100%)`);
+  }
+  return layers.join(",");
+})();
+
 interface Placed extends Dept { x: number; y: number; bars: number[] }
 
 /* ── ring layout + AABB relaxation → guaranteed no overlap ───────────
@@ -578,6 +602,8 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
     <div style={embedded ? S.rootEmbedded : S.root}>
       <style>{CSS}</style>
 
+      <div style={{ ...S.starfield, backgroundPosition: `${view.x * 0.05}px ${view.y * 0.05}px` }} />
+
       <div style={S.hud}>
         <div>
           <div style={S.brand}>YVON</div>
@@ -862,17 +888,39 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
 /* ══ DETAIL VIEW ══ */
 function DetailView({ dept, status }: { dept: Dept; status: Record<string, Status> }) {
   const n = dept.agents.length;
-  const rowH = Math.min(94, 720 / n);
-  const startY = 500 - ((n - 1) * rowH) / 2;
+
+  /* ── row layout (2026-08-14 rewrite) ──────────────────────────────────
+     Old formula (`Math.min(94, 720/n)`) let rowH shrink below the pill's
+     actual rendered height once a department passed ~9-10 agents, so
+     cards started touching/overlapping. Fix: enforce a real minimum row
+     height, and once a single column can no longer fit everyone inside
+     the usable vertical band, fan out into a second column instead of
+     letting rows compress further. */
+  const AVAIL_TOP = 40, AVAIL_BOTTOM = 960;
+  const AVAIL_H = AVAIL_BOTTOM - AVAIL_TOP;
+  const MIN_ROW_H = 74;
+  const cols = n > 0 ? Math.max(1, Math.ceil((n * MIN_ROW_H) / AVAIL_H)) : 1;
+  const perCol = Math.ceil(n / cols);
+  const COL_GAP = 300;
 
   const rows = dept.agents.map((a, i) => {
-    const t = n > 1 ? i / (n - 1) : 0.5;
+    const col = Math.floor(i / perCol);
+    const idxInCol = i - col * perCol;
+    const countInCol = Math.min(perCol, n - col * perCol);
+    const rowH = countInCol > 1 ? Math.min(96, AVAIL_H / countInCol) : 0;
+    const colStartY = AVAIL_TOP + (AVAIL_H - (countInCol - 1) * rowH) / 2;
+    const t = countInCol > 1 ? idxInCol / (countInCol - 1) : 0.5;
     const bow = Math.sin(t * Math.PI) * 78;
-    return { ...a, x: 1120 + bow, y: startY + i * rowH };
+    return { ...a, x: 1120 + col * COL_GAP + bow, y: colStartY + idxInCol * rowH };
   });
 
   const HUB = { x: 880, y: 500 };
+  // Anchor for the department summary card, in the SAME viewBox-space
+  // coordinate system as HUB/rows below — see detailDept position fix.
+  const DEPT_ANCHOR = { x: 470, y: 500 };
   const activeRows = rows.filter((r) => (status[r.id] ?? "idle") === "active");
+  const [selected, setSelected] = useState<Agent | null>(null);
+  useEffect(() => { setSelected(null); }, [dept.id]);
 
   // Entrance animation (2026-08-14) — the whole view fades/scales in on mount,
   // then agent pills stagger in behind it. Runs once per dept.id (a new
@@ -897,6 +945,13 @@ function DetailView({ dept, status }: { dept: Dept; status: Record<string, Statu
           const x = 250 + r() * 720, y = 50 + r() * 900;
           return <circle key={i} cx={x} cy={y} r={3 + r() * 6.5} fill={`rgba(210,216,228,${0.14 + r() * 0.32})`} />;
         })}
+
+        {/* Trunk connector — dept summary card into HUB. Was missing entirely
+            before (the card floated at a raw CSS % unrelated to viewBox
+            space, see detailDept below), which read as "disconnected". */}
+        <path d={`M ${DEPT_ANCHOR.x + 165} ${DEPT_ANCHOR.y} L ${HUB.x - 4} ${HUB.y}`}
+          stroke="rgba(190,195,210,.55)" strokeWidth={2.4}
+          style={{ filter: "drop-shadow(0 0 5px rgba(190,195,210,.4))" }} />
 
         {rows.map((r) => {
           const on = (status[r.id] ?? "idle") === "active";
@@ -937,7 +992,11 @@ function DetailView({ dept, status }: { dept: Dept; status: Record<string, Statu
         })}
       </svg>
 
-      <div className="yg-breathe" style={S.detailDept}>
+      <div className="yg-breathe" style={{
+        ...S.detailDept,
+        left: `${(DEPT_ANCHOR.x / 1900) * 100}%`,
+        top: `${(DEPT_ANCHOR.y / 1000) * 100}%`,
+      }}>
         <div style={S.deptHead}>
           <span style={{ ...S.deptName, fontSize: 22 }}>{dept.name}</span>
           <Pip status={status[dept.id] ?? "idle"} big />
@@ -960,9 +1019,11 @@ function DetailView({ dept, status }: { dept: Dept; status: Record<string, Statu
             left: `${(r.x / 1900) * 100}%`,
             top: `${(r.y / 1000) * 100}%`,
           }}>
-            <div className="yg-breathe yg-agent-pill" style={{
+            <div className="yg-breathe yg-agent-pill" onClick={() => setSelected(r)} style={{
               ...S.agentPill,
-              borderColor: st === "active" ? "rgba(61,220,151,.34)"
+              cursor: "pointer",
+              borderColor: selected?.id === r.id ? "rgba(158,140,255,.75)"
+                : st === "active" ? "rgba(61,220,151,.34)"
                 : st === "error" ? "rgba(255,107,96,.42)" : "rgba(255,255,255,.10)",
             }}>
               {st === "active" && <><span style={S.halo1} /><span style={S.halo2} /></>}
@@ -985,6 +1046,53 @@ function DetailView({ dept, status }: { dept: Dept; status: Record<string, Statu
           </div>
         );
       })}
+
+      {/* Agent detail panel (2026-08-14, first pass) — real fields only:
+          id/name/tag/live status is all the frontend has today (see
+          discussion — full Purpose/Skill Roster/Books needs agent.md
+          parsed into an API route, not yet built). Slides in from the
+          right so it never covers the fan itself. */}
+      {selected && (
+        <AgentDetailPanel agent={selected} dept={dept}
+          status={status[selected.id] ?? "idle"} onClose={() => setSelected(null)} />
+      )}
+    </div>
+  );
+}
+
+function AgentDetailPanel({ agent, dept, status, onClose }: { agent: Agent; dept: Dept; status: Status; onClose: () => void }) {
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      gsap.fromTo(panelRef.current, { opacity: 0, x: 24 }, { opacity: 1, x: 0, duration: 0.32, ease: "power2.out" });
+    }, panelRef);
+    return () => ctx.revert();
+  }, [agent.id]);
+
+  return (
+    <div ref={panelRef} style={S.agentPanel}>
+      <button style={S.agentPanelClose} onClick={onClose}>✕</button>
+      <span style={{
+        ...S.avatar, width: 46, height: 46,
+        background: status === "active" ? MINT : "rgba(255,255,255,.08)",
+        border: status === "error" ? `2.5px solid ${CORAL}` : "none",
+        boxShadow: status === "active" ? `0 0 18px ${MINT}aa` : "none",
+      }} />
+      <div style={S.agentPanelName}>{agent.name}</div>
+      <div style={S.agentPanelTag}>{agent.tag}</div>
+      <div style={S.agentPanelRow}>
+        <span style={S.agentPanelLabel}>Department</span>
+        <span style={S.agentPanelVal}>{dept.name}</span>
+      </div>
+      <div style={S.agentPanelRow}>
+        <span style={S.agentPanelLabel}>Status</span>
+        <span style={{ ...S.agentPanelVal, textTransform: "capitalize" }}>{status}</span>
+      </div>
+      <div style={S.agentPanelNote}>
+        Purpose, skill roster, and Books connections pull from this agent&rsquo;s
+        agent.md — not wired into the frontend yet. This panel shows what&rsquo;s
+        live today; the rest is queued.
+      </div>
     </div>
   );
 }
@@ -1017,6 +1125,10 @@ const S: Record<string, React.CSSProperties> = {
     position: "absolute", inset: 0, background: "#0a0a0c", overflow: "hidden",
     fontFamily: "-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Inter,sans-serif",
     color: "#d8dae0", WebkitFontSmoothing: "antialiased",
+  },
+  starfield: {
+    position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none",
+    backgroundImage: STARFIELD_BG, backgroundRepeat: "repeat", backgroundSize: "340px 340px",
   },
   stage: { position: "absolute", inset: 0, cursor: "grab" },
   vig: {
@@ -1116,7 +1228,7 @@ const S: Record<string, React.CSSProperties> = {
     filter: "blur(30px)",
   },
   detailDept: {
-    position: "absolute", left: "24%", top: "50%", transform: "translate(-50%,-50%)", width: 330,
+    position: "absolute", transform: "translate(-50%,-50%)", width: 330,
     background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.22)",
     borderRadius: 26, padding: "24px 26px 22px",
     backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
@@ -1145,6 +1257,26 @@ const S: Record<string, React.CSSProperties> = {
     position: "absolute", left: 26, top: "50%", width: 42, height: 42, borderRadius: "50%",
     border: `1.5px solid ${MINT}`, animation: "halo 2.6s cubic-bezier(.2,.7,.4,1) .9s infinite", pointerEvents: "none",
   },
+
+  agentPanel: {
+    position: "fixed", top: 90, right: 28, zIndex: 24, width: 280,
+    background: "rgba(20,20,26,0.72)", border: "1px solid rgba(255,255,255,0.16)",
+    borderRadius: 22, padding: "26px 22px 22px",
+    backdropFilter: "blur(26px)", WebkitBackdropFilter: "blur(26px)",
+    boxShadow: "0 20px 60px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.14)",
+    display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4,
+  },
+  agentPanelClose: {
+    position: "absolute", top: 16, right: 16, background: "rgba(255,255,255,.08)",
+    border: "1px solid rgba(255,255,255,.14)", color: "#d3d6db", width: 26, height: 26,
+    borderRadius: "50%", cursor: "pointer", fontSize: 11, lineHeight: 1, fontFamily: "inherit",
+  },
+  agentPanelName: { fontSize: 18, fontWeight: 650, color: "#ffffff", marginTop: 14 },
+  agentPanelTag: { fontSize: 12, color: "#a3a8b0", marginBottom: 16 },
+  agentPanelRow: { display: "flex", justifyContent: "space-between", width: "100%", padding: "9px 0", borderTop: "1px solid rgba(255,255,255,.08)" },
+  agentPanelLabel: { fontSize: 10.5, color: "#82878f", letterSpacing: "0.08em", textTransform: "uppercase" },
+  agentPanelVal: { fontSize: 12.5, color: "#e2e4e9", fontWeight: 500 },
+  agentPanelNote: { fontSize: 11, color: "#83888f", lineHeight: 1.5, marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,.08)" },
 
   legend: { position: "fixed", bottom: 20, left: 28, zIndex: 20, display: "flex", gap: 16 },
   lg: { display: "flex", alignItems: "center", gap: 6, fontSize: 9.5, color: "#7b7f87", letterSpacing: "0.06em" },
