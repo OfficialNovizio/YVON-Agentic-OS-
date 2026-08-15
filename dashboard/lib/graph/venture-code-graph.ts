@@ -41,7 +41,13 @@ export interface RawGraphData {
 // (not imported) because that file's interfaces aren't exported; the fields
 // consumed by buildLayout/DetailView are stable and small enough that a
 // structural match is fine.
-export interface CodeGraphAgent { id: string; name: string; tag: string }
+// sourceFile/fileType/community carried through (2026-08-15) so the detail
+// panel can render an honest "code node" view instead of pretending a file
+// is a YVON agent — see YvonGraph.tsx's AgentDetailPanel, codeGraphMode branch.
+export interface CodeGraphAgent {
+  id: string; name: string; tag: string
+  sourceFile?: string; fileType?: string; community?: string | number
+}
 export interface CodeGraphDept {
   id: string
   name: string
@@ -113,6 +119,9 @@ export function graphDataToDepartments(graphData: RawGraphData | null | undefine
         id: n.id,
         name: n.label ?? n.id,
         tag: nodeTag(n),
+        sourceFile: n.source_file,
+        fileType: n.file_type,
+        community: n.community,
       })),
     }))
 }

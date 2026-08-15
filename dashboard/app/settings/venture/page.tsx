@@ -11,6 +11,7 @@ import GeneralTab from './_general'
 import TechnicalTab from './_technical'
 import SocialTab from './_social'
 import DeploymentTab from './_deployment'
+import AgentsTab from './_agents'
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  TYPES
@@ -282,6 +283,7 @@ export default function VentureSettingsPage() {
         tabs={[
           { id: 'general', label: 'General' },
           { id: 'technical', label: 'Technical' },
+          { id: 'agents', label: 'Team' },
           { id: 'social', label: 'Social' },
           { id: 'deployment', label: 'Deployment' },
         ]}
@@ -319,6 +321,10 @@ export default function VentureSettingsPage() {
           githubPat={githubPat} setGithubPat={setGithubPat}
           triggerGraphify={triggerGraphify} triggering={triggering} triggerMsg={triggerMsg}
         />
+      )}
+
+      {tab === 'agents' && (
+        <AgentsTab ventureId={venture.id} ventureName={venture.name} />
       )}
 
       {tab === 'social' && (

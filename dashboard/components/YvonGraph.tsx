@@ -100,7 +100,14 @@ function NervePathPulse({ pathId, color = "rgba(150,230,240,.9)", duration = 1.8
    nesting, grant edge vs run edge visually distinct).
    ═══════════════════════════════════════════════════════════════════════ */
 
-interface Agent { id: string; name: string; tag: string }
+// sourceFile/fileType/community are only ever set for code-graph nodes
+// (lib/graph/venture-code-graph.ts's CodeGraphAgent) — undefined for every
+// real YVON fleet agent. AgentDetailPanel uses their presence to tell the
+// two apart (2026-08-15).
+interface Agent {
+  id: string; name: string; tag: string;
+  sourceFile?: string; fileType?: string; community?: string | number;
+}
 interface Dept {
   id: string;
   name: string;
@@ -332,6 +339,13 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
   const [openSatellite, setOpenSatellite] = useState<Context | null>(null);
   // Grants (doc §1.3/§3 Q3) — venture_slug → Set<agent_id>, enabled=true only.
   const [grants, setGrants] = useState<Record<string, Set<string>>>({});
+  // Mirror for the satellite-open default-mode effect below — reading grants
+  // via this ref (rather than putting `grants` in that effect's deps) means
+  // a background grants refresh never overwrites a mode the operator already
+  // picked by hand; it only informs the decision the FIRST time a satellite
+  // opens (2026-08-15).
+  const grantsRef = useRef(grants);
+  useEffect(() => { grantsRef.current = grants; }, [grants]);
 
   /* ── Code Graph mode (2026-08-14) ─────────────────────────────────────
      A satellite normally shows "which YVON agents are granted to this
@@ -347,8 +361,19 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
   const [graphDataBySlug, setGraphDataBySlug] = useState<Record<string, RawGraphData | null>>({});
   const [graphDataLoading, setGraphDataLoading] = useState(false);
 
+  // Default mode on open (2026-08-15) — Team mode used to be the unconditional
+  // default, which for most ventures today means opening straight into an
+  // empty "no agents granted" dead end (nothing has a grants UI to populate
+  // it from — until this same change added one, see Settings > Team). Default
+  // to whichever mode actually has something to show: Code Graph if this
+  // venture has zero granted agents, Team otherwise.
   useEffect(() => {
-    setCodeGraphMode(false);
+    // Back to universe: codeGraphMode must not leak into L1's department
+    // cards (always real YVON agents, never code nodes) if the operator's
+    // last satellite visit happened to leave it true.
+    if (!openSatellite) { setCodeGraphMode(false); return; }
+    const hasTeam = (grantsRef.current[openSatellite.slug]?.size ?? 0) > 0;
+    setCodeGraphMode(!hasTeam);
   }, [openSatellite]);
 
   useEffect(() => {
@@ -926,7 +951,7 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
 
       {/* ══ LEVEL 2 ══ */}
       {open && (
-        <DetailView dept={open} status={rolled} embedded={embedded}
+        <DetailView dept={open} status={rolled} embedded={embedded} codeGraphMode={codeGraphMode}
           onBack={() => { zoomOutOfCard(); setOpen(null); }} />
       )}
 
@@ -948,8 +973,8 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
 }
 
 /* ══ DETAIL VIEW ══ */
-function DetailView({ dept, status, embedded, onBack }: {
-  dept: Dept; status: Record<string, Status>; embedded: boolean; onBack: () => void;
+function DetailView({ dept, status, embedded, codeGraphMode, onBack }: {
+  dept: Dept; status: Record<string, Status>; embedded: boolean; codeGraphMode: boolean; onBack: () => void;
 }) {
   const n = dept.agents.length;
 
@@ -1128,7 +1153,7 @@ function DetailView({ dept, status, embedded, onBack }: {
           parsed into an API route, not yet built). Slides in from the
           right so it never covers the fan itself. */}
       {selected && (
-        <AgentDetailPanel agent={selected} dept={dept} embedded={embedded}
+        <AgentDetailPanel agent={selected} dept={dept} embedded={embedded} codeGraphMode={codeGraphMode}
           status={status[selected.id] ?? "idle"} onClose={() => setSelected(null)} />
       )}
     </div>
@@ -1162,19 +1187,33 @@ function bareAgentId(agentId: string, deptId: string): string {
 
 type ReaderDoc = { title: string; meta: string; content: string };
 
-function AgentDetailPanel({ agent, dept, status, embedded, onClose }: {
-  agent: Agent; dept: Dept; status: Status; embedded: boolean; onClose: () => void;
+function AgentDetailPanel({ agent, dept, status, embedded, codeGraphMode, onClose }: {
+  agent: Agent; dept: Dept; status: Status; embedded: boolean; codeGraphMode: boolean; onClose: () => void;
 }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [detail, setDetail] = useState<AgentDetail | null>(agentDetailsCache?.[agent.id] ?? null);
+  // Distinguishes "still fetching" from "fetched, genuinely nothing found" —
+  // detail===null used to mean both, so a code-graph file node (which will
+  // NEVER have an agent-details.json entry — it isn't a YVON agent) got
+  // stuck showing "Loading skills tree…" forever (2026-08-15 fix).
+  const [loaded, setLoaded] = useState(!!agentDetailsCache?.[agent.id]);
   const [reading, setReading] = useState<ReaderDoc | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setReading(null);
-    loadAgentDetails().then((all) => { if (!cancelled) setDetail(all[agent.id] ?? null); });
+    // Code-graph nodes are files, not YVON agents — they have no agent.md,
+    // so don't even try; the honest code-node view below needs nothing from
+    // agent-details.json.
+    if (codeGraphMode) { setDetail(null); setLoaded(true); return; }
+    setLoaded(false);
+    loadAgentDetails().then((all) => {
+      if (cancelled) return;
+      setDetail(all[agent.id] ?? null);
+      setLoaded(true);
+    });
     return () => { cancelled = true; };
-  }, [agent.id]);
+  }, [agent.id, codeGraphMode]);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -1199,29 +1238,74 @@ function AgentDetailPanel({ agent, dept, status, embedded, onClose }: {
         </>
       ) : (
         <>
-          <span style={{
-            ...S.avatar, width: 46, height: 46, padding: 0, overflow: "hidden",
-            border: status === "error" ? `2.5px solid ${CORAL}` : "none",
-            boxShadow: status === "active" ? `0 0 18px ${MINT}aa` : "none",
-          }}>
-            <AgentAvatar id={bareId} name={agent.name} size={46} />
-          </span>
+          {codeGraphMode ? (
+            <span style={{ ...S.avatar, ...S.codeNodeGlyph, width: 46, height: 46 }}>{"</>"}</span>
+          ) : (
+            <span style={{
+              ...S.avatar, width: 46, height: 46, padding: 0, overflow: "hidden",
+              border: status === "error" ? `2.5px solid ${CORAL}` : "none",
+              boxShadow: status === "active" ? `0 0 18px ${MINT}aa` : "none",
+            }}>
+              <AgentAvatar id={bareId} name={agent.name} size={46} />
+            </span>
+          )}
           <div style={S.agentPanelName}>{agent.name}</div>
-          <div style={S.agentPanelTag}>{agent.tag}</div>
-          <div style={S.agentPanelRow}>
-            <span style={S.agentPanelLabel}>Department</span>
-            <span style={S.agentPanelVal}>{dept.name}</span>
-          </div>
-          <div style={S.agentPanelRow}>
-            <span style={S.agentPanelLabel}>Status</span>
-            <span style={{ ...S.agentPanelVal, textTransform: "capitalize" }}>{status}</span>
-          </div>
+          <div style={S.agentPanelTag}>{agent.tag || (codeGraphMode ? "Code node" : "")}</div>
 
-          {detail === null && (
+          {codeGraphMode ? (
+            <>
+              <div style={S.agentPanelRow}>
+                <span style={S.agentPanelLabel}>Cluster</span>
+                <span style={S.agentPanelVal}>{dept.name}</span>
+              </div>
+              {agent.community !== undefined && (
+                <div style={S.agentPanelRow}>
+                  <span style={S.agentPanelLabel}>Community</span>
+                  <span style={S.agentPanelVal}>{String(agent.community)}</span>
+                </div>
+              )}
+              {agent.fileType && (
+                <div style={S.agentPanelRow}>
+                  <span style={S.agentPanelLabel}>File Type</span>
+                  <span style={S.agentPanelVal}>{agent.fileType}</span>
+                </div>
+              )}
+              {agent.sourceFile && (
+                <div style={S.agentPanelRow}>
+                  <span style={S.agentPanelLabel}>Source File</span>
+                  <span style={{ ...S.agentPanelVal, fontFamily: "'SF Mono',Menlo,monospace", fontSize: 11 }}>{agent.sourceFile}</span>
+                </div>
+              )}
+              <div style={S.agentPanelNote}>
+                This is a structural node from this venture&rsquo;s code graph (graphify) — a file or
+                symbol clustered under &ldquo;{dept.name}&rdquo;, not a YVON fleet agent. It has no
+                purpose, skills, or Books; that only applies to real agents in Team mode.
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={S.agentPanelRow}>
+                <span style={S.agentPanelLabel}>Department</span>
+                <span style={S.agentPanelVal}>{dept.name}</span>
+              </div>
+              <div style={S.agentPanelRow}>
+                <span style={S.agentPanelLabel}>Status</span>
+                <span style={{ ...S.agentPanelVal, textTransform: "capitalize" }}>{status}</span>
+              </div>
+            </>
+          )}
+
+          {!codeGraphMode && !loaded && (
             <div style={S.agentPanelNote}>Loading skills tree…</div>
           )}
 
-          {detail && (
+          {!codeGraphMode && loaded && !detail && (
+            <div style={S.agentPanelNote}>
+              This agent has no agent.md on file, so there&rsquo;s no skills tree to show.
+            </div>
+          )}
+
+          {!codeGraphMode && detail && (
             <div style={S.treeScroll}>
               {detail.purpose && (
                 <div style={S.treeSection}>
@@ -1490,6 +1574,14 @@ const S: Record<string, React.CSSProperties> = {
     transition: "border-color .3s",
   },
   avatar: { width: 30, height: 30, borderRadius: "50%", flex: "none", display: "block" },
+  // Code-graph nodes get a file glyph instead of AgentAvatar (2026-08-15) —
+  // a generated-art "person" avatar for a source file would be dishonest in
+  // the same way the old fake skills tree was.
+  codeNodeGlyph: {
+    borderRadius: 12, background: "rgba(140,225,235,.12)", border: "1px solid rgba(140,225,235,.3)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    fontFamily: "'SF Mono',Menlo,monospace", fontSize: 15, color: "#9de3ea", fontWeight: 600,
+  },
   agentText: { display: "flex", flexDirection: "column", flex: 1 },
   agentName: { fontSize: 14, fontWeight: 550, color: "#ffffff" },
   agentTag: { fontSize: 11, color: "#a3a8b0", fontStyle: "normal", marginTop: 1 },
