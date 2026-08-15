@@ -50,9 +50,32 @@ Never skip DISCOVER. Never batch artifacts. Never invent values
 | Copy / storytelling / ideation | lena / weave / muse | `Teams/Brand Studio/` |
 | Visual design | pixel | `Teams/Brand Studio/pixel/agent.md` |
 | Social, ads, growth, analytics, audio | pulse / rio / nate / kai / tempo | `Teams/Brand Studio/` |
+| **Hiring, ATS, pipeline, workforce planning, payroll, EOR, worker classification** | **hire** (Lead) | `Teams/People & Culture/hire/agent.md` |
+| **Motivation, wellbeing, recognition (P&C)** | **maslow** | `Teams/People & Culture/maslow/agent.md` |
+| **Learning & Development, training design, skill-gap analysis, compliance-training operations (P&C)** | **grove** | `Teams/People & Culture/grove/agent.md` |
+| **Performance mgmt (OKR + reviews), succession + 9-box, feedback (SBI + Radical Candor), HR-strategy alignment (P&C)** | **merit** | `Teams/People & Culture/merit/agent.md` |
+| **PR & media (pitching + press-kit + media-training + PR analytics with code-level AVE refusal), Comms & PR Lead** | **herald** (Lead — David Meerman Scott identity) | `Teams/Comms & PR/herald/agent.md` |
+| **Internal Communications (weekly cadence, all-hands, decision broadcasts, change comms — Kotter + Bridges + Prosci ADKAR)** | **signal** | `Teams/Comms & PR/signal/agent.md` |
+| **Investor Communications (quarterly calls + monthly notes + Reg FD material-info fence, data-room discipline for DD readiness, organizational crisis-comms with Fink + Coombs SCCT + Judy Smith)** | **beacon** | `Teams/Comms & PR/beacon/agent.md` |
+| **Country/market selection (Ghemawat CAGE + Rugman & Verbeke LOF), entry-mode decision (Root 7-mode + TCE), GTM adaptation (Ghemawat AAA + Meyer cultural), multi-market portfolio mgmt, Global Expansion Lead** | **compass** (Lead — Pankaj Ghemawat identity) | `Teams/Global Expansion/compass/agent.md` |
+| **Multi-jurisdiction regulatory & compliance (entity setup + tax registration + employment-law-scoping per jurisdiction + data-residency + cross-border transfer mechanism, all counsel-scoping-first with clear scope split from hire on classification EXECUTION and Cybersecurity on technical IMPLEMENTATION)** | **canopy** | `Teams/Global Expansion/canopy/agent.md` |
+| **Localization (product with Unicode CLDR + BCP 47, marketing transcreation with CSA, legal with counsel-review gate + ATA/FIT, deep cultural adaptation with Hofstede + Meyer + Trompenaars + Hall)** | **lingua** | `Teams/Global Expansion/lingua/agent.md` |
+| **Cross-border operations (FX + treasury basics with BIS/CFA/JPM/HSBC, international banking with SWIFT/FATF/Wolfsberg + AML/KYC, cross-border payments with G20 Roadmap + Travel Rule, international logistics with ICC Incoterms 2020 + WCO HS)** | **frontier** | `Teams/Global Expansion/frontier/agent.md` |
+| **Customer Success Strategy — health scoring + lifecycle-value mapping + QBR framework + CS tech-stack selection, Mehta 2016 discipline (data-cited-not-vibes), Client Success Lead** | **ally** (Lead — Nick Mehta identity) | `Teams/Client Success/ally/agent.md` |
+| **Customer onboarding (journey design + time-to-first-value optimization + segment playbooks + kickoff executive alignment with Mutual Success Plan)** | **kickoff** | `Teams/Client Success/kickoff/agent.md` |
+| **Customer success / retention / expansion (churn-risk prediction with cited signals + expansion motions with health-GREEN gating + renewal negotiation with value-realized-evidence primacy + customer advocacy with sign-off HARD BOUNDARY)** | **retain** | `Teams/Client Success/retain/agent.md` |
+| **Support ops (tiered support design T1/T2/T3 + SLA management with ITIL + support analytics with Reichheld NPS + Dixon/Freeman/Toman CES + KCS v6 knowledge base with SME validation)** | **keel** | `Teams/Client Success/keel/agent.md` |
+| **Growth Strategy — revenue-machine architecture (Roberge 4 formulas) + pricing/packaging with WTP discipline + funnel metrics + attribution with AARRR + GTM motion selection PLG/Sales-Led/Hybrid, Growth & Partnerships Lead** | **quest** (Lead — Mark Roberge identity) | `Teams/Growth & Partnerships/quest/agent.md` |
+| **Sales / BD (sales methodology MEDDIC/Challenger + pipeline management Roberge/WbD + deal negotiation Fisher & Ury/Voss + customer discovery Blank/Bosworth/Ulwick/Keenan/Rackham)** | **closer** | `Teams/Growth & Partnerships/closer/agent.md` |
+| **Marketing / Demand-Gen (demand generation strategy Kingsnorth/HubSpot + content marketing Pulizzi/Handley + marketing attribution Kaushik/GA4 + ABM Terminus/Demandbase with data-compliance)** | **lure** | `Teams/Growth & Partnerships/lure/agent.md` |
+| **Partnerships (partner selection + tiering Rangan/Doz & Hamel + channel partner program with PRM + co-marketing/co-selling Winning by Design + strategic alliance management Doz & Hamel/Kanter/Gulati — all counsel-scoping-first)** | **bond** | `Teams/Growth & Partnerships/bond/agent.md` |
+| **Risk Strategy — risk appetite framework + tail-risk scanning (Taleb Black Swan) + risk committee/reporting (Lam/COSO/IIA) + crisis scenario planning (Taleb Antifragile), Risk & ESG Lead** | **pilot** (Lead — Nassim Nicholas Taleb identity) | `Teams/Risk & ESG/pilot/agent.md` |
+| **Enterprise Risk (ERM) — risk identification COSO/ISO 31000 + assessment quantification Hubbard/FAIR + treatment strategies (Mitigate/Avoid/Transfer/Accept) + monitoring/audit with immutable trail** | **hazard** | `Teams/Risk & ESG/hazard/agent.md` |
+| **ESG Reporting — double-materiality assessment SASB/IFRS S1-S2/GRI + carbon accounting GHG Protocol/CDP/TCFD/SBTi + social impact GRI 400/B Lab/IMP/ILO + governance disclosure SOX/DGCL/ISS-Glass Lewis, all counsel-scoping-first** | **prism** | `Teams/Risk & ESG/prism/agent.md` |
+| **Operational Resilience — business continuity ISO 22301 (LOAD-BEARING tested exercise) + disaster recovery NIST 800-34 (LOAD-BEARING business-derived RTO/RPO) + third-party risk SIG/ISO 27036 (LOAD-BEARING security+compliance review) + operational resilience testing BoE/FCA/BCBS/DORA (LOAD-BEARING IBS+tolerance pairing)** | **shield** | `Teams/Risk & ESG/shield/agent.md` |
 
 Multi-agent tasks: route to the department leader (dev, warden, spark, meta, spec, marcus,
-board) who sequences the others per `Teams/<Dept>/DEPARTMENT-WORKFLOW.md`.
+board, **hire**, **herald**) who sequences the others per `Teams/<Dept>/DEPARTMENT-WORKFLOW.md`.
 
 A dashboard build is at minimum: **mia** (build) + **atlas** (tokens) + **quinn** (verify),
 sequenced by **dev**.

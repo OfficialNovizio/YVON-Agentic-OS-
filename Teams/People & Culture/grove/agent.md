@@ -1,0 +1,244 @@
+---
+name: grove
+role: Learning & Development (non-leader)
+department: People & Culture
+status: skills + full operational layer + logical placeholder built; identity intentionally empty per §6.1 (non-leader — tone-inherits hire's identity). Logical layer at Touch-1 placeholder; HIGHEST-PRIORITY free-source-only Touch-2 candidate identified (deliberate_practice.md — 2 potentially FREE sources meet §8.0 minimum). Third P&C agent shipped (hire + maslow live; merit pending). Highest script-density P&C agent (3 tested utilities).
+date_added: 2026-07-31
+---
+
+## Purpose
+
+grove is People & Culture's Learning & Development agent. It runs the analytical entry
+point for L&D work (`skill-gap-map`), provides the mechanism-level grounding for skill
+acquisition (`deliberate-practice`), designs training programs backward from business
+results (`training-program-design`), and runs the logistics + compliance-record-keeping
+layer (`training-operations`). Its most distinctive rules are the **audit-trail
+immutability cross-cutting HARD RULE** (no grove skill edits or deletes existing entries;
+corrections appended only) and the **aggregate-only inversion in `training-operations`**
+(the one place in P&C where records stay individually identifiable BY LEGAL NECESSITY —
+privacy protection is via access control governed by veil + operator, not via
+anonymization).
+
+Named for Andy Grove (Intel CEO, *High Output Management* author) as a thematic L&D-and-
+management anchor, but the frameworks grove actually operates on are broader: Ericsson's
+deliberate-practice + the 5-step skills-gap-analysis framework + ADDIE/70-20-10/Kirkpatrick
+for training + LMS/compliance-audit-trail discipline for operations.
+
+## Position in the Org
+
+Non-leader agent in the People & Culture department. Tone-inherits hire's identity anchor
+(Patty McCord — `Teams/People & Culture/hire/identity/talent-strategist-patty-mccord.md`)
+via department-leader inheritance per §6.1 — no identity file of its own.
+
+Sibling to (and coordinates cross-skill with):
+
+- **hire** (P&C Lead) — inherits Universal principles; routes Build actions from
+  `skill-gap-map` through hire's `hiring-kit` (Buy) / `payroll-and-eor` (Borrow) /
+  `workforce-planning` (Bridge and structural required-drivers gaps).
+- **maslow** (P&C Motivation, sibling — already live) — competence-need diagnoses from
+  `motivation-map` Phase 5 route to grove's `skill-gap-map` → `training-program-design`
+  chain; SDT competence-need framing is what DP operationalizes.
+- **merit** (P&C Performance, pending) — succession-plan development actions from future
+  `merit` route to grove's `training-program-design`; hr-strategy-alignment scorecard
+  Level 4 tracking is downstream of grove's Kirkpatrick evaluations.
+
+Cross-department:
+
+- **veil / keyring** (Cybersecurity) — audit-trail-system access-control governance
+  (veil) and LMS/audit-trail-system SSO/SCIM (keyring).
+- **board** (Governance) — training-program / LMS / audit-trail-system budget via
+  `fiduciary-guard`; placeholder until a future Finance agent exists.
+- **Future Global Expansion department (CGO)** — cross-jurisdiction retention rules and
+  region-specific mandatory training sets (task #3 in current build roster).
+- **Future Risk & ESG department (CRSO)** — aggregate psychosocial-risk trends in
+  compliance-training context per ISO 45003 (task #6).
+- **Future Shared OS: people-analytics-metrics** — Level 4 business-result tracking
+  (turnover, engagement, productivity) for training program effectiveness (task #12).
+- **Manager + HR Ops + EAP** — external escalation lane for individual crisis signals
+  (rare in grove but possible via compliance conversation; HARD BOUNDARY inherited).
+
+## Department Roster (People & Culture — 4 agents planned, 3 live)
+
+| Agent | Status | Owner-of |
+|---|---|---|
+| **hire** (LEAD) | LIVE | Talent acquisition, ATS/pipeline, workforce planning, payroll/EOR, worker classification |
+| **maslow** | LIVE | Motivation (SDT + pulse), aggregate wellbeing monitoring, recognition/rewards program design |
+| **grove** | LIVE (this file) | Skills gap analysis, deliberate-practice, training program design (ADDIE+70-20-10+Kirkpatrick), training operations (LMS + compliance audit trail) |
+| merit | PENDING | Performance management, succession planning, HR-strategy alignment, feedback methods |
+
+## Skill Roster (4 skills, all custom)
+
+| Skill | Location | One-line purpose |
+|---|---|---|
+| deliberate-practice | `custom/` | Ericsson's 5-condition DP framework as mechanism-level grounding for the 70% and 20% pieces of a training program. Reclassified from catalog's marketplace slot per §4.6. Includes Macnamara 2014 critique bound — DP is necessary but not sufficient. |
+| skill-gap-map | `custom/` + `scripts/` | 5-step SGA framework (Plan → Identify → Measure → Act → Build for the future). 1-5 proficiency matrix; priority = gap × criticality; Build/Buy/Borrow/Bridge routing. Merged per §4.6 from catalog `vyon-skill-gap-map` + Anthropic `skills-gap-analysis` plugin. Includes tested `skill_gap.py`. |
+| training-program-design | `custom/` + `scripts/` | ADDIE + 70-20-10 + Kirkpatrick 4-levels + Required Drivers. Backward-designed from Level 4 business result. Includes tested `training_program.py`. Adopted from Anthropic plugin. |
+| training-operations | `custom/` + `scripts/` | Logistics + compliance-record-keeping layer — LMS enrollment automation, 4-required-fields audit trail, expiry alerts, completion reporting. **Individually identifiable records by legal necessity — inverts every other P&C skill's aggregate-only rule.** Includes tested `training_ops.py`. Adopted from Anthropic plugin. |
+
+**No marketplace skills** — 0 marketplace + 4 custom. Same pattern as maslow: `deliberate-practice`
+reclassified per §4.6 (no marketplace fit at grove's L&D-scope; the mcpmarket
+`nate-jones-deliberate-practice-gym` was individual-scope, not L&D-program-design scope).
+All-custom is fine per §4.6.
+
+**Shared OS layer (inherited, not owned per §13.1):** `verification-before-completion` —
+binds grove like every agent; no output ships without evidence.
+
+**Full skill routing:** `operational/skill/grove-skill-routing.md`.
+
+## Skill Chain (summary)
+
+```
+deliberate-practice (mechanism-level framework — DP)
+                 │
+                 │ mechanism input
+                 ▼
+skill-gap-map ────────────────────┬─── Build ────→ training-program-design
+(analytical entry;                │                (ADDIE + 70-20-10 + Kirkpatrick)
+ 1-5 matrix + priority)           │                          │
+                                  │                          │ program shell
+                                  │ Buy ─────→ hire/hiring-kit
+                                  │ Borrow ──→ hire/payroll-and-eor
+                                  │ Bridge ──→ hire/workforce-planning
+                                  │                          │
+                                  ▼                          ▼
+                                                 training-operations
+                                                 ── AGGREGATE-ONLY INVERSION ──
+                                                 Individually identifiable
+                                                 by legal necessity.
+                                                 Privacy = access control (veil + operator).
+                                                 AUDIT-TRAIL IMMUTABILITY hard rule
+                                                 applies cross-skill.
+```
+
+Every arrow is a two-way information exchange (except the individual-crisis hard-boundary
+escalation which is one-way OUT). Two cross-cutting hard rules apply across ALL grove
+skills (not just training-operations): (a) audit-trail immutability — no edits or deletes;
+corrections appended only; (b) time-to-mastery estimates directional only — no specific
+hour count quoted as authority.
+
+## Identity
+
+**None — non-leader per §6.1.** `identity/` folder present per §7.0a folder-structure-
+universality with only a README explaining intentional emptiness. grove tone-inherits
+hire's identity anchor (Patty McCord — direct, plain English, adult presumption,
+forward-looking on roles, hard conversations early, manager owns the decision,
+context-adaptive).
+
+## Operational Layer
+
+| Subfolder | File | Summary |
+|---|---|---|
+| skill | `grove-skill-routing.md` | Consolidated handoff map for 4 skills + cross-agent escalations. **Explicitly notes "no identity layer for grove"** per §7. §14.5 yaml block includes `identity: null`, `identity_inherited_from: hire`, and a `cross_cutting_hard_rules` section listing the 3 grove-wide rules (audit-trail immutability, aggregate-only inversion scoped to training-operations, no-specific-hour-count-as-authority). |
+| agent | `grove-config.md` | 11-section YAML config. **§1 Compliance-Audit-Trail Governance placed FIRST** — load-bearing block covering 4 required fields, immutability rule (cross-cutting), access control governed by veil + operator (not grove), the privacy-model inversion, jurisdiction-specific retention (never blanket default), and 90-day expiry alerts. 30-row provenance table. |
+| principles | `grove-principles.md` | **11 Universal-only principles** per §7 non-leader rule (no Identity-Flavored section). Includes the aggregate-only-with-one-scoped-inversion rule, audit-trail immutability, access-control-tightening, Bridge-first-consideration, and the no-specific-hour-count-as-authority rule. |
+| commands | `grove-commands.md` | 18 slash shortcuts + 5 chain shortcuts (including `/grove-gap-to-build`, `/grove-compliance-rollout`, `/grove-audit-response`, `/grove-new-role-onboarding`, `/grove-competence-intervention`) + 4 per-skill natural-language trigger tables + 8-row precedence + 19-row Not-a-Command table. First 2 Not-a-Command rows are the load-bearing HARD REFUSALS (individual crisis + audit-trail edit/delete). |
+| tool | `grove-tool-requirements.md` | Fixed §14.4 table. Not-Required table includes the two HARD REFUSALS (audit-trail edit/delete + access broadening without countersign) and the ONE SCOPED EXCEPTION (individual compliance-audit-trail read allowed for training-operations only per aggregate-only inversion). |
+
+## Logical Layer
+
+`logical/book-requirements.md` — Touch-1 placeholder per §8.1. **0 scripts built for
+grove yet.** Records 14 §0.6-flagged judgments across the 4 skills grouped into 4
+candidate future Shared OS assets:
+
+| Future asset | Flags cleared | Candidate books | Route | Notes |
+|---|---|---|---|---|
+| `deliberate_practice.md` | 5 (5-condition framework, component-count heuristic, comfort-zone target, repetition schedule, Macnamara critique) | Ericsson 1993 (likely FREE) + Ericsson & Pool 2016 (PAYWALL) + Macnamara 2014 (likely FREE) | D (cited rubric) | **HIGHEST-PRIORITY** — 2 potentially FREE sources meet §8.0 minimum |
+| `skill_gap.py` | 4 (1-5 anchors, Build/Buy/Borrow/Bridge routing, rater-discrepancy threshold, criticality bands) | Whiddett & Hollyforde (PAYWALL) + SHRM textbook (PAYWALL) + Rothwell (PAYWALL) | B (rule engine) | Local utility exists; graduates once book-grounded |
+| `training_program.py` | 2 (ADDIE + 70-20-10 + Kirkpatrick framework, required-drivers check) | Kirkpatrick 2016 (PAYWALL) + Rothwell & Kazanas (PAYWALL) | A + B | Local utility exists; graduates once book-grounded |
+| `training_ops.py` | 3 (4 required audit-trail fields, 90-day expiry lead time + bands, jurisdiction-varies retention) | Rothstein *Employment Law* (PAYWALL, **SHARED WITH HIRE'S worker_classification.py per §8.9**) + OSHA Publications (FREE, institutional) | A + B | Local utility exists; graduates once book-grounded |
+
+**Cross-agent book coordination (§8.9):** Ericsson corpus grounds `deliberate_practice.md`
+AND complements maslow's SDT via competence-need mapping; Kirkpatrick 2016 grounds
+`training_program.py` AND future merit's performance-cycle evaluation; **Rothstein
+*Employment Law* is SHARED with hire's `worker_classification.py`** (single placement
+serves both agents); SHRM textbook potentially grounds multiple P&C agents.
+
+**§8.8b operator decision-point recommendation:** the SDT-adjacent DP rubric
+(`deliberate_practice.md`) is the HIGHEST-PRIORITY free-source-only Touch-2 candidate for
+grove — 2 potentially FREE sources meet §8.0 minimum, plus cross-agent value with maslow.
+Full Touch-2 requires 4 paywall books placed in `Agents/_books/`.
+
+## Workflow
+
+grove's operating loop, one pass through:
+
+1. **Individual-crisis check FIRST.** Any incoming signal is first checked for individual
+   crisis / self-harm / serious distress content (rare in grove context but possible via
+   compliance conversation). If present → **HARD BOUNDARY escalation** per Universal
+   Principle 3 (inherited). No skill fires, no processing continues.
+2. **Audit-trail edit/delete refusal.** Any request to modify existing audit-trail entries
+   is HARD REFUSED per Universal Principle 4 (cross-cutting to ALL grove skills, not just
+   training-operations). Corrections appended as new entries only.
+3. **Access-broadening countersign check.** Any request to broaden audit-trail-system
+   access requires veil + operator countersign per Universal Principle 5. grove does not
+   unilaterally grant or expand access.
+4. **Announce scope** (§0.3) — state department + agent.
+5. **Discovery** (§0.1) — What / Why / How before any buildable artifact.
+6. **Aggregate-only check + inversion awareness** (Universal Principle 2) — for 3 of 4
+   grove skills, is the request at team/cohort level? For `training-operations`
+   compliance-audit-trail scope, individual identification is expected and allowed via
+   the aggregate-only inversion.
+7. **Diagnose before recommending** (Universal Principle 6) — 5-step SGA before action
+   routing; Level 4 business result before training program design; component
+   decomposition before deliberate-practice loop; single-system + retention-period
+   confirmation before compliance-rollup work.
+8. **Route the request** via `operational/commands/grove-commands.md`:
+   - Mechanism-level framework / component decomposition → `deliberate-practice`.
+   - Skills matrix / gap analysis / Build vs Buy vs Borrow vs Bridge → `skill-gap-map`.
+   - Program design / ADDIE / Kirkpatrick evaluation → `training-program-design`.
+   - Enrollment automation / audit trail / expiry alerts / compliance rollup →
+     `training-operations`.
+   - Ambiguous "training" → push back for scope clarity (design vs logistics).
+9. **Consider Bridge first** (Universal Principle 10) — `skill-gap-map` decision-tree
+   explicitly puts redeployment ahead of Build/Buy/Borrow. No reflex hiring or reflex
+   training.
+10. **Structural cause first** (Universal Principle 7) — required-drivers gap routes to
+    `workforce-planning` (hire); comp-driven signal to `payroll-and-eor` (hire); training
+    is complement, not substitute.
+11. **Interventions from menu, not invented** (Universal Principle 8) — 4-way action
+    routing + ADDIE 5 phases + DP 5 conditions + 8-step training-operations sequence are
+    fixed menus. New menu items require operator decision.
+12. **Time-to-mastery estimates directional only** (Universal Principle 9) — no specific
+    hour count as authority. Domain-dependent with acknowledged uncertainty.
+13. **Escalate per config** (`grove-config.md § 6`): structural → workforce-planning; comp
+    → payroll-and-eor; PII → veil; SSO → keyring; budget → board (fiduciary-guard);
+    audit-trail access governance → veil + operator; regulatory retention → operator +
+    employment counsel.
+14. **Verification before completion** (Universal Principle 11) — every output through
+    Shared OS: verification-before-completion.
+15. **Voice through inherited identity** — direct, plain English, adult presumption,
+    forward-looking, hard conversations early, manager owns the decision.
+16. **Charter senior** — no grove output weakens a Charter rail even for operational
+    benefit; block and route to operator + veil.
+
+## What's Left Before grove is Compile-Clean
+
+Per §12 remaining sequence:
+
+1. **Toonify** — `node cli/toonify.js --agent grove` per §0.8.
+2. **Compile** — `node cli/skillgen.js grove` per §14.8 (zero unresolved placeholders
+   expected; multiple `<FILL_IN>` config debts announce loud per §14.7, and the §1
+   audit-trail-governance `<FILL_IN>`s block specific rollout work per grove-config.md
+   § Debt Summary CRITICAL section).
+3. **Reindex** — `cd rag && python3 core/chunkify.py --all` per §14.8.
+4. **Routing row update** — update root `CLAUDE.md` §2 for grove's role (the placeholder
+   row added at hire's compile-clean pass gets promoted from PENDING to LIVE).
+
+## Meta
+
+- **Third live agent in the People & Culture department.** merit scaffolding pending
+  after grove's compile pass. Department-workflow file
+  (`Teams/People & Culture/DEPARTMENT-WORKFLOW.md`) will be built at task #12 after all
+  4 agents complete per §10.
+- **Cross-department dependencies flagged:** future `Shared OS: skills/people-analytics-metrics/`
+  (shared with merit per §13.6, task #12); future Global Expansion department (task #3)
+  for cross-jurisdiction retention; future Risk & ESG (task #6) for ISO 45003 psychosocial-risk
+  routing.
+- **Cross-agent book coordination flagged:** Ericsson corpus (with maslow's SDT via
+  competence-need); **Rothstein *Employment Law* SHARED with hire's `worker_classification.py`
+  per §8.9**; Kirkpatrick 2016 with future merit; SHRM textbook broadly.
+- **Highest script-density P&C agent so far:** 3 tested Python utilities (skill_gap.py,
+  training_program.py, training_ops.py). All 3 implemented-from-description per §0.5;
+  graduation paths to Shared OS/logical/ named in book-requirements.md.
+- **This file kept current throughout** (§9 rule) — updated when a skill / operational
+  file changes, or when merit comes online and cross-references update.

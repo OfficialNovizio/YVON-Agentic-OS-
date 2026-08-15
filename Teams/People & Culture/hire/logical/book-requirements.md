@@ -1,0 +1,248 @@
+<!--
+Logical layer: touch-1 placeholder per §8.1.
+
+Per §8.1: "leave a placeholder. Once an agent's skills, identity, and operational layer
+are done, write one logical/book-requirements.md recording the specific 0.6-flagged
+judgments this agent makes, what kind of book/source would ground each, and why. Don't
+build the real logical artifacts early — you can't ground judgments the skills haven't
+defined yet."
+
+Per §8.7: this is the ONLY .md file that belongs in an agent's logical/ folder.
+All actual .py scripts, when built, will live in Shared OS/logical/ per §13.5 —
+not in this agent's folder.
+
+Per §8.11: this file must include:
+- Scripts table (dedicated) — currently EMPTY, hire has 0 Shared OS logical scripts.
+- Inherited scripts table — currently EMPTY, no Shared OS logical scripts yet exist that hire's skills import.
+- Skills → Script Mapping — currently: all 5 skills import zero Shared OS logical scripts.
+- Flag clearance summary — currently: zero flags cleared.
+- Still pending — the FULL list of §0.6 flags across all 5 skills that need book-grounding.
+
+hire's local Python utility (custom/workforce-planning/scripts/workforce_calculator.py) is
+NOT a Shared OS logical script yet (§8.0 two-book minimum unmet; §8.8 vendor-source
+citations aren't the authenticated academic sources §8 requires). It graduates to
+Shared OS/logical/ once paired with authenticated book sources per the candidate list below.
+-->
+
+# hire — Logical Layer: book-requirements (Touch-1 Placeholder)
+
+## Purpose
+
+Records the §0.6-flagged judgments hire's 5 skills make today, describes what book / source
+type would ground each, and lists candidate authenticated sources per §8.8 for a future
+Touch-2 build. **No real logical scripts have been built for hire yet.** Every judgment
+below is currently flagged reasoning-based (or Tier-B book-cited where a canonical source
+has been identified). Touch-2 runs when books are placed in `Agents/_books/`.
+
+---
+
+## Scripts Table (built for hire)
+
+Per §8.11 required table shape:
+
+| Script filename | Source book(s) | Book URL(s) | Route |
+|---|---|---|---|
+| _(none)_ | _(none)_ | _(none)_ | _(none)_ |
+
+**Current count: 0.** No Shared OS/logical/ scripts have been built for hire yet.
+Touch-2 will populate this table.
+
+---
+
+## Inherited Scripts Table (from Shared OS/logical/)
+
+Per §8.11:
+
+| Script filename | Source book(s) | Book URL(s) | Why hire needs it |
+|---|---|---|---|
+| _(none)_ | _(none)_ | _(none)_ | _(none)_ |
+
+**Current count: 0.** No relevant Shared OS/logical/ scripts exist that hire's skills
+import. This may change as other departments' Touch-2 passes produce cross-cutting scripts
+(e.g., a `board`-adjacent risk-scoring script that hire's `payroll-and-eor` could reuse
+for compliance risk).
+
+---
+
+## Skills → Script Mapping
+
+Per §8.11: each of hire's skills and which Shared OS/logical/ scripts it imports today,
+with a one-line rationale per import.
+
+| Skill | Shared OS/logical/ scripts imported today | Rationale |
+|---|---|---|
+| interview-prep | _(none)_ | Marketplace skill; verbatim from source; source declares no formula. |
+| hiring-kit | _(none)_ | Awaiting `hiring_selection.py` — see Still Pending §1 below. |
+| ats-selection | _(none)_ | Awaiting `ats_selection.py` (may end up Route D rubric-only) — see Still Pending §2. |
+| workforce-planning | _(none)_ | Uses its OWN local utility (`custom/workforce-planning/scripts/workforce_calculator.py`), NOT a Shared OS logical script. Graduates to Shared OS/logical/ once book-grounded — see Still Pending §3. |
+| payroll-and-eor | _(none)_ | Awaiting `worker_classification.py` — see Still Pending §4. |
+
+**Current count: 0 imports.** hire's skills currently rely entirely on prose-form reasoning
+grounded in cited-but-Tier-B sources.
+
+---
+
+## Flag Clearance Summary
+
+Per §8.11: which §0.6-flagged judgments each script cleared.
+
+| §0.6-flagged judgment | Clearing script | Tier before | Tier after | Cleared? |
+|---|---|---|---|---|
+| _(no flags cleared yet)_ | — | — | — | ❌ |
+
+**Cleared: 0 of 12 flags.** See Still Pending below for the full flag list.
+
+---
+
+## Still Pending
+
+The 12 §0.6-flagged judgments across hire's 5 skills that need book-grounding. Grouped
+by the future script that would ground each, with candidate authenticated book sources
+(§8.8 compliant — named authors with verifiable credentials; §8.0 minimum two books per
+script) and current fidelity tier per §8.4.
+
+### §1. `hiring_selection.py` (would ground hiring-kit + interview-prep + ats-selection)
+
+**Flags this script would clear:**
+
+| # | Flag | Skill line | Current tier |
+|---|---|---|---|
+| 1 | Structured-interview predictive validity (~0.51 vs unstructured 0.14–0.20) | hiring-kit § Principles 3; ats-selection § Topic C | Tier B (Schmidt & Hunter 1998 cited via Bock 2015 — canonical, not page-cited from a book in `Agents/_books/`) |
+| 2 | Hire-decision threshold (≥3.0 avg + no comp <2) | hiring-kit § Principles 6 | Tier C reasoning-based (design choice inspired by Bock ch.4 pattern; no book-cited formula) |
+| 3 | Reference-check on top-2 not the single finalist (TORC pattern) | hiring-kit § Phase 7 | Tier B (Smart & Street ch.7 cited but book not in `Agents/_books/`) |
+| 4 | Scorecard shape (5–7 outcomes / 5–8 competencies / 4-level BARS) | hiring-kit § Phase 1; hire-config §1 | Tier B (Smart & Street ch.2 cited but book not in `Agents/_books/`) |
+
+**Candidate book sources per §8.0 (minimum two) + §8.8 (authenticated):**
+
+- **Schmidt, F. L. & Hunter, J. E. (1998).** *The Validity and Utility of Selection Methods in Personnel Psychology: Practical and Theoretical Implications of 85 Years of Research Findings.* Psychological Bulletin, 124(2), 262–274. — Foundational meta-analysis. Authors: John Hunter (Michigan State) + Frank Schmidt (Iowa). Academic, verifiable. Freely available at multiple `.edu` URLs.
+  - Free URL candidates for §8.8a 3-attempt search: search "Schmidt Hunter 1998 site:edu OR archive.org" — commonly hosted on Iowa State's IR and personnel-psych course pages.
+- **Smart, Geoff & Street, Randy (2008).** *Who: The A Method for Hiring.* Ballantine Books. ISBN 978-0345504197. — Practitioner-operator (§8.9), founded ghSmart which has run 20,000+ leadership assessments.
+  - URL: https://ghsmart.com/who-a-method-for-hiring/ (publisher); PAYWALL for the book text — needs placement in `Agents/_books/`.
+- **Bock, Laszlo (2015).** *Work Rules! Insights from Inside Google That Will Transform How You Live and Lead.* Twelve. ISBN 978-1455554799. — Practitioner-operator (§8.9); Google People Ops research, structured-interview + hiring-committee data.
+  - URL: https://www.workrules.net/ (author); PAYWALL — needs placement in `Agents/_books/`.
+
+**Route:** likely Route B (rule-engine script — hire-decision threshold check + validity-tier lookup + BARS-anchor validator) with some Route C (hybrid — scorecard shape + threshold rule are structural; interviewer input is judgment).
+
+**Cross-department reuse:** would also ground merit's future performance-management skills; potentially useful cross-cite for board's fiduciary-guard when the spend under review is a senior hire.
+
+---
+
+### §2. `ats_selection.py` OR ats-selection-rubric.md (would ground ats-selection)
+
+**Flags this script would clear:**
+
+| # | Flag | Skill line | Current tier |
+|---|---|---|---|
+| 5 | ATS platform recommendation (6-platform matrix) | ats-selection § Topic A | Tier C reasoning-based (matrix inherited from Anthropic plugin; plugin cites vendor market data, not academic sources) |
+| 6 | Take-home paid threshold (2 hours) | ats-selection § Topic E; hiring-kit § Principles 7 | Tier B (Greenhouse-published data cited, but Greenhouse is a vendor not an authenticated academic source per §8.8) |
+| 7 | Anonymous grading pass-through uplift (6.5–10%) | ats-selection § Topic D | Tier B (Greenhouse-published; same vendor-source caveat) |
+
+**Route determination per §8.2 litmus** ("would two careful people using this chapter
+produce the same output?"): the ATS-platform selection is **Route D (rubric only)** — even
+with the same headcount tier and HRIS, two careful practitioners could legitimately pick
+different platforms based on team preferences, existing vendor relationships, and specific
+feature needs. The 6-platform matrix would compile as a **cited rubric** (Tier B if a
+proper authenticated source is found; Tier C until then), not a Python script.
+
+The take-home threshold (2 hours) and anonymous-grading uplift (6.5–10%) COULD go into a
+small Route-B `hiring_selection.py` if book-grounded, but their vendor-source status
+today makes them Tier B rubric-cited rather than Route A/B/C script-derived.
+
+**Candidate authenticated sources per §8.8:**
+
+- No published academic textbook exists yet on ATS-benchmarking specifically — this is an
+  emerging market. The best-available authenticated coverage:
+- **Cappelli, P. (2019).** *Why We Love to Hate HR… and What HR Can Do About It.* Wharton Digital Press. — Cappelli is Wharton faculty, longtime HR-research authority; touches ATS/technology critique.
+- **Bock, Laszlo (2015).** *Work Rules!* — same book as §1 above; ch.4 on structured hiring includes ATS-adjacent design principles.
+- **Google re:Work corpus** (rework.withgoogle.com) — institutional source per §8.8, Google as institution counts as one source; would need pairing.
+
+**Route:** Route D (cited rubric, no script), unless a proper academic ATS-decision textbook
+emerges — in which case it becomes Route B.
+
+---
+
+### §3. `workforce_planning.py` (would ground workforce-planning + promote the local utility)
+
+**Flags this script would clear:**
+
+| # | Flag | Skill line | Current tier |
+|---|---|---|---|
+| 8 | Span-of-control 7–12 heuristic | workforce-planning § Org Design; § Principles 6 | Tier C reasoning-based (Orgvue / Ingentis / theorgchart cited — vendor sources, not academic per §8.8) |
+| 9 | Layer count ≤5 IC-to-CEO | workforce-planning § Org Design | Tier C reasoning-based (same vendor-source caveat) |
+| 10 | FTE standard-hours default (2080/year US) | workforce-planning § Headcount vs FTE; scripts/workforce_calculator.py | Tier B (US Federal FLSA convention — institutional source, per §8.8 counts as one) |
+
+**Candidate authenticated sources per §8.0 (minimum two) + §8.8:**
+
+- **Cascio, W. F. (multiple editions, most recent 10th ed 2019).** *Managing Human Resources: Productivity, Quality of Work Life, Profits.* McGraw-Hill. — Wayne Cascio, USC Distinguished Professor; standard graduate HR textbook, workforce-planning + org-design chapters directly applicable.
+  - URL: https://www.mheducation.com/highered/product/managing-human-resources-productivity-quality-work-life-profits-cascio/M9781260075069.html (publisher); PAYWALL — needs placement in `Agents/_books/`.
+- **Bechet, T. P. (2008).** *Strategic Staffing: A Comprehensive System for Effective Workforce Planning* (2nd ed). AMACOM. ISBN 978-0814413524. — Bechet is a named practitioner-author; work explicitly on 4-phase workforce planning that hire's skill uses.
+  - URL: https://www.amacombooks.org/book.cfm?isbn=9780814413524 (publisher); PAYWALL — needs placement in `Agents/_books/`.
+- **US Federal FLSA** (dol.gov) — institutional source, counts as one per §8.0.
+
+**Route:** Route A (math script for FTE / span / layer arithmetic) — the existing local
+utility `custom/workforce-planning/scripts/workforce_calculator.py` graduates to
+`Shared OS/logical/workforce_planning.py` once the Cascio + Bechet pair is placed in
+`Agents/_books/` and each function's docstring cites the specific chapter/page.
+
+**Cross-department reuse:** would ground any future department's headcount-planning
+requests (e.g., Comms & PR / Global Expansion / Risk & ESG scaling their teams).
+
+---
+
+### §4. `worker_classification.py` (would ground payroll-and-eor)
+
+**Flags this script would clear:**
+
+| # | Flag | Skill line | Current tier |
+|---|---|---|---|
+| 11 | W-2 / 1099 / EOR / PEO classification matrix (IRS 3-category test outcomes) | payroll-and-eor § Topic B; § Principles 8 | Tier B (IRS common-law test is institutional-source — one source per §8.0) |
+| 12 | Misclassification liability numbers (3-year negligent / 6-year intentional US; Germany €50k; California AB5 penalties stack) | payroll-and-eor § Principles 3; § Topic B | Tier B (regulatory citations from IRS, DOL, California AB5 text, German Scheinselbständigkeit rules — institutional sources) |
+
+**Candidate authenticated sources per §8.0 (minimum two) + §8.8:**
+
+- **US IRS Publication 15-A (Employer's Supplemental Tax Guide) + IRS Independent Contractor guidance.** — Institutional source (IRS, US Treasury). Freely available at irs.gov. Counts as one source per §8.0.
+  - URL: https://www.irs.gov/pub/irs-pdf/p15a.pdf — FREE.
+- **Rothstein, M. A., Craver, C. B., Schroeder, E. P., & Shoben, E. W. (multiple editions).** *Employment Law.* Foundation Press / West Academic Publishing. — Standard casebook; named legal-academic authors. Would need placement in `Agents/_books/`.
+  - URL: https://www.westacademic.com/ (publisher); PAYWALL.
+- **Perritt, H. H. Jr.** *Employee Dismissal Law and Practice.* Wolters Kluwer. — Named legal-academic author; standard reference on the discipline side.
+
+**Route:** Route B (rule-engine script — worker attributes → classification determination
++ liability estimate + jurisdiction-specific override flags for California AB5, Germany
+Scheinselbständigkeit, etc.). Not a math formula (Route A); rules and decision trees.
+
+**Cross-department reuse:** would ground `warden` (GRC) compliance audits when they touch
+workforce classification exposure; potentially cross-cutting with `board`'s fiduciary-guard
+when a large contractor conversion has budget impact.
+
+---
+
+## Book Sourcing Plan Summary
+
+Per §8.11 litmus ("Can the operator click one link and see the actual book page?"):
+
+| Book | Free? | URL | Blocking script |
+|---|---|---|---|
+| Schmidt & Hunter (1998) meta-analysis | Likely FREE (widely mirrored on .edu) | Requires §8.8a 3-attempt search to confirm | `hiring_selection.py` |
+| Smart & Street (2008), *Who: The A Method* | PAYWALL | https://ghsmart.com/who-a-method-for-hiring/ | `hiring_selection.py` |
+| Bock, Laszlo (2015), *Work Rules!* | PAYWALL | https://www.workrules.net/ | `hiring_selection.py`, `ats_selection.py` rubric |
+| Cascio, W. F., *Managing Human Resources* | PAYWALL | https://www.mheducation.com/highered/product/managing-human-resources-productivity-quality-work-life-profits-cascio/M9781260075069.html | `workforce_planning.py` |
+| Bechet, T. P. (2008), *Strategic Staffing* | PAYWALL | https://www.amacombooks.org/book.cfm?isbn=9780814413524 | `workforce_planning.py` |
+| IRS Publication 15-A | FREE | https://www.irs.gov/pub/irs-pdf/p15a.pdf | `worker_classification.py` |
+| Rothstein et al., *Employment Law* casebook | PAYWALL | https://www.westacademic.com/ | `worker_classification.py` |
+
+**Recommendation for the operator per §8.8b decision point:**
+
+- **Free-only build possible today:** partial `worker_classification.py` (Route B) grounded on IRS Publication 15-A + Schmidt & Hunter 1998 if the free copy of the latter is confirmed. The 3-attempt §8.8a search should be run before committing.
+- **Full Touch-2 build requires operator to place 4 paywalled books in `Agents/_books/`:** Smart & Street 2008, Bock 2015, Cascio *Managing HR*, Bechet 2008, and Rothstein et al. Then the 4 scripts above can be built with proper chapter/page-cited docstrings per §8.10.
+- **Route-D-only decision** (accepting weaker grounding): if no books get placed, `ats_selection.py` becomes a Route D rubric permanently and the `hire_decision_threshold` remains a Tier-C reasoning-based design choice per §8.4. Not ideal but transparent.
+
+The operator picks the path per §8.8b's user decision-point rule when Touch-2 opens.
+
+---
+
+## Meta
+
+- **Touch-1 built:** 2026-07-29.
+- **Touch-2 status:** waiting on book placement in `Agents/_books/`. Nothing built yet per §8.1 rule.
+- **Refresh trigger:** any new skill added to hire, any change to a skill's Principles section that introduces a new numeric or heuristic judgment, or completion of a Touch-2 book campaign (update the Scripts, Inherited, Skills→Script, and Flag Clearance tables at that time).
+- **Cross-agent coordination:** several candidate books (Schmidt & Hunter, Bock, Cascio) may double-ground scripts for merit and other future P&C agents — §8.9 "extract once, use twice" rule applies. Recording candidate books here surfaces this early for the department-level Touch-2 planning.
