@@ -9,6 +9,8 @@ const TABS = [
   { href: '/job-hunt', label: 'Profile' },
   { href: '/job-hunt/discover', label: 'Discover' },
   { href: '/job-hunt/companies', label: 'Companies' },
+  { href: '/job-hunt/network', label: 'Network' },
+  { href: '/job-hunt/linkedin', label: 'LinkedIn' },
 ]
 
 export default function JobHuntLayout({ children }: { children: React.ReactNode }) {
