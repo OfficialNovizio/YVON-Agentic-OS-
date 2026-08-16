@@ -8,25 +8,32 @@
  * extract text here and hand plain text to lib/ai-client's callSynthesis —
  * works no matter which provider is active, consistent with how every other
  * Job Hunt AI feature (LinkedIn drafts, network messages) already calls it.
+ *
+ * PDF library history (2026-08-15): started with `pdf-parse` v2, which
+ * wraps pdfjs-dist's "legacy" build. That build requires DOMMatrix/
+ * ImageData/Path2D, normally polyfilled via the native `@napi-rs/canvas`
+ * package — when that native binding fails to load (as it did on the
+ * operator's Mac: "Cannot load @napi-rs/canvas ... DOMMatrix is not
+ * defined"), extraction crashes outright, even for pure text extraction
+ * with no rendering involved. Tried downgrading to the classic pure-JS
+ * `pdf-parse@1.1.1` (no canvas dependency at all) but its vendored
+ * pdf.js v1.10.100 choked on a modern reportlab-generated test PDF
+ * ("bad XRef entry") — too old to trust against real-world resume
+ * exporters (Word, Google Docs, Canva, LaTeX all produce different xref
+ * structures). Landed on `unpdf`: ships its own serverless-optimized
+ * pdf.js build with no native/canvas dependency for text extraction.
+ * Verified locally against three differently-generated PDFs (hand-built,
+ * reportlab, pandoc/wkhtmltopdf) before landing this.
  */
 
-import { PDFParse } from 'pdf-parse'
+import { extractText, getDocumentProxy } from 'unpdf'
 import mammoth from 'mammoth'
 
 export async function extractResumeText(buffer: Buffer, fileType: string): Promise<string> {
   if (fileType === 'application/pdf') {
-    const parser = new PDFParse({ data: buffer })
-    try {
-      const result = await parser.getText()
-      // pdf-parse inserts "-- N of M --" page-break markers into result.text;
-      // strip them so they don't pollute the text handed to the AI prompt.
-      return result.text
-        .replace(/^--\s*\d+\s*of\s*\d+\s*--$/gm, '')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim()
-    } finally {
-      await parser.destroy()
-    }
+    const pdf = await getDocumentProxy(new Uint8Array(buffer))
+    const { text } = await extractText(pdf, { mergePages: true })
+    return text.trim()
   }
 
   if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
