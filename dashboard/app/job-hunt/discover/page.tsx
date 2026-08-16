@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Card } from '@/components/ui'
 import { Search, Loader2, ExternalLink, Bookmark, Archive, MapPin, Building2, Key } from 'lucide-react'
 
@@ -72,6 +72,12 @@ export default function JobHuntDiscoverPage() {
   const [sourceStatus, setSourceStatus] = useState<SourceStatus | null>(null)
   const [postings, setPostings] = useState<Posting[]>([])
   const [statusFilter, setStatusFilter] = useState<'discovered' | 'queued' | 'archived' | 'all'>('discovered')
+  // Post-search refine, separate from the pre-search "location" input above
+  // (which shapes the query sent to each source). Postings' location field
+  // is freeform text from each source's own API, not a structured city —
+  // this is a best-effort substring match over whatever's already loaded,
+  // not a real city filter like Companies has.
+  const [cityRefine, setCityRefine] = useState('')
   const [loadingList, setLoadingList] = useState(true)
   const [adzunaOpen, setAdzunaOpen] = useState(false)
   const [adzunaId, setAdzunaId] = useState('')
@@ -132,6 +138,12 @@ export default function JobHuntDiscoverPage() {
       body: JSON.stringify({ id, status }),
     })
   }, [])
+
+  const visiblePostings = useMemo(() => {
+    const term = cityRefine.trim().toLowerCase()
+    if (!term) return postings
+    return postings.filter((p) => (p.location ?? '').toLowerCase().includes(term))
+  }, [postings, cityRefine])
 
   const saveAdzunaKeys = useCallback(async () => {
     if (!adzunaId.trim() || !adzunaKey.trim()) return
@@ -226,7 +238,7 @@ export default function JobHuntDiscoverPage() {
       </Card>
 
       {/* Status filter */}
-      <div className="flex gap-1 mb-3">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
         {(['discovered', 'queued', 'archived', 'all'] as const).map((f) => (
           <button key={f} onClick={() => setStatusFilter(f)}
             className={`text-[11px] px-2.5 py-1 rounded-full border transition capitalize ${
@@ -235,16 +247,21 @@ export default function JobHuntDiscoverPage() {
             {f}
           </button>
         ))}
+        <div className="w-px h-4 bg-white/10 mx-1" />
+        <input value={cityRefine} onChange={(e) => setCityRefine(e.target.value)} placeholder="Filter loaded results by city (best-effort)"
+          className="text-[11px] w-64 rounded-full border border-white/10 bg-white/[0.02] px-3 py-1 text-on-surface-variant placeholder:text-on-surface-variant/40 focus:border-white/25 focus:outline-none" />
       </div>
 
       {/* Results */}
       {loadingList ? (
         <div className="flex items-center justify-center h-32"><Loader2 size={20} className="animate-spin text-on-surface-variant" /></div>
-      ) : postings.length === 0 ? (
-        <p className="text-sm text-on-surface-variant/60 italic py-8 text-center">No postings in this view yet. Run a search above.</p>
+      ) : visiblePostings.length === 0 ? (
+        <p className="text-sm text-on-surface-variant/60 italic py-8 text-center">
+          {postings.length > 0 ? 'No loaded postings match that city filter.' : 'No postings in this view yet. Run a search above.'}
+        </p>
       ) : (
         <div className="flex flex-col gap-2">
-          {postings.map((p) => (
+          {visiblePostings.map((p) => (
             <Card key={p.id} className="p-3.5 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
