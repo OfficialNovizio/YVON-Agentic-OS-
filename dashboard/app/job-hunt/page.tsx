@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { PageHeader, Card, SectionLabel } from '@/components/ui'
-import { Briefcase, Save, Loader2, Plus, Trash2 } from 'lucide-react'
+import { Briefcase, Save, Loader2, Plus, Trash2, Sparkles } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  JOB HUNT — MASTER PROFILE (2026-08-15)
@@ -183,6 +184,15 @@ export default function JobHuntPage() {
           </button>
         }
       />
+
+      <Card className="p-3 mb-4 flex items-center gap-2.5">
+        <Sparkles size={15} className="text-tertiary shrink-0" />
+        <p className="text-[12.5px] text-on-surface-variant flex-1">
+          Rather not type all of this? Upload your resume and let AI pull most of it in — you just review and pick what to keep.
+        </p>
+        <Link href="/job-hunt/resume" className="text-[11px] btn-accent px-3 py-1.5 whitespace-nowrap">Upload resume</Link>
+      </Card>
+
       {saveMsg && <p className={`mb-4 text-xs ${saveMsg.startsWith('Saved') ? 'text-emerald-400' : 'text-red-400'}`}>{saveMsg}</p>}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

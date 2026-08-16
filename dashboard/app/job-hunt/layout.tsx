@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation'
 // kept separate since that one is a private component of that page).
 const TABS = [
   { href: '/job-hunt', label: 'Profile' },
+  { href: '/job-hunt/resume', label: 'Resume' },
   { href: '/job-hunt/discover', label: 'Discover' },
   { href: '/job-hunt/companies', label: 'Companies' },
   { href: '/job-hunt/network', label: 'Network' },
