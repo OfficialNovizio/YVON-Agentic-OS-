@@ -18,6 +18,7 @@ interface Company {
   domain: string | null
   industry: string
   province: string
+  city: string | null
   size: string
   description: string | null
   careers_url: string | null
@@ -36,15 +37,28 @@ const SIZE_TONE: Record<string, string> = {
 
 export default function JobHuntCompaniesPage() {
   const [companies, setCompanies] = useState<Company[]>([])
+  const [allCities, setAllCities] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [industryFilter, setIndustryFilter] = useState<string | null>(null)
+  const [cityFilter, setCityFilter] = useState('')
   const [watchingOnly, setWatchingOnly] = useState(false)
+
+  // Full, unfiltered city list for the dropdown — fetched once, independent
+  // of active filters (otherwise the dropdown's own options would shrink as
+  // you filter, which is confusing).
+  useEffect(() => {
+    fetch('/api/job-hunt/companies').then((r) => r.json()).then((d: { companies?: Company[] }) => {
+      const cities = [...new Set((d.companies ?? []).map((c) => c.city).filter((c): c is string => !!c))].sort()
+      setAllCities(cities)
+    }).catch(() => setAllCities([]))
+  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
       if (industryFilter) params.set('industries', industryFilter)
+      if (cityFilter) params.set('cities', cityFilter)
       if (watchingOnly) params.set('watching', 'true')
       const res = await fetch(`/api/job-hunt/companies?${params}`)
       const data = await res.json()
@@ -53,7 +67,7 @@ export default function JobHuntCompaniesPage() {
       setCompanies([])
     }
     setLoading(false)
-  }, [industryFilter, watchingOnly])
+  }, [industryFilter, cityFilter, watchingOnly])
 
   useEffect(() => { load() }, [load])
 
@@ -92,6 +106,12 @@ export default function JobHuntCompaniesPage() {
           </button>
         ))}
         <div className="w-px h-4 bg-white/10 mx-1" />
+        <select value={cityFilter} onChange={(e) => setCityFilter(e.target.value)}
+          className="text-[11px] px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.02] text-on-surface-variant/80">
+          <option value="">All cities (Canada)</option>
+          {allCities.map((city) => <option key={city} value={city}>{city}</option>)}
+        </select>
+        <div className="w-px h-4 bg-white/10 mx-1" />
         <button onClick={() => setWatchingOnly((v) => !v)}
           className={`flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border transition ${watchingOnly ? 'border-white/25 bg-white/[0.06] text-on-surface' : 'border-white/10 text-on-surface-variant/60'}`}>
           <Star size={11} className={watchingOnly ? 'fill-current' : ''} /> Watching only
@@ -118,7 +138,9 @@ export default function JobHuntCompaniesPage() {
                   {c.description && <p className="text-[11.5px] text-on-surface-variant/70 line-clamp-2">{c.description}</p>}
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full capitalize ${SIZE_TONE[c.size] ?? 'bg-white/5 text-on-surface-variant'}`}>{c.size}</span>
-                    <span className="text-[10px] flex items-center gap-1 text-on-surface-variant/60"><MapPin size={10} /> {c.province}</span>
+                    <span className="text-[10px] flex items-center gap-1 text-on-surface-variant/60">
+                      <MapPin size={10} /> {c.city ? `${c.city}, ${c.province}` : c.province}
+                    </span>
                     {c.careers_url && (
                       <a href={c.careers_url} target="_blank" rel="noopener noreferrer" className="text-[10px] flex items-center gap-1 text-on-surface-variant/60 hover:text-on-surface ml-auto">
                         careers <ExternalLink size={10} />

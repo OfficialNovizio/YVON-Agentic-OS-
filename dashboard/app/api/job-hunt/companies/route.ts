@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const industries = searchParams.get('industries')?.split(',').filter(Boolean) ?? []
   const provinces = searchParams.get('provinces')?.split(',').filter(Boolean) ?? []
+  const cities = searchParams.get('cities')?.split(',').filter(Boolean) ?? []
   const sizes = searchParams.get('sizes')?.split(',').filter(Boolean) ?? []
   const watching = searchParams.get('watching') === 'true'
 
@@ -27,6 +28,7 @@ export async function GET(req: NextRequest) {
 
     if (industries.length) query = query.in('industry', industries)
     if (provinces.length) query = query.in('province', provinces)
+    if (cities.length) query = query.in('city', cities)
     if (sizes.length) query = query.in('size', sizes)
     if (watching) query = query.eq('is_watching', true)
 
@@ -73,6 +75,7 @@ export async function POST(req: NextRequest) {
         domain: body.domain ?? null,
         industry: body.industry,
         province: body.province,
+        city: body.city ?? null,
         size: body.size ?? 'medium',
         description: body.description ?? null,
         careers_url: body.careers_url ?? null,

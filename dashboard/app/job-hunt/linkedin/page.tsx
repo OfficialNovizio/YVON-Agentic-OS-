@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Card } from '@/components/ui'
 import { Loader2, Plus, Sparkles, Trash2, X, Copy, Linkedin, Key, Send, CheckCircle2 } from 'lucide-react'
+import LinkedInImportSection from './ImportSection'
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  JOB HUNT — LINKEDIN CONTENT LAB (2026-08-15)
@@ -261,6 +262,8 @@ export default function JobHuntLinkedInPage() {
           </div>
         )}
       </Card>
+
+      <LinkedInImportSection />
 
       {addingIdea && (
         <Card className="p-3.5 mb-4 flex flex-col gap-2">
