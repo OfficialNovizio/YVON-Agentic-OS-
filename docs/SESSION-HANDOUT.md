@@ -15,6 +15,11 @@ MemPalace client-onboarding pipeline (artifacts 1–4, `ADR-002`), turn-correlat
 across dashboard + Hermes, and the CAOS panel redesign — a fuller §-level writeup of that work is
 still owed to this handout.*
 
+*Addendum 2026-08-15: §12 added — Job Hunt module, OrgBook BC automation session. **Local commit
+`5310eac` is made but NOT pushed — `git push` is currently blocked by the deploy-gate** (2 real
+findings, 1 gate bug). Read §12 first if resuming this thread; it has the exact fix + the
+still-open user decision blocking the cron-count finding.*
+
 > **This file is the durable memory of the project.** In-session task lists are ephemeral and
 > die with the session — anything that must survive lives here. It is written to be
 > **self-contained and exportable**: a fresh session, a different AI, or a human should be
@@ -720,6 +725,101 @@ TASK-SPEC is **refused**, and the refusal names the exact command to fix it.
 - **3 BOD passwords were shared in chat** — rotate via `dashboard/supabase/scripts/seed-bod-users.sql` (never commit real values)
 - **`OPENAI_API_KEY` + `KREA_API_KEY` exposed in chat** — rotate; OpenAI key also lives in the systemd drop-in + Vercel env (§2 M2)
 - **`node cli/yvon.js agents`** is a stub — prints "Run: npx yvon init"
+
+---
+
+## 12. Job Hunt module — 2026-08-15 session (OrgBook automation) — **git push currently BLOCKED**
+
+**Read this first if resuming.** Everything below is committed locally (`main @ 5310eac`,
+"job-hunt: automatic OrgBook BC lead pull via Vercel cron", 32 files) but **not yet pushed** —
+`git push origin main` is rejected by the pre-push deploy-gate (`cli/verify-deploy.sh`, installed
+at `.git/hooks/pre-push`). Do NOT `git push --no-verify` to bypass; one of the two findings is a
+real Vercel deploy-time rejection, not a false alarm. Fix order below.
+
+### What shipped this session (all real, sourced, working)
+
+- **`target_companies` expanded 22 → 91** across Aerospace/IT/Trucking/Drone/Business (migration
+  `129`), every row WebSearch-sourced, `domain`/`careers_url` left `NULL` where not confidently
+  found (not invented).
+- **Company-suggestions bar** on `/job-hunt/companies` — surfaces real employers seen in
+  `job_postings` that aren't on the watchlist yet (`api/job-hunt/companies/suggestions`).
+- **OrgBook BC integration** — the BC government's free public corporate-registry API
+  (`orgbook.gov.bc.ca/api/v4/search/topic`), not scraped. Empirically confirmed hard pagination
+  cap: every keyword 400s at page 11 (offset 100) regardless of the `total` field it reports —
+  treated as graceful end-of-results everywhere (`lib/job-hunt/orgbook.ts`).
+- **`company_leads` table** (migration `130`) + review/promote UI at `/job-hunt/companies/leads`
+  — raw unverified leads, a human promotes real ones into `target_companies`.
+- **Three layered pull mechanisms**, all sharing `lib/job-hunt/orgbook.ts`:
+  1. `dashboard/scripts/fetch-orgbook-leads.mjs` — manual CLI fallback. Already run once for
+     real: **2,694 genuinely new BC leads** pulled across 29 industry keywords.
+  2. "Pull leads now" button on `/job-hunt/companies/leads` — browser-driven, one OrgBook page
+     per API call (`api/job-hunt/companies/leads/fetch-batch`), no terminal needed.
+  3. **Vercel cron** `api/job-hunt/companies/leads/cron` (migration `131` for the resumable
+     cursor row `company_lead_pull_state`) — fully automatic once deployed, processes one
+     keyword's full pagination per tick, cycles all 29 keywords forever. **This is the piece
+     that's currently blocked from deploying — see below.**
+- `cd dashboard && npx tsc --noEmit` — clean across the whole app as of this commit.
+
+### The push blocker — 2 real deploy-gate findings + 1 gate bug
+
+Running `bash cli/verify-deploy.sh` (or `git push`, which runs it via the hook) reports:
+
+1. **Gate bug (false positive) — FIXED, not yet re-verified.** `check_undeclared_imports` in
+   `cli/verify-deploy.sh` misfires on `dashboard/app/job-hunt/linkedin/ImportSection.tsx`. Root
+   cause: its regex looks for the literal word `import` followed (eventually) by a quote to spot
+   dynamic `import('pkg')` / side-effect `import 'pkg'` statements — but the file has
+   `fetch('/api/job-hunt/linkedin/import')`, where `import` is just the tail of a URL path
+   string. The regex doesn't understand string-literal boundaries, so it treats that string's
+   *closing* quote as if it opened a new import spec, then greedily captures every char up to the
+   *next* quote anywhere later in the file (landed mid-way through the next function, `+20`
+   lines) and reports that whole blob as an "undeclared package". **Fix applied:** added a
+   negative lookbehind `(?<![\w/.])` before each `import`/`require` branch in the regex (rejects
+   matches preceded by a word char, `/`, or `.` — i.e. rejects "part of a path/property access",
+   accepts "real statement/keyword position"). Not yet re-run to confirm this closes check 1
+   clean — do that first on resume.
+2. **Real finding — UNRESOLVED, needs a decision.** `vercel.json` now has 3 cron entries
+   (`/api/briefing` 7am, `/api/trending` 9am, `/api/job-hunt/companies/leads/cron` 8am) but
+   Vercel's Hobby plan hard-caps at 2 crons — this will be rejected at deploy time, not just by
+   the local gate (`VERCEL_PLAN` defaults to `hobby` in `cli/verify-deploy.sh` §CHECK 5). **Asked
+   the operator to choose; they deferred the decision to next session ("wait here update handout
+   from where to start for next session to fix git push error as well").** Three options were on
+   the table, none picked yet:
+   - **On Vercel Pro already?** → limit is 40, not 2. If so, just bump `VERCEL_PLAN=pro` when
+     running the gate (or hardcode `VERCEL_PLAN="pro"` at the top of `cli/verify-deploy.sh` if
+     the account is confirmed Pro) and this finding disappears — no code changes needed.
+   - **Still on Hobby, merge into `/api/trending`** — fold the OrgBook single-tick logic
+     (currently in `api/job-hunt/companies/leads/cron/route.ts`) into the existing
+     `api/trending/route.ts` so it runs both jobs once daily at 9am; delete the 3rd `vercel.json`
+     entry.
+   - **Still on Hobby, merge into `/api/briefing`** — same idea, fold into `api/briefing/route.ts`
+     (7am) instead.
+   First question to ask the operator on resume: *which Vercel plan is this project actually on?*
+   That alone resolves it in one message.
+
+### Exact next steps on resume
+
+1. Confirm which Vercel plan — resolves finding 2 (see above).
+2. If merging: move the tick logic out of `api/job-hunt/companies/leads/cron/route.ts` into
+   whichever existing cron route was chosen, keep the `CRON_SECRET` auth + `company_lead_pull_state`
+   cursor logic as-is (it's route-agnostic), then delete the extra `vercel.json` entry and the now-
+   unused standalone route file.
+3. Re-run `bash cli/verify-deploy.sh` from repo root — expect all 8 checks green.
+4. `git push origin main` (should succeed once gate is green; no `--no-verify` needed).
+5. On Vercel: confirm `CRON_SECRET` env var is set (very likely already is — `/api/briefing` and
+   `/api/trending` already depend on it) and watch the first cron tick's logs after deploy.
+6. Tell the operator the real cadence tradeoff once live: on Hobby (daily crons only), a full
+   29-keyword OrgBook cycle takes ~29 days before repeating; Pro allows tightening the schedule
+   (e.g. every 15–30 min) for a same-day full cycle.
+
+### Known gaps carried forward (not yet acted on, only caveated to operator)
+
+- OrgBook BC is BC-only. Same-shape "5k+ real companies" treatment for other provinces needs an
+  equivalent per-province registry API researched first.
+- `domain`/`careers_url` still `NULL` for the entire migration-129 batch (69 companies) — flagged
+  as a follow-up enrichment item in that migration's own header comment.
+- ScrapeGraphAI (task #112 in the in-session task list) is a dead end **specifically in this
+  sandbox** — no root, blocked package mirror, `libXdamage.so.1` unfixable here. Works fine on a
+  real machine/VPS with root; not worth revisiting from this sandbox.
 
 ---
 

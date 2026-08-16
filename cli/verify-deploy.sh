@@ -73,7 +73,16 @@ node_builtins={'fs','path','os','crypto','http','https','stream','util','url','c
   'events','buffer','querystring','zlib','net','tls','dns','readline','process','assert','module',
   'perf_hooks','worker_threads','timers','string_decoder','punycode','async_hooks','http2','constants',
   'vm','v8','cluster','tty','dgram','inspector','trace_events','sqlite','test','wasi'}
-imp=re.compile(r'''(?:import\s[^'"]*from\s*|import\s*\(?\s*|require\(\s*)['"]([^'"]+)['"]''')
+# Negative lookbehind (?<![\w/.]) before each import/require branch rejects
+# matches where the keyword is really the tail of a path or property access
+# (e.g. fetch('/api/.../import') or data.import) — those aren't JS import
+# syntax, they're characters inside a string/identifier that happen to spell
+# "import". Real import/require keywords are never directly preceded by a
+# word char, "/", or ".". Bug found 2026-08-15: without this guard, a URL
+# literal ending in "/import" made the regex treat that string's own closing
+# quote as an import-spec opening quote, then greedily capture everything up
+# to the next unrelated quote in the file as a fake "undeclared package".
+imp=re.compile(r'''(?:(?<![\w/.])import\s[^'"]*from\s*|(?<![\w/.])import\s*\(?\s*|(?<![\w/.])require\(\s*)['"]([^'"]+)['"]''')
 # Strip block comments so /** @type {import('x')} */ hints don't count as imports.
 strip_block=re.compile(r'/\*[\s\S]*?\*/')
 strip_line=re.compile(r'^\s*//.*$', re.M)
