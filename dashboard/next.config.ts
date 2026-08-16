@@ -27,6 +27,15 @@ const csp = [
 ].join('; ')
 
 const nextConfig: NextConfig = {
+  // 2026-08-15: pdf-parse (wraps pdfjs-dist) and mammoth crashed Job Hunt's
+  // resume analysis route with "TypeError: Object.defineProperty called on
+  // non-object" — webpack's CJS/ESM interop shim for Server Components chokes
+  // on these packages' module internals when bundled. Neither is in Next's
+  // default serverExternalPackages allowlist. Opting both out of bundling so
+  // Node's native require() loads them at runtime instead — the documented
+  // fix for this exact error class (github.com/vercel/next.js server
+  // external packages docs).
+  serverExternalPackages: ['pdf-parse', 'mammoth'],
   // 2026-08-12 (same day, follow-up to the DefinePlugin below): `output:
   // 'standalone'` (+ its `outputFileTracingRoot`) removed — Vercel advises
   // against standalone output on their own platform (they produce their own
