@@ -143,6 +143,18 @@ function oaiMessages(system: string | undefined, messages: AIMessage[]) {
   ]
 }
 
+// 2026-08-15: OpenAI's newer chat-completions models (o1/o3-family, and now
+// gpt-5.x — confirmed live via a real 400 from api.openai.com: "Unsupported
+// parameter: 'max_tokens' is not supported with this model. Use
+// 'max_completion_tokens' instead.") reject the classic `max_tokens` param.
+// Scoped to api.openai.com specifically — third-party OpenAI-compatible
+// servers (DeepSeek, OpenRouter, local vLLM/llama.cpp, etc.) generally only
+// understand `max_tokens` and would break the other way if this applied
+// globally.
+function maxTokensParamName(baseUrl: string): 'max_completion_tokens' | 'max_tokens' {
+  return baseUrl.toLowerCase().includes('api.openai.com') ? 'max_completion_tokens' : 'max_tokens'
+}
+
 async function oaiCall(
   baseUrl: string,
   apiKey:  string,
@@ -156,7 +168,7 @@ async function oaiCall(
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method:  'POST',
     headers,
-    body:    JSON.stringify({ model, max_tokens: maxTokens, messages: msgs }),
+    body:    JSON.stringify({ model, [maxTokensParamName(baseUrl)]: maxTokens, messages: msgs }),
   })
   if (!res.ok) throw new Error(`${baseUrl} ${res.status}: ${await res.text()}`)
   const data = await res.json() as { choices: Array<{ message: { content?: string; reasoning_content?: string } }> }
@@ -177,7 +189,7 @@ async function* oaiStream(
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method:  'POST',
     headers,
-    body:    JSON.stringify({ model, max_tokens: maxTokens, messages: msgs, stream: true }),
+    body:    JSON.stringify({ model, [maxTokensParamName(baseUrl)]: maxTokens, messages: msgs, stream: true }),
   })
   if (!res.ok || !res.body) throw new Error(`${baseUrl} ${res.status}`)
 
