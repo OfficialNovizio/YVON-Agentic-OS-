@@ -81,7 +81,10 @@ function getAgentScripts(agentId) {
     })() || (0, path_1.resolve)(process.cwd(), 'Teams');
     // Search all departments for this agent
     const depts = ['Executive Office', 'Governance', 'Engineering', 'Cybersecurity',
-        'Product', 'AI & Agents', 'Brand Studio'];
+        'Product', 'AI & Agents', 'Brand Studio',
+        // 2026-08-15 — 6 new departments merged in from origin.
+        'Client Success', 'Comms & PR', 'Global Expansion',
+        'Growth & Partnerships', 'People & Culture', 'Risk & ESG'];
     for (const dept of depts) {
         const breqPath = (0, path_1.join)(teamsDir, dept, agentId, 'logical', 'book-requirements.md');
         if ((0, fs_1.existsSync)(breqPath)) {
@@ -164,7 +167,10 @@ function getSharedOsContext(agentId, taskType, venture) {
 function getAllAgentScriptMappings() {
     const result = {};
     for (const dept of ['Executive Office', 'Governance', 'Engineering', 'Cybersecurity',
-        'Product', 'AI & Agents', 'Brand Studio']) {
+        'Product', 'AI & Agents', 'Brand Studio',
+        // 2026-08-15 — 6 new departments merged in from origin.
+        'Client Success', 'Comms & PR', 'Global Expansion',
+        'Growth & Partnerships', 'People & Culture', 'Risk & ESG']) {
         const deptPath = (0, path_1.join)((0, path_1.resolve)(__dirname, '..', '..', '..', 'Teams'), dept);
         if (!(0, fs_1.existsSync)(deptPath))
             continue;

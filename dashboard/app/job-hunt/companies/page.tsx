@@ -1,8 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import Link from 'next/link'
 import { Card } from '@/components/ui'
-import { Star, ExternalLink, MapPin, Loader2 } from 'lucide-react'
+import { Star, ExternalLink, MapPin, Loader2, ChevronDown, Plus, Sparkles, ListChecks } from 'lucide-react'
+import { PROVINCES, citiesFor } from '@/lib/job-hunt/canada-geo'
+import { INDUSTRIES, MultiSelect, AddCompanyModal, type AddForm } from './shared'
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  JOB HUNT — COMPANIES (2026-08-15)
@@ -26,7 +29,6 @@ interface Company {
   open_roles: number
 }
 
-const INDUSTRIES = ['Aerospace', 'IT', 'Trucking', 'Drone', 'Business']
 const SIZE_TONE: Record<string, string> = {
   startup: 'bg-primary/10 text-primary',
   small: 'bg-primary/10 text-primary',
@@ -35,30 +37,52 @@ const SIZE_TONE: Record<string, string> = {
   enterprise: 'bg-emerald-400/10 text-emerald-300',
 }
 
+interface Suggestion {
+  name: string
+  locations: string[]
+  postingCount: number
+  sampleUrl: string | null
+}
+
 export default function JobHuntCompaniesPage() {
   const [companies, setCompanies] = useState<Company[]>([])
-  const [allCities, setAllCities] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [industryFilter, setIndustryFilter] = useState<string | null>(null)
-  const [cityFilter, setCityFilter] = useState('')
+  const [provinceFilter, setProvinceFilter] = useState<string[]>([])
+  const [cityFilter, setCityFilter] = useState<string[]>([])
   const [watchingOnly, setWatchingOnly] = useState(false)
 
-  // Full, unfiltered city list for the dropdown — fetched once, independent
-  // of active filters (otherwise the dropdown's own options would shrink as
-  // you filter, which is confusing).
-  useEffect(() => {
-    fetch('/api/job-hunt/companies').then((r) => r.json()).then((d: { companies?: Company[] }) => {
-      const cities = [...new Set((d.companies ?? []).map((c) => c.city).filter((c): c is string => !!c))].sort()
-      setAllCities(cities)
-    }).catch(() => setAllCities([]))
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  const [suggestionsOpen, setSuggestionsOpen] = useState(true)
+  const [addModal, setAddModal] = useState<{ open: boolean; prefill?: Partial<AddForm> }>({ open: false })
+
+  const loadSuggestions = useCallback(async () => {
+    try {
+      const res = await fetch('/api/job-hunt/companies/suggestions')
+      const data = await res.json()
+      setSuggestions(data.suggestions ?? [])
+    } catch {
+      setSuggestions([])
+    }
   }, [])
+  useEffect(() => { loadSuggestions() }, [loadSuggestions])
+
+  // City choices scoped to selected province(s) — from the bundled Canada
+  // dataset (all 1080 cities across 13 provinces/territories), not just the
+  // handful of cities that happen to already have a seed company. If a
+  // selected city falls outside the newly-narrowed province set, drop it.
+  const cityOptions = useMemo(() => citiesFor(provinceFilter), [provinceFilter])
+  useEffect(() => {
+    setCityFilter((prev) => prev.filter((c) => cityOptions.includes(c)))
+  }, [cityOptions])
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
       if (industryFilter) params.set('industries', industryFilter)
-      if (cityFilter) params.set('cities', cityFilter)
+      if (provinceFilter.length) params.set('provinces', provinceFilter.join(','))
+      if (cityFilter.length) params.set('cities', cityFilter.join(','))
       if (watchingOnly) params.set('watching', 'true')
       const res = await fetch(`/api/job-hunt/companies?${params}`)
       const data = await res.json()
@@ -67,7 +91,7 @@ export default function JobHuntCompaniesPage() {
       setCompanies([])
     }
     setLoading(false)
-  }, [industryFilter, cityFilter, watchingOnly])
+  }, [industryFilter, provinceFilter, cityFilter, watchingOnly])
 
   useEffect(() => { load() }, [load])
 
@@ -79,6 +103,8 @@ export default function JobHuntCompaniesPage() {
     })
   }, [])
 
+  const onCompanySaved = useCallback(() => { load(); loadSuggestions() }, [load, loadSuggestions])
+
   const grouped = useMemo(() => {
     const byIndustry: Record<string, Company[]> = {}
     for (const c of companies) (byIndustry[c.industry] ??= []).push(c)
@@ -87,12 +113,49 @@ export default function JobHuntCompaniesPage() {
 
   return (
     <div>
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold tracking-tight text-on-surface">Companies</h1>
-        <p className="mt-1 text-sm text-on-surface-variant max-w-2xl">
-          Your target company watchlist across Aerospace, IT, Trucking, Drone, and Business — star the ones worth checking regularly.
-        </p>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-on-surface">Companies</h1>
+          <p className="mt-1 text-sm text-on-surface-variant max-w-2xl">
+            Your target company watchlist across Aerospace, IT, Trucking, Drone, and Business — star the ones worth checking regularly.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Link href="/job-hunt/companies/leads"
+            className="flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-lg border border-white/10 text-on-surface-variant hover:text-on-surface hover:border-white/25 transition">
+            <ListChecks size={13} /> Raw leads (BC)
+          </Link>
+          <button onClick={() => setAddModal({ open: true })}
+            className="flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-lg bg-primary text-on-primary">
+            <Plus size={13} /> Add company
+          </button>
+        </div>
       </div>
+
+      {suggestions.length > 0 && (
+        <Card className="p-3 mb-4 border-tertiary/20">
+          <button onClick={() => setSuggestionsOpen((v) => !v)} className="w-full flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5 text-[11.5px] font-medium text-on-surface">
+              <Sparkles size={12} className="text-tertiary" /> {suggestions.length} companies from real job postings not on your watchlist yet
+            </span>
+            <ChevronDown size={13} className={`text-on-surface-variant/50 transition ${suggestionsOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {suggestionsOpen && (
+            <div className="flex flex-wrap gap-1.5 mt-2.5">
+              {suggestions.slice(0, 40).map((s) => (
+                <button key={s.name}
+                  onClick={() => setAddModal({ open: true, prefill: { name: s.name, city: s.locations[0]?.split(',')[0]?.trim() ?? '' } })}
+                  className="flex items-center gap-1 text-[10.5px] px-2 py-1 rounded-full border border-white/10 bg-white/[0.02] text-on-surface-variant hover:border-white/25 hover:text-on-surface transition">
+                  <Plus size={9} /> {s.name}
+                  <span className="text-on-surface-variant/40">
+                    {s.locations[0] ? ` · ${s.locations[0]}` : ''}{s.postingCount > 1 ? ` (${s.postingCount})` : ''}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <button onClick={() => setIndustryFilter(null)}
@@ -106,11 +169,21 @@ export default function JobHuntCompaniesPage() {
           </button>
         ))}
         <div className="w-px h-4 bg-white/10 mx-1" />
-        <select value={cityFilter} onChange={(e) => setCityFilter(e.target.value)}
-          className="text-[11px] px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.02] text-on-surface-variant/80">
-          <option value="">All cities (Canada)</option>
-          {allCities.map((city) => <option key={city} value={city}>{city}</option>)}
-        </select>
+        <MultiSelect
+          label="Province"
+          allLabel="All provinces"
+          options={PROVINCES.map((p) => ({ value: p.code, label: `${p.name} (${p.code})` }))}
+          selected={provinceFilter}
+          onChange={setProvinceFilter}
+        />
+        <MultiSelect
+          label="City"
+          allLabel={provinceFilter.length ? 'All cities in province' : 'All cities (Canada)'}
+          options={cityOptions.map((c) => ({ value: c, label: c }))}
+          selected={cityFilter}
+          onChange={setCityFilter}
+          searchable
+        />
         <div className="w-px h-4 bg-white/10 mx-1" />
         <button onClick={() => setWatchingOnly((v) => !v)}
           className={`flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border transition ${watchingOnly ? 'border-white/25 bg-white/[0.06] text-on-surface' : 'border-white/10 text-on-surface-variant/60'}`}>
@@ -153,6 +226,13 @@ export default function JobHuntCompaniesPage() {
           </div>
         ))
       )}
+
+      <AddCompanyModal
+        open={addModal.open}
+        prefill={addModal.prefill}
+        onClose={() => setAddModal({ open: false })}
+        onSaved={onCompanySaved}
+      />
     </div>
   )
 }

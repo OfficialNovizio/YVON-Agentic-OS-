@@ -8,6 +8,10 @@
     {
       "path": "/api/trending",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/job-hunt/companies/leads/cron",
+      "schedule": "0 8 * * *"
     }
   ]
 }

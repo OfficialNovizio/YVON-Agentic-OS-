@@ -117,7 +117,10 @@ function retrieveContext(profile) {
         if (config.toonEnabled) {
             const teamsDir = config.teamsPath || (0, path_1.join)(config.projectRoot, 'Teams');
             const depts = ['Executive Office', 'Governance', 'Engineering', 'Cybersecurity',
-                'Product', 'AI & Agents', 'Brand Studio'];
+                'Product', 'AI & Agents', 'Brand Studio',
+                // 2026-08-15 — 6 new departments merged in from origin.
+                'Client Success', 'Comms & PR', 'Global Expansion',
+                'Growth & Partnerships', 'People & Culture', 'Risk & ESG'];
             for (const dept of depts) {
                 const agentDir = (0, path_1.join)(teamsDir, dept, profile.agentId);
                 if (!(0, fs_1.existsSync)(agentDir))
