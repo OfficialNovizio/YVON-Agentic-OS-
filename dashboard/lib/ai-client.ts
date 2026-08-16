@@ -161,19 +161,41 @@ async function oaiCall(
   model:   string,
   msgs:    { role: string; content: string }[],
   maxTokens: number,
+  jsonMode?: boolean,
 ): Promise<string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`
 
+  // jsonMode is opt-in per call (routes that need strict JSON back, e.g. Job
+  // Hunt's resume analyzer) — only applied against api.openai.com, since
+  // third-party OpenAI-compatible servers don't reliably support
+  // response_format and callers that don't pass it (LinkedIn drafts, cover
+  // letters, etc.) still get plain text as before.
+  const useJsonMode = jsonMode && baseUrl.toLowerCase().includes('api.openai.com')
+
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method:  'POST',
     headers,
-    body:    JSON.stringify({ model, [maxTokensParamName(baseUrl)]: maxTokens, messages: msgs }),
+    body:    JSON.stringify({
+      model,
+      [maxTokensParamName(baseUrl)]: maxTokens,
+      messages: msgs,
+      ...(useJsonMode ? { response_format: { type: 'json_object' } } : {}),
+    }),
   })
   if (!res.ok) throw new Error(`${baseUrl} ${res.status}: ${await res.text()}`)
-  const data = await res.json() as { choices: Array<{ message: { content?: string; reasoning_content?: string } }> }
+  const data = await res.json() as { choices: Array<{ message: { content?: string; reasoning_content?: string }; finish_reason?: string }> }
   // Prefer content; fall back to reasoning_content for Qwen3/local models that blend thinking+reply
-  return data.choices[0]?.message?.content || data.choices[0]?.message?.reasoning_content || ''
+  const text = data.choices[0]?.message?.content || data.choices[0]?.message?.reasoning_content || ''
+  if (!text && data.choices[0]?.finish_reason === 'length') {
+    // Reasoning-tier models (o1/o3/gpt-5.x-class) count hidden reasoning
+    // tokens against the same budget as maxTokens — if the budget runs out
+    // mid-thought, content comes back empty with finish_reason "length"
+    // instead of an error. Surface that distinctly so callers know to raise
+    // maxTokens rather than debugging a phantom "no JSON" parse failure.
+    throw new Error(`Model ran out of tokens before producing output (finish_reason: length). Try a higher maxTokens — reasoning models spend part of the budget on hidden reasoning tokens.`)
+  }
+  return text
 }
 
 async function* oaiStream(
@@ -243,6 +265,8 @@ export async function callFast(params: {
   system?:   string
   messages:  AIMessage[]
   maxTokens: number
+  /** Opt-in strict JSON response (OpenAI's response_format=json_object). No-op on non-OpenAI backends. */
+  jsonMode?: boolean
 }): Promise<string> {
   const cfg = await loadConfig()
 
@@ -270,6 +294,7 @@ export async function callFast(params: {
     cfg.fastModel,
     oaiMessages(params.system, params.messages),
     params.maxTokens,
+    params.jsonMode,
   )
 }
 
@@ -279,6 +304,8 @@ export async function callSynthesis(params: {
   system?:   string
   messages:  AIMessage[]
   maxTokens: number
+  /** Opt-in strict JSON response (OpenAI's response_format=json_object). No-op on non-OpenAI backends. */
+  jsonMode?: boolean
 }): Promise<string> {
   const cfg = await loadConfig()
 
@@ -305,6 +332,7 @@ export async function callSynthesis(params: {
     cfg.synthesisModel,
     oaiMessages(params.system, params.messages),
     params.maxTokens,
+    params.jsonMode,
   )
 }
 

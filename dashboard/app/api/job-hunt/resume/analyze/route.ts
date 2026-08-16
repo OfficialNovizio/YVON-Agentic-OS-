@@ -38,8 +38,21 @@ function getServiceClient() {
 function extractJson(text: string): Record<string, unknown> {
   const cleaned = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '')
   const match = cleaned.match(/\{[\s\S]*\}/)
-  if (!match) throw new Error('Model did not return JSON')
-  return JSON.parse(match[0])
+  if (!match) {
+    // 2026-08-15: this used to throw a bare "Model did not return JSON" with
+    // no way to tell whether the model returned nothing, refused, or wrapped
+    // valid JSON in unexpected prose. Logging + surfacing a snippet so the
+    // next failure (if any) is diagnosable from the error alone.
+    console.error('[resume/analyze] model did not return parseable JSON. Raw response (first 500 chars):', text.slice(0, 500))
+    const snippet = text.trim() ? text.trim().slice(0, 200) : '(empty response)'
+    throw new Error(`Model did not return JSON. Raw response started with: ${snippet}`)
+  }
+  try {
+    return JSON.parse(match[0])
+  } catch (e) {
+    console.error('[resume/analyze] matched a { ... } block but it failed to parse:', match[0].slice(0, 500))
+    throw new Error(`Model's JSON was malformed: ${e instanceof Error ? e.message : String(e)}`)
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -122,7 +135,16 @@ ${resumeText}
 
 Return only valid JSON. No markdown, no explanation.`
 
-    const raw = await callSynthesis({ messages: [{ role: 'user', content: analysisPrompt }], maxTokens: 1800 })
+    // maxTokens bumped from 1800: reasoning-tier models (o1/o3/gpt-5.x-class)
+    // spend part of the budget on hidden reasoning tokens before producing
+    // visible output, so a tight budget can come back empty. jsonMode asks
+    // OpenAI's response_format=json_object to guarantee valid JSON output
+    // (no-op on non-OpenAI backends — see lib/ai-client.ts).
+    const raw = await callSynthesis({
+      messages: [{ role: 'user', content: analysisPrompt }],
+      maxTokens: 4000,
+      jsonMode: true,
+    })
     const analysis = extractJson(raw)
 
     if (!job_description) {
