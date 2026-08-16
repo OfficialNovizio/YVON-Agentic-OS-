@@ -8,6 +8,7 @@ import { usePathname } from 'next/navigation'
 const TABS = [
   { href: '/job-hunt', label: 'Profile' },
   { href: '/job-hunt/discover', label: 'Discover' },
+  { href: '/job-hunt/companies', label: 'Companies' },
 ]
 
 export default function JobHuntLayout({ children }: { children: React.ReactNode }) {

@@ -24,14 +24,23 @@ function getServiceClient() {
   return createClient(url, key)
 }
 
-async function deriveQueryFromProfile(sb: ReturnType<typeof getServiceClient>): Promise<string> {
+// Falls back to the Master Profile when the caller doesn't pass a query or
+// industry — first a literal target-role title (target_roles.primary[0]),
+// then the first primary-fit archetype's leading industry word (e.g.
+// "Aerospace / Aviation Engineering" -> "Aerospace", matching
+// INDUSTRY_TO_ADZUNA's keys) so Adzuna gets a usable category+keyword pair
+// even before the operator has typed a specific job title.
+async function deriveFromProfile(sb: ReturnType<typeof getServiceClient>): Promise<{ query: string; industry: string }> {
   const { data } = await sb.from('job_hunt_profile').select('target_roles').eq('id', 'operator').maybeSingle()
-  const primary = (data?.target_roles as { primary?: string[] } | null)?.primary
-  return primary?.[0] ?? ''
+  const roles = data?.target_roles as { primary?: string[]; archetypes?: { name?: string; fit?: string }[] } | null
+  const query = roles?.primary?.[0] ?? ''
+  const primaryArchetype = roles?.archetypes?.find((a) => a.fit === 'primary')
+  const industry = primaryArchetype?.name?.split('/')[0]?.trim() ?? ''
+  return { query, industry }
 }
 
 export async function POST(request: NextRequest) {
-  let body: { query?: string; location?: string; sources?: string[]; limit?: number }
+  let body: { query?: string; location?: string; sources?: string[]; limit?: number; industry?: string; province?: string }
   try {
     body = await request.json()
   } catch {
@@ -41,7 +50,10 @@ export async function POST(request: NextRequest) {
   try {
     const sb = getServiceClient()
 
-    const query = body.query?.trim() || (await deriveQueryFromProfile(sb))
+    const needsFallback = !body.query?.trim() && !body.industry?.trim()
+    const fallback = needsFallback ? await deriveFromProfile(sb) : { query: '', industry: '' }
+    const query = body.query?.trim() || fallback.query
+    const industry = body.industry?.trim() || fallback.industry
     const limit = body.limit ?? 25
     const requestedIds = body.sources?.length ? new Set(body.sources) : null
     const sources = JOB_SOURCES.filter((s) => !requestedIds || requestedIds.has(s.id))
@@ -54,7 +66,11 @@ export async function POST(request: NextRequest) {
       sources.map(async (s) => {
         const keyRow = configBySource.get(s.id)
         if (s.needsKey && (!keyRow || keyRow.enabled === false)) return { id: s.id, jobs: [] as NormalizedJob[], skipped: 'not configured' }
-        const jobs = await s.search({ query, location: body.location, limit, config: keyRow?.config as Record<string, unknown> | undefined })
+        const jobs = await s.search({
+          query, location: body.location, limit,
+          industry, province: body.province,
+          config: keyRow?.config as Record<string, unknown> | undefined,
+        })
         return { id: s.id, jobs, skipped: null as string | null }
       }),
     )
@@ -108,7 +124,7 @@ export async function POST(request: NextRequest) {
       upserted = count ?? deduped.length
     }
 
-    return Response.json({ ok: true, query, upserted, totalFound: deduped.length, sourceStatus })
+    return Response.json({ ok: true, query, industry, upserted, totalFound: deduped.length, sourceStatus })
   } catch (err) {
     return Response.json({ error: String(err) }, { status: 500 })
   }

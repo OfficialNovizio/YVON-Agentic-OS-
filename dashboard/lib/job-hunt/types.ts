@@ -22,6 +22,10 @@ export interface SourceSearchOptions {
   limit?: number
   /** Per-source credentials, e.g. { app_id, app_key } for Adzuna. */
   config?: Record<string, unknown>
+  /** Industry tag driving Adzuna's category+keyword mapping (Aerospace/IT/Trucking/Drone/Business). */
+  industry?: string
+  /** Canadian province code (ON/BC/AB/QC/MB/SK/...) driving Adzuna's location mapping. */
+  province?: string
 }
 
 export interface JobSource {

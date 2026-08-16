@@ -13,6 +13,14 @@ import { Search, Loader2, ExternalLink, Bookmark, Archive, MapPin, Building2, Ke
 // stores results as status='discovered'. This page's only write action is
 // "Queue" (status -> 'queued') or "Archive" — it never applies to anything.
 // LinkedIn is deliberately not a source here (ToS risk).
+//
+// 2026-08-15 course-correction: the operator's real target is Canada-based,
+// 5 industries (Aerospace/IT/Trucking/Drone/Business) — pulled from their
+// own prior YVON-OS design. Adzuna now takes Industry + Province and maps
+// them the same way that design did (lib/job-hunt/sources/adzuna.ts). The
+// Greenhouse source (an AI-labs company list from career-ops) doesn't match
+// this profile, so it's off by default — still there, still correct for
+// what it is, just not relevant here.
 
 interface SourceMeta { id: string; label: string; needsKey: boolean }
 const SOURCES: SourceMeta[] = [
@@ -20,9 +28,13 @@ const SOURCES: SourceMeta[] = [
   { id: 'remoteok', label: 'RemoteOK', needsKey: false },
   { id: 'remotive', label: 'Remotive', needsKey: false },
   { id: 'arbeitnow', label: 'Arbeitnow', needsKey: false },
-  { id: 'greenhouse', label: 'Greenhouse (tracked cos.)', needsKey: false },
   { id: 'freehire', label: 'freehire', needsKey: false },
+  { id: 'greenhouse', label: 'Greenhouse (AI-labs list — off by default, not this profile)', needsKey: false },
 ]
+const DEFAULT_ENABLED = new Set(SOURCES.filter((s) => s.id !== 'greenhouse').map((s) => s.id))
+
+const INDUSTRIES = ['Aerospace', 'IT', 'Trucking', 'Drone', 'Business']
+const PROVINCES = ['ON', 'BC', 'AB', 'QC', 'MB', 'SK', 'NS', 'NB', 'Remote']
 
 interface Posting {
   id: string
@@ -53,7 +65,9 @@ function timeAgo(iso: string | null): string {
 export default function JobHuntDiscoverPage() {
   const [query, setQuery] = useState('')
   const [location, setLocation] = useState('')
-  const [enabledSources, setEnabledSources] = useState<Set<string>>(new Set(SOURCES.map((s) => s.id)))
+  const [industry, setIndustry] = useState<string | null>(null)
+  const [province, setProvince] = useState<string | null>(null)
+  const [enabledSources, setEnabledSources] = useState<Set<string>>(new Set(DEFAULT_ENABLED))
   const [searching, setSearching] = useState(false)
   const [sourceStatus, setSourceStatus] = useState<SourceStatus | null>(null)
   const [postings, setPostings] = useState<Posting[]>([])
@@ -99,7 +113,7 @@ export default function JobHuntDiscoverPage() {
     try {
       const res = await fetch('/api/job-hunt/discover', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, location, sources: Array.from(enabledSources) }),
+        body: JSON.stringify({ query, location, industry, province, sources: Array.from(enabledSources) }),
       })
       const data = await res.json()
       setSourceStatus(data.sourceStatus ?? null)
@@ -109,7 +123,7 @@ export default function JobHuntDiscoverPage() {
       setSourceStatus(null)
     }
     setSearching(false)
-  }, [query, location, enabledSources, statusFilter, loadPostings])
+  }, [query, location, industry, province, enabledSources, statusFilter, loadPostings])
 
   const setPostingStatus = useCallback(async (id: string, status: string) => {
     setPostings((prev) => prev.filter((p) => p.id !== id)) // optimistic — it leaves the current filtered view
@@ -142,13 +156,33 @@ export default function JobHuntDiscoverPage() {
       {/* Search controls */}
       <Card className="p-4 mb-4 flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row gap-2">
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Keyword (defaults to your Master Profile's top target role)"
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Keyword (optional — Industry below drives Adzuna if left blank)"
             className="flex-1 rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-[13px] text-on-surface placeholder:text-on-surface-variant/40 focus:border-white/25 focus:outline-none" />
-          <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location (optional)"
+          <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location (overrides Province)"
             className="sm:w-56 rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-[13px] text-on-surface placeholder:text-on-surface-variant/40 focus:border-white/25 focus:outline-none" />
           <button onClick={search} disabled={searching} className="btn-accent flex items-center gap-1.5 text-xs px-4 py-2 whitespace-nowrap">
             {searching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />} {searching ? 'Searching...' : 'Search'}
           </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] text-on-surface-variant/50">Industry:</span>
+          <button onClick={() => setIndustry(null)}
+            className={`text-[11px] px-2.5 py-1 rounded-full border transition ${!industry ? 'border-white/25 bg-white/[0.06] text-on-surface' : 'border-white/10 text-on-surface-variant/60'}`}>
+            Any
+          </button>
+          {INDUSTRIES.map((ind) => (
+            <button key={ind} onClick={() => setIndustry(ind)}
+              className={`text-[11px] px-2.5 py-1 rounded-full border transition ${industry === ind ? 'border-white/25 bg-white/[0.06] text-on-surface' : 'border-white/10 text-on-surface-variant/60'}`}>
+              {ind}
+            </button>
+          ))}
+          <span className="text-[11px] text-on-surface-variant/50 ml-2">Province:</span>
+          <select value={province ?? ''} onChange={(e) => setProvince(e.target.value || null)}
+            className="text-[11px] rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-on-surface-variant focus:outline-none">
+            <option value="">Any</option>
+            {PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
