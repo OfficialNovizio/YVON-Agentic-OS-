@@ -55,13 +55,25 @@ export async function loadConfig(): Promise<ProviderConfig> {
 
     if (sbUrl && sbKey) {
       const sb = createClient(sbUrl, sbKey)
-      const { data } = await sb
+      const { data, error } = await sb
         .from('ai_provider_keys')
         .select('provider, api_key, fast_model, synthesis_model, tier1_model, base_url, tertiary_model')
         .eq('is_active', true)
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle()
+
+      // 2026-08-15: this query used to silently discard `error` (only `data`
+      // was destructured). When the schema drifted — tier1_model existed in
+      // code but not yet on the live table — the query failed, `data` stayed
+      // null, and this fell all the way through to the Anthropic-only env
+      // fallback below with NO indication why, even for operators running a
+      // different active provider. Logging it now so a schema/query problem
+      // shows up in server logs instead of surfacing as a confusing
+      // "Could not resolve authentication method" error two layers away.
+      if (error) {
+        console.error('[ai-client loadConfig] ai_provider_keys query failed, falling back to env config:', error.message)
+      }
 
       if (data) {
         const providerKey = data.provider as string
