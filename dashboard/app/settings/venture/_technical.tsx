@@ -94,9 +94,9 @@ export default function TechnicalTab({
             className="bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:border-white/20 disabled:opacity-40"
           />
           <p className="text-[11px] text-on-surface-variant/50 mt-0.5">
-            Fine-grained token scoped to this repo only, with Contents: Read and write — different
-            from (and more powerful than) chat&apos;s read-only repo-mode token. Write-only: never
-            shown back once saved, only whether it&apos;s connected.
+            Fine-grained token scoped to this repo only, with Contents: Read and write. Also used
+            by chat&apos;s GitHub repo-mode toggle to clone/pull this repo (2026-08-19) — one PAT
+            for both. Write-only: never shown back once saved, only whether it&apos;s connected.
           </p>
           <div className="flex items-center gap-2 mt-1.5">
             <button

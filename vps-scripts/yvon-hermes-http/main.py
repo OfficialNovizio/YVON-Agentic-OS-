@@ -170,12 +170,20 @@ MAX_ITERATIONS = int(os.environ.get("YVON_HERMES_MAX_ITER", "40"))
 STREAM_KEEPALIVE_S = float(os.environ.get("YVON_HERMES_KEEPALIVE", "15"))
 HERMES_API_URL = os.environ.get("HERMES_API_URL", "http://127.0.0.1:9119")
 # Repo-mode toggle (2026-08-11, dashboard RepoModeToggle.tsx): clone/pull
-# destination for GitHub-mode turns, and the one shared PAT for private repos
-# (discovery decision — one token, not per-user OAuth). Neither is set by
-# install.sh; GITHUB_PAT is optional (public repos clone fine without it —
-# see _ensure_repo_clone's degrade-loudly behavior on auth failure).
+# destination for GitHub-mode turns.
+#
+# Credential (updated 2026-08-19 — see docs/PRD, "why chat's GitHub mode
+# can't authenticate" investigation): the dashboard now forwards the active
+# venture's own write-scoped GitHub PAT (Settings → Venture → Technical →
+# `ventures.github_pat`, Supabase) with every /v1/chat/stream request —
+# `req.github_pat` below — the SAME credential graphify/MemPalace already
+# use, sourced from Supabase, never typed in here. This env var is now only
+# a fallback for the (rare) case a request arrives with no per-request PAT
+# — e.g. a venture with a public repo and no PAT saved at all. It was never
+# set by install.sh, so on a fresh box it's simply empty and inert; nothing
+# to configure here for the normal path.
 REPO_WORKSPACES_DIR = os.environ.get("YVON_REPO_WORKSPACES_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "workspaces"))
-GITHUB_PAT = os.environ.get("GITHUB_PAT", "").strip()
+GITHUB_PAT = os.environ.get("GITHUB_PAT", "").strip()  # fallback only — see comment above
 REPO_CLONE_TIMEOUT_S = int(os.environ.get("YVON_REPO_CLONE_TIMEOUT", "120"))
 
 log = logging.getLogger("yvon-hermes-http")
@@ -207,6 +215,16 @@ class PooledAgent:
     agent: AIAgent
     last_used_ts: float = field(default_factory=time.time)
     lock: threading.Lock = field(default_factory=threading.Lock)
+    # Added 2026-08-20 (usage/context indicator, Task #18): the resolved
+    # provider/model this agent was actually created with (Settings →
+    # AI Provider row, or config.yaml defaults — see _agent_for below).
+    # Recorded once at creation time and reused for every turn in this
+    # room, since a pooled agent keeps its original provider/model for its
+    # whole lifetime by design (no mid-conversation switch — see _agent_for's
+    # own 2026-08-11 comment). Reading it here means chat_stream never has
+    # to re-resolve or guess which provider/model actually served a turn.
+    provider: Optional[str] = None
+    model: Optional[str] = None
 
     def touch(self) -> None:
         self.last_used_ts = time.time()
@@ -274,7 +292,11 @@ def _agent_for(user_id: str, room_id: str) -> PooledAgent:
                     "Verify with Appendix A probe #4 (list tools)."
                 )
                 agent = AIAgent(**_agent_kwargs)
-            pooled = PooledAgent(agent=agent)
+            pooled = PooledAgent(
+                agent=agent,
+                provider=_agent_kwargs.get("provider"),
+                model=_agent_kwargs.get("model"),
+            )
             _pool[key] = pooled
         pooled.touch()
         return pooled
@@ -288,6 +310,82 @@ def _prune_idle_agents() -> None:
         for k in stale:
             del _pool[k]
             log.info("pruned idle agent user=%s room=%s", k[0], k[1])
+
+
+# ── Usage/context indicator (2026-08-20, Task #18) ──────────────────────────
+# Static, best-effort context-window sizes by model id, sourced from public
+# provider docs at write time. This is NOT live data — a model's real limit
+# can change or this id may simply be missing, and neither case is
+# distinguishable from here. Only ever used to fill the frontend's
+# "12.4k / 128k" chip; look-up miss returns None and the frontend must show
+# "not available", never a guessed number. Extend this table rather than
+# inventing a fallback default.
+_CONTEXT_WINDOW_BY_MODEL: dict[str, int] = {
+    "claude-opus-4": 200_000,
+    "claude-sonnet-4": 200_000,
+    "claude-3-7-sonnet": 200_000,
+    "claude-3-5-sonnet": 200_000,
+    "claude-3-5-haiku": 200_000,
+    "claude-3-opus": 200_000,
+    "gpt-4o": 128_000,
+    "gpt-4o-mini": 128_000,
+    "gpt-4.1": 1_047_576,
+    "o3": 200_000,
+    "o4-mini": 200_000,
+}
+
+
+def _context_window_for(model: Optional[str]) -> Optional[int]:
+    """Best-effort static lookup — see _CONTEXT_WINDOW_BY_MODEL's own comment.
+    Matches by substring since real model ids often carry date suffixes
+    (e.g. 'claude-sonnet-4-20250514') that a plain dict.get() would miss."""
+    if not model:
+        return None
+    m = model.lower()
+    for key, window in _CONTEXT_WINDOW_BY_MODEL.items():
+        if key in m:
+            return window
+    return None
+
+
+def _extract_token_usage(agent: Any) -> Optional[dict[str, Optional[int]]]:
+    """Best-effort probe for token usage on the AIAgent after a turn.
+
+    hermes-agent's real AIAgent.chat() return shape is NOT confirmed against
+    source (run_agent.py lives only on the VPS filesystem, outside this
+    repo — see PRD/session notes). Rather than guess at one specific
+    attribute name and silently return wrong numbers if it's missing, this
+    probes a handful of common attribute names defensively and returns None
+    the moment nothing recognizable is found. Callers MUST treat None as
+    "not available", never as zero — see chat_stream's tokensReported flag.
+    """
+    candidates = ("last_usage", "usage", "token_usage", "last_token_usage", "_last_usage")
+    usage_obj = None
+    for attr in candidates:
+        val = getattr(agent, attr, None)
+        if val:
+            usage_obj = val
+            break
+    if usage_obj is None:
+        return None
+
+    def _get(obj: Any, *names: str) -> Optional[int]:
+        for n in names:
+            if isinstance(obj, dict) and n in obj:
+                return obj[n]
+            v = getattr(obj, n, None)
+            if v is not None:
+                return v
+        return None
+
+    input_tokens = _get(usage_obj, "input_tokens", "prompt_tokens")
+    output_tokens = _get(usage_obj, "output_tokens", "completion_tokens")
+    total_tokens = _get(usage_obj, "total_tokens")
+    if input_tokens is None and output_tokens is None and total_tokens is None:
+        return None
+    if total_tokens is None:
+        total_tokens = (input_tokens or 0) + (output_tokens or 0)
+    return {"inputTokens": input_tokens, "outputTokens": output_tokens, "totalTokens": total_tokens}
 
 
 _TOKEN_IN_URL_RE = re.compile(r"://[^@/]+@")
@@ -313,24 +411,32 @@ def _repo_slug(repo_url: str) -> str:
     return safe or f"repo-{abs(hash(repo_url)) % 10_000}"
 
 
-def _ensure_repo_clone(repo_url: str, room_id: str) -> tuple[Optional[str], Optional[str]]:
+def _ensure_repo_clone(repo_url: str, room_id: str, github_pat: str = "") -> tuple[Optional[str], Optional[str]]:
     """Repo-mode toggle (2026-08-11): clone `repo_url` into a deterministic
     per-room workspace dir, or `git pull --ff-only` if it's already there
     (discovery decision: clone once, pull every turn). Runs synchronously —
     callers must dispatch it off the event loop (asyncio.to_thread).
 
+    `github_pat` (added 2026-08-19): the per-request PAT the dashboard
+    forwards from the active venture's Settings → Venture → Technical page
+    (Supabase `ventures.github_pat`) — the same credential graphify already
+    uses. Preferred over the module-level GITHUB_PAT env var, which is now
+    only a fallback for requests that arrive with no per-request PAT.
+
     Returns (workdir_path, None) on success, or (None, redacted_error) on
     failure — the caller degrades loudly rather than silently falling back
-    (see chat_stream). GITHUB_PAT is optional: public repos clone fine
-    without it; a private repo without it fails with a clear auth message
-    the caller surfaces verbatim (redacted) to the dashboard.
+    (see chat_stream). A PAT is optional: public repos clone fine without
+    one; a private repo with neither a per-request PAT nor GITHUB_PAT set
+    fails with a clear auth message the caller surfaces verbatim (redacted)
+    to the dashboard.
     """
     os.makedirs(REPO_WORKSPACES_DIR, exist_ok=True)
     workdir = os.path.join(REPO_WORKSPACES_DIR, room_id, _repo_slug(repo_url))
 
+    pat = (github_pat or GITHUB_PAT or "").strip()
     auth_url = repo_url
-    if GITHUB_PAT and repo_url.startswith("https://"):
-        auth_url = repo_url.replace("https://", f"https://x-access-token:{GITHUB_PAT}@", 1)
+    if pat and repo_url.startswith("https://"):
+        auth_url = repo_url.replace("https://", f"https://x-access-token:{pat}@", 1)
 
     try:
         if os.path.isdir(os.path.join(workdir, ".git")):
@@ -406,6 +512,11 @@ class ChatRequest(BaseModel):
     # the active venture's own repo_url column, never an arbitrary client URL.
     repo_mode: Optional[str] = Field(default=None, description="'local' (default) or 'github' — see repo_url")
     repo_url: Optional[str] = Field(default=None, description="Venture's linked GitHub repo, only set when repo_mode='github'")
+    # Added 2026-08-19: the active venture's own write-scoped GitHub PAT
+    # (Settings → Venture → Technical, Supabase `ventures.github_pat`) — the
+    # same credential graphify/MemPalace already use. Lets chat's repo-mode
+    # clone private repos without a separate VPS-side GITHUB_PAT env var.
+    github_pat: Optional[str] = Field(default=None, description="Venture's GitHub PAT from Supabase, forwarded only when repo_mode='github'")
     # TS-018 WI-2 fix (2026-08-11): the dashboard now mints one correlation per
     # turn at message-creation time and forwards it here. Previously this
     # endpoint always minted its own uuid4() below, disconnected from the
@@ -424,7 +535,9 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
 
     Event kinds:
       { "kind": "token", "text": "..." }       - one streaming token
-      { "kind": "done",  "response": "..." }   - full response + terminal
+      { "kind": "done",  "response": "...", "usage": {...} }  - full response +
+                                              best-effort usage/context (2026-08-20,
+                                              see _extract_token_usage) + terminal
       { "kind": "error", "message": "..." }    - fatal error + terminal
       { "kind": "ping" }                       - keepalive (every 15s idle)
       # TS-017 live status feed:
@@ -473,6 +586,10 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     # Hermes may pass an argument (status/phase string) to these callbacks
     # depending on version — accept *args so we're version-tolerant.
     _tool_starts: dict[str, float] = {}
+    # Added 2026-08-20 (Task #18): running count of tool calls this turn, for
+    # the usage chip. A one-element list, not a bare int, so the nested
+    # on_tool_end closure can mutate it without a `nonlocal` declaration.
+    _tool_call_count = [0]
 
     def on_thinking(*_args: Any) -> None:
         _sse({"kind": "thinking"})
@@ -487,6 +604,7 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
         _sse({"kind": "tool_call.end", "toolName": name, "ok": ok, "summary": summary})
         started = _tool_starts.pop(name, None)
         ms = int((time.time() - started) * 1000) if started else None
+        _tool_call_count[0] += 1
         _emit_all("tool.call", tool=name, ok=bool(ok), ms=ms, summary=str(summary)[:300])
 
     def on_notice(level: str, message: str) -> None:
@@ -520,7 +638,9 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     # Degrades loudly on failure — a `notice` SSE event either way, so the
     # dashboard's CAOS panel shows the real outcome, never a silent no-op.
     if req.repo_mode == "github" and req.repo_url:
-        repo_workdir, repo_error = await asyncio.to_thread(_ensure_repo_clone, req.repo_url, req.room_id)
+        repo_workdir, repo_error = await asyncio.to_thread(
+            _ensure_repo_clone, req.repo_url, req.room_id, req.github_pat or ""
+        )
         if repo_workdir:
             on_notice("info", f"repo ready · {req.repo_url} → {repo_workdir}")
             prompt_parts.append(
@@ -534,6 +654,23 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
                 f"[WORKING REPO] Cloning/pulling {req.repo_url} failed: {repo_error}. "
                 f"Continue in your default working directory and tell the user the clone failed."
             )
+    else:
+        # Added 2026-08-20 (user feedback: repo-mode confusion — the agent
+        # would improvise ("not a git repo", `gh auth login`) instead of
+        # just being told plainly what mode it's in). Previously this was
+        # the ONLY branch that said nothing at all about repo state, leaving
+        # the model to guess. Every turn now gets an explicit [WORKING REPO]
+        # statement either way, so "local vs github" is never ambiguous to
+        # the agent itself.
+        prompt_parts.append(
+            "[WORKING REPO] Local mode — no GitHub repo is cloned for this turn. "
+            "There is no venture repo checked out; your working directory is this "
+            "process's own default, which is not a project repo. Do not guess a "
+            "repo path, run git commands expecting a repo to be there, or "
+            "authenticate to GitHub yourself. If the user's request needs real "
+            "repo access, tell them plainly that Local mode has no repo attached "
+            "right now and GitHub mode is the way to get one."
+        )
     # Task-proposal marker (2026-08-11): instructs the model to self-signal
     # when a discussion has just reached a concrete, actionable conclusion
     # the user could hand off as real work. This is prompt steering, not a
@@ -557,7 +694,7 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     prompt_parts.append(req.message)
     full_prompt = "\n".join(prompt_parts)
 
-    result_holder: dict[str, Any] = {"response": None, "error": None}
+    result_holder: dict[str, Any] = {"response": None, "error": None, "token_usage": None}
 
     # ── run lifecycle → event log (architecture §5.4) ───────────────────────
     # One event per mentioned agent; unaddressed turns are attributed to 'system'.
@@ -570,6 +707,11 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     def _emit_all(kind: str, **payload: Any) -> None:
         for _a in _actors:
             emit(kind, _a, context_id=req.workspace, correlation=_correlation, **payload)
+
+    # Added 2026-08-20 (Task #18): wall-clock start of the actual agent
+    # turn (not the HTTP request — repo-clone/pull above can itself take a
+    # few seconds and shouldn't be charged to "how long did the model take").
+    _turn_start_ts = time.time()
 
     _emit_all("run.started", room_id=req.room_id)
     # TS-018 WI-4 (YVON-CHAT §5.2): phases observable from the wrapper, sharing
@@ -593,6 +735,11 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
                 pooled.agent.notice_callback = on_notice
                 response = pooled.agent.chat(full_prompt, stream_callback=on_delta)
                 result_holder["response"] = response or ""
+                # Added 2026-08-20 (Task #18): probe for token usage while
+                # still holding the lock, right after the call that would
+                # have set it — see _extract_token_usage's own comment on
+                # why this is best-effort, not confirmed against source.
+                result_holder["token_usage"] = _extract_token_usage(pooled.agent)
             _emit_all("run.completed")
         except Exception as exc:  # noqa: BLE001 — surface any agent failure
             log.exception("agent.chat failed for user=%s room=%s", req.user_id, req.room_id)
@@ -617,7 +764,27 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
                     if result_holder["error"] is not None:
                         yield f"data: {json.dumps({'kind': 'error', 'message': result_holder['error'], 'correlation': _correlation})}\n\n"
                     else:
-                        yield f"data: {json.dumps({'kind': 'done', 'response': result_holder['response'], 'correlation': _correlation})}\n\n"
+                        # Added 2026-08-20 (Task #18): usage/context indicator.
+                        # provider/model/toolCalls/latencyMs/turnId are all
+                        # server-resolved facts — populated unconditionally.
+                        # Token counts are best-effort (see
+                        # _extract_token_usage) and honestly absent
+                        # (tokensReported=False) rather than guessed when the
+                        # underlying AIAgent didn't expose them for this turn.
+                        _tok = result_holder.get("token_usage")
+                        _usage = {
+                            "provider": pooled.provider,
+                            "model": pooled.model,
+                            "toolCalls": _tool_call_count[0],
+                            "latencyMs": int((time.time() - _turn_start_ts) * 1000),
+                            "turnId": _correlation,
+                            "tokensReported": _tok is not None,
+                            "inputTokens": (_tok or {}).get("inputTokens"),
+                            "outputTokens": (_tok or {}).get("outputTokens"),
+                            "totalTokens": (_tok or {}).get("totalTokens"),
+                            "contextWindow": _context_window_for(pooled.model),
+                        }
+                        yield f"data: {json.dumps({'kind': 'done', 'response': result_holder['response'], 'correlation': _correlation, 'usage': _usage})}\n\n"
                     break
 
                 yield f"data: {json.dumps(event)}\n\n"

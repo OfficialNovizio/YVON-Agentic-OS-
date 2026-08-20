@@ -9,6 +9,15 @@ import { TopBar } from './TopBar'
 // Login screens must stand alone or they show a signed-out sidebar behind them.
 const BARE_ROUTE_PREFIXES = ['/login', '/auth/']
 
+// ── Adora theme opt-in (redesign 2026-08-17) ────────────────────────────────
+// The Adora design system is a LIGHT gallery surface. Rolling it out route by
+// route rather than app-wide keeps every page that still expects the obsidian
+// dashboard looking exactly as it did. The attribute goes on <html> because
+// <body> carries the dark background photo, which lives above the Shell.
+// To take the whole app light, add data-theme="adora" to <html> in layout.tsx
+// and delete this list.
+const ADORA_ROUTE_PREFIXES = ['/chat']
+
 // ── Responsive context ────────────────────────────────────────────────────────
 type SidebarMode = 'full' | 'icons'
 
@@ -62,6 +71,15 @@ export function Shell({ children }: { children: ReactNode }) {
     setMounted(true)
   }, [])
 
+  // Flip <html data-theme> for routes that opt into the Adora gallery.
+  useEffect(() => {
+    const isAdora = ADORA_ROUTE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+    const root = document.documentElement
+    if (isAdora) root.setAttribute('data-theme', 'adora')
+    else root.removeAttribute('data-theme')
+    return () => root.removeAttribute('data-theme')
+  }, [pathname])
+
   // Close mobile menu on route change (Listen for popstate / clicked links)
   useEffect(() => {
     const close = () => setMobileMenuOpen(false)
@@ -77,7 +95,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   if (!mounted) {
     return (
-      <div className="flex h-screen bg-background text-on-surface">
+      <div className="flex h-screen bg-[var(--app-bg)] text-[var(--app-text)]">
         <div className="hidden md:block w-60 shrink-0" />
         <div className="flex-1 flex flex-col">
           <div className="h-14" />
@@ -91,14 +109,14 @@ export function Shell({ children }: { children: ReactNode }) {
     <ShellContext.Provider value={{ sidebarMode, setSidebarMode, mobileMenuOpen, setMobileMenuOpen }}>
       <ShellFullBleedContext.Provider value={{ fullBleed, setFullBleed }}>
       {/* h-dvh where supported: browser chrome overlays 100vh on mobile (YVON-CHAT §1.2) */}
-      <div className="flex h-screen supports-[height:100dvh]:h-dvh bg-background text-on-surface overflow-hidden">
+      <div className="flex h-screen supports-[height:100dvh]:h-dvh bg-[var(--app-bg)] text-[var(--app-text)] overflow-hidden">
         {/* ── Desktop sidebar (hidden on mobile, collapses on tablet) ──────── */}
         <aside
           className={`
             hidden md:flex shrink-0 flex-col
             ${sidebarMode === 'full' ? 'w-60' : 'w-[72px]'}
             transition-all duration-200
-            border-r border-white/[0.06]
+            border-r border-[var(--app-line-soft)]
           `}
         >
           <Sidebar
@@ -112,11 +130,11 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="fixed inset-0 z-50 md:hidden">
             {/* Backdrop */}
             <div
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-[rgba(20,14,45,0.5)] backdrop-blur-sm"
               onClick={() => setMobileMenuOpen(false)}
             />
             {/* Slide-over panel */}
-            <aside className="absolute left-0 top-0 bottom-0 w-72 bg-[#0c0c0c] border-r border-white/[0.08] shadow-2xl animate-slide-in">
+            <aside className="absolute left-0 top-0 bottom-0 w-72 bg-[var(--app-panel)] border-r border-[var(--app-line)] shadow-2xl animate-slide-in">
               <Sidebar
                 mode="full"
                 onToggle={() => setMobileMenuOpen(false)}

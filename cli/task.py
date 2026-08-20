@@ -8,19 +8,48 @@ from MASTER §8.2. `validate` exits 1 on any bad record so cli/verify-deploy.sh 
 call it as a blocking check. NO blocking hook yet (that is E4) — this is the foundation.
 
 Commands (see `task.sh` wrapper):
-    new "<verbatim request>"     draft record from TEMPLATE.yaml, becomes ACTIVE
-    discover [id]                draft → discovery   (needs source_message + classification.lead)
+    new "<verbatim request>" [--actor <who>] [--revision-of <TS-id>]
+                                  draft record from TEMPLATE.yaml, becomes ACTIVE
+    discover [id] [--actor <who>] draft → discovery   (needs source_message + classification.lead)
     approve --by <who> [id]      discovery → approved (needs discovery.decisions; stamps approved_by/at)
-    start [id]                   approved → executing (needs approved_by/at + a work_item owner)
-    gate [id]                    executing → gated    (every produces path must exist on disk)
-    done --proof "<artifact>" [id]  gated → done      (rejects empty / self-asserting proof)
+    start [id] [--actor <who>]   approved → executing (needs approved_by/at + a work_item owner)
+    gate [id] [--actor <who>]    executing → gated    (every produces path must exist on disk)
+    done --proof "<artifact>" [id] [--actor <who>]  gated → done (rejects empty / self-asserting proof)
+    note <id> --event <name> [--actor <who>] [--note "<text>"]
+                                  append a history entry WITHOUT a state transition — used by the
+                                  Make Changes / Retry / Redo lifecycle actions (task-detail-lifecycle
+                                  PRD §3.3): --event retry_opened|redo_opened|changes_requested
+    set-prd <id> --ref "<path>" --rice "<score>" [--actor <who>]
+                                  attach spec's generated PRD + RICE score to a draft/discovery
+                                  record (docs/PRD-prd-gated-task-conversion.md). REQUIRED before
+                                  `approve` will let the record leave discovery — see that gate below.
+    set-design-origin <id> --session "<sid>" --tool screenshot-to-code|open-design|custom
+                                  [--artifact "<artifact_id>"] [--handoff "<path>"] [--actor <who>]
+                                  link a task back to the cli/design.py session that produced it
+                                  (docs/PRD-design-first-workflow.md). Optional, any status — powers
+                                  the dashboard's unified design-preview panel. Never hand-typed.
+    fill-discovery <id> --lead "<agent>" --decisions '["...", "..."]' [--objective "<text>"] [--actor <who>]
+                                  one-shot transcription of the PRD's own decisions into
+                                  classification.lead + discovery.decisions — the PRD chat flow's
+                                  chat-to-task conversion writes this, not a second Q&A round.
+                                  --objective also sets work_items[0].owner=<lead> + its objective,
+                                  since `start` requires an owner and no manual edit happens for a
+                                  chat-converted task. Only works while discovery.decisions is
+                                  still pristine ([]).
     status [id]                  print state + next blocking condition
     validate [id]                schema + transition check; EXIT 1 on failure
+    list                         JSON dump of every real record (dashboard Tasks panel reads this)
+
+History (added 2026-08-18, docs/PRD-task-detail-lifecycle-actions.md §3.1): every command above
+that changes a record's status, plus `note`, appends one entry to that record's `history:` list —
+{ts, actor, event, note}. Old records without a `history:` key are still valid; `list`/`validate`
+treat a missing history as empty, never invented.
 
 No values are invented; missing guards block the transition and say what to fill.
 Env: TASKS_DIR overrides store/tasks (for testing).
 """
 from __future__ import annotations
+import json
 import os
 import re
 import sys
@@ -45,7 +74,7 @@ def top(text: str, key: str) -> str:
 
 def block(text: str, key: str) -> str:
     """Indented body under a top-level `key:` up to the next unindented line."""
-    m = re.search(rf"^{re.escape(key)}:[ \t]*$", text, re.M)
+    m = re.search(rf"^{re.escape(key)}:[ \t]*(?:#.*)?$", text, re.M)
     if not m:
         return ""
     start = m.end()
@@ -64,6 +93,11 @@ def list_items(blk: str) -> list[str]:
 
 def set_status(text: str, new: str) -> str:
     return re.sub(r"^status:[ \t]*\w+", f"status: {new}", text, count=1, flags=re.M)
+
+
+def _clean(v: str) -> str:
+    v = re.sub(r"\s+#.*$", "", v or "").strip()
+    return v.strip('"').strip("'")
 
 
 # ── record helpers ──────────────────────────────────────────────────────────
@@ -99,10 +133,57 @@ def require(cond: bool, why: str):
         die(f"blocked: {why}")
 
 
+# ── history (docs/PRD-task-detail-lifecycle-actions.md §3.1) ───────────────
+def _append_history(path: Path, actor: str, event: str, note: str = ""):
+    """Append one {ts, actor, event, note} entry to a record's `history:` list.
+    Handles three cases: `history: []` (template default) → converts to a block;
+    an existing `history:` block → appends after its last entry; no `history:`
+    key at all (very old record, pre-2026-08-18) → adds the block at EOF.
+    Never rewrites or drops an existing entry — append-only, like feedback.jsonl."""
+    text = path.read_text()
+    ts = now_iso()
+    actor_safe = (actor or "operator").replace('"', "'").strip() or "operator"
+    event_safe = (event or "").replace('"', "'").strip()
+    note_safe = (note or "").replace('"', "'").strip()
+    entry = f'  - {{ts: "{ts}", actor: "{actor_safe}", event: "{event_safe}", note: "{note_safe}"}}\n'
+
+    if re.search(r"^history:[ \t]*\[\][ \t]*(?:#.*)?$", text, re.M):
+        text = re.sub(r"^history:[ \t]*\[\][ \t]*(?:#.*)?$", "history:\n" + entry.rstrip("\n"), text, count=1, flags=re.M)
+    elif re.search(r"^history:[ \t]*$", text, re.M):
+        m = re.search(r"^history:[ \t]*$", text, re.M)
+        start = m.end()
+        nxt = re.search(r"^\S", text[start:], re.M)
+        insert_at = start + (nxt.start() if nxt else len(text) - start)
+        text = text[:insert_at] + entry + text[insert_at:]
+    else:
+        if not text.endswith("\n"):
+            text += "\n"
+        text += "history:\n" + entry
+    path.write_text(text)
+
+
+def _parse_history(text: str) -> list[dict]:
+    if not re.search(r"^history:", text, re.M) or re.search(r"^history:[ \t]*\[\][ \t]*(?:#.*)?$", text, re.M):
+        return []
+    blk = block(text, "history")
+    out = []
+    for line in list_items(blk):
+        def g(key):
+            m = re.search(rf'{key}:\s*"([^"]*)"', line)
+            return m.group(1) if m else ""
+        out.append({"ts": g("ts"), "actor": g("actor"), "event": g("event"), "note": g("note")})
+    return out
+
+
 # ── commands ────────────────────────────────────────────────────────────────
 def cmd_new(args: list[str]):
-    msg = args[0] if args else ""
+    pos = [a for a in args if not a.startswith("-")]
+    msg = pos[0] if pos else ""
     require(bool(msg.strip()), "new needs a verbatim request: task.sh new \"<request>\"")
+    actor = _opt(args, "--actor") or "operator"
+    revision_of = _opt(args, "--revision-of") or ""
+    if revision_of:
+        require(path_for(revision_of).exists(), f"--revision-of {revision_of}: no such task")
     nums = [int(m.group(1)) for p in TASKS.glob("TS-*.yaml")
             for m in [re.match(r"TS-(\d+)", p.stem)] if m]
     tid = f"TS-{(max(nums) + 1 if nums else 1):03d}"
@@ -111,17 +192,25 @@ def cmd_new(args: list[str]):
     rec = set_status(rec, "draft")
     safe = msg.replace('"', "'")
     rec = re.sub(r'^source_message:.*$', f'source_message: "{safe}"', rec, count=1, flags=re.M)
+    if re.search(r'^created_at:.*$', rec, re.M):
+        rec = re.sub(r'^created_at:.*$', f'created_at: "{now_iso()}"', rec, count=1, flags=re.M)
+    if revision_of and re.search(r'^revision_of:.*$', rec, re.M):
+        rec = re.sub(r'^revision_of:.*$', f'revision_of: {revision_of}', rec, count=1, flags=re.M)
     path_for(tid).write_text(rec)
     ACTIVE().write_text(tid)
+    _append_history(path_for(tid), actor, "opened_draft",
+                     f"revision of {revision_of}" if revision_of else "")
     print(f"✓ created {tid} (draft, ACTIVE). Next: fill classification.lead, then task.sh discover")
 
 
 def cmd_discover(args, tid):
+    actor = _opt(args, "--actor") or "operator"
     text = path_for(tid).read_text()
     require(top(text, "status") == "draft", f"{tid} is not in draft")
     require(bool(top(text, "source_message")), "source_message is empty")
     require(bool(indented(text, "lead")), "classification.lead is empty — meta must classify first")
     path_for(tid).write_text(set_status(text, "discovery"))
+    _append_history(path_for(tid), actor, "discovery_opened", "")
     print(f"✓ {tid} → discovery. Fill discovery.questions/decisions, then task.sh approve --by <who>")
 
 
@@ -131,41 +220,61 @@ def cmd_approve(args, tid):
     require(top(text, "status") == "discovery", f"{tid} is not in discovery")
     require(bool(list_items(block(text, "discovery"))) or "decisions:" in text and
             bool(list_items(block_after(text, "decisions"))), "discovery.decisions is empty")
+    # PRD GATE (docs/PRD-prd-gated-task-conversion.md): every task needs spec's
+    # PRD + a real RICE score before it can leave discovery — no exemptions.
+    # Attach both first: task.sh set-prd <id> --ref <path> --rice <score>.
+    prd_ref = top(text, "prd_ref")
+    require(bool(prd_ref), 'prd_ref is empty — run task.sh set-prd first (no task skips the PRD gate)')
+    require((ROOT / prd_ref.strip('"')).exists(), f"prd_ref path does not exist on disk: {prd_ref}")
+    require(bool(top(text, "rice_score")), 'rice_score is empty — run task.sh set-prd first (no task skips the RICE gate)')
     # GATE 0 (MASTER.md PART 7): structural changes need explicit sign-offs —
     # the 4-team RFC (dev/spec/meta/warden) or operator-ordered. Without them,
     # approval is blocked: no silent builds.
-    if "gate_0: true" in block(text, "classification"):
+    # Anchored regex, not a plain substring check — TEMPLATE.yaml's commented-out
+    # placeholder ("  # gate_0: true    # uncomment if...") contains the literal
+    # substring "gate_0: true" too, which used to false-trigger gate_0 on every
+    # freshly-created task until its classification block was hand-edited to
+    # remove the comment. Matches the pattern cmd_list already uses correctly.
+    is_gate0 = bool(re.search(r"^[ \t]*gate_0:[ \t]*true\b", block(text, "classification"), re.M))
+    if is_gate0:
         signoffs = list_items(block_after(text, "gate_0_signoffs"))
         require(bool(signoffs), "gate_0 requires gate_0_signoffs: [dev, spec, meta, warden] (or operator-ordered)")
     text = set_status(text, "approved")
     if not top(text, "approved_by"):
         text += f"\napproved_by: {who}\napproved_at: {now_iso()}\n"
     path_for(tid).write_text(text)
+    note = "gate_0 RFC satisfied" if is_gate0 else ""
+    _append_history(path_for(tid), who, "approved", note)
     print(f"✓ {tid} → approved by {who}")
 
 
 def cmd_start(args, tid):
+    actor = _opt(args, "--actor") or "operator"
     text = path_for(tid).read_text()
     require(top(text, "status") == "approved", f"{tid} is not approved")
     require(bool(top(text, "approved_by")) and bool(top(text, "approved_at")), "missing approved_by/approved_at")
     owners = [o for o in re.findall(r"^\s+owner:[ \t]*(.*\S)?\s*$", block(text, "work_items"), re.M) if o]
     require(len(owners) >= 1, "no work_item has an owner")
     path_for(tid).write_text(set_status(text, "executing"))
+    _append_history(path_for(tid), actor, "executing_started", f"{len(owners)} work item(s) dispatched")
     print(f"✓ {tid} → executing ({len(owners)} work item(s) with owners)")
 
 
 def cmd_gate(args, tid):
+    actor = _opt(args, "--actor") or "operator"
     text = path_for(tid).read_text()
     require(top(text, "status") == "executing", f"{tid} is not executing")
     produces = [p for p in re.findall(r"^\s+produces:[ \t]*(.*\S)?\s*$", block(text, "work_items"), re.M) if p]
     missing = [p for p in produces if "/" in p and not (ROOT / p.strip('"')).exists()]
     require(not missing, f"produces paths not on disk: {', '.join(missing)}")
     path_for(tid).write_text(set_status(text, "gated"))
+    _append_history(path_for(tid), actor, "gated", "")
     print(f"✓ {tid} → gated (all produces paths exist)")
 
 
 def cmd_done(args, tid):
     proof = _opt(args, "--proof") or ""
+    actor = _opt(args, "--actor") or "operator"
     text = path_for(tid).read_text()
     require(top(text, "status") == "gated", f"{tid} is not gated")
     eg = block(text, "exit_gate")
@@ -175,7 +284,134 @@ def cmd_done(args, tid):
         text = re.sub(r"^(\s+proof:)[ \t]*.*$",
                       rf'\1 "{proof.replace(chr(34), chr(39))}"', text, count=1, flags=re.M)
     path_for(tid).write_text(set_status(text, "done"))
+    _append_history(path_for(tid), actor, "done", proof)
     print(f"✓ {tid} → done (proof: {proof})")
+
+
+def cmd_setprd(args, tid):
+    """Attach spec's generated PRD + RICE score to a record — the only writer
+    of prd_ref/rice_score (docs/PRD-prd-gated-task-conversion.md). Allowed in
+    draft or discovery only; once approved the PRD is frozen (prd-discipline
+    §Instructions.4 — amendments version the PRD, they don't silently rewrite
+    the ref on an already-approved task)."""
+    ref = _opt(args, "--ref")
+    rice = _opt(args, "--rice")
+    actor = _opt(args, "--actor") or "operator"
+    require(bool(ref), 'set-prd needs --ref "<path to store/tasks/{id}-prd.md>"')
+    require(bool(rice), 'set-prd needs --rice "<score>" (real scripts/rice.py output, not hand-typed)')
+    text = path_for(tid).read_text()
+    st = top(text, "status")
+    require(st in ("draft", "discovery"), f"{tid} is {st} — PRD is frozen once approved (amend via a new PRD version instead)")
+    ref_clean = ref.strip('"').strip("'")
+    require((ROOT / ref_clean).exists(), f"no such file on disk: {ref_clean}")
+    if re.search(r"^prd_ref:.*$", text, re.M):
+        text = re.sub(r"^prd_ref:.*$", f'prd_ref: "{ref_clean}"', text, count=1, flags=re.M)
+    else:
+        if not text.endswith("\n"):
+            text += "\n"
+        text += f'prd_ref: "{ref_clean}"\n'
+    if re.search(r"^rice_score:.*$", text, re.M):
+        text = re.sub(r"^rice_score:.*$", f'rice_score: "{rice}"', text, count=1, flags=re.M)
+    else:
+        text += f'rice_score: "{rice}"\n'
+    path_for(tid).write_text(text)
+    _append_history(path_for(tid), actor, "prd_attached", f"ref={ref_clean} rice={rice}")
+    print(f"✓ {tid} prd_ref={ref_clean} rice_score={rice}")
+
+
+DESIGN_TOOLS = {"screenshot-to-code", "open-design", "custom"}
+
+
+def _set_flat_field(text: str, key: str, value: str) -> str:
+    """Set (or append) a top-level flat scalar field — same technique
+    set-prd already uses for prd_ref/rice_score."""
+    if re.search(rf"^{re.escape(key)}:.*$", text, re.M):
+        return re.sub(rf"^{re.escape(key)}:.*$", f'{key}: "{value}"', text, count=1, flags=re.M)
+    if not text.endswith("\n"):
+        text += "\n"
+    return text + f'{key}: "{value}"\n'
+
+
+def cmd_set_design_origin(args, tid):
+    """Link a task back to the cli/design.py session that produced it
+    (docs/PRD-design-first-workflow.md). Unlike set-prd this isn't a gate —
+    it's descriptive metadata the dashboard's design-preview panel reads —
+    so it's allowed at any status, not just draft/discovery."""
+    session = _opt(args, "--session")
+    tool = _opt(args, "--tool")
+    artifact = _opt(args, "--artifact") or ""
+    handoff = _opt(args, "--handoff") or ""
+    actor = _opt(args, "--actor") or "operator"
+    require(bool(session), 'set-design-origin needs --session "<design-session id>"')
+    require(tool in DESIGN_TOOLS, f"set-design-origin needs --tool one of {sorted(DESIGN_TOOLS)}, got {tool!r}")
+    text = path_for(tid).read_text()
+    text = _set_flat_field(text, "design_session_id", session)
+    text = _set_flat_field(text, "design_tool", tool)
+    if artifact:
+        text = _set_flat_field(text, "design_artifact_id", artifact)
+    if handoff:
+        text = _set_flat_field(text, "design_handoff_path", handoff)
+    path_for(tid).write_text(text)
+    _append_history(path_for(tid), actor, "design_origin_set", f"session={session} tool={tool}")
+    print(f"✓ {tid} design_session_id={session} design_tool={tool}")
+
+
+def cmd_filldiscovery(args, tid):
+    """One-shot: transcribe the generated PRD's own working-agent + decisions
+    into classification.lead + discovery.decisions (docs/PRD-prd-gated-task-
+    conversion.md). The PRD already IS the discovery answer for a chat-
+    converted task — this isn't a second round of questions. Deliberately
+    NOT a general decisions editor: only fires while decisions is still the
+    pristine `[]` TEMPLATE default, so it can't silently clobber a record a
+    human has already filled in by hand."""
+    lead = _opt(args, "--lead")
+    decisions_raw = _opt(args, "--decisions")
+    objective = _opt(args, "--objective")
+    actor = _opt(args, "--actor") or "operator"
+    require(bool(lead), 'fill-discovery needs --lead "<agent>"')
+    require(bool(decisions_raw), 'fill-discovery needs --decisions \'["...", "..."]\' (JSON array)')
+    try:
+        decisions = json.loads(decisions_raw)
+    except ValueError:
+        decisions = None
+    require(isinstance(decisions, list) and len(decisions) > 0 and all(isinstance(d, str) for d in decisions),
+            "--decisions must be a non-empty JSON array of strings")
+    text = path_for(tid).read_text()
+    st = top(text, "status")
+    require(st in ("draft", "discovery"), f"{tid} is {st} — discovery is closed")
+    require(bool(re.search(r"^[ \t]*decisions:[ \t]*\[\][ \t]*(?:#.*)?$", text, re.M)),
+            "discovery.decisions is not empty/pristine — fill-discovery only sets it once; edit the record by hand for amendments")
+
+    lead_safe = lead.replace('"', "'").strip()
+    text = re.sub(r'^([ \t]*)lead:[ \t]*.*$', rf'\1lead: "{lead_safe}"', text, count=1, flags=re.M)
+
+    m = re.search(r"^([ \t]*)decisions:[ \t]*\[\][ \t]*(?:#.*)?$", text, re.M)
+    indent = m.group(1)
+    lines = "\n".join(f'{indent}  - "{d.replace(chr(34), chr(39))}"' for d in decisions)
+    text = text[: m.start()] + f"{indent}decisions:\n{lines}" + text[m.end():]
+
+    if objective:
+        obj_safe = objective.replace('"', "'").strip()
+        # first work_items[].owner/objective only — the chat-conversion flow
+        # writes a single-work-item record; a multi-work-item DAG is a
+        # manual/dev-authored task, not this path's job.
+        text = re.sub(r'^([ \t]*)owner:[ \t]*""[ \t]*$', rf'\1owner: "{lead_safe}"', text, count=1, flags=re.M)
+        text = re.sub(r'^([ \t]*)objective:[ \t]*""(?:[ \t]*#.*)?$', rf'\1objective: "{obj_safe}"', text, count=1, flags=re.M)
+
+    path_for(tid).write_text(text)
+    _append_history(path_for(tid), actor, "discovery_filled", f"lead={lead_safe}; {len(decisions)} decision(s)")
+    print(f"✓ {tid} classification.lead={lead_safe}, discovery.decisions ({len(decisions)} entries)")
+
+
+def cmd_note(args, tid):
+    """Append a history entry with NO state transition — the Make Changes /
+    Retry / Redo lifecycle actions use this (PRD §3.3). Does not touch status."""
+    event = _opt(args, "--event")
+    require(bool(event), "note needs --event <name> (e.g. retry_opened, redo_opened, changes_requested)")
+    actor = _opt(args, "--actor") or "operator"
+    note = _opt(args, "--note") or ""
+    _append_history(path_for(tid), actor, event, note)
+    print(f"✓ {tid} history += {event} (by {actor})")
 
 
 def cmd_status(args, tid):
@@ -184,7 +420,68 @@ def cmd_status(args, tid):
     print(f"ACTIVE: {tid}   status: {st}   lead: {indented(text, 'lead') or '—'}")
     owners = [o for o in re.findall(r"^\s+owner:[ \t]*(.*\S)?\s*$", block(text, 'work_items'), re.M) if o]
     print(f"  work items with owners: {len(owners)}  {owners}")
+    print(f"  history entries: {len(_parse_history(text))}")
     print(f"  next: {_next_blocking(text, st)}")
+
+
+def cmd_list(args):
+    """Every real record (TEMPLATE excluded), as a JSON array — the read side
+    for anything that wants to show tasks without re-implementing the tiny
+    regex YAML access above (the dashboard Tasks panel, in particular).
+    No values invented: a field that isn't in the record comes back empty/[],
+    never guessed."""
+    import json as _json
+    out = []
+    for p in sorted(TASKS.glob("TS-*.yaml")):
+        t = p.read_text()
+        tid = top(t, "id") or p.stem
+        st = top(t, "status")
+        work_items_blk = block(t, "work_items")
+        owners = [_clean(o) for o in re.findall(r"^\s+owner:[ \t]*(.*\S)?\s*$", work_items_blk, re.M) if _clean(o)]
+        wi_ids = re.findall(r"^\s*-\s*id:[ \t]*(\S+)", work_items_blk, re.M)
+        objectives = [_clean(o) for o in re.findall(r"^\s+objective:[ \t]*(.*\S)?\s*$", work_items_blk, re.M)]
+        work_items = [
+            {"id": wi_ids[i] if i < len(wi_ids) else f"WI-{i+1}",
+             "owner": owners[i] if i < len(owners) else "",
+             "objective": objectives[i] if i < len(objectives) else ""}
+            for i in range(max(len(wi_ids), len(owners), len(objectives)))
+        ]
+        exit_blk = block(t, "exit_gate")
+        classification_blk = block(t, "classification")
+        revision_of_raw = top(t, "revision_of")
+        out.append({
+            "id": tid,
+            "status": st,
+            "sourceMessage": top(t, "source_message"),
+            "requester": top(t, "requester"),
+            "taskType": indented(t, "task_type"),
+            "departments": list_items(block(t, "departments")) or [
+                d.strip().strip('"').strip("'")
+                for d in ",".join(re.findall(r"\[(.*)\]", indented(t, "departments") or "")).split(",")
+                if d.strip()
+            ],
+            "lead": indented(t, "lead"),
+            "discoveryQuestions": [q.strip().strip('"').strip("'") for q in list_items(block_after(t, "questions"))] if "questions:" in block(t, "discovery") else [],
+            "workItems": work_items,
+            "exitOwner": indented(exit_blk, "owner") if exit_blk else "",
+            "exitProof": indented(exit_blk, "proof") if exit_blk else "",
+            "approvedBy": top(t, "approved_by"),
+            "approvedAt": top(t, "approved_at"),
+            "nextBlocking": _next_blocking(t, st),
+            "active": active_id() == tid,
+            "createdAt": top(t, "created_at"),
+            "revisionOf": revision_of_raw if revision_of_raw and revision_of_raw != "null" else "",
+            "gate0": bool(re.search(r"^[ \t]*gate_0:[ \t]*true\b", classification_blk, re.M)),
+            "gate0Signoffs": [s.split("#")[0].strip().strip('"').strip("'") for s in list_items(block_after(t, "gate_0_signoffs"))],
+            "history": _parse_history(t),
+            "prdRef": top(t, "prd_ref"),
+            "riceScore": top(t, "rice_score"),
+            "designSessionId": top(t, "design_session_id"),
+            "designTool": top(t, "design_tool"),
+            "designArtifactId": top(t, "design_artifact_id"),
+            "designHandoffPath": top(t, "design_handoff_path"),
+        })
+    print(_json.dumps(out))
 
 
 def cmd_validate(args):
@@ -207,9 +504,23 @@ def cmd_validate(args):
             proof = indented("exit_gate:\n" + block(t, "exit_gate"), "proof")
             if not proof or proof.lower() in SELF_ASSERT:
                 fails.append(f"{p.name}: {st} but exit_gate.proof empty/self-asserting")
-        if "gate_0: true" in block(t, "classification") and i >= STATES.index("approved"):
+        if re.search(r"^[ \t]*gate_0:[ \t]*true\b", block(t, "classification"), re.M) and i >= STATES.index("approved"):
             if not list_items(block_after(t, "gate_0_signoffs")):
                 fails.append(f"{p.name}: gate_0 requires gate_0_signoffs (dev/spec/meta/warden or operator-ordered)")
+        # history is additive/optional — a missing or empty history block on an
+        # old record is NOT a validation failure (backward compatible, PRD §6).
+        # PRD gate (docs/PRD-prd-gated-task-conversion.md): only enforced on
+        # records that HAVE the prd_ref key — i.e. created after this patch.
+        # Pre-existing records (TS-001..TS-033, none of which carry prd_ref)
+        # are exempt, same backward-compat rule the history field used.
+        if re.search(r"^prd_ref:", t, re.M) and i >= STATES.index("approved"):
+            prd_ref = top(t, "prd_ref")
+            if not prd_ref:
+                fails.append(f"{p.name}: {st} but prd_ref is empty (PRD required before approval)")
+            elif not (ROOT / prd_ref.strip('"')).exists():
+                fails.append(f"{p.name}: {st} but prd_ref path missing on disk: {prd_ref}")
+            if not top(t, "rice_score"):
+                fails.append(f"{p.name}: {st} but rice_score is empty (RICE required before approval)")
     if fails:
         print("❌ task validate FAIL:")
         for f in fails:
@@ -220,12 +531,19 @@ def cmd_validate(args):
 
 # ── small utils ─────────────────────────────────────────────────────────────
 def block_after(text, key):
-    m = re.search(rf"^\s*{key}:[ \t]*$", text, re.M)
+    """Indented body under a *nested* `key:` up to the next line whose
+    indentation is <= the key line's own indentation (a sibling key or a
+    dedent) — not just the next column-0 line, so e.g. `questions:` stops
+    at the following sibling `decisions:` instead of swallowing it."""
+    m = re.search(r"^([ \t]*)" + re.escape(key) + r":[ \t]*(?:#.*)?$", text, re.M)
     if not m:
         return ""
+    indent = len(m.group(1))
     start = m.end()
-    nxt = re.search(r"^\S", text[start:], re.M)
-    return text[start: start + nxt.start() if nxt else len(text)]
+    rest = text[start:]
+    boundary = re.compile(r"^[ \t]{0," + str(indent) + r"}\S", re.M)
+    nxt = boundary.search(rest)
+    return rest[: nxt.start()] if nxt else rest
 
 
 def _opt(args, flag):
@@ -237,7 +555,7 @@ def _opt(args, flag):
 
 def _next_blocking(text, st):
     n = {"draft": "fill classification.lead → task.sh discover",
-         "discovery": "fill discovery.decisions → task.sh approve --by <who>",
+         "discovery": "fill discovery.decisions + task.sh set-prd (PRD+RICE) → task.sh approve --by <who>",
          "approved": "ensure a work_item owner → task.sh start",
          "executing": "create every produces path → task.sh gate",
          "gated": "task.sh done --proof \"<artifact>\"",
@@ -254,15 +572,20 @@ def main(argv):
         return cmd_new(rest)
     if cmd == "validate":
         return cmd_validate(rest)
+    if cmd == "list":
+        return cmd_list(rest)
     # commands that operate on a task id (positional id optional → ACTIVE)
     pos = [a for a in rest if not a.startswith("-")]
     idarg = None
-    if cmd in ("discover", "approve", "start", "gate", "done", "status"):
-        # id is the last bare positional that looks like TS-xxx
+    if cmd in ("discover", "approve", "start", "gate", "done", "status", "note", "set-prd",
+               "set-design-origin", "fill-discovery"):
+        # id is the first bare positional that looks like TS-xxx
         cand = [a for a in pos if re.match(r"TS-\d+", a)]
         idarg = cand[0] if cand else None
     dispatch = {"discover": cmd_discover, "approve": cmd_approve, "start": cmd_start,
-                "gate": cmd_gate, "done": cmd_done, "status": cmd_status}
+                "gate": cmd_gate, "done": cmd_done, "status": cmd_status, "note": cmd_note,
+                "set-prd": cmd_setprd, "set-design-origin": cmd_set_design_origin,
+                "fill-discovery": cmd_filldiscovery}
     if cmd in dispatch:
         return dispatch[cmd](rest, resolve(idarg))
     die(f"unknown command: {cmd}")

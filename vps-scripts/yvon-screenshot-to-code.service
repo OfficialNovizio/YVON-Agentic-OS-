@@ -1,0 +1,43 @@
+# screenshot-to-code backend — serves 127.0.0.1:7001 (backend/start.py's own
+# default port), backs cli/design.py's `capture`/`generate` commands once
+# SCREENSHOT_TO_CODE_URL points at it (docs/PRD-design-first-workflow.md).
+# Loopback-only by design, same convention as yvon-hermes-dashboard.service.
+#
+# v2 (2026-08-19) — ExecStart corrected after deploy-screenshot-to-code.sh's
+# first version failed on a real run: the backend uses Poetry, confirmed
+# against the cloned repo's own backend/README.md ("poetry run uvicorn
+# main:app --reload --port 7001"). --reload is dropped here (dev-only,
+# wrong for a systemd-managed service).
+#
+# v3 (2026-08-19, same day) — ExecStart path corrected again after a second
+# real run failed: the deploy script now installs poetry via pipx (a plain
+# `pip install --break-system-packages poetry` failed against apt's own
+# python3-urllib3), so poetry's real binary is the pipx shim at
+# /root/.local/bin/poetry, not /usr/local/bin/poetry. systemd units don't
+# source .bashrc/.profile, so PATH must be set explicitly below too.
+#
+#   scp vps-scripts/yvon-screenshot-to-code.service root@169.58.107.148:/etc/systemd/system/
+#   ssh root@169.58.107.148
+#   systemctl daemon-reload
+#   systemctl enable --now yvon-screenshot-to-code
+#   systemctl status yvon-screenshot-to-code --no-pager && ss -tlnp | grep 7001
+[Unit]
+Description=screenshot-to-code backend (127.0.0.1:7001) — backs cli/design.py capture/generate
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Environment=HOME=/root
+Environment=PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+WorkingDirectory=/opt/yvon-tools/screenshot-to-code/backend
+ExecStart=/root/.local/bin/poetry run uvicorn main:app --host 127.0.0.1 --port 7001
+Restart=always
+RestartSec=5
+TimeoutStartSec=120
+# Hardening intentionally OFF — Contabo's LXC returns status=226/NAMESPACE under
+# ProtectSystem=strict + ReadOnlyPaths (handout §9 #9), same as the hermes unit.
+
+[Install]
+WantedBy=multi-user.target

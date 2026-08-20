@@ -52,7 +52,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'Dashboard Home', href: '/dashboard', icon: 'dashboard' },
       { label: 'Decision Queue', href: '/decision-queue', icon: 'filter_list', liveBadge: true },
-      { label: 'Task Board', href: '/task-board', icon: 'view_kanban', liveBadge: true },
+      { label: 'Kanban', href: '/task-board', icon: 'view_kanban', liveBadge: true },
       { label: 'Advisory Council', href: '/advisory-council', icon: 'groups' },
       { label: 'Chat', href: '/chat', icon: 'forum' },
       { label: 'Org Chart', href: '/org-chart', icon: 'account_tree' },
@@ -216,25 +216,25 @@ export function Sidebar({ mode, onToggle, mobileClose }: SidebarProps) {
   return (
     <div className="flex flex-col h-full text-[13px] overflow-y-auto no-scrollbar">
       {/* ── Logo + workspace switcher ──────────────────────────────────────── */}
-      <div className="px-3 py-4 border-b border-white/[0.06]">
+      <div className="px-3 py-4 border-b border-[var(--app-line-soft)]">
         {mode === 'full' ? (
           <>
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent shrink-0 flex items-center justify-center text-[#06121f] font-bold text-sm">
+              <div className="w-8 h-8 rounded-lg bg-[var(--app-accent)] shrink-0 flex items-center justify-center text-[var(--app-accent-ink)] font-bold text-sm">
                 Y
               </div>
               <div>
-                <div className="font-semibold text-on-surface leading-tight text-sm">YVON OS</div>
-                <div className="text-[10px] text-on-surface-variant tracking-widest uppercase">Mission Control</div>
+                <div className="font-semibold text-[var(--app-text)] leading-tight text-sm">YVON OS</div>
+                <div className="text-[10px] text-[var(--app-text-dim)] tracking-widest uppercase">Mission Control</div>
               </div>
             </div>
             {/* Workspace — static label (TS-030: the interactive selector lives
                 in the TopBar WorkspaceSwitcher — one place, not two) */}
-            <div className="flex w-full items-center gap-2 px-3 py-2 rounded-lg border border-white/[0.08] bg-white/[0.03] text-xs">
-              <span className="text-[10px] tracking-widest text-on-surface-variant uppercase shrink-0">
+            <div className="flex w-full items-center gap-2 px-3 py-2 rounded-lg border border-[var(--app-line)] bg-[var(--app-hover)] text-xs">
+              <span className="text-[10px] tracking-widest text-[var(--app-text-dim)] uppercase shrink-0">
                 WORKSPACE
               </span>
-              <span className="flex-1 text-left text-on-surface font-medium truncate">
+              <span className="flex-1 text-left text-[var(--app-text)] font-medium truncate">
                 {wsLabel}
               </span>
             </div>
@@ -242,7 +242,7 @@ export function Sidebar({ mode, onToggle, mobileClose }: SidebarProps) {
         ) : (
           /* Icon-only mode — just the logo */
           <div className="flex items-center justify-center">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent shrink-0 flex items-center justify-center text-[#06121f] font-bold text-sm">
+            <div className="w-8 h-8 rounded-lg bg-[var(--app-accent)] shrink-0 flex items-center justify-center text-[var(--app-accent-ink)] font-bold text-sm">
               Y
             </div>
           </div>
@@ -256,7 +256,7 @@ export function Sidebar({ mode, onToggle, mobileClose }: SidebarProps) {
           .map((section) => (
           <div key={section.heading}>
             {mode === 'full' && (
-              <div className="text-[10px] tracking-[0.15em] text-on-surface-variant px-3 mb-1.5 uppercase">
+              <div className="text-[10px] tracking-[0.15em] text-[var(--app-text-dim)] px-3 mb-1.5 uppercase">
                 {section.heading}
               </div>
             )}
@@ -278,12 +278,12 @@ export function Sidebar({ mode, onToggle, mobileClose }: SidebarProps) {
                       </span>
                       {mode === 'full' && <span className="flex-1 truncate">{item.label}</span>}
                       {mode === 'full' && showBadge && (
-                        <span className="bg-red-500/20 text-red-300 text-[10px] px-1.5 py-0.5 rounded-full leading-none font-medium">
+                        <span className="bg-[rgba(239,68,68,0.16)] text-[var(--app-danger,#ef4444)] text-[10px] px-1.5 py-0.5 rounded-full leading-none font-medium">
                           {badgeCount! > 99 ? '99+' : badgeCount}
                         </span>
                       )}
                       {mode === 'icons' && showBadge && (
-                        <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-red-500/20 text-red-300 text-[9px] font-bold flex items-center justify-center px-1">
+                        <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-[rgba(239,68,68,0.16)] text-[var(--app-danger,#ef4444)] text-[9px] font-bold flex items-center justify-center px-1">
                           {badgeCount! > 9 ? '9+' : badgeCount}
                         </span>
                       )}
@@ -297,10 +297,10 @@ export function Sidebar({ mode, onToggle, mobileClose }: SidebarProps) {
       </nav>
 
       {/* ── Bottom: collapse toggle (desktop only) ──────────────────────────── */}
-      <div className="p-3 border-t border-white/[0.06] hidden md:block">
+      <div className="p-3 border-t border-[var(--app-line-soft)] hidden md:block">
         <button
           onClick={onToggle}
-          className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-white/[0.04] transition text-on-surface-variant text-xs"
+          className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-[var(--app-hover)] transition text-[var(--app-text-dim)] text-xs"
           title={mode === 'full' ? 'Collapse sidebar' : 'Expand sidebar'}
         >
           <span className="material-symbols-outlined text-[18px]">

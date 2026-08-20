@@ -1,7 +1,10 @@
-// /chat — command-deck chat (TS-020).
-// Conversation-first: icon dock (left) → thread (center) → floating pipeline
-// HUD (right, on demand) → Teams slide-over (on demand). Every element binds
-// to real data: rooms, messages, SSE events, the command registry, the fleet.
+// /chat — the Atelier (TS-020, redesigned 2026-08-17 in the Adora system).
+//
+// Conversation-first: floating dock pill (left) → teams gallery panel →
+// thread (center, on a paper canvas with painterly washes) → CAOS pipeline
+// card (right) → Teams slide-over on mobile. Every element still binds to
+// real data: rooms, messages, SSE events, the command registry, the fleet.
+// The redesign is a shape/interaction pass — the data path below is unchanged.
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -14,17 +17,23 @@ import { MessageStream } from './MessageStream'
 import { Composer } from './Composer'
 import { DockRail } from './DockRail'
 import { TeamsPanel } from './TeamsPanel'
+import { TasksPanel } from './TasksPanel'
+import { TaskPill } from './TaskPill'
+import { TaskFocusView } from './TaskFocusView'
 import { LiveStrip } from './LiveStrip'
 import { PipelineHud } from './PipelineHud'
 import { TaskProposalPrompt, type PendingTaskProposal } from './TaskProposalPrompt'
+import { PrdProposalCard, type PendingPrdProposal } from './PrdProposalCard'
 import { VentureSelector } from './VentureSelector'
 import { RepoModeToggle } from './RepoModeToggle'
+import { AtelierBackdrop } from './Atelier'
 import './chat.css'
 import type { UploadedAttachment } from '@/lib/attachments-client'
 import type { ChatRoom } from '@/app/api/chat/rooms/route'
 import type { ChatMessage } from '@/app/api/chat/messages/route'
 import type { TurnEvent } from '@/app/api/chat/events/route'
 import { stageFromSseEvent, stageFromEventRow, upsertStage, type PipelineView, type InputAnalysisStage, type SkillDisclosureStage } from '@/lib/pipeline'
+import type { TurnUsage } from '@/lib/hermes-client'
 
 // Live-status chip types (moved from the removed StatusChip.tsx — page.tsx is
 // now the only consumer; the chip component itself was dead after TS-020).
@@ -53,6 +62,8 @@ export type Focus =
   | { kind: 'department'; department: string }
   | { kind: 'agent'; department: string; agentId: string }
   | { kind: 'assigned_scope' }
+  | { kind: 'tasks'; taskId?: string }
+  | { kind: 'room'; roomId: string }
 
 const POLL_INTERVAL_MS = 4000
 
@@ -99,7 +110,18 @@ export default function ChatPage() {
   // task?" offer, parsed server-side from a fenced marker (see
   // /api/chat/stream). null = nothing pending.
   const [taskProposal, setTaskProposal] = useState<PendingTaskProposal | null>(null)
+  // PRD gate (docs/PRD-prd-gated-task-conversion.md): the second stage,
+  // after TaskProposalPrompt hands off a generated PRD. null = nothing pending.
+  const [prdProposal, setPrdProposal] = useState<PendingPrdProposal | null>(null)
   const [streamingText, setStreamingText] = useState<string | null>(null)
+  // Added 2026-08-20 (Task #18/#20): usage/context data from the most
+  // recently completed turn's `done` event — see hermes-client.ts's
+  // TurnUsage. Null until the first reply lands; the Composer's chip row
+  // stays hidden while this is null rather than showing a placeholder.
+  const [lastUsage, setLastUsage] = useState<TurnUsage | null>(null)
+  // Adora: a starter prompt clicked in the empty state, handed to the composer
+  // once and then cleared.
+  const [prefill, setPrefill] = useState<string | null>(null)
   // Default-visible on desktop (TS-021): teams panel + CAOS card show by
   // default; on mobile they're overlays toggled on demand.
   const [teamsOpen, setTeamsOpen] = useState<boolean>(() =>
@@ -202,6 +224,9 @@ export default function ChatPage() {
       return rooms.find((r) => r.kind === 'department' && r.department === focus.department) ?? null
     if (focus.kind === 'agent')
       return rooms.find((r) => r.kind === 'agent' && r.agentId === focus.agentId) ?? null
+    // TS lifecycle actions (retry/redo/make changes): jump to the room a task
+    // originated from, prefilled with a message drafted from that task.
+    if (focus.kind === 'room') return rooms.find((r) => r.id === focus.roomId) ?? null
     return null
   }, [focus, rooms])
 
@@ -251,6 +276,7 @@ export default function ChatPage() {
     setPipeline({ stages: [], source: 'none' })
     setStreamingText(null)
     setTaskProposal(null)
+    setPrdProposal(null)
     loadMessages(activeRoom.id)
     const t = setInterval(() => {
       if (activeRoom) loadMessages(activeRoom.id, { silent: true })
@@ -297,6 +323,7 @@ export default function ChatPage() {
       // A new turn starting supersedes any unresolved proposal from the
       // previous one — sending a follow-up message is itself "discuss more".
       setTaskProposal(null)
+      setPrdProposal(null)
       const abort = new AbortController()
       sendAbortRef.current = abort
 
@@ -394,9 +421,10 @@ export default function ChatPage() {
                 attached?: boolean
                 wing?: string
                 count?: number
+                usage?: TurnUsage
               }
 
-              // Live tokens → streaming bubble (TS-020)
+              // Live tokens → streaming card (TS-020)
               if (event.kind === 'token' && event.text) {
                 setStreamingText((prev) => (prev ?? '') + event.text)
               }
@@ -599,6 +627,10 @@ export default function ChatPage() {
               }
               if (event.kind === 'done') {
                 setStreamingText(null)
+                // Only ever set from a real `usage` object main.py actually
+                // attached to this event — undefined stays undefined, never
+                // coerced into a fake zeroed-out usage row.
+                if (event.usage) setLastUsage(event.usage)
                 break
               }
             } catch {
@@ -654,6 +686,17 @@ export default function ChatPage() {
     setFocus(next)
     setTeamsOpen(false)
   }, [])
+
+  // TaskFocusView lifecycle actions (make changes / retry / redo): switch
+  // focus to the task's originating room and hand the composer a drafted
+  // message, same hand-off pattern as the empty-state starter prompts.
+  const openRoomWithPrefill = useCallback(
+    (roomId: string, text: string) => {
+      focusAndClose({ kind: 'room', roomId })
+      setPrefill(text)
+    },
+    [focusAndClose],
+  )
 
   // ── Derived: live strip + HUD inputs ─────────────────────────────────────
   // Bug fix (2026-08-11): this used to map only the 4 raw kinds
@@ -728,6 +771,11 @@ export default function ChatPage() {
     return null
   }, [focus])
 
+  const liveAgentCount = useMemo(
+    () => Object.values(agentLive).filter((s) => s === 'active').length,
+    [agentLive],
+  )
+
   const composerPlaceholder =
     focus.kind === 'workforce'
       ? 'Message the workforce…  (/ for commands)'
@@ -737,105 +785,204 @@ export default function ChatPage() {
           ? `Ask @${focus.agentId}… (/ for commands)`
           : 'Message across your departments… (/ for commands)'
 
+  // ── Empty-state copy + starters, per focus ───────────────────────────────
+  const empty = useMemo(() => {
+    if (focus.kind === 'department') {
+      return {
+        title: 'Brief the',
+        highlight: `${focus.department} room`,
+        label: `Everyone in ${focus.department} sees this thread. Ask for a plan, a review, or a status read.`,
+        starters: [
+          `What is ${focus.department} working on right now?`,
+          `What are the biggest risks in ${focus.department} this week?`,
+          'Draft a plan for the next sprint',
+        ],
+      }
+    }
+    if (focus.kind === 'agent') {
+      const agent = FLEET.find((a) => a.id === focus.agentId)
+      return {
+        title: 'Start with',
+        highlight: agent?.name ?? `@${focus.agentId}`,
+        label: agent?.role
+          ? `A private 1:1 room. ${agent.name} handles ${agent.role.toLowerCase()}.`
+          : 'A private 1:1 room with this agent.',
+        starters: [
+          'What can you help me with?',
+          'Review what we shipped this week',
+          'Draft a plan and stop before you execute',
+        ],
+      }
+    }
+    if (focus.kind === 'assigned_scope') {
+      return {
+        title: 'Reach every',
+        highlight: 'assigned team',
+        label: 'One message across all the departments assigned to you.',
+        starters: ['Status across all my departments', "What's blocked right now?"],
+      }
+    }
+    return {
+      title: 'Put the workforce',
+      highlight: 'to work',
+      label: `${FLEET.length} agents across ${FLEET_DEPARTMENTS.length} departments are listening. Type / for commands, @ to target one directly.`,
+      starters: [
+        'What should I focus on today?',
+        'Summarise this week across every department',
+        'Draft a plan for our next release',
+        'Which agents are idle right now?',
+      ],
+    }
+  }, [focus])
+
+  const isLive = awaitingReply || pipeline.source === 'live'
+
   return (
-    <div className="chat-shell flex h-full min-h-0 flex-col">
-      {/* ── Top bar ─────────────────────────────────────────────────── */}
-      <div className="flex shrink-0 items-center justify-between px-6 pb-2 pt-3.5">
-        <div className="flex items-baseline gap-2.5">
-          <h1 className="text-[15px] font-semibold text-[var(--chat-text)]">{topTitle}</h1>
-          <span className="text-[11px] text-[var(--chat-text-faint)]">{topSubtitle}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <RepoModeToggle />
-          <VentureSelector />
-          {memberCount != null && (
-            <span className="rounded-full border border-[var(--chat-hairline-soft)] px-2 py-0.5 font-mono text-[9.5px] text-[var(--chat-text-faint)]">
-              {memberCount} members
+    <div className="chat-shell flex h-full min-h-0 flex-col" data-live={isLive ? 'true' : 'false'}>
+      <AtelierBackdrop />
+
+      {/* ── Floating pill header — never a full-bleed bar ─────────────── */}
+      <div className="relative z-20 shrink-0 px-3 pb-1 pt-3 sm:px-5">
+        <header className="mx-auto flex w-full items-center gap-3 rounded-[200px] border border-[var(--chat-hairline)] bg-white py-2 pl-5 pr-2.5">
+          <div className="flex min-w-0 items-baseline gap-2.5">
+            <h1 className="adora-display truncate text-[17px]">{topTitle}</h1>
+            <span className="hidden truncate text-[12.5px] text-[var(--chat-text-dim)] sm:inline">
+              {topSubtitle}
             </span>
-          )}
-          {(awaitingReply || pipeline.source === 'live') && (
-            <span className="chat-breathe rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[9.5px] font-semibold uppercase tracking-widest text-emerald-300/90">
-              live
+          </div>
+
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <span className="hidden md:inline">
+              <RepoModeToggle />
             </span>
-          )}
-          <span className="rounded-full border border-[var(--chat-hairline-soft)] px-2 py-0.5 font-mono text-[9.5px] text-[var(--chat-text-faint)]">
-            ⌘K
-          </span>
-        </div>
+            <VentureSelector />
+
+            {memberCount != null && (
+              <span className="adora-tag hidden text-[var(--chat-text-faint)] lg:inline-flex">
+                {memberCount} members
+              </span>
+            )}
+
+            {liveAgentCount > 0 && !isLive && (
+              <span className="adora-tag hidden lg:inline-flex" style={{ color: '#587000' }}>
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#a2ea13' }} />
+                {liveAgentCount} live
+              </span>
+            )}
+
+            {isLive && (
+              <span className="adora-tag chat-breathe" style={{ color: 'var(--chat-accent)' }}>
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: 'currentColor' }} />
+                live
+              </span>
+            )}
+
+            <button
+              onClick={() => document.querySelector<HTMLTextAreaElement>('textarea[data-composer]')?.focus()}
+              className="adora-cta hidden py-2 text-[14px] sm:inline-flex"
+            >
+              New message
+              <span className="chat-mono opacity-70">⌘K</span>
+            </button>
+          </div>
+        </header>
       </div>
 
       <NotificationsSetup />
 
       {error && (
-        <div className="mx-6 mb-2 rounded-lg border border-red-400/25 bg-red-400/10 px-3 py-2 text-[12px] text-red-300">
+        <div className="relative z-20 mx-3 mb-1 rounded-[16px] border border-[rgba(239,68,68,0.28)] bg-[rgba(239,68,68,0.06)] px-4 py-2.5 text-[12.5px] text-[#b91c1c] sm:mx-5">
           {error}
         </div>
       )}
 
       {/* ── Body ───────────────────────────────────────────────────── */}
-      <div className="relative flex min-h-0 flex-1">
+      <div className="relative z-10 flex min-h-0 flex-1">
         <DockRail rooms={rooms} focus={focus} onFocus={focusAndClose} onOpenTeams={() => setTeamsOpen(true)} teamsOpen={teamsOpen} agentLive={agentLive} />
 
         {/* Permanent secondary sidebar (desktop) — teams, switches with dept.
-            When collapsed, the container shrinks to a 40px rail and the chat
+            When collapsed, the container shrinks to a rail and the chat
             (main) expands to fill the freed space — no blank gap (TS-030). */}
-        <div className={`hidden shrink-0 md:block ${teamsCollapsed ? 'w-10' : 'w-[300px]'}`}>
-          <TeamsPanel
-            focus={focus}
-            onFocus={focusAndClose}
-            onClose={() => setTeamsOpen(false)}
-            variant="sidebar"
-            live={agentLive}
-            collapsed={teamsCollapsed}
-            onToggleCollapsed={(v) => setTeamsCollapsed(v)}
-          />
+        <div className={`hidden shrink-0 py-3 pl-3 md:block ${teamsCollapsed ? 'w-[64px]' : 'w-[312px]'}`}>
+          {focus.kind === 'tasks' ? (
+            <TasksPanel focus={focus} onFocus={focusAndClose} roomId={activeRoom?.id ?? null} />
+          ) : (
+            <TeamsPanel
+              focus={focus}
+              onFocus={focusAndClose}
+              onClose={() => setTeamsOpen(false)}
+              variant="sidebar"
+              live={agentLive}
+              collapsed={teamsCollapsed}
+              onToggleCollapsed={(v) => setTeamsCollapsed(v)}
+            />
+          )}
         </div>
 
-        <main className="flex min-w-0 flex-1 flex-col">
-          <MessageStream
-            messages={messages}
-            awaitingReply={awaitingReply || messagesLoading}
-            streamingText={streamingText}
-            hasEarlier={messages.length >= 50}
-            loadingEarlier={loadingEarlier}
-            onLoadEarlier={loadEarlier}
-            emptyLabel={
-              focus.kind === 'workforce'
-                ? 'Nothing yet in Workforce. Say hi — everyone can see this.'
-                : focus.kind === 'department'
-                  ? `Nothing yet in #${focus.department}. Kick things off with a question.`
-                  : focus.kind === 'agent'
-                    ? `You haven't talked to @${focus.agentId} yet. Ask them something.`
-                    : 'Empty. Send a message across your assigned departments.'
-            }
-          />
-          <LiveStrip
-            agentId={activeAgentId}
-            active={awaitingReply}
-            phase={activePhase}
-            thinking={thinking}
-          />
-          <TaskProposalPrompt
-            proposal={taskProposal}
-            roomId={activeRoom?.id ?? ''}
-            onResolved={() => setTaskProposal(null)}
-          />
-          <Composer
-            sending={sending}
-            awaitingReply={awaitingReply}
-            disabled={!activeRoom || !userId}
-            disabledReason={!activeRoom ? 'Loading room…' : !userId ? 'Signing in…' : undefined}
-            forcedMention={focus.kind === 'agent' ? focus.agentId : null}
-            placeholder={composerPlaceholder}
-            userId={userId}
-            onStop={stopSend}
-            onSend={send}
-          />
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {focus.kind === 'tasks' && focus.taskId ? (
+            <div className="min-h-0 flex-1 py-3 pr-3">
+              <TaskFocusView
+                taskId={focus.taskId}
+                onBack={() => focusAndClose({ kind: 'tasks' })}
+                onOpenInChat={openRoomWithPrefill}
+              />
+            </div>
+          ) : (
+            <>
+              <MessageStream
+                messages={messages}
+                awaitingReply={awaitingReply || messagesLoading}
+                streamingText={streamingText}
+                hasEarlier={messages.length >= 50}
+                loadingEarlier={loadingEarlier}
+                onLoadEarlier={loadEarlier}
+                emptyTitle={empty.title}
+                emptyHighlight={empty.highlight}
+                emptyLabel={empty.label}
+                starters={empty.starters}
+                onStarter={(t) => setPrefill(t)}
+                agentLive={agentLive}
+              />
+              <LiveStrip
+                agentId={activeAgentId}
+                active={awaitingReply}
+                phase={activePhase}
+                thinking={thinking}
+              />
+              <TaskPill roomId={activeRoom?.id ?? null} onOpen={(taskId) => focusAndClose({ kind: 'tasks', taskId })} />
+              <TaskProposalPrompt
+                proposal={taskProposal}
+                roomId={activeRoom?.id ?? ''}
+                onResolved={() => setTaskProposal(null)}
+                onPrdGenerated={(p) => { setTaskProposal(null); setPrdProposal(p) }}
+              />
+              <PrdProposalCard
+                proposal={prdProposal}
+                roomId={activeRoom?.id ?? ''}
+                onResolved={() => setPrdProposal(null)}
+              />
+              <Composer
+                sending={sending}
+                awaitingReply={awaitingReply}
+                disabled={!activeRoom || !userId}
+                disabledReason={!activeRoom ? 'Loading room…' : !userId ? 'Signing in…' : undefined}
+                forcedMention={focus.kind === 'agent' ? focus.agentId : null}
+                placeholder={composerPlaceholder}
+                userId={userId}
+                onStop={stopSend}
+                onSend={send}
+                prefill={prefill}
+                onPrefillConsumed={() => setPrefill(null)}
+                usage={lastUsage}
+              />
+            </>
+          )}
         </main>
 
         {/* Fixed CAOS card (right column, always present, no close — TS-023).
             Disabled + 'waiting' until a turn starts, then live metrics. */}
-        <div className="hidden w-[300px] shrink-0 xl:block">
+        <div className="hidden w-[312px] shrink-0 py-3 pr-3 xl:block">
           <PipelineHud
             stages={pipeline.stages}
             source={pipeline.source}
@@ -849,8 +996,12 @@ export default function ChatPage() {
           drawer toggled from the dock. Scope follows the selected department
           (workforce = everything). */}
       {teamsOpen && (
-        <div className="absolute inset-y-0 left-14 z-50 w-[320px] md:hidden">
-          <TeamsPanel focus={focus} onFocus={focusAndClose} onClose={() => setTeamsOpen(false)} variant="overlay" visible live={agentLive} />
+        <div className="absolute inset-y-3 left-[78px] z-50 w-[320px] md:hidden">
+          {focus.kind === 'tasks' ? (
+            <TasksPanel focus={focus} onFocus={focusAndClose} roomId={activeRoom?.id ?? null} />
+          ) : (
+            <TeamsPanel focus={focus} onFocus={focusAndClose} onClose={() => setTeamsOpen(false)} variant="overlay" visible live={agentLive} />
+          )}
         </div>
       )}
     </div>

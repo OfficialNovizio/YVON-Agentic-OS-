@@ -17,10 +17,22 @@ import { cookies } from 'next/headers'
 import { randomUUID } from 'crypto'
 import { supabaseServer } from '@/lib/supabase-server'
 import { streamHermesChat, hermesConfig } from '@/lib/hermes-client'
+import { getVentureGithubPatBySlug } from '@/lib/db/venture-graphify'
 import { sendPush, type PushSubscriptionRow } from '@/lib/push-server'
 import type { WorkspaceKey } from '@/lib/workspaces'
 import { activeWorkspace } from '@/lib/workspaces'
 import { errMsg } from '@/lib/errors'
+
+// Reverted 2026-08-20: briefly routed Local mode through a direct-to-LLM
+// in-process tool loop (lib/ai-client.ts's streamWithTools) instead of
+// Hermes — explicit user correction: "all the power is for hermes... don't
+// direct connect to llm as it's not doing anything", and "no matter local
+// or github it always talks to hermes, and hermes gets to know that working
+// directory is local or github so he doesn't get confused." Every turn now
+// always goes through streamHermesChat() again, same as before this file
+// was ever touched — the local/github distinction is communicated TO Hermes
+// via repo_mode (see main.py's now-explicit [WORKING REPO] block for the
+// non-github case) instead of being handled by a second engine here.
 
 // TS-018 WI-2 (YVON-CHAT §3.2): the workspace was hardcoded to 'yvon-os' here
 // (the "one defect that underlies more than it appears to"). Now read from the
@@ -84,6 +96,17 @@ export async function GET(request: Request): Promise<Response> {
   const repoModeCookie = cookieStore.get('yvon_repo_mode')?.value
   const repoUrl = ventureRepoUrls[workspace]
   const repoMode: 'local' | 'github' = repoModeCookie === 'github' && repoUrl ? 'github' : 'local'
+
+  // Fixed 2026-08-19: chat's GitHub repo-mode used to have no credential of
+  // its own — it relied on a VPS-side GITHUB_PAT env var that install.sh
+  // never sets, so a private venture repo failed to clone with an auth
+  // error even when a PAT was already saved in Settings → Venture →
+  // Technical (that PAT was only ever wired to graphify/MemPalace before
+  // now). Reuse the SAME saved PAT here — one credential per venture,
+  // sourced from Supabase, nothing to configure on the VPS. Only fetched
+  // when actually needed (repoMode === 'github') to avoid an extra DB round
+  // trip on ordinary local-mode turns.
+  const repoGithubPat = repoMode === 'github' ? ((await getVentureGithubPatBySlug(workspace)) ?? undefined) : undefined
 
   const cfg = hermesConfig()
   if (!cfg.configured) {
@@ -420,6 +443,7 @@ export async function GET(request: Request): Promise<Response> {
             inputAnalysis: inputAnalysis ?? undefined,
             repoMode,
             repoUrl: repoMode === 'github' ? repoUrl : undefined,
+            repoGithubPat,
             // TS-018 WI-2 fix (2026-08-11): forward the dashboard's turn
             // correlation so Hermes reuses it instead of minting its own
             // (main.py used to always uuid4() a fresh one, completely

@@ -187,10 +187,20 @@ export default function VentureSettingsPage() {
       const res = await fetch(`/api/ventures/${venture.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       })
-      setSaveMsg(res.ok ? 'Saved ✓' : 'Error saving')
+      if (res.ok) {
+        setSaveMsg('Saved ✓')
+      } else {
+        // Fixed 2026-08-20: was just 'Error saving' with no detail — now that
+        // updateVenture() actually surfaces the real Postgres error (see
+        // lib/db/ventures.ts) instead of silently swallowing it, show it
+        // instead of a guess. Falls back to the generic message only if the
+        // error body itself is missing/malformed.
+        const data = await res.json().catch(() => null)
+        setSaveMsg(data?.error ? `Error: ${data.error}` : 'Error saving')
+      }
     } catch { setSaveMsg('Network error') }
     setSaving(false)
-    setTimeout(() => setSaveMsg(''), 3000)
+    setTimeout(() => setSaveMsg(''), 6000)
   }, [venture, name, slug, color, status, tagline, description, brandType, brandTier, websiteUrl, repoUrl, localRepoPath, notionUrl, iosAppUrl, androidAppUrl, audAgeGroups, audSocialStatus, audGender, productCats, deploymentPlatforms, foundedYear])
 
   // ── GitHub connect + trigger (graphify + MemPalace, 2026-08-14) ────────

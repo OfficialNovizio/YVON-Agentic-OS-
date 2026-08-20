@@ -39,6 +39,29 @@ export async function getVentureRepoAndPat(
   }
 }
 
+/**
+ * Slug-keyed sibling to getVentureRepoAndPat, added 2026-08-19 so
+ * app/api/chat/stream/route.ts (which only has the active venture's slug
+ * from the yvon_active_venture cookie, not its id) can forward the same
+ * write-scoped PAT to chat's GitHub repo-mode clone/pull step — the fix for
+ * chat's toggle failing to authenticate against private repos even though
+ * a PAT was already saved in Settings → Venture → Technical (it was saved,
+ * just never read by anything except graphify/MemPalace until now).
+ *
+ * Kept in this service-role-only module rather than the general ventures
+ * query in stream/route.ts, same reasoning as getVentureRepoAndPat's header
+ * comment: never let github_pat flow through a query a browser-facing
+ * response could echo back.
+ */
+export async function getVentureGithubPatBySlug(slug: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('ventures')
+    .select('github_pat')
+    .eq('slug', slug)
+    .single()
+  return (data?.github_pat as string) ?? null
+}
+
 async function postToHermes(
   path: string,
   info: { slug: string; repoUrl: string; githubPat: string }

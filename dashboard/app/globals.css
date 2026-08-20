@@ -1,6 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
 
+/* Adora design system — tokens, primitives and the light gallery theme.
+ * Ships the dark defaults untouched; the light surface only applies under
+ * <html data-theme="adora"> (set per-route by components/Shell.tsx). */
+@import './adora.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -62,6 +67,11 @@
     background-color: #0a0a0a;
     color: #e2e2e2;
     -webkit-font-smoothing: antialiased;
+  }
+  /* The gallery paints its own surface (see adora.css). */
+  [data-theme='adora'] body {
+    background-color: var(--app-bg);
+    color: var(--adora-charcoal);
   }
   .material-symbols-outlined {
     font-family: 'Material Symbols Outlined';
@@ -271,7 +281,23 @@
   backdrop-filter: blur(4px);
   z-index: 0;
 }
-.bg-yvon-image > * {
+/* Fixed 2026-08-20 (page-feedback on /settings/venture: LocalRepoPathPicker's
+ * "Browse…" popover invisible/mispositioned). Root cause: this used to be
+ * `.bg-yvon-image > *`, a blanket selector forcing `position:relative;
+ * z-index:1` onto EVERY direct child of <body> — including anything a
+ * component portals to document.body (createPortal(..., document.body), the
+ * exact pattern LocalRepoPathPicker's popover uses so it can escape ancestor
+ * stacking contexts, per its own 2026-08-11 fix). Same specificity as
+ * Tailwind's `.fixed`/`.z-[9999]` utilities (one class selector each), and
+ * this rule sits later in the cascade (after `@tailwind utilities` at the
+ * top of this file) — so it silently won the tie-break, collapsing the
+ * portalled popover out of fixed positioning into normal document flow,
+ * rendering it far down the page instead of anchored under the button. This
+ * was a landmine for ANY future document.body portal (toasts, modals,
+ * command palettes), not just this one component — scoped to a dedicated
+ * class on the real content wrapper instead of catching all body children.
+ * See app/layout.tsx (`bg-yvon-image-content` on the SessionGate wrapper). */
+.bg-yvon-image-content {
   position: relative;
   z-index: 1;
 }

@@ -51,3 +51,18 @@ __pycache__/
 # graphify local worktree/branch state — machine-specific (absolute paths,
 # session timestamps), regenerated automatically, never portable across machines
 .graphify/
+
+# Transient pending PRDs (docs/PRD-prd-gated-task-conversion.md) — deleted on
+# convert/discard, never a real governed record; nothing here should be committed.
+store/tasks/.pending/
+
+# Design-first workflow session state (docs/PRD-design-first-workflow.md) —
+# ephemeral pre-PRD records + working design.md/handoff.md files, same
+# discipline as store/tasks/.pending/: nothing here is a governed record.
+# pricing.example.json (the tracked template) and README.md are exempted below.
+store/design-sessions/*.json
+store/design-sessions/*-design.md
+store/design-sessions/*-handoff.md
+!store/design-sessions/pricing.example.json
+!store/design-sessions/curated-references.json
+!store/design-sessions/README.md

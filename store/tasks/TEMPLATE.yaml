@@ -13,6 +13,8 @@ classification:
   task_type: ""
   departments: []
   lead: ""
+  # gate_0: true              # uncomment if this touches frontend/backend/API/security/algorithm structure (MASTER Sec7.0) — requires gate_0_signoffs before approve
+  # gate_0_signoffs: []       #   who signed the RFC (dev/spec/meta/warden, or [operator] if operator-ordered)
 
 context:                 # hook-injected, gate-verified (citations only)
   chunks: []
@@ -48,3 +50,24 @@ exit_gate:
 feedback:                # filled post-execution — anneal consumes
   outcome: null          # accepted | revised | rejected
   lesson: null
+
+created_at: ""            # ISO timestamp, set by task.sh new
+revision_of: null         # set at creation if this is a retry/redo of another task (task.sh new --revision-of <TS-id>)
+history: []                # sourceful trail — task.sh appends one {ts,actor,event,note} entry per transition + task.sh note
+
+# PRD gate (2026-08-18, docs/PRD-prd-gated-task-conversion.md) — BLOCKING on
+# discovery -> approved (task.sh approve refuses without both). Set together
+# via `task.sh set-prd <id> --ref <path> --rice <score>`, never hand-typed.
+prd_ref: ""               # path to store/tasks/{id}-prd.md — spec's generated PRD (prd-discipline: 7 sections + Working Agents + Context Refs)
+rice_score: ""            # spec's scripts/rice.py output for this item — "[reasoning-based, not formula-verified]" per backlog-rules rule 0.6
+
+# Design-origin linkage (2026-08-19, docs/PRD-design-first-workflow.md) —
+# optional, only set on tasks that came out of cli/design.py's handoff, via
+# `task.sh set-design-origin <id> --session <sid> --tool screenshot-to-code|open-design|custom
+#   [--artifact <artifact_id>] [--handoff <path>]`. Never hand-typed. Powers
+# the dashboard's unified design-preview panel (TaskFocusView) — absent on
+# every task not sourced this way, never guessed.
+design_session_id: ""      # store/design-sessions/{id}.json
+design_tool: ""            # screenshot-to-code | open-design | custom
+design_artifact_id: ""     # open-design live-artifact id, when one exists
+design_handoff_path: ""    # store/design-sessions/{id}-handoff.md

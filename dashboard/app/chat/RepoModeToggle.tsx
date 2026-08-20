@@ -79,7 +79,7 @@ export function RepoModeToggle() {
 
   return (
     <div
-      className="flex items-center overflow-hidden rounded-lg border border-[var(--chat-hairline-soft)] bg-white/[0.03] text-[11px] font-medium"
+      className="flex items-center overflow-hidden rounded-[200px] border border-[var(--chat-hairline)] bg-white p-0.5 text-[11.5px] font-medium"
       role="group"
       aria-label="Working repo"
     >
@@ -89,7 +89,7 @@ export function RepoModeToggle() {
         aria-pressed={mode === 'local'}
         title="Work in the VPS agent's default local directory"
         className={`flex items-center gap-1 px-2 py-1 transition disabled:opacity-50 ${
-          mode === 'local' ? 'bg-[var(--chat-accent)]/15 text-[var(--chat-accent)]' : 'text-[var(--chat-text-dim)] hover:bg-white/[0.06]'
+          mode === 'local' ? 'rounded-[200px] bg-[var(--chat-accent)] text-white' : 'rounded-[200px] text-[var(--chat-text-dim)] hover:bg-[var(--chat-surface-strong)]'
         }`}
       >
         <FolderGit2 className="h-3 w-3" />
@@ -106,7 +106,7 @@ export function RepoModeToggle() {
             : 'No repo linked to this venture — set one in Settings → Venture → Technical'
         }
         className={`flex items-center gap-1 px-2 py-1 transition disabled:opacity-40 disabled:cursor-not-allowed ${
-          mode === 'github' ? 'bg-[var(--chat-accent)]/15 text-[var(--chat-accent)]' : 'text-[var(--chat-text-dim)] hover:bg-white/[0.06]'
+          mode === 'github' ? 'rounded-[200px] bg-[var(--chat-accent)] text-white' : 'rounded-[200px] text-[var(--chat-text-dim)] hover:bg-[var(--chat-surface-strong)]'
         }`}
       >
         <Github className="h-3 w-3" />

@@ -13,7 +13,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { PROVIDER_MODELS } from '@/lib/providers'
-import { runToolLoop, type ToolLoopEvent } from '@/lib/tool-loop'
+import { runToolLoop, runToolLoopOpenAI, type ToolLoopEvent } from '@/lib/tool-loop'
 import { toolsForAgent } from '@/lib/agent-tools'
 import { runAgentSdk, isAgentSdkEnabled } from '@/lib/agent-sdk-runner'
 
@@ -458,25 +458,14 @@ export async function* streamWithTools(params: {
     ? (cfg.tier1Model || cfg.synthesisModel)
     : cfg.fastModel
 
-  if (cfg.protocol !== 'anthropic') {
-    // OpenAI-compatible endpoints: Anthropic tool_use schema not compatible — tools stripped.
-    // Agents respond from context only (no file reads, GitHub, or Bash available).
-    yield { kind: 'error', message: `Tool use unavailable: provider "${cfg.provider}" uses OpenAI-compatible protocol. Agents respond from context only — no file reads, no GitHub access. Switch to an Anthropic provider in Settings to enable tools.` }
-    yield { kind: 'iteration', n: 1 }
-    let buf = ''
-    for await (const chunk of streamSynthesis({ system: params.system, messages: params.messages, maxTokens: params.maxTokens })) {
-      buf += chunk
-      yield { kind: 'text', text: chunk }
-    }
-    void buf
-    yield { kind: 'done', reason: 'end_turn' }
-    return
-  }
-
-  const client = new Anthropic({ apiKey: cfg.apiKey, ...(cfg.baseUrl ? { baseURL: cfg.baseUrl } : {}) })
+  // Tool-list computation moved above the protocol branch (2026-08-20) — it
+  // used to live only in the Anthropic path below, because the
+  // openai-compat path used to just strip every tool and bail. Now both
+  // protocols run a real tool loop (runToolLoop vs runToolLoopOpenAI, picked
+  // below), so both need the same filtered tool list.
   const isProductVenture = params.ventureSlug && params.ventureSlug !== 'yvon-dashboard'
   const isLocalMode      = params.repoMode === 'local'
-  const LOCAL_FS_TOOL_NAMES = ['Read', 'Glob', 'Grep', 'Bash']
+  const LOCAL_FS_TOOL_NAMES = ['Read', 'Glob', 'Grep', 'Bash', 'Write', 'Edit']
   // In GitHub mode: strip FS tools from schema so the model doesn't try to call them.
   // In local mode: include them — user has explicitly enabled local filesystem access.
   let tools = toolsForAgent(params.agentId).filter(t =>
@@ -503,6 +492,30 @@ export async function* streamWithTools(params: {
     })
   }
 
+  const toolContext = { ventureSlug: params.ventureSlug, repoMode: params.repoMode, localRepoPath: params.localRepoPath }
+
+  if (cfg.protocol !== 'anthropic') {
+    // Fixed 2026-08-20: this used to strip every tool for any non-Anthropic
+    // provider and fall back to a text-only reply — a real implementation
+    // gap, not a fact about the model. OpenAI's own chat.completions API
+    // (and anything mirroring it — DeepSeek, OpenRouter, local servers) has
+    // real native function/tool calling; runToolLoopOpenAI (lib/tool-loop.ts)
+    // speaks that wire format directly instead of assuming Anthropic's.
+    yield* runToolLoopOpenAI({
+      baseUrl:         cfg.baseUrl,
+      apiKey:          cfg.apiKey,
+      model,
+      maxTokens:       params.maxTokens,
+      system:          params.system,
+      tools,
+      initialMessages: params.messages.map(m => ({ role: m.role, content: m.content })),
+      maxIterations:   params.maxIterations,
+      toolContext,
+    })
+    return
+  }
+
+  const client = new Anthropic({ apiKey: cfg.apiKey, ...(cfg.baseUrl ? { baseURL: cfg.baseUrl } : {}) })
   const thinkingConfig = getThinkingConfig(model, params.modelTier)
 
   yield* runToolLoop({
@@ -514,7 +527,7 @@ export async function* streamWithTools(params: {
     tools,
     initialMessages: params.messages.map(m => ({ role: m.role, content: m.content })),
     maxIterations:   params.maxIterations,
-    toolContext:     { ventureSlug: params.ventureSlug, repoMode: params.repoMode, localRepoPath: params.localRepoPath },
+    toolContext,
   })
 }
 

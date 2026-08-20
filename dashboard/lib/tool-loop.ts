@@ -173,3 +173,180 @@ export async function* runToolLoop(opts: ToolLoopOptions): AsyncGenerator<ToolLo
 
   yield { kind: 'done', reason: 'max_iterations_reached' }
 }
+
+// ─── OpenAI-compatible tool_use loop ────────────────────────────────────────
+// Added 2026-08-20. Until now, streamWithTools() (ai-client.ts) stripped
+// ALL tools — Read/Glob/Grep/Bash/Write/Edit/Github, everything — for any
+// provider that wasn't Anthropic-protocol (or one of the handful of
+// endpoints detected as exposing an Anthropic-compatible /anthropic route),
+// falling back to a text-only reply. That's a real gap in THIS codebase,
+// not a fact about the model or the provider: OpenAI's own chat.completions
+// API (and anything that mirrors it — DeepSeek, OpenRouter, local vLLM/
+// llama.cpp servers) supports real function/tool calling on its own native
+// wire format. Confirmed live: the venture's active provider row is
+// provider='openai', model='gpt-5.6-luna' via api.openai.com — exactly the
+// case this was blocking. Mirrors runToolLoop's structure and event shape
+// (same ToolLoopEvent union) so streamWithTools() can pick either loop and
+// callers never know the difference. Reuses the same executeTool import
+// already at the top of this file.
+
+export interface OpenAiToolLoopOptions {
+  baseUrl:   string
+  apiKey:    string
+  model:     string
+  maxTokens: number
+  system?:   string
+  tools:     Anthropic.Messages.Tool[]
+  initialMessages: { role: string; content: string }[]
+  maxIterations?: number
+  toolContext?: ToolContext
+}
+
+interface OaiToolCallAccum {
+  id: string
+  name: string
+  args: string
+}
+
+function toolsToOpenAiSchema(tools: Anthropic.Messages.Tool[]) {
+  return tools.map(t => ({
+    type: 'function' as const,
+    function: { name: t.name, description: t.description, parameters: t.input_schema },
+  }))
+}
+
+// Mirrors ai-client.ts's maxTokensParamName — kept local (not imported) so
+// this file has no dependency cycle back onto ai-client.ts, which imports
+// FROM this file.
+function oaiMaxTokensParam(baseUrl: string): 'max_completion_tokens' | 'max_tokens' {
+  return baseUrl.toLowerCase().includes('api.openai.com') ? 'max_completion_tokens' : 'max_tokens'
+}
+
+type OaiMsg = {
+  role: string
+  content: string | null
+  tool_calls?: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }>
+  tool_call_id?: string
+}
+
+export async function* runToolLoopOpenAI(opts: OpenAiToolLoopOptions): AsyncGenerator<ToolLoopEvent> {
+  const messages: OaiMsg[] = []
+  if (opts.system) messages.push({ role: 'system', content: opts.system })
+  for (const m of opts.initialMessages) messages.push({ role: m.role, content: m.content })
+
+  const maxIter = opts.maxIterations ?? DEFAULT_MAX_ITERATIONS
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (opts.apiKey) headers['Authorization'] = `Bearer ${opts.apiKey}`
+  const oaiTools = toolsToOpenAiSchema(opts.tools)
+
+  for (let i = 1; i <= maxIter; i++) {
+    yield { kind: 'iteration', n: i }
+
+    let res: Response
+    try {
+      res = await fetch(`${opts.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: opts.model,
+          [oaiMaxTokensParam(opts.baseUrl)]: opts.maxTokens,
+          messages,
+          tools: oaiTools,
+          stream: true,
+        }),
+      })
+    } catch (e) {
+      yield { kind: 'error', message: e instanceof Error ? e.message : String(e) }
+      return
+    }
+    if (!res.ok || !res.body) {
+      yield { kind: 'error', message: `${opts.baseUrl} ${res.status}: ${await res.text().catch(() => '')}` }
+      return
+    }
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buf = ''
+    let textOut = ''
+    const toolCallsByIndex = new Map<number, OaiToolCallAccum>()
+    let finishReason: string | undefined
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      const lines = buf.split('\n')
+      buf = lines.pop() ?? ''
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
+        const raw = line.slice(6).trim()
+        if (raw === '[DONE]') continue
+        let chunk: {
+          choices: Array<{
+            delta: {
+              content?: string
+              tool_calls?: Array<{ index: number; id?: string; function?: { name?: string; arguments?: string } }>
+            }
+            finish_reason?: string | null
+          }>
+        }
+        try {
+          chunk = JSON.parse(raw)
+        } catch {
+          continue // skip malformed SSE lines rather than aborting the whole turn
+        }
+        const choice = chunk.choices?.[0]
+        if (!choice) continue
+        if (choice.delta?.content) {
+          textOut += choice.delta.content
+          yield { kind: 'text', text: choice.delta.content }
+        }
+        if (choice.delta?.tool_calls) {
+          for (const tc of choice.delta.tool_calls) {
+            const existing = toolCallsByIndex.get(tc.index) ?? { id: '', name: '', args: '' }
+            if (tc.id) existing.id = tc.id
+            if (tc.function?.name) existing.name += tc.function.name
+            if (tc.function?.arguments) existing.args += tc.function.arguments
+            toolCallsByIndex.set(tc.index, existing)
+          }
+        }
+        if (choice.finish_reason) finishReason = choice.finish_reason
+      }
+    }
+
+    if (finishReason !== 'tool_calls' || toolCallsByIndex.size === 0) {
+      yield { kind: 'done', reason: finishReason ?? 'stop' }
+      return
+    }
+
+    const orderedCalls = Array.from(toolCallsByIndex.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([, v]) => v)
+
+    messages.push({
+      role: 'assistant',
+      content: textOut || null,
+      tool_calls: orderedCalls.map(c => ({ id: c.id, type: 'function', function: { name: c.name, arguments: c.args } })),
+    })
+
+    for (const call of orderedCalls) {
+      let input: unknown = {}
+      try {
+        input = call.args ? JSON.parse(call.args) : {}
+      } catch {
+        // Malformed arguments from the model — pass an empty object through
+        // rather than crashing the loop; the tool executor reports its own
+        // validation error, which the model sees and can correct on retry.
+      }
+      yield { kind: 'tool_call', name: call.name, input, tool_use_id: call.id }
+      const result = await executeTool(call.name, input, opts.toolContext ?? {})
+      const todoItems = call.name === 'TodoWrite' && !result.is_error
+        ? (input as { todos?: Array<{ content: string; status: string; activeForm: string }> })?.todos ?? null
+        : null
+      yield { kind: 'tool_result', name: call.name, summary: result.summary, is_error: result.is_error, tool_use_id: call.id, todoItems }
+      messages.push({ role: 'tool', tool_call_id: call.id, content: result.content })
+    }
+  }
+
+  yield { kind: 'done', reason: 'max_iterations_reached' }
+}

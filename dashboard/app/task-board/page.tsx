@@ -86,7 +86,7 @@ export default function TaskBoardPage() {
   return (
     <div className="p-6 md:p-8">
       <PageHeader
-        title="Task Board"
+        title="Kanban"
         subtitle="Hermes Kanban-powered agent task management."
         actions={
           <div className="flex items-center gap-2">

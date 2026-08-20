@@ -29,12 +29,50 @@ export interface HermesChatInput {
    * client-supplied URL (see RepoModeToggle.tsx / stream/route.ts). */
   repoMode?: 'local' | 'github'
   repoUrl?: string
+  /** Added 2026-08-19: the active venture's own write-scoped GitHub PAT
+   * (Settings → Venture → Technical, `ventures.github_pat` in Supabase) —
+   * the same credential graphify/MemPalace already use (lib/db/
+   * venture-graphify.ts). Forwarded so the VPS's repo-mode clone/pull can
+   * read private repos without a separate VPS-side GITHUB_PAT env var.
+   * Only ever the active venture's own saved PAT — never client-supplied. */
+  repoGithubPat?: string
   /** TS-018 WI-2 fix (2026-08-11): the dashboard's turn correlation, forwarded
    * so Hermes reuses it for run.started/phase.classify/phase.resolve/
    * run.completed instead of minting its own (main.py previously always
    * generated a fresh uuid4(), disconnected from every other event the turn
    * emitted — see app/api/chat/send/route.ts's header comment). */
   correlation?: string
+}
+
+/**
+ * Added 2026-08-20 (usage/context indicator, Task #18): best-effort per-turn
+ * usage/context metadata attached to the final `done` event — mirrors the
+ * `usage` dict built in yvon-hermes-http/main.py's chat_stream.
+ *
+ * provider/model/toolCalls/latencyMs/turnId are server-resolved facts and
+ * always populated. Token counts are NOT — hermes-agent's real AIAgent.chat()
+ * return shape was never confirmed against source (run_agent.py lives only
+ * on the VPS filesystem, outside this repo), so the wrapper only reports
+ * them when an actual usage object was found on the agent after the turn.
+ * `tokensReported: false` means "not available", not "zero" — never render
+ * inputTokens/outputTokens/totalTokens as real numbers when it's false.
+ *
+ * contextWindow is a static best-effort lookup by model id (see
+ * _CONTEXT_WINDOW_BY_MODEL in main.py) — may be stale or simply missing
+ * (null) for a model not in that table; treat null the same way, as
+ * "not available", not zero.
+ */
+export interface TurnUsage {
+  provider: string | null
+  model: string | null
+  toolCalls: number
+  latencyMs: number
+  turnId: string
+  tokensReported: boolean
+  inputTokens: number | null
+  outputTokens: number | null
+  totalTokens: number | null
+  contextWindow: number | null
 }
 
 /** SSE event shapes from the wrapper — mirrors yvon-hermes-http/main.py.
@@ -48,7 +86,7 @@ export interface HermesChatInput {
  */
 export type HermesEvent = (
   | { kind: 'token'; text: string }
-  | { kind: 'done'; response: string }
+  | { kind: 'done'; response: string; usage?: TurnUsage }
   | { kind: 'error'; message: string }
   | { kind: 'ping' }
   // ── TS-017: live status feed ──────────────────────────────────────────────
@@ -144,6 +182,7 @@ export async function* streamHermesChat(
       input_analysis: input.inputAnalysis ?? undefined,
       repo_mode: input.repoMode ?? undefined,
       repo_url: input.repoUrl ?? undefined,
+      github_pat: input.repoGithubPat ?? undefined,
       correlation: input.correlation ?? undefined,
     }),
   })

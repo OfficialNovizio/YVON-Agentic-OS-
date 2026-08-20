@@ -39,7 +39,7 @@ export function AttachmentPicker({ onSelect, disabled, currentCount }: Attachmen
         onClick={open}
         disabled={disabled || !canAddMore}
         aria-label="Attach files"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.02] text-on-surface-variant transition hover:border-white/25 hover:text-on-surface disabled:opacity-40"
+        className="chat-ghost-btn h-9 w-9 shrink-0 rounded-full border-[var(--chat-hairline)] disabled:opacity-40"
         title={canAddMore ? 'Attach files (up to 25 MB each)' : `${MAX_FILES_PER_MESSAGE}-file limit reached`}
       >
         <Paperclip className="h-4 w-4" />

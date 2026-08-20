@@ -151,7 +151,22 @@ export async function updateVenture(
   if (data.productCategories    !== undefined) update.product_categories   = data.productCategories
   if (data.deploymentPlatforms  !== undefined) update.deployment_platforms = data.deploymentPlatforms
   if (data.deploymentConfig     !== undefined) update.deployment_config    = data.deploymentConfig
-  await supabase.from('ventures').update(update).eq('id', id)
+  // Fixed 2026-08-20 (bug report: "local path doesn't save, refresh removes
+  // it"): this used to discard the Supabase response entirely — `{ error }`
+  // was never checked, so if the UPDATE failed for ANY reason (one bad field
+  // in the same batched save, a constraint violation, a transient DB error),
+  // the whole request looked identical to success from here up: the PATCH
+  // route (app/api/ventures/[id]/route.ts) caught nothing, returned
+  // { updated: true }, and Settings showed "Saved ✓" for a write that never
+  // actually happened. Verified the column and an isolated write both work
+  // fine directly against the live DB — so this silent-failure path, not a
+  // missing/broken column, is the confirmed bug. Throwing here surfaces the
+  // real Postgres error through the PATCH route's existing try/catch instead
+  // of lying about success.
+  const { error } = await supabase.from('ventures').update(update).eq('id', id)
+  if (error) {
+    throw new Error(`ventures update failed: ${error.message}`)
+  }
 }
 
 export async function deleteVenture(id: string): Promise<void> {

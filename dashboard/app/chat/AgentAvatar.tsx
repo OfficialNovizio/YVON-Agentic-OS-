@@ -6,6 +6,9 @@
 //                                  unique per agent via ?u=<id> (deterministic)
 //   3. generated art            — unique deterministic fallback (offline-safe)
 // The browser tries the best available source and degrades gracefully.
+//
+// 2026-08-17 (Adora): the placeholder behind a loading photo is now paper,
+// not obsidian — on the light gallery canvas a black disc read as a hole.
 'use client'
 
 import { useState } from 'react'
@@ -29,7 +32,8 @@ export function AgentAvatar({
     width: size,
     height: size,
     borderRadius: 9999,
-    background: '#0a0a0f',
+    background: '#f2f2ee',
+    objectFit: 'cover',
     flexShrink: 0,
   }
 

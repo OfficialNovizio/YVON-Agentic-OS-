@@ -20,6 +20,12 @@ firecrawl-anydoc>=0.1.9
 # CLI tools
 numpy>=1.24.0
 
+# cli/design.py's live generate_code() call to a self-hosted screenshot-to-code
+# instance — the real endpoint is a WebSocket (docs/PRD-design-first-workflow.md,
+# cli/lib/screenshot_to_code_client.py's header). Only needed for live generation;
+# capture and stub mode don't require it.
+websockets>=14.0
+
 # Sandbox-first quarantine (Part 7.7 Tier-2) — SDK confirmed installable +
 # unit-tested 2026-08-10 (pip install opensandbox opensandbox-cli); live
 # container provisioning still needs a Docker/K8s runtime, absent here.

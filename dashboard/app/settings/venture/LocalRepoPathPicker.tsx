@@ -51,16 +51,29 @@ export function LocalRepoPathPicker({ value, onSelect }: { value: string; onSele
       if (popoverRef.current?.contains(t)) return
       setOpen(false)
     }
-    const onScrollOrResize = () => setOpen(false)
+    // Bug found 2026-08-20 (feedback: "whenever I try to scroll popup
+    // closes"): 'scroll' events don't bubble, but they DO still fire during
+    // the capture phase on every ancestor — including `window` — as they
+    // travel down to the target. This listener is registered with
+    // capture:true specifically to catch the page scrolling, but that also
+    // caught scrolling the popover's OWN inner directory list (max-h-56
+    // overflow-y-auto below), closing the popover the instant you tried to
+    // browse it. Fix: ignore scroll events whose target is inside the
+    // popover itself — only a real page scroll (or a resize) should close it.
+    const onScroll = (e: Event) => {
+      if (popoverRef.current?.contains(e.target as Node)) return
+      setOpen(false)
+    }
+    const onResize = () => setOpen(false)
     document.addEventListener('mousedown', onDoc)
     // Simplest correct behavior for a fixed-position popover: close rather
     // than track scroll (avoids stale coordinates chasing the trigger).
-    window.addEventListener('scroll', onScrollOrResize, true)
-    window.addEventListener('resize', onScrollOrResize)
+    window.addEventListener('scroll', onScroll, true)
+    window.addEventListener('resize', onResize)
     return () => {
       document.removeEventListener('mousedown', onDoc)
-      window.removeEventListener('scroll', onScrollOrResize, true)
-      window.removeEventListener('resize', onScrollOrResize)
+      window.removeEventListener('scroll', onScroll, true)
+      window.removeEventListener('resize', onResize)
     }
   }, [])
 
@@ -106,8 +119,17 @@ export function LocalRepoPathPicker({ value, onSelect }: { value: string; onSele
         createPortal(
           <div
             ref={popoverRef}
-            className="glass-card fixed z-[9999] w-96 overflow-hidden p-3"
-            style={{ top: coords.top, left: coords.left }}
+            className="glass-card w-96 overflow-hidden p-3"
+            // Bug found 2026-08-20 (page feedback): `.bg-yvon-image > *` in
+            // globals.css was force-overriding this element's `fixed`
+            // Tailwind class with `position: relative` (same specificity,
+            // later in the cascade — see globals.css's fix comment),
+            // silently un-fixing this popover for any body-level portal.
+            // Fixed at the CSS layer (globals.css / layout.tsx), but also
+            // set position/z-index inline here so this component keeps
+            // working even if a future global rule does the same thing —
+            // inline styles always beat stylesheet rules short of !important.
+            style={{ position: 'fixed', zIndex: 9999, top: coords.top, left: coords.left }}
           >
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">Choose a folder</span>
