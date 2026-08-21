@@ -529,13 +529,54 @@ export async function GET(request: Request): Promise<Response> {
             replyContent = `[Hermes error] ${event.message}`
             replyAuthorId = 'system'
             replyAuthorName = 'system'
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
+            let outgoing: typeof event = event
+
+            // 2026-08-21 fix: the auto-reset above only ever ran on a
+            // SUCCESSFUL turn (event.kind === 'done'), because that's the
+            // only place main.py attaches usage.totalTokens. But a room
+            // whose pooled history is ALREADY too big can fail with a rate
+            // limit INSIDE the turn's own multi-call tool loop — before any
+            // 'done' event ever fires — so the reset above never ran, and
+            // every retry kept hitting the same oversized history forever
+            // (confirmed live: "Used 143383, Requested 75716" on a turn
+            // that never got a usage figure to check against 130k). Detect
+            // a rate-limit failure by message text and force the same
+            // pool-drop here, unconditionally — there's no token count to
+            // gate on this path, so any rate-limit error is reason enough.
+            if (/rate limit|tokens per min|\bTPM\b/i.test(event.message)) {
+              try {
+                const drop = await dropPool(user.id, userMsg.room_id, cfg)
+                if (drop.ok && drop.dropped) {
+                  const resetMsg = `${event.message}\n\n(This room's conversation history was reset because it grew too large — send your message again and it should go through.)`
+                  replyContent = `[Hermes error] ${resetMsg}`
+                  outgoing = { ...event, message: resetMsg }
+                }
+              } catch {
+                // Best-effort — never break error reporting just because the reset failed.
+              }
+            }
+
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(outgoing)}\n\n`))
           } else {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
           }
         }
       } catch (e) {
-        const msg = `[Hermes error] ${errMsg(e)}`
+        let msg = `[Hermes error] ${errMsg(e)}`
+        // Same rate-limit reset as the in-stream 'error' branch above — a
+        // rate-limit failure can also surface as a thrown exception here
+        // (e.g. the whole HTTP call to Hermes failing) rather than a clean
+        // SSE 'error' event, so the same forced pool-drop applies.
+        if (/rate limit|tokens per min|\bTPM\b/i.test(msg)) {
+          try {
+            const drop = await dropPool(user.id, userMsg.room_id, cfg)
+            if (drop.ok && drop.dropped) {
+              msg = `${msg}\n\n(This room's conversation history was reset because it grew too large — send your message again and it should go through.)`
+            }
+          } catch {
+            // Best-effort — never break error reporting just because the reset failed.
+          }
+        }
         replyContent = msg
         replyAuthorId = 'system'
         replyAuthorName = 'system'
