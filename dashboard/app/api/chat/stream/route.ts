@@ -16,7 +16,7 @@
 import { cookies } from 'next/headers'
 import { randomUUID } from 'crypto'
 import { supabaseServer } from '@/lib/supabase-server'
-import { streamHermesChat, hermesConfig } from '@/lib/hermes-client'
+import { streamHermesChat, hermesConfig, ensureRepoPreview } from '@/lib/hermes-client'
 import { getVentureGithubPatBySlug } from '@/lib/db/venture-graphify'
 import { sendPush, type PushSubscriptionRow } from '@/lib/push-server'
 import type { WorkspaceKey } from '@/lib/workspaces'
@@ -449,19 +449,61 @@ export async function GET(request: Request): Promise<Response> {
           },
           cfg,
         )) {
-          const data = JSON.stringify(event)
-          controller.enqueue(encoder.encode(`data: ${data}\n\n`))
-
           if (event.kind === 'done') {
             replyContent = event.response
             // Was hardcoded 'meta' regardless of who CLASSIFY actually
             // routed to — now the same effectiveAgentId used for context.
             replyAuthorId = effectiveAgentId || 'meta'
             replyAuthorName = effectiveAgentId || 'meta'
+
+            // 2026-08-21: repo-files / live-preview links ("give me 2 URLs
+            // whenever you work on something new"). event.repoChanged is
+            // computed server-side in main.py from real git state
+            // before/after the turn — never a self-reported marker. Only
+            // fires once per ROOM (checked via chat_rooms.repo_links_shown_at,
+            // migration chat_rooms_repo_links_shown_at), not every turn that
+            // touches the repo — a long work session shouldn't repeat the
+            // same two links every message.
+            if (event.repoChanged && repoUrl) {
+              try {
+                const { data: roomFlag } = await supabase
+                  .from('chat_rooms')
+                  .select('repo_links_shown_at')
+                  .eq('id', userMsg.room_id)
+                  .single()
+                const alreadyShown = !!(roomFlag as { repo_links_shown_at?: string | null } | null)?.repo_links_shown_at
+                if (!alreadyShown) {
+                  const preview = await ensureRepoPreview(workspace, cfg)
+                  const filesLink = `[View repo files](/repo/${workspace})`
+                  const previewLink = preview.ok
+                    ? `[Live preview](https://${preview.previewHost}/)`
+                    : `Live preview: not ready yet (${preview.error ?? 'unknown error'})`
+                  replyContent = `${replyContent}\n\n---\n📁 ${filesLink} · 🔴 ${previewLink}`
+                  await supabase
+                    .from('chat_rooms')
+                    .update({ repo_links_shown_at: new Date().toISOString() })
+                    .eq('id', userMsg.room_id)
+                }
+              } catch {
+                // Best-effort — never break the turn just because the links
+                // couldn't be added (missing migration, VPS unreachable, etc).
+              }
+            }
+
+            // Re-serialize with the (possibly link-augmented) final response
+            // so the SAME turn's live view shows the links, not just a
+            // reload later — augmenting replyContent after the raw event
+            // was already sent would only affect what gets saved to the DB.
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ ...event, response: replyContent })}\n\n`),
+            )
           } else if (event.kind === 'error') {
             replyContent = `[Hermes error] ${event.message}`
             replyAuthorId = 'system'
             replyAuthorName = 'system'
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
+          } else {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
           }
         }
       } catch (e) {

@@ -28,6 +28,7 @@ import json
 import logging
 import os
 import re
+import socket
 import subprocess
 import sys
 import threading
@@ -185,6 +186,34 @@ HERMES_API_URL = os.environ.get("HERMES_API_URL", "http://127.0.0.1:9119")
 REPO_WORKSPACES_DIR = os.environ.get("YVON_REPO_WORKSPACES_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "workspaces"))
 GITHUB_PAT = os.environ.get("GITHUB_PAT", "").strip()  # fallback only — see comment above
 REPO_CLONE_TIMEOUT_S = int(os.environ.get("YVON_REPO_CLONE_TIMEOUT", "120"))
+
+# ── Repo file browser + live dev-server preview (2026-08-21) ────────────────
+# "Give me a URL to view the repo files, and a URL for a live localhost-style
+# preview" — explicit user request. Files browser reads straight out of the
+# same persistent per-venture checkout chat already works in
+# (REPO_WORKSPACES_DIR); the preview actually runs `npm run dev` (or
+# equivalent) for that checkout and exposes it live.
+#
+# Preview routing is subdomain-per-venture (<slug>.PREVIEW_DOMAIN), not a
+# path prefix — most real dev servers (Next/Vite/CRA) assume they're
+# mounted at a domain root and render broken (missing CSS/JS, no
+# hot-reload) under a subpath. Subdomain routing needs one one-time human
+# step outside this file: a wildcard DNS record for PREVIEW_DOMAIN pointing
+# at this VPS, a wildcard TLS cert, and an nginx server block that reads
+# NGINX_PREVIEW_MAP_PATH (this process rewrites that file + reloads nginx
+# every time a dev server starts/stops — see _write_preview_port_map).
+PREVIEW_DOMAIN = os.environ.get("YVON_PREVIEW_DOMAIN", "preview.yvon.in")
+DEV_SERVER_PORT_BASE = int(os.environ.get("YVON_DEV_SERVER_PORT_BASE", "4100"))
+DEV_SERVER_PORT_MAX = int(os.environ.get("YVON_DEV_SERVER_PORT_MAX", "4200"))
+DEV_SERVER_START_TIMEOUT_S = int(os.environ.get("YVON_DEV_SERVER_START_TIMEOUT_S", "30"))
+DEV_SERVER_LOG_DIR = os.path.join(REPO_WORKSPACES_DIR, "_dev_logs")
+NGINX_PREVIEW_MAP_PATH = os.environ.get("YVON_NGINX_PREVIEW_MAP", "/etc/nginx/conf.d/preview-ports.map")
+FILE_BROWSE_EXCLUDE_DIRS = {
+    "node_modules", ".git", ".next", ".nuxt", "dist", "build", "out",
+    "__pycache__", ".venv", "venv", ".turbo", ".cache", ".pytest_cache",
+}
+FILE_TREE_MAX_ENTRIES = 3000
+FILE_MAX_BYTES = 400_000
 
 log = logging.getLogger("yvon-hermes-http")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -466,6 +495,227 @@ def _ensure_repo_clone(repo_url: str, venture_slug: str, github_pat: str = "") -
         return None, _redact(str(exc))[:500]
 
 
+def _repo_fingerprint(workdir: str) -> str:
+    """Cheap fingerprint of a checkout's state — HEAD commit + whether the
+    working tree is dirty. Compared before/after a chat turn (see
+    chat_stream) to detect whether the turn actually changed the repo
+    (new local commit and/or uncommitted edits), without trusting the
+    model to self-report it. Empty string on any git failure — callers
+    treat that as "can't tell," never as "definitely changed."""
+    try:
+        head = subprocess.run(
+            ["git", "-C", workdir, "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=10,
+        ).stdout.strip()
+        status = subprocess.run(
+            ["git", "-C", workdir, "status", "--porcelain"],
+            capture_output=True, text=True, timeout=10,
+        ).stdout
+        if not head:
+            return ""
+        return f"{head}:{bool(status.strip())}"
+    except Exception:
+        return ""
+
+
+def _venture_repo_dir(venture_slug: str) -> Optional[str]:
+    """Find the venture's already-cloned checkout under
+    REPO_WORKSPACES_DIR/<venture_slug>/ — there's normally exactly one repo
+    per venture, so this just picks the first subdir with a .git in it
+    rather than requiring callers to re-pass repo_url. Returns None if
+    nothing's been cloned for this venture yet (_ensure_repo_clone/
+    /v1/repo/ensure never ran, or it failed)."""
+    venture_dir = os.path.join(REPO_WORKSPACES_DIR, venture_slug)
+    if not os.path.isdir(venture_dir):
+        return None
+    try:
+        for entry in sorted(os.listdir(venture_dir)):
+            candidate = os.path.join(venture_dir, entry)
+            if os.path.isdir(os.path.join(candidate, ".git")):
+                return candidate
+    except OSError:
+        return None
+    return None
+
+
+def _list_repo_tree(workdir: str) -> list[dict[str, Any]]:
+    """Flat file listing under workdir, path relative to workdir, skipping
+    FILE_BROWSE_EXCLUDE_DIRS and .git internals. Capped at
+    FILE_TREE_MAX_ENTRIES — a huge repo gets truncated, never silently
+    hangs building the response."""
+    entries: list[dict[str, Any]] = []
+    for root, dirs, files in os.walk(workdir):
+        dirs[:] = [d for d in dirs if d not in FILE_BROWSE_EXCLUDE_DIRS and not d.startswith(".git")]
+        rel_root = os.path.relpath(root, workdir)
+        for d in dirs:
+            rel = d if rel_root == "." else os.path.join(rel_root, d)
+            entries.append({"path": rel, "type": "dir"})
+            if len(entries) >= FILE_TREE_MAX_ENTRIES:
+                return entries
+        for f in files:
+            rel = f if rel_root == "." else os.path.join(rel_root, f)
+            try:
+                size = os.path.getsize(os.path.join(root, f))
+            except OSError:
+                size = None
+            entries.append({"path": rel, "type": "file", "size": size})
+            if len(entries) >= FILE_TREE_MAX_ENTRIES:
+                return entries
+    return entries
+
+
+def _read_repo_file(workdir: str, rel_path: str) -> tuple[Optional[str], Optional[str]]:
+    """Read rel_path from within workdir. Returns (content, None) or
+    (None, error). Sandboxed via realpath — a path that escapes workdir
+    (../.., a symlink out) is rejected outright, never followed."""
+    target = os.path.realpath(os.path.join(workdir, rel_path))
+    root = os.path.realpath(workdir)
+    if target != root and not target.startswith(root + os.sep):
+        return None, "path escapes the repo checkout"
+    if not os.path.isfile(target):
+        return None, "not a file"
+    try:
+        size = os.path.getsize(target)
+        if size > FILE_MAX_BYTES:
+            return None, f"file too large ({size} bytes, max {FILE_MAX_BYTES})"
+        with open(target, "r", encoding="utf-8") as fh:
+            return fh.read(), None
+    except UnicodeDecodeError:
+        return None, "binary file, not viewable as text"
+    except OSError as exc:
+        return None, str(exc)
+
+
+@dataclass
+class DevServerState:
+    process: subprocess.Popen
+    port: int
+    workdir: str
+    started_at: float
+    log_path: str
+
+
+_dev_servers: dict[str, DevServerState] = {}
+_dev_servers_lock = threading.Lock()
+
+
+def _port_in_use(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(0.3)
+        return s.connect_ex(("127.0.0.1", port)) == 0
+
+
+def _allocate_port(venture_slug: str) -> int:
+    """Stable-ish hash into [PORT_BASE, PORT_MAX) so a venture tends to land
+    on the same port across restarts, then linear-probes for a free one."""
+    span = DEV_SERVER_PORT_MAX - DEV_SERVER_PORT_BASE
+    start = abs(hash(venture_slug)) % span
+    with _dev_servers_lock:
+        taken = {s.port for s in _dev_servers.values()}
+    for offset in range(span):
+        candidate = DEV_SERVER_PORT_BASE + (start + offset) % span
+        if candidate not in taken and not _port_in_use(candidate):
+            return candidate
+    raise RuntimeError("no free dev-server port available")
+
+
+def _detect_start_command(workdir: str) -> Optional[list[str]]:
+    """Best-effort: only the most common conventions. A project this
+    doesn't recognize just gets a clear 'don't know how to start this'
+    error instead of a silent no-op — never guesses wrong and hangs."""
+    pkg_path = os.path.join(workdir, "package.json")
+    if os.path.isfile(pkg_path):
+        try:
+            with open(pkg_path, "r", encoding="utf-8") as fh:
+                scripts = (json.load(fh) or {}).get("scripts", {}) or {}
+        except Exception:
+            scripts = {}
+        if "dev" in scripts:
+            return ["npm", "run", "dev", "--", "--port", "{port}", "--hostname", "127.0.0.1"]
+        if "start" in scripts:
+            return ["npm", "run", "start", "--", "--port", "{port}"]
+    if os.path.isfile(os.path.join(workdir, "manage.py")):
+        return ["python3", "manage.py", "runserver", "127.0.0.1:{port}"]
+    return None
+
+
+def _write_preview_port_map() -> None:
+    """Rewrite NGINX_PREVIEW_MAP_PATH from the live _dev_servers registry
+    and reload nginx so <slug>.PREVIEW_DOMAIN routes to the right port.
+    Best-effort: a missing/unwritable map path (nginx preview vhost not
+    set up yet — see the module docstring above) logs a warning and never
+    breaks the dev-server request itself."""
+    try:
+        with _dev_servers_lock:
+            lines = [f"{slug} {state.port};" for slug, state in _dev_servers.items()]
+        os.makedirs(os.path.dirname(NGINX_PREVIEW_MAP_PATH), exist_ok=True)
+        with open(NGINX_PREVIEW_MAP_PATH, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(lines) + ("\n" if lines else ""))
+        subprocess.run(["nginx", "-s", "reload"], capture_output=True, text=True, timeout=10)
+    except Exception as exc:  # noqa: BLE001 — never let map-file bookkeeping break the request
+        log.warning("could not update nginx preview port map at %s: %s", NGINX_PREVIEW_MAP_PATH, exc)
+
+
+def _ensure_dev_server(venture_slug: str, workdir: str) -> tuple[Optional[int], Optional[str]]:
+    """Start (or confirm already-running) the dev server for this venture's
+    checkout. Returns (port, None) on success or (None, error) on failure.
+    Runs synchronously — callers dispatch via asyncio.to_thread, matching
+    _ensure_repo_clone's contract."""
+    with _dev_servers_lock:
+        existing = _dev_servers.get(venture_slug)
+    if existing is not None and existing.process.poll() is None and existing.workdir == workdir:
+        return existing.port, None
+    if existing is not None and (existing.process.poll() is not None or existing.workdir != workdir):
+        # Stale — process died, or the checkout moved. Drop it and start fresh.
+        with _dev_servers_lock:
+            _dev_servers.pop(venture_slug, None)
+
+    cmd_template = _detect_start_command(workdir)
+    if cmd_template is None:
+        return None, "don't know how to start this project (no recognized package.json dev/start script or manage.py)"
+
+    port = _allocate_port(venture_slug)
+    cmd = [part.format(port=port) if "{port}" in part else part for part in cmd_template]
+
+    os.makedirs(DEV_SERVER_LOG_DIR, exist_ok=True)
+    log_path = os.path.join(DEV_SERVER_LOG_DIR, f"{venture_slug}.log")
+    log_fh = open(log_path, "a", encoding="utf-8")
+    log_fh.write(f"\n── starting {' '.join(cmd)} in {workdir} at {time.time()} ──\n")
+    log_fh.flush()
+
+    env = dict(os.environ)
+    env["PORT"] = str(port)
+    try:
+        process = subprocess.Popen(
+            cmd, cwd=workdir, env=env, stdout=log_fh, stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return None, f"failed to launch dev server: {exc}"
+
+    deadline = time.time() + DEV_SERVER_START_TIMEOUT_S
+    while time.time() < deadline:
+        if process.poll() is not None:
+            tail = ""
+            try:
+                with open(log_path, "r", encoding="utf-8", errors="replace") as fh:
+                    tail = fh.read()[-500:]
+            except OSError:
+                pass
+            return None, f"dev server exited immediately (code {process.returncode}): {tail}"
+        if _port_in_use(port):
+            with _dev_servers_lock:
+                _dev_servers[venture_slug] = DevServerState(
+                    process=process, port=port, workdir=workdir, started_at=time.time(), log_path=log_path,
+                )
+            _write_preview_port_map()
+            return port, None
+        time.sleep(0.5)
+
+    process.kill()
+    return None, f"dev server didn't come up on port {port} within {DEV_SERVER_START_TIMEOUT_S}s"
+
+
 # ── App ──────────────────────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -652,11 +902,22 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     # nudge, not a hard guarantee. Degrades loudly on failure either way (a
     # `notice` SSE event), so the dashboard's CAOS panel shows the real
     # outcome, never a silent no-op.
+    # repo_workdir/_repo_baseline_fp: initialized here (not just inside the
+    # branch below) so event_generator's post-turn check further down can
+    # reference them unconditionally, including on the no-repo-linked path.
+    repo_workdir: Optional[str] = None
+    _repo_baseline_fp: str = ""
     if req.repo_url:
         repo_workdir, repo_error = await asyncio.to_thread(
             _ensure_repo_clone, req.repo_url, req.workspace or "default", req.github_pat or ""
         )
         if repo_workdir:
+            # 2026-08-21: fingerprint the checkout BEFORE the agent runs, so
+            # the post-turn check (see __internal_done__ below) can tell
+            # whether this turn actually changed anything — never trust the
+            # model to self-report that, same discipline as everywhere else
+            # in this file (ground it in real git state).
+            _repo_baseline_fp = await asyncio.to_thread(_repo_fingerprint, repo_workdir)
             on_notice("info", f"repo ready · {req.repo_url} → {repo_workdir}")
             prompt_parts.append(
                 f"[WORKING REPO] Your working repo for this turn is checked out at: {repo_workdir}\n"
@@ -799,7 +1060,20 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
                             "totalTokens": (_tok or {}).get("totalTokens"),
                             "contextWindow": _context_window_for(pooled.model),
                         }
-                        yield f"data: {json.dumps({'kind': 'done', 'response': result_holder['response'], 'correlation': _correlation, 'usage': _usage})}\n\n"
+                        # 2026-08-21: did this turn actually change the repo?
+                        # Compares the post-turn fingerprint against the
+                        # pre-turn baseline captured above — real git state,
+                        # not a self-reported marker. False whenever no repo
+                        # was linked this turn (repo_workdir is None) or the
+                        # fingerprint couldn't be read either time. The
+                        # dashboard uses this to decide whether to surface
+                        # the repo-files/live-preview links (see
+                        # stream/route.ts) — once per room, not every turn.
+                        _repo_changed = False
+                        if repo_workdir:
+                            _after_fp = await asyncio.to_thread(_repo_fingerprint, repo_workdir)
+                            _repo_changed = bool(_after_fp) and bool(_repo_baseline_fp) and _after_fp != _repo_baseline_fp
+                        yield f"data: {json.dumps({'kind': 'done', 'response': result_holder['response'], 'correlation': _correlation, 'usage': _usage, 'repoChanged': _repo_changed})}\n\n"
                     break
 
                 yield f"data: {json.dumps(event)}\n\n"
@@ -1049,6 +1323,60 @@ async def repo_ensure(req: RepoEnsureRequest) -> JSONResponse:
         log.info("repo ensured for venture=%s → %s", req.venture_slug, workdir)
         return JSONResponse({"ok": True, "workdir": workdir})
     log.warning("repo ensure failed for venture=%s: %s", req.venture_slug, error)
+    return JSONResponse({"ok": False, "error": error}, status_code=502)
+
+
+# ── Repo file browser (2026-08-21) ──────────────────────────────────────────
+# Read-only view into the SAME persistent checkout chat's Hermes turns cd
+# into (REPO_WORKSPACES_DIR) — shows exactly what Hermes sees right now,
+# including anything committed locally but not yet pushed. Never a stale
+# GitHub view.
+@app.get("/v1/repo/tree", dependencies=[Depends(require_bearer)])
+async def repo_tree(venture_slug: str) -> JSONResponse:
+    workdir = await asyncio.to_thread(_venture_repo_dir, venture_slug)
+    if not workdir:
+        return JSONResponse(
+            {"error": "no repo cloned yet for this venture — link a repo in Settings, or send a chat message first"},
+            status_code=404,
+        )
+    entries = await asyncio.to_thread(_list_repo_tree, workdir)
+    return JSONResponse({
+        "workdir": workdir,
+        "truncated": len(entries) >= FILE_TREE_MAX_ENTRIES,
+        "entries": entries,
+    })
+
+
+@app.get("/v1/repo/file", dependencies=[Depends(require_bearer)])
+async def repo_file(venture_slug: str, path: str) -> JSONResponse:
+    workdir = await asyncio.to_thread(_venture_repo_dir, venture_slug)
+    if not workdir:
+        return JSONResponse({"error": "no repo cloned yet for this venture"}, status_code=404)
+    content, error = await asyncio.to_thread(_read_repo_file, workdir, path)
+    if error:
+        return JSONResponse({"error": error}, status_code=400)
+    return JSONResponse({"path": path, "content": content})
+
+
+# ── Live dev-server preview (2026-08-21) ────────────────────────────────────
+# Starts (or confirms) the venture's dev server and reports the port it's
+# listening on. The dashboard combines that with PREVIEW_DOMAIN to build
+# https://<venture_slug>.PREVIEW_DOMAIN/ — see the module docstring above
+# for the one-time nginx/DNS step this needs to actually route.
+class RepoPreviewRequest(BaseModel):
+    venture_slug: str
+
+
+@app.post("/v1/repo/preview", dependencies=[Depends(require_bearer)])
+async def repo_preview(req: RepoPreviewRequest) -> JSONResponse:
+    workdir = await asyncio.to_thread(_venture_repo_dir, req.venture_slug)
+    if not workdir:
+        return JSONResponse({"ok": False, "error": "no repo cloned yet for this venture"}, status_code=404)
+    port, error = await asyncio.to_thread(_ensure_dev_server, req.venture_slug, workdir)
+    if port:
+        log.info("dev server ready for venture=%s on port=%s", req.venture_slug, port)
+        return JSONResponse({"ok": True, "port": port, "previewHost": f"{req.venture_slug}.{PREVIEW_DOMAIN}"})
+    log.warning("dev server failed for venture=%s: %s", req.venture_slug, error)
     return JSONResponse({"ok": False, "error": error}, status_code=502)
 
 

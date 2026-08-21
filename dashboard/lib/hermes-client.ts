@@ -86,7 +86,12 @@ export interface TurnUsage {
  */
 export type HermesEvent = (
   | { kind: 'token'; text: string }
-  | { kind: 'done'; response: string; usage?: TurnUsage }
+  // repoChanged (2026-08-21): true when this turn's [WORKING REPO] checkout
+  // actually changed (new local commit and/or uncommitted edits), computed
+  // server-side in main.py from real git state before/after the turn —
+  // never a self-reported model marker. stream/route.ts uses this to
+  // surface the repo-files/live-preview links, once per room.
+  | { kind: 'done'; response: string; usage?: TurnUsage; repoChanged?: boolean }
   | { kind: 'error'; message: string }
   | { kind: 'ping' }
   // ── TS-017: live status feed ──────────────────────────────────────────────
@@ -234,5 +239,48 @@ export async function* streamHermesChat(
     } catch {
       // best-effort cleanup
     }
+  }
+}
+
+/**
+ * Fires POST /v1/repo/preview on the VPS wrapper — starts (or confirms
+ * already running) the venture's dev server and returns the host to build
+ * a live-preview URL from (2026-08-21, "give me 2 URLs — repo files and a
+ * localhost preview" feature). Called from stream/route.ts's 'done'
+ * handling, once per room, only on a turn that actually changed the repo.
+ *
+ * `previewHost` (e.g. "acme.preview.yvon.in") needs one one-time human
+ * step outside this app before it actually resolves anywhere — a wildcard
+ * DNS record + nginx vhost on the VPS. See main.py's module docstring for
+ * the full explanation; this function still returns ok:true with the host
+ * even before that step is done, since the dev server itself did start.
+ */
+export async function ensureRepoPreview(
+  ventureSlug: string,
+  cfg?: HermesConfig,
+): Promise<{ ok: boolean; previewHost?: string; error?: string }> {
+  const c = cfg ?? hermesConfig()
+  if (!c.configured || !c.url || !c.token) {
+    return { ok: false, error: c.reason ?? 'not configured' }
+  }
+  try {
+    const res = await fetch(`${c.url}/v1/repo/preview`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${c.token}`,
+      },
+      body: JSON.stringify({ venture_slug: ventureSlug }),
+      // Dev servers can take a few seconds to boot — main.py's own
+      // DEV_SERVER_START_TIMEOUT_S is 30s, so give it a bit more room here.
+      signal: AbortSignal.timeout(35_000),
+    })
+    const body = (await res.json().catch(() => ({}))) as { ok?: boolean; previewHost?: string; error?: string }
+    if (!res.ok || !body.ok) {
+      return { ok: false, error: body.error ?? `hermes ${res.status}` }
+    }
+    return { ok: true, previewHost: body.previewHost }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
 }
