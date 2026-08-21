@@ -167,7 +167,31 @@ except ImportError as exc:  # pragma: no cover — surfaces during deploy issues
 # ── Config ──────────────────────────────────────────────────────────────────
 BEARER_TOKEN_PATH = os.environ.get("YVON_HERMES_TOKEN_PATH", "/etc/yvon-hermes/token")
 POOL_IDLE_TTL_S = int(os.environ.get("YVON_HERMES_POOL_TTL", "1800"))  # 30 min
-MAX_ITERATIONS = int(os.environ.get("YVON_HERMES_MAX_ITER", "40"))
+# Lowered 40 → 15 (2026-08-21) after real journalctl evidence
+# (agent.conversation_loop logs) showed the OpenAI TPM rate-limit failures
+# are NOT caused by cross-turn pool accumulation (a brand new turn after a
+# 5-minute gap started at 19,429 input tokens — barely above the very
+# first call's 18,432, so the pooled agent isn't carrying a growing
+# history between turns). The real driver is WITHIN a single turn's own
+# internal tool-calling loop: each internal round-trip resends that turn's
+# growing scratchpad, averaging ~7,500 extra tokens per round-trip in the
+# observed log (two real turns: 6 and 8 internal calls, costing 27k and
+# 53k tokens respectively just within themselves). A complex request
+# needing 15-20+ internal steps can blow past the 200k/min ceiling
+# entirely within ONE turn, before any 'done'/'error' event ever reaches
+# the dashboard's pool-reset logic (app/api/chat/stream/route.ts) — that
+# fix, and the auto-reset before it, only ever helps BETWEEN turns, so
+# neither could touch this. Capping iterations forces a complex turn to
+# stop and return its best partial answer well before its own internal
+# loop can rack up enough round-trips to hit the ceiling on its own — at
+# ~7.5k tokens/round-trip, 15 rounds tops out well under 150k even in the
+# worst case, leaving headroom for whatever else shares the same
+# per-minute quota. Override via YVON_HERMES_MAX_ITER if 15 proves too
+# tight for legitimately complex tasks (a partial/truncated answer is the
+# tradeoff of a lower cap — there is no way to avoid both that and the
+# rate-limit failures without hermes-agent itself trimming/summarizing a
+# turn's own tool-call scratchpad, which lives outside this repo).
+MAX_ITERATIONS = int(os.environ.get("YVON_HERMES_MAX_ITER", "15"))
 STREAM_KEEPALIVE_S = float(os.environ.get("YVON_HERMES_KEEPALIVE", "15"))
 HERMES_API_URL = os.environ.get("HERMES_API_URL", "http://127.0.0.1:9119")
 # Repo-mode toggle (2026-08-11, dashboard RepoModeToggle.tsx): clone/pull
