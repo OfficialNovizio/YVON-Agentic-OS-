@@ -105,6 +105,13 @@ export default function ChatPage() {
   const [userId, setUserId] = useState<string>('')
   const [statusChips, setStatusChips] = useState<StatusChipData[]>([])
   const [pipeline, setPipeline] = useState<PipelineView>({ stages: [], source: 'none' })
+  // 2026-08-21: manual "reset conversation" action — drops this room's
+  // pooled agent (main.py's POST /v1/pool/drop) so the next message starts
+  // fresh instead of riding the same ever-growing history that (per real
+  // journalctl evidence) climbs toward the account's TPM rate limit the
+  // longer a room stays active. Sibling to stream/route.ts's automatic
+  // threshold-based reset — this is the "do it right now" version.
+  const [resettingContext, setResettingContext] = useState(false)
   // Chat-as-task (2026-08-11): the agent's inline "ready to start this as a
   // task?" offer, parsed server-side from a fenced marker (see
   // /api/chat/stream). null = nothing pending.
@@ -681,6 +688,25 @@ export default function ChatPage() {
     setStreamingText(null)
   }, [])
 
+  // 2026-08-21: manual context reset — see the resettingContext state's
+  // header comment above for why this exists.
+  const handleResetContext = useCallback(async () => {
+    if (!activeRoom || resettingContext) return
+    setResettingContext(true)
+    try {
+      await jsonFetch('/api/chat/reset-context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: activeRoom.id }),
+      })
+    } catch {
+      // Best-effort — worst case the next message just doesn't get a fresh
+      // pool entry; nothing in the UI depends on this succeeding.
+    } finally {
+      setResettingContext(false)
+    }
+  }, [activeRoom, resettingContext])
+
   const focusAndClose = useCallback((next: Focus) => {
     setFocus(next)
     setTeamsOpen(false)
@@ -852,6 +878,18 @@ export default function ChatPage() {
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <VentureSelector />
+
+            {activeRoom && (
+              <button
+                type="button"
+                onClick={handleResetContext}
+                disabled={resettingContext}
+                title="Drop this room's saved conversation history — the next message starts fresh, helps avoid rate limits on a long-running chat"
+                className="adora-tag hidden text-[var(--chat-text-faint)] hover:text-[var(--chat-text-dim)] disabled:opacity-50 lg:inline-flex"
+              >
+                {resettingContext ? 'Resetting…' : 'Reset context'}
+              </button>
+            )}
 
             {memberCount != null && (
               <span className="adora-tag hidden text-[var(--chat-text-faint)] lg:inline-flex">

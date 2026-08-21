@@ -16,7 +16,7 @@
 import { cookies } from 'next/headers'
 import { randomUUID } from 'crypto'
 import { supabaseServer } from '@/lib/supabase-server'
-import { streamHermesChat, hermesConfig, ensureRepoPreview } from '@/lib/hermes-client'
+import { streamHermesChat, hermesConfig, ensureRepoPreview, dropPool } from '@/lib/hermes-client'
 import { getVentureGithubPatBySlug } from '@/lib/db/venture-graphify'
 import { sendPush, type PushSubscriptionRow } from '@/lib/push-server'
 import type { WorkspaceKey } from '@/lib/workspaces'
@@ -41,6 +41,18 @@ import { errMsg } from '@/lib/errors'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+
+// 2026-08-21: auto-reset threshold for main.py's per-room agent pool. Real
+// journalctl evidence (agent.conversation_loop logs) showed a pooled room's
+// per-call input tokens climbing turn over turn — 18k → 72k across one
+// active session — because _pool reuses the same AIAgent (and its internal
+// history) for as long as the room stays active, only evicting after 30min
+// idle. Prompt caching keeps that growth fast/cheap per call but does NOT
+// exempt it from the account's tokens-per-minute rate limit, so an
+// uninterrupted room eventually trips it. 130k leaves real headroom under
+// the observed 200k/min ceiling for whatever else shares that same quota
+// (other rooms, other agents) within the same 60s window.
+const POOL_AUTO_RESET_TOTAL_TOKENS = 130_000
 
 export async function GET(request: Request): Promise<Response> {
   const { searchParams } = new URL(request.url)
@@ -487,6 +499,22 @@ export async function GET(request: Request): Promise<Response> {
               } catch {
                 // Best-effort — never break the turn just because the links
                 // couldn't be added (missing migration, VPS unreachable, etc).
+              }
+            }
+
+            // 2026-08-21: automatic pool reset — see POOL_AUTO_RESET_TOTAL_TOKENS's
+            // comment above for the real evidence behind this. Fires AFTER this
+            // turn's own reply (never blocks or degrades the current response),
+            // so the room's NEXT message gets a fresh, cheap pooled agent instead
+            // of riding the same ballooning history until it hits the TPM ceiling.
+            if ((event.usage?.totalTokens ?? 0) >= POOL_AUTO_RESET_TOTAL_TOKENS) {
+              try {
+                const drop = await dropPool(user.id, userMsg.room_id, cfg)
+                if (drop.ok && drop.dropped) {
+                  replyContent = `${replyContent}\n\n_(context reset — this conversation was getting close to the rate limit, so the next message starts fresh)_`
+                }
+              } catch {
+                // Best-effort — never break the turn just because the reset failed.
               }
             }
 

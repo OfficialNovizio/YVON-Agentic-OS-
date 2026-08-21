@@ -284,3 +284,45 @@ export async function ensureRepoPreview(
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
 }
+
+/**
+ * Fires POST /v1/pool/drop on the VPS wrapper — evicts the pooled AIAgent
+ * for (userId, roomId), so the NEXT turn in that room starts with a clean,
+ * cheap history instead of the ever-growing one main.py's _pool otherwise
+ * keeps reusing indefinitely (only evicted after 30min idle — see
+ * POOL_IDLE_TTL_S). Added 2026-08-21 after confirming via real
+ * agent.conversation_loop logs that a pooled agent's per-call input tokens
+ * climb turn over turn within an active room (18k → 72k in one session)
+ * until it trips the account's TPM rate limit — prompt caching makes that
+ * growth cheap/fast per call but does NOT exempt it from the TPM count.
+ * Used both for the automatic threshold-based reset (stream/route.ts) and
+ * the manual "reset conversation" action (api/chat/reset-context/route.ts).
+ */
+export async function dropPool(
+  userId: string,
+  roomId: string,
+  cfg?: HermesConfig,
+): Promise<{ ok: boolean; dropped?: boolean; error?: string }> {
+  const c = cfg ?? hermesConfig()
+  if (!c.configured || !c.url || !c.token) {
+    return { ok: false, error: c.reason ?? 'not configured' }
+  }
+  try {
+    const res = await fetch(`${c.url}/v1/pool/drop`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${c.token}`,
+      },
+      body: JSON.stringify({ user_id: userId, room_id: roomId }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    const body = (await res.json().catch(() => ({}))) as { dropped?: boolean }
+    if (!res.ok) {
+      return { ok: false, error: `hermes ${res.status}` }
+    }
+    return { ok: true, dropped: !!body.dropped }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
