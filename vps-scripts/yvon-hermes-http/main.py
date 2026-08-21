@@ -411,11 +411,18 @@ def _repo_slug(repo_url: str) -> str:
     return safe or f"repo-{abs(hash(repo_url)) % 10_000}"
 
 
-def _ensure_repo_clone(repo_url: str, room_id: str, github_pat: str = "") -> tuple[Optional[str], Optional[str]]:
-    """Repo-mode toggle (2026-08-11): clone `repo_url` into a deterministic
-    per-room workspace dir, or `git pull --ff-only` if it's already there
-    (discovery decision: clone once, pull every turn). Runs synchronously —
-    callers must dispatch it off the event loop (asyncio.to_thread).
+def _ensure_repo_clone(repo_url: str, venture_slug: str, github_pat: str = "") -> tuple[Optional[str], Optional[str]]:
+    """Clone `repo_url` into a deterministic PER-VENTURE workspace dir, or
+    `git pull --ff-only` if it's already there (clone once, pull every
+    turn). Runs synchronously — callers must dispatch it off the event loop
+    (asyncio.to_thread).
+
+    Reworked 2026-08-21: was keyed by room_id (every chat room got its own
+    throwaway clone of the same repo — wasteful, and meant "the repo" wasn't
+    really one persistent place). Now keyed by venture_slug — ONE shared,
+    persistent checkout per venture, reused across every room/turn for that
+    venture, matching the single-system design (no more Local/GitHub mode
+    split — see chat_stream's call site).
 
     `github_pat` (added 2026-08-19): the per-request PAT the dashboard
     forwards from the active venture's Settings → Venture → Technical page
@@ -431,7 +438,7 @@ def _ensure_repo_clone(repo_url: str, room_id: str, github_pat: str = "") -> tup
     to the dashboard.
     """
     os.makedirs(REPO_WORKSPACES_DIR, exist_ok=True)
-    workdir = os.path.join(REPO_WORKSPACES_DIR, room_id, _repo_slug(repo_url))
+    workdir = os.path.join(REPO_WORKSPACES_DIR, venture_slug, _repo_slug(repo_url))
 
     pat = (github_pat or GITHUB_PAT or "").strip()
     auth_url = repo_url
@@ -507,16 +514,18 @@ class ChatRequest(BaseModel):
     agent_context: Optional[str] = Field(default=None, description="Real agent identity + skill roster (yvon-os)")
     venture_context: Optional[str] = Field(default=None, description="Active venture memory (non-yvon ventures)")
     input_analysis: Optional[str] = Field(default=None, description="5-field input analysis (what/why/how/end/desired) for build-tier turns")
-    # Repo-mode toggle (2026-08-11, dashboard RepoModeToggle.tsx): 'github'
-    # only ever arrives paired with repo_url — the dashboard resolves it from
-    # the active venture's own repo_url column, never an arbitrary client URL.
-    repo_mode: Optional[str] = Field(default=None, description="'local' (default) or 'github' — see repo_url")
-    repo_url: Optional[str] = Field(default=None, description="Venture's linked GitHub repo, only set when repo_mode='github'")
+    # Reworked 2026-08-21: dropped the Local/GitHub mode toggle — one system
+    # now, not two (see chat_stream's call site). repo_mode is kept as a
+    # field only for backward compatibility with any caller still sending
+    # it; it's no longer read anywhere. The dashboard resolves repo_url from
+    # the active venture's own repo_url column — never an arbitrary client URL.
+    repo_mode: Optional[str] = Field(default=None, description="Deprecated 2026-08-21, no longer read — kept for backward compat only")
+    repo_url: Optional[str] = Field(default=None, description="Venture's linked GitHub repo (Settings → Venture → Technical). When set, Hermes always ensures it's cloned/pulled — no mode gate.")
     # Added 2026-08-19: the active venture's own write-scoped GitHub PAT
     # (Settings → Venture → Technical, Supabase `ventures.github_pat`) — the
-    # same credential graphify/MemPalace already use. Lets chat's repo-mode
-    # clone private repos without a separate VPS-side GITHUB_PAT env var.
-    github_pat: Optional[str] = Field(default=None, description="Venture's GitHub PAT from Supabase, forwarded only when repo_mode='github'")
+    # same credential graphify/MemPalace already use. Lets Hermes clone
+    # private repos without a separate VPS-side GITHUB_PAT env var.
+    github_pat: Optional[str] = Field(default=None, description="Venture's GitHub PAT from Supabase, forwarded whenever repo_url is set")
     # TS-018 WI-2 fix (2026-08-11): the dashboard now mints one correlation per
     # turn at message-creation time and forwards it here. Previously this
     # endpoint always minted its own uuid4() below, disconnected from the
@@ -628,25 +637,36 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     if req.input_analysis:
         prompt_parts.append("[INPUT ANALYSIS — what/why/how/end/desired; execute to this intent]")
         prompt_parts.append(req.input_analysis)
-    # Repo-mode toggle (2026-08-11, dashboard RepoModeToggle.tsx): clone/pull
-    # the venture's repo BEFORE the agent turn starts, then STEER it there via
-    # a prompt instruction rather than mutating the pooled AIAgent's own
-    # terminal.cwd config — that per-session override isn't a confirmed-safe
-    # kwarg (see _agent_for's own comment above), so this is the same
-    # prompt-steering pattern as the task-proposal marker below: a strong
-    # nudge, not a hard guarantee the agent will actually `cd` there.
-    # Degrades loudly on failure — a `notice` SSE event either way, so the
-    # dashboard's CAOS panel shows the real outcome, never a silent no-op.
-    if req.repo_mode == "github" and req.repo_url:
+    # Reworked 2026-08-21 (explicit user decision — dropped the Local/GitHub
+    # toggle entirely: "hermes keep repo work in it's vps and only push to
+    # live github when i said so", confirmed "no matter local or github it
+    # always talks to hermes"). One system now, not two: whenever the active
+    # venture has a repo_url, Hermes ensures it's cloned/pulled — no mode
+    # field gates this anymore, so there's nothing left for "local vs
+    # github" to be confused about. Workspace is keyed by VENTURE, not room
+    # (was room_id — every chat room re-cloned its own throwaway copy of the
+    # same repo). Now it's one persistent, shared checkout per venture,
+    # reused and just `git pull --ff-only`'d fresh on every turn — matches
+    # how a real dev works: check out once, keep working, commit locally as
+    # you go. Prompt-steered `cd` there, same pattern as before — a strong
+    # nudge, not a hard guarantee. Degrades loudly on failure either way (a
+    # `notice` SSE event), so the dashboard's CAOS panel shows the real
+    # outcome, never a silent no-op.
+    if req.repo_url:
         repo_workdir, repo_error = await asyncio.to_thread(
-            _ensure_repo_clone, req.repo_url, req.room_id, req.github_pat or ""
+            _ensure_repo_clone, req.repo_url, req.workspace or "default", req.github_pat or ""
         )
         if repo_workdir:
             on_notice("info", f"repo ready · {req.repo_url} → {repo_workdir}")
             prompt_parts.append(
                 f"[WORKING REPO] Your working repo for this turn is checked out at: {repo_workdir}\n"
-                f"`cd {repo_workdir}` before running any terminal/code_execution commands this turn — "
-                f"do not work in your default directory."
+                f"`cd {repo_workdir}` before running any terminal/code_execution commands this turn. "
+                f"This is a persistent, shared checkout for this venture — not a throwaway clone — so "
+                f"commit locally as normal (git add / git commit) whenever it makes sense to save "
+                f"progress. But NEVER run `git push` (or anything else that reaches the real GitHub "
+                f"remote) unless the user explicitly asks you to push/publish/deploy in THIS turn's "
+                f"message — local commits are always fine, pushing to the live repo is not a default "
+                f"action. If asked to push, do it plainly and confirm what was pushed."
             )
         else:
             on_notice("error", f"repo clone/pull failed ({req.repo_url}): {repo_error} — staying in default directory")
@@ -655,21 +675,16 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
                 f"Continue in your default working directory and tell the user the clone failed."
             )
     else:
-        # Added 2026-08-20 (user feedback: repo-mode confusion — the agent
-        # would improvise ("not a git repo", `gh auth login`) instead of
-        # just being told plainly what mode it's in). Previously this was
-        # the ONLY branch that said nothing at all about repo state, leaving
-        # the model to guess. Every turn now gets an explicit [WORKING REPO]
-        # statement either way, so "local vs github" is never ambiguous to
-        # the agent itself.
+        # No repo_url saved for this venture at all (Settings → Venture →
+        # Technical). Previously this branch said nothing, leaving the model
+        # to guess ("not a git repo", `gh auth login`, inventing a path).
         prompt_parts.append(
-            "[WORKING REPO] Local mode — no GitHub repo is cloned for this turn. "
-            "There is no venture repo checked out; your working directory is this "
-            "process's own default, which is not a project repo. Do not guess a "
-            "repo path, run git commands expecting a repo to be there, or "
-            "authenticate to GitHub yourself. If the user's request needs real "
-            "repo access, tell them plainly that Local mode has no repo attached "
-            "right now and GitHub mode is the way to get one."
+            "[WORKING REPO] No repo is linked to this venture yet (Settings → Venture → "
+            "Technical → Repo URL is empty). There is nothing checked out; your working "
+            "directory is this process's own default, which is not a project repo. Do not "
+            "guess a repo path, run git commands expecting a repo to be there, or "
+            "authenticate to GitHub yourself. If the user's request needs real repo access, "
+            "tell them plainly that this venture has no repo linked yet."
         )
     # Task-proposal marker (2026-08-11): instructs the model to self-signal
     # when a discussion has just reached a concrete, actionable conclusion
@@ -994,6 +1009,47 @@ async def venture_mempalace(req: VentureMempalaceRequest) -> JSONResponse:
 
     log.info("launched mempalace-venture.sh for venture=%s", req.venture_slug)
     return JSONResponse({"started": True, "venture_slug": req.venture_slug}, status_code=202)
+
+
+# ── Eager repo clone-on-save (2026-08-21) ───────────────────────────────────
+# Sibling to /v1/venture/graphify and /v1/venture/mempalace above, but for the
+# persistent per-venture CHAT workspace (_ensure_repo_clone, REPO_WORKSPACES_DIR)
+# rather than the separate graph-brain/MemPalace pipelines — those clone into
+# their own directory structure via graphify-venture.sh/mempalace-venture.sh
+# and don't touch REPO_WORKSPACES_DIR at all.
+#
+# Design: previously the FIRST clone for a venture only happened lazily, on
+# whatever chat turn happened to come in first — so the very first message
+# after linking a repo paid the full clone latency, and a user who linked a
+# repo but never chatted had no way to know whether it would even clone
+# successfully (bad URL, bad PAT, private repo) until they tried. Now
+# dashboard/lib/db/venture-graphify.ts's triggerVentureOnboarding() fires this
+# alongside graphify/mempalace whenever a venture's repoUrl is (re)saved in
+# Settings, so the clone (or its failure) happens right away.
+#
+# Unlike graphify/mempalace, this is NOT a multi-minute pipeline — a git
+# clone/pull is the same fast, synchronous-under-a-thread operation chat_stream
+# already awaits directly (asyncio.to_thread) — so this endpoint awaits it too
+# and returns the real outcome in the response, rather than fire-and-forget
+# with status landing in a separate table. Never logs req.github_pat.
+class RepoEnsureRequest(BaseModel):
+    venture_slug: str
+    repo_url: str
+    github_pat: str = ""
+
+
+@app.post("/v1/repo/ensure", dependencies=[Depends(require_bearer)])
+async def repo_ensure(req: RepoEnsureRequest) -> JSONResponse:
+    """Clone (or pull, if already cloned) a venture's repo into its
+    persistent chat workspace right now, and report the real result."""
+    workdir, error = await asyncio.to_thread(
+        _ensure_repo_clone, req.repo_url, req.venture_slug, req.github_pat or ""
+    )
+    if workdir:
+        log.info("repo ensured for venture=%s → %s", req.venture_slug, workdir)
+        return JSONResponse({"ok": True, "workdir": workdir})
+    log.warning("repo ensure failed for venture=%s: %s", req.venture_slug, error)
+    return JSONResponse({"ok": False, "error": error}, status_code=502)
 
 
 # ── Hermes API proxy (TS-018: full Hermes control) ─────────────────────────

@@ -23,16 +23,16 @@ import type { WorkspaceKey } from '@/lib/workspaces'
 import { activeWorkspace } from '@/lib/workspaces'
 import { errMsg } from '@/lib/errors'
 
-// Reverted 2026-08-20: briefly routed Local mode through a direct-to-LLM
-// in-process tool loop (lib/ai-client.ts's streamWithTools) instead of
-// Hermes — explicit user correction: "all the power is for hermes... don't
-// direct connect to llm as it's not doing anything", and "no matter local
-// or github it always talks to hermes, and hermes gets to know that working
-// directory is local or github so he doesn't get confused." Every turn now
-// always goes through streamHermesChat() again, same as before this file
-// was ever touched — the local/github distinction is communicated TO Hermes
-// via repo_mode (see main.py's now-explicit [WORKING REPO] block for the
-// non-github case) instead of being handled by a second engine here.
+// Reworked 2026-08-21: dropped the Local/GitHub toggle entirely (explicit
+// user decision — one system, not two: "hermes keep repo work in it's vps
+// and only push to live github when i said so"). Previously briefly routed
+// through a direct-to-LLM in-process tool loop instead of Hermes at all —
+// reverted per "all the power is for hermes... don't direct connect to
+// llm". Every turn always goes through streamHermesChat(). There's no mode
+// cookie/gate anymore: whenever the active venture has a repo_url, it's
+// always forwarded, and Hermes always ensures its persistent per-venture
+// checkout is cloned/pulled fresh (main.py). No repo_url → Hermes says so
+// plainly instead of guessing.
 
 // TS-018 WI-2 (YVON-CHAT §3.2): the workspace was hardcoded to 'yvon-os' here
 // (the "one defect that underlies more than it appears to"). Now read from the
@@ -75,8 +75,7 @@ export async function GET(request: Request): Promise<Response> {
     .single()
   const cookieStore = await cookies()
   // Real ventures from the DB — no hardcoded sub-brands (TS-026). Also pulls
-  // repo_url so the repo-mode toggle (2026-08-11) can resolve the active
-  // venture's linked repo without a second query.
+  // repo_url so the active venture's linked repo resolves without a second query.
   let validVentureSlugs: string[] = []
   let ventureRepoUrls: Record<string, string> = {}
   try {
@@ -89,24 +88,21 @@ export async function GET(request: Request): Promise<Response> {
   }
   const workspace: WorkspaceKey = activeWorkspace(cookieStore.get('yvon_active_venture')?.value, validVentureSlugs)
 
-  // Repo-mode toggle (2026-08-11, RepoModeToggle.tsx): 'github' only ever
-  // pairs with the ACTIVE venture's own configured repo_url — the allowlist
-  // from discovery. A stale 'github' cookie for a venture with no linked
-  // repo silently falls back to local rather than sending a bad/missing URL.
-  const repoModeCookie = cookieStore.get('yvon_repo_mode')?.value
+  // Reworked 2026-08-21: no more Local/GitHub toggle — whenever the active
+  // venture has a repo_url saved, it's always forwarded and Hermes always
+  // ensures its persistent per-venture checkout (main.py). No repo_url at
+  // all → nothing forwarded, Hermes says so plainly instead of guessing.
   const repoUrl = ventureRepoUrls[workspace]
-  const repoMode: 'local' | 'github' = repoModeCookie === 'github' && repoUrl ? 'github' : 'local'
 
-  // Fixed 2026-08-19: chat's GitHub repo-mode used to have no credential of
-  // its own — it relied on a VPS-side GITHUB_PAT env var that install.sh
-  // never sets, so a private venture repo failed to clone with an auth
-  // error even when a PAT was already saved in Settings → Venture →
-  // Technical (that PAT was only ever wired to graphify/MemPalace before
-  // now). Reuse the SAME saved PAT here — one credential per venture,
-  // sourced from Supabase, nothing to configure on the VPS. Only fetched
-  // when actually needed (repoMode === 'github') to avoid an extra DB round
-  // trip on ordinary local-mode turns.
-  const repoGithubPat = repoMode === 'github' ? ((await getVentureGithubPatBySlug(workspace)) ?? undefined) : undefined
+  // Fixed 2026-08-19: chat's repo access used to have no credential of its
+  // own — it relied on a VPS-side GITHUB_PAT env var that install.sh never
+  // sets, so a private venture repo failed to clone with an auth error even
+  // when a PAT was already saved in Settings → Venture → Technical (that
+  // PAT was only ever wired to graphify/MemPalace before now). Reuse the
+  // SAME saved PAT here — one credential per venture, sourced from
+  // Supabase, nothing to configure on the VPS. Only fetched when there's
+  // actually a repo to clone.
+  const repoGithubPat = repoUrl ? ((await getVentureGithubPatBySlug(workspace)) ?? undefined) : undefined
 
   const cfg = hermesConfig()
   if (!cfg.configured) {
@@ -441,8 +437,7 @@ export async function GET(request: Request): Promise<Response> {
             agentContext,
             ventureContext,
             inputAnalysis: inputAnalysis ?? undefined,
-            repoMode,
-            repoUrl: repoMode === 'github' ? repoUrl : undefined,
+            repoUrl,
             repoGithubPat,
             // TS-018 WI-2 fix (2026-08-11): forward the dashboard's turn
             // correlation so Hermes reuses it instead of minting its own

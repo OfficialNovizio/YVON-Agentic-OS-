@@ -25,7 +25,6 @@ import { PipelineHud } from './PipelineHud'
 import { TaskProposalPrompt, type PendingTaskProposal } from './TaskProposalPrompt'
 import { PrdProposalCard, type PendingPrdProposal } from './PrdProposalCard'
 import { VentureSelector } from './VentureSelector'
-import { RepoModeToggle } from './RepoModeToggle'
 import { AtelierBackdrop } from './Atelier'
 import './chat.css'
 import type { UploadedAttachment } from '@/lib/attachments-client'
@@ -852,9 +851,6 @@ export default function ChatPage() {
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <span className="hidden md:inline">
-              <RepoModeToggle />
-            </span>
             <VentureSelector />
 
             {memberCount != null && (

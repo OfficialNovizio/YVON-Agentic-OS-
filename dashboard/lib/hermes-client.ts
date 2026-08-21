@@ -22,12 +22,12 @@ export interface HermesChatInput {
   ventureContext?: string
   /** TS-027: the 5-field input analysis (what/why/how/end/desired) for build-tier turns */
   inputAnalysis?: string
-  /** Repo-mode toggle (2026-08-11): 'github' + repoUrl tells the VPS agent to
-   * clone/pull that repo and steer its terminal/code_execution tools there
-   * for this turn, instead of its default local working directory. Only
-   * ever the active venture's own configured repoUrl — never an arbitrary
-   * client-supplied URL (see RepoModeToggle.tsx / stream/route.ts). */
-  repoMode?: 'local' | 'github'
+  /** Reworked 2026-08-21: dropped the Local/GitHub mode toggle — one system
+   * now. Whenever the active venture has a repoUrl saved, it's always
+   * forwarded, and Hermes always ensures a persistent per-venture checkout
+   * is cloned/pulled and steers terminal/code_execution tools there for this
+   * turn. Only ever the active venture's own configured repoUrl — never an
+   * arbitrary client-supplied URL (see stream/route.ts). */
   repoUrl?: string
   /** Added 2026-08-19: the active venture's own write-scoped GitHub PAT
    * (Settings → Venture → Technical, `ventures.github_pat` in Supabase) —
@@ -180,7 +180,6 @@ export async function* streamHermesChat(
       agent_context: input.agentContext ?? undefined,
       venture_context: input.ventureContext ?? undefined,
       input_analysis: input.inputAnalysis ?? undefined,
-      repo_mode: input.repoMode ?? undefined,
       repo_url: input.repoUrl ?? undefined,
       github_pat: input.repoGithubPat ?? undefined,
       correlation: input.correlation ?? undefined,
