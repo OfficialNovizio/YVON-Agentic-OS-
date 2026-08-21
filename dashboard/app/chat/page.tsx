@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Plus } from 'lucide-react'
 import { NotificationsSetup } from '@/components/NotificationsSetup'
 import { FLEET, FLEET_DEPARTMENTS } from '@/lib/fleet'
 import { supabaseBrowser } from '@/lib/supabase-browser'
@@ -18,6 +19,7 @@ import { Composer } from './Composer'
 import { DockRail } from './DockRail'
 import { TeamsPanel } from './TeamsPanel'
 import { TasksPanel } from './TasksPanel'
+import { HistoryPanel } from './HistoryPanel'
 import { TaskPill } from './TaskPill'
 import { TaskFocusView } from './TaskFocusView'
 import { LiveStrip } from './LiveStrip'
@@ -62,6 +64,11 @@ export type Focus =
   | { kind: 'agent'; department: string; agentId: string }
   | { kind: 'assigned_scope' }
   | { kind: 'tasks'; taskId?: string }
+  // 'history' shows the past-chats list in the sidebar slot (2026-08-21).
+  // It is a sidebar destination, not a room: the main column keeps showing
+  // whatever room you were in, so opening History never interrupts a turn
+  // that is still streaming.
+  | { kind: 'history' }
   | { kind: 'room'; roomId: string }
 
 const POLL_INTERVAL_MS = 4000
@@ -112,6 +119,11 @@ export default function ChatPage() {
   // longer a room stays active. Sibling to stream/route.ts's automatic
   // threshold-based reset — this is the "do it right now" version.
   const [resettingContext, setResettingContext] = useState(false)
+  // New chat + History (2026-08-21). historyRefresh is a counter, not a
+  // boolean: HistoryPanel re-fetches whenever it changes, so creating a
+  // thread makes the new row appear without waiting for the 15s poll.
+  const [creatingChat, setCreatingChat] = useState(false)
+  const [historyRefresh, setHistoryRefresh] = useState(0)
   // Chat-as-task (2026-08-11): the agent's inline "ready to start this as a
   // task?" offer, parsed server-side from a fenced marker (see
   // /api/chat/stream). null = nothing pending.
@@ -712,6 +724,60 @@ export default function ChatPage() {
     setTeamsOpen(false)
   }, [])
 
+  // ── New chat + History (2026-08-21) ──────────────────────────────────────
+  // Until now /chat had no way to start a conversation: the header's
+  // "New message ⌘K" only focused the textarea, and every room was an
+  // auto-provisioned singleton, so all workforce messages ever sent lived in
+  // one endless room. A thread room is a real new conversation — and because
+  // the Hermes agent pool is keyed on (user_id, room_id), it also comes with
+  // a genuinely fresh agent rather than a re-used one carrying old context.
+  const handleNewChat = useCallback(async () => {
+    if (creatingChat) return
+    setCreatingChat(true)
+    try {
+      const { room } = await jsonFetch<{ room: ChatRoom }>('/api/chat/threads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      })
+      // Thread rooms are not in the /api/chat/rooms list (that drives the
+      // fixed dock rail), so add it here — activeRoom resolves
+      // focus.kind==='room' against this array.
+      setRooms((prev) => (prev.some((r) => r.id === room.id) ? prev : [...prev, room]))
+      setFocus({ kind: 'room', roomId: room.id })
+      setTeamsOpen(false)
+      setHistoryRefresh((n) => n + 1)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setCreatingChat(false)
+    }
+  }, [creatingChat])
+
+  /** Reopen a past chat from History. */
+  const openThread = useCallback((thread: { id: string; title: string }) => {
+    setRooms((prev) =>
+      prev.some((r) => r.id === thread.id)
+        ? prev
+        : [
+            ...prev,
+            {
+              id: thread.id,
+              kind: 'thread',
+              department: null,
+              agentId: null,
+              ownerUserId: null,
+              ventureSlug: null,
+              title: thread.title,
+              label: thread.title,
+              section: 'recent',
+            } satisfies ChatRoom,
+          ],
+    )
+    setFocus({ kind: 'room', roomId: thread.id })
+    setTeamsOpen(false)
+  }, [])
+
   // TaskFocusView lifecycle actions (make changes / retry / redo): switch
   // focus to the task's originating room and hand the composer a drafted
   // message, same hand-off pattern as the empty-state starter prompts.
@@ -774,8 +840,13 @@ export default function ChatPage() {
     if (focus.kind === 'assigned_scope') return 'All assigned'
     if (focus.kind === 'department') return `#${focus.department}`
     if (focus.kind === 'agent') return `@${focus.agentId}`
+    // A thread's own title (derived from its first message) — otherwise the
+    // header would read a flat "Chat" for every past conversation.
+    if (focus.kind === 'room' && activeRoom?.kind === 'thread') {
+      return activeRoom.title?.trim() || activeRoom.label || 'New chat'
+    }
     return 'Chat'
-  }, [focus])
+  }, [focus, activeRoom])
 
   const topSubtitle = useMemo(() => {
     if (focus.kind === 'workforce') return `${FLEET.length} agents · ${FLEET_DEPARTMENTS.length} departments`
@@ -787,8 +858,9 @@ export default function ChatPage() {
       const agent = FLEET.find((a) => a.id === focus.agentId)
       return agent?.role ? `${agent.role} · 1:1 room` : '1:1 room'
     }
+    if (focus.kind === 'room' && activeRoom?.kind === 'thread') return 'Your chat'
     return 'Assigned departments'
-  }, [focus])
+  }, [focus, activeRoom])
 
   const memberCount = useMemo(() => {
     if (focus.kind === 'department') return FLEET.filter((a) => a.department === focus.department).length
@@ -911,12 +983,18 @@ export default function ChatPage() {
               </span>
             )}
 
+            {/* Was "New message ⌘K", which only focused the textarea and so
+                read as a broken New-chat button. It now actually starts a new
+                conversation; ⌘K still focuses the composer via the global
+                key handler above, it just no longer masquerades as this. */}
             <button
-              onClick={() => document.querySelector<HTMLTextAreaElement>('textarea[data-composer]')?.focus()}
-              className="adora-cta hidden py-2 text-[14px] sm:inline-flex"
+              onClick={handleNewChat}
+              disabled={creatingChat}
+              title="Start a new conversation — a fresh room with its own history and its own agent context"
+              className="adora-cta hidden py-2 text-[14px] disabled:opacity-60 sm:inline-flex"
             >
-              New message
-              <span className="chat-mono opacity-70">⌘K</span>
+              <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
+              {creatingChat ? 'Starting…' : 'New chat'}
             </button>
           </div>
         </header>
@@ -940,6 +1018,13 @@ export default function ChatPage() {
         <div className={`hidden shrink-0 py-3 pl-3 md:block ${teamsCollapsed ? 'w-[64px]' : 'w-[312px]'}`}>
           {focus.kind === 'tasks' ? (
             <TasksPanel focus={focus} onFocus={focusAndClose} roomId={activeRoom?.id ?? null} />
+          ) : focus.kind === 'history' || focus.kind === 'room' ? (
+            <HistoryPanel
+              activeRoomId={activeRoom?.id ?? null}
+              onOpen={openThread}
+              onNewChat={handleNewChat}
+              refreshToken={historyRefresh}
+            />
           ) : (
             <TeamsPanel
               focus={focus}
@@ -1000,7 +1085,15 @@ export default function ChatPage() {
                 sending={sending}
                 awaitingReply={awaitingReply}
                 disabled={!activeRoom || !userId}
-                disabledReason={!activeRoom ? 'Loading room…' : !userId ? 'Signing in…' : undefined}
+                disabledReason={
+                  !userId
+                    ? 'Signing in…'
+                    : !activeRoom
+                      ? focus.kind === 'history'
+                        ? 'Pick a chat from History, or start a new one'
+                        : 'Loading room…'
+                      : undefined
+                }
                 forcedMention={focus.kind === 'agent' ? focus.agentId : null}
                 placeholder={composerPlaceholder}
                 userId={userId}
@@ -1033,6 +1126,13 @@ export default function ChatPage() {
         <div className="absolute inset-y-3 left-[78px] z-50 w-[320px] md:hidden">
           {focus.kind === 'tasks' ? (
             <TasksPanel focus={focus} onFocus={focusAndClose} roomId={activeRoom?.id ?? null} />
+          ) : focus.kind === 'history' || focus.kind === 'room' ? (
+            <HistoryPanel
+              activeRoomId={activeRoom?.id ?? null}
+              onOpen={openThread}
+              onNewChat={handleNewChat}
+              refreshToken={historyRefresh}
+            />
           ) : (
             <TeamsPanel focus={focus} onFocus={focusAndClose} onClose={() => setTeamsOpen(false)} variant="overlay" visible live={agentLive} />
           )}

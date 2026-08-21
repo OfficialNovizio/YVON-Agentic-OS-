@@ -23,12 +23,17 @@
 // on race pattern the original agent-room provisioning already used.
 //
 // Owner: raj · TS-015 WI-2, extended TS-018/venture-rooms 2026-08-11
-import { cookies } from 'next/headers'
 import { supabaseServer } from '@/lib/supabase-server'
-import { activeWorkspace } from '@/lib/workspaces'
+import { resolveVentureSlug } from '@/lib/chat-venture'
 import { FLEET_DEPARTMENTS } from '@/lib/fleet'
 
-export type RoomKind = 'whole_team' | 'department' | 'agent' | 'assigned_scope'
+// 'thread' (2026-08-21) = a user-started ad-hoc chat, behind the New chat
+// button and the History sidebar. Unlike the four kinds beside it, threads
+// are unbounded and personal, so they are NOT auto-provisioned here and are
+// excluded from the GET below — /api/chat/threads owns their lifecycle.
+// The kind is declared here only because ChatRoom is the shared room type
+// the whole /chat client is typed against.
+export type RoomKind = 'whole_team' | 'department' | 'agent' | 'assigned_scope' | 'thread'
 
 export interface ChatRoom {
   id: string
@@ -37,6 +42,8 @@ export interface ChatRoom {
   agentId: string | null
   ownerUserId: string | null
   ventureSlug: string | null
+  /** Thread rooms only — an explicit override; normally derived per thread. */
+  title?: string | null
   label: string
   section: 'context' | 'departments' | 'recent'  // hint to the left rail
 }
@@ -57,6 +64,7 @@ function labelFor(row: Row): string {
   if (row.kind === 'whole_team') return 'Workforce'
   if (row.kind === 'assigned_scope') return 'All assigned'
   if (row.kind === 'agent') return `@${row.agent_id ?? 'agent'}`
+  if (row.kind === 'thread') return 'New chat'
   return row.department ?? '(unknown)'
 }
 
@@ -79,21 +87,9 @@ function toRoom(row: Row): ChatRoom {
   }
 }
 
-/** Resolve the caller's real active venture slug (or null = default/shared
- * room), the same validated-against-DB way stream/route.ts does — never
- * trusts the cookie's raw value against an arbitrary/stale venture. */
-async function resolveVentureSlug(supabase: Awaited<ReturnType<typeof supabaseServer>>): Promise<string | null> {
-  const cookieStore = await cookies()
-  let validSlugs: string[] = []
-  try {
-    const { data } = await supabase.from('ventures').select('slug')
-    validSlugs = ((data as unknown as { slug: string }[] | null) ?? []).map((r) => r.slug)
-  } catch {
-    // fall through — activeWorkspace() defaults to 'yvon-os' with an empty list
-  }
-  const workspace = activeWorkspace(cookieStore.get('yvon_active_venture')?.value, validSlugs)
-  return workspace === 'yvon-os' ? null : workspace
-}
+// resolveVentureSlug moved to lib/chat-venture.ts (2026-08-21) so
+// /api/chat/threads resolves scope identically — two copies of that rule
+// would silently split a user's rooms across two venture scopes.
 
 type SupaClient = Awaited<ReturnType<typeof supabaseServer>>
 
@@ -158,9 +154,13 @@ export async function GET(): Promise<Response> {
     { kind: 'assigned_scope', owner_user_id: user.id, venture_slug: ventureSlug },
   )
 
+  // Threads are excluded deliberately: this list drives the fixed left rail
+  // (Workforce + departments), and threads are unbounded. History loads them
+  // separately from /api/chat/threads.
   let listQuery = supabase
     .from('chat_rooms')
     .select(ROOM_SELECT)
+    .neq('kind', 'thread')
     .order('kind', { ascending: true })
     .order('department', { ascending: true })
   listQuery = ventureSlug === null ? listQuery.is('venture_slug', null) : listQuery.eq('venture_slug', ventureSlug)

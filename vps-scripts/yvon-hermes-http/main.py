@@ -35,6 +35,7 @@ import threading
 import time
 import urllib.request
 import uuid
+from collections import deque
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Optional
@@ -47,6 +48,342 @@ from pydantic import BaseModel, Field
 
 # Run lifecycle → Supabase event log. Fire-and-forget; never blocks a run.
 from events import emit
+
+# ═══════════════════════════════════════════════════════════════════════════
+# OpenAI TPM governor — the real fix for "Rate limit reached ... tokens per
+# min (TPM)", 2026-08-21, after nine failed attempts at the wrong layer.
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# WHY EVERY PREVIOUS FIX FAILED
+# -----------------------------
+# Read the actual error, not the story around it:
+#
+#     Limit 200000, Used 145372, Requested 76781
+#
+# `Requested 76781` is ONE API call weighing 76.8k tokens. `Used 145372` is
+# the rolling 60-second window. The limit is a RATE — tokens per minute —
+# so at ~76k per call the account can afford exactly TWO calls per minute:
+#
+#     200000 // 76781 == 2
+#
+# Every fix before this one tried to reduce the NUMBER of calls:
+#   · dropping the pooled agent between turns   (helps only BETWEEN turns)
+#   · dropping it again on the error path       (fires after the failure)
+#   · MAX_ITERATIONS 40 → 15                    (wall is hit at call #3)
+#
+# None of them could ever have worked, because none of them changed the
+# rate. A turn dies on its third internal tool-call round-trip whether the
+# cap is 40, 15, or 4 — and 4 is too low to answer anything real. That is
+# why "hi" / "tell me about the project" always worked (1-2 small calls,
+# ~18k each) and anything substantial always failed: the failure threshold
+# was never about message length, it was about how many 76k-token
+# round-trips the turn needed inside its own tool loop.
+#
+# THE ONLY FIX THAT ADDRESSES A RATE IS PACING
+# --------------------------------------------
+# So this governor sits underneath everything hermes-agent does and meters
+# outbound LLM traffic against a rolling 60s token ledger. When the next
+# call would breach the budget it SLEEPS until the window has drained,
+# then proceeds. A long turn becomes slower instead of dead — which is the
+# correct trade, and the one the previous fixes could not make.
+#
+# It syncs to server truth rather than guessing: OpenAI returns
+# `x-ratelimit-remaining-tokens` / `x-ratelimit-reset-tokens` on every
+# response, so the ledger is corrected against the provider's own view
+# after each call, and the local estimate is only used to decide whether
+# to wait before a call we haven't sent yet.
+#
+# It also fixes the second half of the message — "API call failed after 3
+# retries" alongside "Please try again in 6.645s". Something upstream
+# retried three times without honouring that interval, so all three
+# retries were spent inside the same blocked window and the turn died with
+# ~6 seconds of patience needed. Here a 429 is caught, Retry-After (header
+# or message body) is parsed and actually waited out, and the request is
+# re-sent.
+#
+# INTERCEPTION POINT: hermes-agent lives outside this repo (/usr/local/lib/
+# hermes-agent) and its provider code isn't ours to edit — but every modern
+# OpenAI-compatible SDK executes over httpx, which we already depend on. So
+# we wrap httpx's own send() at class level, which catches all clients no
+# matter when or how they were constructed. Only LLM completion endpoints
+# are metered; Supabase and every other httpx call in this process passes
+# straight through untouched.
+#
+# NOTE ON THE REMAINING COST: pacing makes long turns SUCCEED, not fast.
+# At ~76k tokens per round-trip a 200k/min ceiling is inherently ~2.6
+# round-trips per minute. The durable way to make them fast as well is to
+# raise the account's TPM ceiling (OpenAI usage tier) — see the operator
+# notes handed over with this change.
+OPENAI_TPM_LIMIT = int(os.environ.get("YVON_OPENAI_TPM_LIMIT", "200000"))
+# Fraction of the ceiling we allow ourselves. Never 1.0: the provider counts
+# the completion's OUTPUT tokens too, which we cannot know before sending.
+#
+# 0.90 is deliberate arithmetic, not a round number. The failing turns sent
+# ~76.8k-token calls; at 0.75 the usable budget is 150k, which fits only ONE
+# such call per minute (76781 * 2 = 153562 > 150000) and stretches an
+# 8-round-trip turn over seven minutes. At 0.90 the budget is 180k, two calls
+# fit, and the same turn halves. The 10% reserve covers the completion's
+# output tokens, which the pre-flight estimate cannot see; `observe()` then
+# corrects against the provider's own counter, so the reserve is a cushion
+# rather than the primary guard.
+OPENAI_TPM_HEADROOM = float(os.environ.get("YVON_OPENAI_TPM_HEADROOM", "0.90"))
+# Hard stop on how long one call may be held back before we send it anyway
+# and let the provider decide — prevents a wedged ledger from hanging a turn.
+OPENAI_TPM_MAX_WAIT_S = float(os.environ.get("YVON_OPENAI_TPM_MAX_WAIT", "120"))
+OPENAI_429_MAX_RETRIES = int(os.environ.get("YVON_OPENAI_429_RETRIES", "8"))
+# Endpoint paths that actually consume the token budget. Anything else
+# (Supabase REST, GitHub, health checks) must never be metered or delayed.
+_LLM_PATH_HINTS = ("/chat/completions", "/responses", "/v1/messages", "/completions")
+# No trailing \b: OpenAI writes compound durations like "1m30s", where the
+# \b after "m" never matches (it is followed by a digit) and the minutes
+# component would be silently dropped — a 90s wait read as 30s, which is
+# exactly the kind of too-short retry that produced "failed after 3 retries".
+# `ms` must stay first in the alternation so it wins over a bare `m`.
+_DURATION_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(ms|s|m|h)")
+
+
+def _parse_duration_s(raw: Any, default: float = 0.0) -> float:
+    """Parse OpenAI's duration strings ('6.645s', '1m30s', '500ms', '13')."""
+    if raw is None:
+        return default
+    text = str(raw).strip()
+    if not text:
+        return default
+    try:  # bare seconds, as a plain Retry-After header uses
+        return float(text)
+    except ValueError:
+        pass
+    total = 0.0
+    matched = False
+    for value, unit in _DURATION_RE.findall(text):
+        matched = True
+        total += float(value) * {"ms": 0.001, "s": 1.0, "m": 60.0, "h": 3600.0}[unit]
+    return total if matched else default
+
+
+class _TpmGovernor:
+    """Rolling-60s token ledger that paces outbound LLM calls process-wide.
+
+    Process-wide is deliberate: the provider's quota is per-organisation, so
+    two rooms chatting at once share one budget. A per-room limiter would
+    let two concurrent turns breach the ceiling while each believed itself
+    to be within it.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._events: deque[tuple[float, int]] = deque()  # (ts, tokens)
+        self._server_remaining: Optional[int] = None
+        self._server_reset_at: float = 0.0
+        self._server_seen_at: float = 0.0
+
+    # ── ledger bookkeeping (callers hold no lock) ──────────────────────
+    def _used_locked(self, now: float) -> int:
+        while self._events and now - self._events[0][0] > 60.0:
+            self._events.popleft()
+        return sum(tokens for _, tokens in self._events)
+
+    def _plan_locked(self, now: float, est: int) -> float:
+        """Seconds to wait before `est` tokens may be spent. 0.0 = go now."""
+        # Server truth first, while it is still fresh enough to trust.
+        # Expiring it is not optional: once the stated reset has passed, the
+        # provider's window has rolled over and a stale "remaining=100" would
+        # otherwise re-arm the same 0.25s wait on every pass, spinning until
+        # the max-wait escape hatch fires and defeating the whole governor.
+        if self._server_remaining is not None:
+            if now >= self._server_reset_at or now - self._server_seen_at >= 60.0:
+                self._server_remaining = None
+            elif self._server_remaining < est:
+                return max(0.0, self._server_reset_at - now) + 0.25
+        used = self._used_locked(now)
+        budget = int(OPENAI_TPM_LIMIT * OPENAI_TPM_HEADROOM)
+        if used + est <= budget:
+            return 0.0
+        oldest = self._events[0][0] if self._events else now
+        return max(0.0, 60.0 - (now - oldest)) + 0.25
+
+    def _book_locked(self, now: float, est: int) -> None:
+        self._events.append((now, est))
+        if self._server_remaining is not None:
+            self._server_remaining = max(0, self._server_remaining - est)
+
+    def _try_reserve(self, est: int) -> float:
+        """0.0 if booked and safe to send now, else seconds to wait."""
+        now = time.time()
+        with self._lock:
+            wait = self._plan_locked(now, est)
+            if wait <= 0.0:
+                self._book_locked(now, est)
+            return wait
+
+    def _force_reserve(self, est: int) -> None:
+        with self._lock:
+            self._book_locked(time.time(), est)
+
+    def acquire(self, est: int) -> None:
+        deadline = time.time() + OPENAI_TPM_MAX_WAIT_S
+        while True:
+            wait = self._try_reserve(est)
+            if wait <= 0.0:
+                return
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                log.warning(
+                    "TPM governor: waited %.0fs for %d tokens, sending anyway",
+                    OPENAI_TPM_MAX_WAIT_S, est,
+                )
+                self._force_reserve(est)
+                return
+            nap = min(wait, 5.0, remaining)
+            log.info("TPM governor: holding %.1fs before a ~%d-token call", nap, est)
+            time.sleep(nap)
+
+    async def acquire_async(self, est: int) -> None:
+        deadline = time.time() + OPENAI_TPM_MAX_WAIT_S
+        while True:
+            wait = self._try_reserve(est)
+            if wait <= 0.0:
+                return
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                log.warning(
+                    "TPM governor: waited %.0fs for %d tokens, sending anyway",
+                    OPENAI_TPM_MAX_WAIT_S, est,
+                )
+                self._force_reserve(est)
+                return
+            nap = min(wait, 5.0, remaining)
+            log.info("TPM governor: holding %.1fs before a ~%d-token call", nap, est)
+            await asyncio.sleep(nap)
+
+    def observe(self, headers: Any) -> None:
+        """Correct the ledger against the provider's own rate-limit headers."""
+        try:
+            remaining = headers.get("x-ratelimit-remaining-tokens")
+            if remaining is None:
+                return
+            reset_in = _parse_duration_s(headers.get("x-ratelimit-reset-tokens"), 60.0)
+            now = time.time()
+            with self._lock:
+                self._server_remaining = int(remaining)
+                self._server_seen_at = now
+                self._server_reset_at = now + reset_in
+        except Exception:  # noqa: BLE001 — telemetry must never break a request
+            pass
+
+    def note_429(self) -> None:
+        """A 429 means the real window is full regardless of what we booked."""
+        with self._lock:
+            self._server_remaining = 0
+            self._server_seen_at = time.time()
+            self._server_reset_at = max(self._server_reset_at, self._server_seen_at + 1.0)
+
+
+_governor = _TpmGovernor()
+
+
+def _is_llm_request(request: Any) -> bool:
+    try:
+        path = request.url.path or ""
+    except Exception:  # noqa: BLE001
+        return False
+    return any(hint in path for hint in _LLM_PATH_HINTS)
+
+
+def _estimate_tokens(request: Any) -> int:
+    """Pre-flight size estimate from the serialised request body.
+
+    ~4 bytes per token holds well for JSON chat payloads. It only has to be
+    good enough to decide whether to wait — `observe()` replaces guesswork
+    with the provider's own accounting as soon as the response lands. The
+    floor covers the completion's output tokens, which no estimate can see.
+    """
+    try:
+        body = request.content or b""
+    except Exception:  # noqa: BLE001
+        body = b""
+    return max(1000, len(body) // 4)
+
+
+def _retry_after_s(response: Any, attempt: int) -> float:
+    """Honour the provider's stated wait; fall back to capped exponential."""
+    header = None
+    try:
+        header = response.headers.get("retry-after") or response.headers.get(
+            "x-ratelimit-reset-tokens"
+        )
+    except Exception:  # noqa: BLE001
+        pass
+    wait = _parse_duration_s(header, 0.0)
+    if wait <= 0:
+        try:  # "Please try again in 6.645s." lives in the JSON body
+            body = response.text or ""
+            match = re.search(r"try again in\s+([0-9.]+\s*m?s)", body, re.I)
+            if match:
+                wait = _parse_duration_s(match.group(1), 0.0)
+        except Exception:  # noqa: BLE001
+            pass
+    if wait <= 0:
+        wait = min(2.0 ** attempt, 30.0)
+    return min(wait + 0.5, 60.0)
+
+
+_orig_httpx_send = httpx.Client.send
+_orig_httpx_async_send = httpx.AsyncClient.send
+
+
+def _governed_send(self: httpx.Client, request: Any, **kwargs: Any) -> Any:
+    if not _is_llm_request(request):
+        return _orig_httpx_send(self, request, **kwargs)
+    est = _estimate_tokens(request)
+    attempt = 0
+    while True:
+        _governor.acquire(est)
+        response = _orig_httpx_send(self, request, **kwargs)
+        _governor.observe(response.headers)
+        if response.status_code != 429 or attempt >= OPENAI_429_MAX_RETRIES:
+            return response
+        _governor.note_429()
+        attempt += 1
+        wait = _retry_after_s(response, attempt)
+        log.warning(
+            "TPM governor: 429 from %s — waiting %.1fs, retry %d/%d",
+            getattr(request.url, "host", "?"), wait, attempt, OPENAI_429_MAX_RETRIES,
+        )
+        try:
+            response.close()
+        except Exception:  # noqa: BLE001
+            pass
+        time.sleep(wait)
+
+
+async def _governed_send_async(self: httpx.AsyncClient, request: Any, **kwargs: Any) -> Any:
+    if not _is_llm_request(request):
+        return await _orig_httpx_async_send(self, request, **kwargs)
+    est = _estimate_tokens(request)
+    attempt = 0
+    while True:
+        await _governor.acquire_async(est)
+        response = await _orig_httpx_async_send(self, request, **kwargs)
+        _governor.observe(response.headers)
+        if response.status_code != 429 or attempt >= OPENAI_429_MAX_RETRIES:
+            return response
+        _governor.note_429()
+        attempt += 1
+        wait = _retry_after_s(response, attempt)
+        log.warning(
+            "TPM governor: 429 from %s — waiting %.1fs, retry %d/%d",
+            getattr(request.url, "host", "?"), wait, attempt, OPENAI_429_MAX_RETRIES,
+        )
+        try:
+            await response.aclose()
+        except Exception:  # noqa: BLE001
+            pass
+        await asyncio.sleep(wait)
+
+
+httpx.Client.send = _governed_send  # type: ignore[method-assign]
+httpx.AsyncClient.send = _governed_send_async  # type: ignore[method-assign]
 
 # ── Import Hermes internals ─────────────────────────────────────────────────
 # Hermes is a pip-installed editable package at /usr/local/lib/hermes-agent/.
@@ -167,6 +504,18 @@ except ImportError as exc:  # pragma: no cover — surfaces during deploy issues
 # ── Config ──────────────────────────────────────────────────────────────────
 BEARER_TOKEN_PATH = os.environ.get("YVON_HERMES_TOKEN_PATH", "/etc/yvon-hermes/token")
 POOL_IDLE_TTL_S = int(os.environ.get("YVON_HERMES_POOL_TTL", "1800"))  # 30 min
+# RAISED BACK 15 → 30 (2026-08-21, second pass). The 40 → 15 cut below was
+# the ninth failed attempt at the TPM problem and is now superseded by the
+# httpx TPM governor at the top of this file. The arithmetic that kills it:
+# the failing turns showed `Requested 76781` for a SINGLE call against a
+# 200000/min ceiling, so the budget affords two such calls per minute and a
+# turn dies on round-trip #3 — a cap of 15 never comes into play, and a cap
+# low enough to matter (2) cannot answer anything real. Iteration count was
+# never the lever; rate was. With pacing in place the cap goes back to
+# serving its actual purpose (stopping a runaway loop), not rationing
+# tokens, so it returns to a level that lets real work finish.
+#
+# --- superseded reasoning kept for the record ---
 # Lowered 40 → 15 (2026-08-21) after real journalctl evidence
 # (agent.conversation_loop logs) showed the OpenAI TPM rate-limit failures
 # are NOT caused by cross-turn pool accumulation (a brand new turn after a
@@ -191,7 +540,7 @@ POOL_IDLE_TTL_S = int(os.environ.get("YVON_HERMES_POOL_TTL", "1800"))  # 30 min
 # tradeoff of a lower cap — there is no way to avoid both that and the
 # rate-limit failures without hermes-agent itself trimming/summarizing a
 # turn's own tool-call scratchpad, which lives outside this repo).
-MAX_ITERATIONS = int(os.environ.get("YVON_HERMES_MAX_ITER", "15"))
+MAX_ITERATIONS = int(os.environ.get("YVON_HERMES_MAX_ITER", "30"))
 STREAM_KEEPALIVE_S = float(os.environ.get("YVON_HERMES_KEEPALIVE", "15"))
 HERMES_API_URL = os.environ.get("HERMES_API_URL", "http://127.0.0.1:9119")
 # Repo-mode toggle (2026-08-11, dashboard RepoModeToggle.tsx): clone/pull
@@ -241,6 +590,13 @@ FILE_MAX_BYTES = 400_000
 
 log = logging.getLogger("yvon-hermes-http")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+log.info(
+    "TPM governor attached to httpx (limit=%d/min, usable=%d/min, max hold=%.0fs, 429 retries=%d)",
+    OPENAI_TPM_LIMIT,
+    int(OPENAI_TPM_LIMIT * OPENAI_TPM_HEADROOM),
+    OPENAI_TPM_MAX_WAIT_S,
+    OPENAI_429_MAX_RETRIES,
+)
 
 
 def _load_bearer_token() -> str:

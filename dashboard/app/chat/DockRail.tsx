@@ -11,7 +11,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Landmark, Terminal, Sparkles, Shield, Package, Scale, Bot, Orbit, HeartHandshake, Megaphone, Globe2, TrendingUp, Users, ShieldAlert, PanelRight, ClipboardList } from 'lucide-react'
+import { Landmark, Terminal, Sparkles, Shield, Package, Scale, Bot, Orbit, HeartHandshake, Megaphone, Globe2, TrendingUp, Users, ShieldAlert, PanelRight, ClipboardList, History } from 'lucide-react'
 import { FLEET, FLEET_DEPARTMENTS, type FleetDepartment } from '@/lib/fleet'
 import { deptTint } from '@/lib/chat-theme'
 import type { ChatRoom } from '@/app/api/chat/rooms/route'
@@ -86,6 +86,20 @@ export function DockRail({ rooms, focus, onFocus, onOpenTeams, teamsOpen, agentL
           onClick={() => onFocus({ kind: 'tasks' })}
         >
           <ClipboardList className="h-[19px] w-[19px]" strokeWidth={1.5} />
+        </DockButton>
+
+        {/* History — previous chats (2026-08-21). Sits directly under Tasks
+            by request; opens HistoryPanel in the same sidebar slot. Note the
+            `focus.kind === 'room'` case: reopening a past chat from History
+            switches focus to that room, and the icon should stay lit so the
+            list you navigated from is still on screen and still highlighted. */}
+        <DockButton
+          label="History"
+          tint="#592eff"
+          active={focus.kind === 'history' || focus.kind === 'room'}
+          onClick={() => onFocus({ kind: 'history' })}
+        >
+          <History className="h-[19px] w-[19px]" strokeWidth={1.5} />
         </DockButton>
 
         <span className="my-1.5 h-px w-6 bg-[var(--chat-hairline)]" />

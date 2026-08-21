@@ -531,6 +531,18 @@ export async function GET(request: Request): Promise<Response> {
             replyAuthorName = 'system'
             let outgoing: typeof event = event
 
+            // CORRECTION (2026-08-21, second pass): the reasoning below was
+            // wrong about the CAUSE, though the reset itself is a harmless
+            // backstop and stays. "Used 143383, Requested 75716" is not a
+            // room carrying too much history — `Requested` is ONE call, and
+            // at ~76k per call a 200k/min ceiling affords only two of them,
+            // so any turn needing three round-trips died regardless of how
+            // clean the room was. That is a RATE problem, and it is now
+            // fixed where it belongs: main.py's TPM governor paces outbound
+            // calls against a rolling 60s ledger. Dropping the pool here
+            // neither caused nor cured it — keep it, but do not read the
+            // note below as an explanation.
+            //
             // 2026-08-21 fix: the auto-reset above only ever ran on a
             // SUCCESSFUL turn (event.kind === 'done'), because that's the
             // only place main.py attaches usage.totalTokens. But a room
@@ -547,7 +559,7 @@ export async function GET(request: Request): Promise<Response> {
               try {
                 const drop = await dropPool(user.id, userMsg.room_id, cfg)
                 if (drop.ok && drop.dropped) {
-                  const resetMsg = `${event.message}\n\n(This room's conversation history was reset because it grew too large — send your message again and it should go through.)`
+                  const resetMsg = `${event.message}\n\n(This room's agent was reset. Note the real cause is the AI account's per-minute token ceiling, not this room — Hermes now paces its own calls to stay under it, so a retry should go through, just more slowly on long tasks.)`
                   replyContent = `[Hermes error] ${resetMsg}`
                   outgoing = { ...event, message: resetMsg }
                 }
@@ -571,7 +583,7 @@ export async function GET(request: Request): Promise<Response> {
           try {
             const drop = await dropPool(user.id, userMsg.room_id, cfg)
             if (drop.ok && drop.dropped) {
-              msg = `${msg}\n\n(This room's conversation history was reset because it grew too large — send your message again and it should go through.)`
+              msg = `${msg}\n\n(This room's agent was reset. Note the real cause is the AI account's per-minute token ceiling, not this room — Hermes now paces its own calls to stay under it, so a retry should go through, just more slowly on long tasks.)`
             }
           } catch {
             // Best-effort — never break error reporting just because the reset failed.
