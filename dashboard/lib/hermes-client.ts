@@ -17,6 +17,14 @@ export interface HermesChatInput {
   roomId: string
   workspace?: WorkspaceKey
   mentions?: string[]
+  /** FIX (2026-08-21, concern #1): the room's department (chat_rooms.department,
+   * one of fleet.ts's FleetDepartment strings — "Engineering", "Brand Studio",
+   * etc). Forwarded so real CAOS retrieval/gates on the Hermes side (main.py's
+   * _run_rag_pipeline_sync) can pass a recognized department to rag/core/
+   * plan_lock.py's Rail-1 identity check instead of always tripping its
+   * "unknown department" block. Undefined for department-less rooms
+   * (Workforce/whole_team, a thread) — genuinely no fixed identity there. */
+  department?: string
   /** TS-025: injected real agent identity + skills (yvon-os) or venture memory (other ventures) */
   agentContext?: string
   ventureContext?: string
@@ -42,6 +50,11 @@ export interface HermesChatInput {
    * generated a fresh uuid4(), disconnected from every other event the turn
    * emitted — see app/api/chat/send/route.ts's header comment). */
   correlation?: string
+  /** FIX (2026-08-22, cost teardown Cause 01): the CAOS v2 tier already
+   * computed dashboard-side ("build"/"research"/…), forwarded so Hermes can
+   * cap its tool loop per tier instead of giving every turn a 30-iteration
+   * budget. Declared here 2026-08-24 — the call site shipped without it. */
+  tier?: string
 }
 
 /**
@@ -73,6 +86,40 @@ export interface TurnUsage {
   outputTokens: number | null
   totalTokens: number | null
   contextWindow: number | null
+  // ── measured per-turn figures (2026-08-22) ────────────────────────────────
+  // Distinct from the provider fields above, and named est*/llm* so the two
+  // can never be confused: `tokensReported` still means "the provider told
+  // us", and stays false. These come from main.py's own httpx meter, which
+  // counts what this process actually put on the wire.
+  //
+  // Declaring them here is load-bearing, not cosmetic: main.py has been
+  // sending them since the meter landed, but with the interface silent the
+  // CAOS panel reads `undefined` and renders "not measured" forever — real
+  // data, invisible, with nothing failing loudly to say so.
+  /** EXACT count of model round-trips this turn cost — the loop multiplier. */
+  llmCalls?: number
+  /** ~4 bytes/token estimate of input actually sent. Never the provider's. */
+  estInputTokens?: number
+  /** seconds this turn spent asleep in the rate-limit governor */
+  governorWaitS?: number
+  /** false when another turn overlapped, so the per-turn split is approximate */
+  llmCallsExact?: boolean
+  /** true whenever est* fields are present — they are measurements, not reports */
+  estimated?: boolean
+  /** composition of the first request: what the fixed payload is made of */
+  firstCallShape?: {
+    totalChars?: number
+    toolCount?: number
+    toolSchemaChars?: number
+    messageCount?: number
+    systemChars?: number
+    messageChars?: number
+    toolSchemaPct?: number
+  }
+  /** pooled-agent position in this room — drives the recycle countdown */
+  poolTurns?: number
+  poolChars?: number
+  poolRecycleTurns?: number
 }
 
 /** SSE event shapes from the wrapper — mirrors yvon-hermes-http/main.py.
@@ -182,6 +229,7 @@ export async function* streamHermesChat(
       room_id: input.roomId,
       workspace: input.workspace ?? undefined,
       mentions: input.mentions ?? [],
+      department: input.department ?? undefined,
       agent_context: input.agentContext ?? undefined,
       venture_context: input.ventureContext ?? undefined,
       input_analysis: input.inputAnalysis ?? undefined,

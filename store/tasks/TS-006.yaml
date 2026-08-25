@@ -63,8 +63,11 @@ work_items:
       - "Fleet lesson pushed: 'Every git push to a Vercel-tracked branch MUST pass cli/verify-deploy.sh; skipping it turns Vercel into CI and burns deploy cycles.'"
 
 dag: { critical_path: [WI-1, WI-2, WI-3, WI-4] }
-exit_gate: { owner: quinn, proof: "regression test PASS + hook PASS on current state" }
+exit_gate:
+  owner: quinn
+  proof: "cli/verify-deploy.sh: 6 checks green on current state (0 findings, exit 0); regression test: 4 induced bugs → 4 findings with file:line (exit 4); restored → 0 findings; cli/install-hooks.sh wires .git/hooks/pre-push"
 
+approved_by: operator   # E2 backfill 2026-08-24 — pre-history record, operator-directed; approved_at not recorded
 feedback:
   outcome: done
   proof: >

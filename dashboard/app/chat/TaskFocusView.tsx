@@ -1,33 +1,36 @@
 // TaskFocusView — full-width task detail, replacing the chat column.
 //
-// v3 (2026-08-18, docs/PRD-task-detail-lifecycle-actions.md): adds the
-// sourceful history trail, the conditional Gate-0 RFC checkpoint, a prominent
-// creator header, an honest PRD-alignment panel (no real PRD exists for any
-// task yet — this says so rather than faking a comparison), and the three
-// real lifecycle actions (Make Changes / Retry / Redo). Retry/Redo POST to
-// /api/task-spec/[id]/note BEFORE navigating — a failed write blocks the
-// navigation rather than silently proceeding (PRD §6 acceptance criteria).
+// v4 (2026-08-24, "One Request, End to End" artifact, beats 9–22): the task
+// surface is rebuilt to the artifact's design — a status strip with an age
+// readout (staleness), the acceptance block with per-criterion verdicts +
+// evidence (a criterion and an assertion are the same line), the six-field
+// handoff packet, artifacts, people (doer · verifier · integrator), an iconed
+// history trail, a provenance sidebar (prd / rice / revision_of / derived_from /
+// superseded_by / last activity), and the blocked SIDECAR rendered as a red
+// strip that does NOT change the status field (a task can be blocked AND
+// executing). The old linear stage-card row is gone — it belonged to the
+// pre-artifact design.
 //
-// v2 (2026-08-18, earlier same day): full-width layout replacing the ~300px
-// sidebar squeeze — see git history for that fix's rationale.
+// v3 (2026-08-18): sourceful history trail, Gate-0 RFC checkpoint, creator
+// header, honest PRD-alignment panel, lifecycle actions (Make Changes/Retry/Redo).
 //
 // Fetches its own copy of /api/task-spec (same real source — cli/task.py
 // list → store/tasks/TS-NNN.yaml) rather than threading TasksPanel's already
 // -fetched array through page.tsx; simpler to keep these two decoupled.
 //
-// Owner: dev · task-section-in-chat feature, 2026-08-18
+// Owner: dev · task-section-in-chat feature, 2026-08-18; task-surface v4 2026-08-24
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ChevronLeft, CircleCheck, CircleDot, Circle, ArrowRight, User, Building2, Flag, Redo2, RotateCcw, Pencil } from 'lucide-react'
-import { TASK_STAGES, stageTint, type TaskStage } from '@/lib/task-theme'
+import {
+  ChevronLeft, CircleCheck, ArrowRight, User, Building2, Flag, Redo2, RotateCcw,
+  Pencil, Ban, Play, Users, FileText,
+} from 'lucide-react'
+import { TASK_STAGES, type TaskStage } from '@/lib/task-theme'
 import { StagePill, type TaskSpecItem } from './TasksPanel'
 import { Markdown } from './Markdown'
 
 // Mirrors /api/design-preview's response shape (dashboard/app/api/design-preview/route.ts).
-// One unified shape regardless of source tool (screenshot-to-code / open-design
-// / custom) — each tab independently `available`, with an honest `reason`
-// when it isn't, per docs/PRD-design-first-workflow.md.
 interface DesignPreviewTab {
   available: boolean
   reason?: string
@@ -49,20 +52,74 @@ interface DesignPreviewResponse {
 interface TaskFocusViewProps {
   taskId: string
   onBack: () => void
-  /** Opens the task's originating room in chat with the composer pre-filled.
-   * Buttons that depend on this disable with an explanation when a task has
-   * no resolvable room (roomId undefined — no task.proposal.accepted event
-   * was ever recorded for it). */
   onOpenInChat: (roomId: string, prefillText: string) => void
+}
+
+// ── helpers ────────────────────────────────────────────────────────────────
+
+/** "2d 6h" / "3h" / "18m" — staleness is the point of updated_at. */
+function ageFrom(iso: string, now = Date.now()): string {
+  if (!iso) return '—'
+  const t = new Date(iso).getTime()
+  if (Number.isNaN(t)) return '—'
+  const mins = Math.max(0, Math.round((now - t) / 60000))
+  if (mins < 60) return `${mins}m`
+  const hrs = Math.round(mins / 60)
+  if (hrs < 24) return `${hrs}h`
+  return `${Math.round(hrs / 24)}d ${hrs % 24}h`
+}
+
+function shortDate(iso: string): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+/** History event → icon tone (artifact rail: ● info · ✓ success · ↺ warn · ✕ error). */
+type EvtTone = 'info' | 'success' | 'warn' | 'error'
+const SUCCESS_EVENTS = new Set(['approved', 'gated', 'done', 'suite_passed', 'handoff_emitted', 'prd_attached', 'unblocked', 'discovery_filled'])
+const ERROR_EVENTS = new Set(['blocked', 'suite_failed'])
+const WARN_EVENTS = new Set(['criterion_deferred', 'retry_opened', 'redo_opened', 'changes_requested', 'superseded'])
+function evtTone(event: string): EvtTone {
+  if (ERROR_EVENTS.has(event)) return 'error'
+  if (WARN_EVENTS.has(event)) return 'warn'
+  if (SUCCESS_EVENTS.has(event)) return 'success'
+  return 'info'
+}
+
+function metCount(task: TaskSpecItem): number {
+  return task.workItems.reduce((n, wi) => n + wi.acceptance.filter((a) => a.status === 'pass').length, 0)
+}
+function totalAcceptance(task: TaskSpecItem): number {
+  return task.workItems.reduce((n, wi) => n + wi.acceptance.length, 0)
+}
+function uniqueRoles(task: TaskSpecItem, key: 'doer' | 'verifier' | 'integrator'): string {
+  return [...new Set(task.workItems.map((wi) => wi[key]).filter(Boolean))].join(', ') || '—'
 }
 
 export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewProps) {
   const [task, setTask] = useState<TaskSpecItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [openStage, setOpenStage] = useState<string | null>(null)
-  const [actionPending, setActionPending] = useState<'retry' | 'redo' | null>(null)
+  const [actionPending, setActionPending] = useState<'retry' | 'redo' | 'block' | 'unblock' | 'review' | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [blockOpen, setBlockOpen] = useState(false)
+  const [blockReason, setBlockReason] = useState('')
+
+  const load = () => {
+    setLoading(true)
+    setTask(null)
+    fetch('/api/task-spec')
+      .then((r) => r.json())
+      .then((data: { tasks?: TaskSpecItem[]; error?: string }) => {
+        const found = (data.tasks ?? []).find((t) => t.id === taskId) ?? null
+        setTask(found)
+        if (!found) setError(data.error ?? `${taskId} not found`)
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+      .finally(() => setLoading(false))
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -74,7 +131,6 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
         if (cancelled) return
         const found = (data.tasks ?? []).find((t) => t.id === taskId) ?? null
         setTask(found)
-        setOpenStage(found?.status ?? null)
         if (!found) setError(data.error ?? `${taskId} not found`)
       })
       .catch((e) => !cancelled && setError(e instanceof Error ? e.message : String(e)))
@@ -100,8 +156,6 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
       .then((data: DesignPreviewResponse) => {
         if (cancelled) return
         setDesignPreview(data)
-        // Default to whichever tab actually has something, preview first —
-        // never land on a tab that's just going to show an empty state.
         const order: Array<'preview' | 'code' | 'designMd'> = ['preview', 'code', 'designMd']
         const firstAvailable = order.find((t) => data.tabs?.[t]?.available)
         setDesignTab(firstAvailable ?? 'preview')
@@ -112,16 +166,6 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
       cancelled = true
     }
   }, [task?.id, task?.designSessionId])
-
-  const stages: string[] = task?.gate0
-    ? ['draft', 'discovery', 'gate0', 'approved', 'executing', 'gated', 'done']
-    : ['draft', 'discovery', 'approved', 'executing', 'gated', 'done']
-
-  const stageReached = (s: string) => {
-    if (!task) return false
-    if (s === 'gate0') return task.status !== 'draft' && task.status !== 'discovery'
-    return TASK_STAGES.findIndex((x) => x.key === task.status) >= TASK_STAGES.findIndex((x) => x.key === s)
-  }
 
   const makeChangesText = (kind: 'changes' | 'retry' | 'redo') => {
     const label =
@@ -154,12 +198,7 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
         }),
       })
       const data = (await res.json()) as { ok?: boolean; error?: string }
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error ?? `HTTP ${res.status}`)
-      }
-      // History write succeeded — only now is it safe to navigate. A thrown
-      // error above skips this, so we never navigate on a silently-swallowed
-      // failure (PRD §6 acceptance criteria).
+      if (!res.ok || !data.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
       if (task.roomId) {
         onOpenInChat(task.roomId, makeChangesText(kind))
         onBack()
@@ -171,6 +210,65 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
     }
   }
 
+  /** v4 — the artifact's lifecycle surface, driven by real CLI commands via
+   *  /api/task-spec/[id]/command (block / unblock / review). Suite runs stay
+   *  CLI-side (task.sh suite --run <path>) because the proof IS the run record. */
+  async function runCommand(cmd: 'block' | 'unblock' | 'review', body: Record<string, string> = {}) {
+    if (!task) return
+    setActionError(null)
+    setActionPending(cmd)
+    try {
+      const res = await fetch(`/api/task-spec/${task.id}/command`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cmd, ...body }),
+      })
+      const data = (await res.json()) as { ok?: boolean; error?: string }
+      if (!res.ok || !data.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+      setBlockOpen(false)
+      setBlockReason('')
+      load()
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setActionPending(null)
+    }
+  }
+
+  // ── derived display state ────────────────────────────────────────────────
+  const met = task ? metCount(task) : 0
+  const total = task ? totalAcceptance(task) : 0
+  const failed = task ? task.workItems.some((wi) => wi.acceptance.some((a) => a.status === 'fail')) : false
+
+  const stripTone = (() => {
+    if (!task) return 'neutral'
+    if (task.blocked) return 'blk'
+    if (task.status === 'review') return 'rev'
+    if (task.status === 'done') return 'ok'
+    if (task.status === 'executing') return 'run'
+    return 'neutral'
+  })()
+
+  const stripText = (() => {
+    if (!task) return ''
+    if (task.blocked) return `blocked · ${ageFrom(task.blockedAt)}`
+    if (task.status === 'review') return total > 0 ? `suite ran · ${met} of ${total}` : 'in review'
+    if (task.status === 'done') return task.handoff?.entry ? 'closed · handoff emitted' : 'closed'
+    if (task.status === 'gated') return 'artifacts exist'
+    if (task.status === 'executing') return 'in flight'
+    return task.status
+  })()
+
+  const stripWho = (() => {
+    if (!task) return ''
+    if (task.blocked) return 'waiting on you — the block below must resolve first · status unchanged'
+    if (task.status === 'review') return `${uniqueRoles(task, 'verifier') === '—' ? 'the suite' : uniqueRoles(task, 'verifier')} decides — review is a run, not a signature`
+    if (task.status === 'done') return `${uniqueRoles(task, 'doer')} built · ${uniqueRoles(task, 'verifier')} signed by run`
+    if (task.status === 'gated') return 'all declared files present · nothing tested yet'
+    if (task.status === 'executing') return `${uniqueRoles(task, 'doer')} is building · nothing verified yet`
+    return `${uniqueRoles(task, 'doer')} · ${task.lead || 'unassigned'}`
+  })()
+
   return (
     <div className="chat-frame flex h-full flex-col overflow-hidden">
       <div className="flex items-center gap-2 border-b border-[var(--chat-hairline)] px-5 py-3.5">
@@ -179,16 +277,21 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
         </button>
         <span className="text-[13px] font-medium text-[var(--chat-text-dim)]">Back to chat</span>
         <span className="chat-mono ml-auto text-[var(--chat-text-faint)]">{taskId}</span>
-        {task && <StagePill stage={task.status} compact />}
+        {task && (
+          <span className="flex items-center gap-1.5">
+            {task.blocked && (
+              <span className="rounded-[200px] bg-[#fdf2f0] px-2 py-0.5 text-[10.5px] font-semibold text-[#b91c1c]">blocked</span>
+            )}
+            <StagePill stage={task.status} compact />
+          </span>
+        )}
       </div>
 
       <div className="chat-scroll flex-1 overflow-y-auto px-6 py-6 sm:px-10">
-        <div className="mx-auto max-w-[860px]">
+        <div className="mx-auto max-w-[920px]">
           {loading && <div className="py-16 text-center text-[13px] text-[var(--chat-text-faint)]">Loading…</div>}
           {!loading && error && !task && (
-            <div className="rounded-[16px] border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.05)] px-4 py-3 text-[13px] text-[#b91c1c]">
-              {error}
-            </div>
+            <div className="rounded-[16px] border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.05)] px-4 py-3 text-[13px] text-[#b91c1c]">{error}</div>
           )}
           {task && (
             <>
@@ -206,11 +309,20 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
                     <span className="ml-1.5 font-normal text-[var(--chat-text-faint)]">requested this</span>
                   </div>
                   <div className="text-[11.5px] text-[var(--chat-text-faint)]">
-                    {task.createdAt ? `Created ${task.createdAt}` : 'Creation time not recorded (pre-2026-08-18 record)'}
+                    Created {task.createdAt ? shortDate(task.createdAt) : '—'}
                     {task.revisionOf && (
                       <>
-                        {' '}
-                        · revision of <span className="chat-mono">{task.revisionOf}</span>
+                        {' '}· revision of <span className="chat-mono">{task.revisionOf}</span>
+                      </>
+                    )}
+                    {task.derivedFrom && (
+                      <>
+                        {' '}· derived from <span className="chat-mono">{task.derivedFrom}</span>
+                      </>
+                    )}
+                    {task.supersededBy && (
+                      <>
+                        {' '}· superseded by <span className="chat-mono">{task.supersededBy}</span>
                       </>
                     )}
                   </div>
@@ -231,68 +343,150 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
                   </span>
                 )}
                 {task.requester && <span>Requested by {task.requester}</span>}
+                {task.gate0 && (
+                  <span className="flex items-center gap-1.5 text-[#a15c00]">
+                    <Flag className="h-3.5 w-3.5" /> RFC sign-off · {task.gate0Signoffs.length} recorded
+                  </span>
+                )}
               </div>
 
-              {/* ── Stage-card row — real grid, Gate-0 shown only when the
-                  record is actually classification.gate_0: true (MASTER §7.0's
-                  structural-impact test), never invented for a non-structural
-                  task ── */}
-              <div className={`mt-6 grid grid-cols-3 gap-2.5 ${task.gate0 ? 'sm:grid-cols-7' : 'sm:grid-cols-6'}`}>
-                {stages.map((s) => {
-                  const isGate0 = s === 'gate0'
-                  const tone = isGate0 ? (stageReached('gate0') ? 'done' : 'upcoming') : stageTint(s as TaskStage, task.status)
-                  const open = openStage === s
-                  const label = isGate0 ? 'RFC Sign-off' : (TASK_STAGES.find((x) => x.key === s)?.label ?? s)
-                  return (
-                    <button
-                      key={s}
-                      onClick={() => setOpenStage(s)}
-                      className="flex flex-col gap-2 rounded-[18px] border px-3.5 py-3 text-left transition"
-                      style={{
-                        borderColor: open ? 'rgba(89,46,255,0.45)' : isGate0 ? '#e0b84a' : 'var(--chat-hairline)',
-                        borderStyle: isGate0 && !open ? 'dashed' : 'solid',
-                        background: open ? 'rgba(89,46,255,0.04)' : isGate0 ? '#fffaf0' : '#ffffff',
-                        boxShadow: open ? '0 10px 24px -18px rgba(89,46,255,0.5)' : undefined,
-                      }}
-                    >
-                      <span style={{ color: isGate0 ? '#a15c00' : tone === 'upcoming' ? 'var(--chat-text-faint)' : 'var(--chat-accent)' }}>
-                        {isGate0 ? (
-                          <Flag className="h-[18px] w-[18px]" />
-                        ) : tone === 'done' ? (
-                          <CircleCheck className="h-[18px] w-[18px]" />
-                        ) : tone === 'active' ? (
-                          <CircleDot className="h-[18px] w-[18px]" />
-                        ) : (
-                          <Circle className="h-[18px] w-[18px]" />
-                        )}
-                      </span>
-                      <span
-                        className="text-[12.5px] font-medium leading-tight"
-                        style={{ color: tone === 'upcoming' && !isGate0 ? 'var(--chat-text-faint)' : 'var(--chat-text)' }}
-                      >
-                        {label}
-                      </span>
-                      {isGate0 && <span className="text-[9.5px] text-[var(--chat-text-faint)]">structural</span>}
-                    </button>
-                  )
-                })}
+              {/* ── Status strip — artifact taskSurface .vst ───────────── */}
+              <div
+                className="mt-6 flex items-center gap-3 rounded-[14px] border px-4 py-3"
+                style={{
+                  borderLeft: `4px solid ${
+                    stripTone === 'blk' ? '#b91c1c' : stripTone === 'rev' ? '#592eff' : stripTone === 'ok' ? '#587000' : stripTone === 'run' ? '#0a7ea6' : 'var(--chat-hairline)'
+                  }`,
+                  borderColor: stripTone === 'blk' ? 'rgba(239,68,68,0.3)' : stripTone === 'rev' ? 'rgba(89,46,255,0.35)' : 'var(--chat-hairline)',
+                  background:
+                    stripTone === 'blk' ? '#fdf2f0' : stripTone === 'rev' ? '#f3f0ff' : stripTone === 'ok' ? '#f4f8e9' : stripTone === 'run' ? '#eef8fb' : 'var(--chat-surface-strong)',
+                }}
+              >
+                <div className="min-w-0 flex-1">
+                  <div
+                    className="chat-mono text-[10px] font-semibold uppercase tracking-[0.12em]"
+                    style={{ color: stripTone === 'blk' ? '#b91c1c' : stripTone === 'rev' ? '#592eff' : stripTone === 'ok' ? '#4d7000' : stripTone === 'run' ? '#0a7ea6' : 'var(--chat-text-faint)' }}
+                  >
+                    {stripText}
+                  </div>
+                  <div className="mt-0.5 text-[13px] font-semibold text-[var(--chat-text)]">{stripWho}</div>
+                  {task.blocked && task.blockedReason && (
+                    <div className="mt-0.5 text-[12px] text-[#b91c1c]">{task.blockedReason}</div>
+                  )}
+                </div>
+                <div className="text-right">
+                  <div className="chat-mono text-[15px] font-bold text-[var(--chat-text)]">{ageFrom(task.updatedAt || task.createdAt)}</div>
+                  <div className="text-[10.5px] text-[var(--chat-text-faint)]">
+                    {task.blocked ? `blocked since ${shortDate(task.blockedAt)}` : 'since last activity'}
+                  </div>
+                </div>
               </div>
-              {task.gate0 && (
-                <div className="mt-1.5 text-[11px] text-[#a15c00]">
-                  ⚑ RFC Sign-off shown because this task is marked <span className="chat-mono">gate_0: true</span> — it touches
-                  frontend/backend/API/security/algorithm structure (MASTER §7.0), so approval needs sign-offs before it can proceed.
+
+              {/* ── Acceptance — from the PRD, verdict per criterion ──── */}
+              <div className="chat-glass-soft mt-4 p-5">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--chat-text-faint)]">
+                    Acceptance · from the PRD
+                  </div>
+                  <div className="chat-mono text-[11px]" style={{ color: failed ? '#b91c1c' : 'var(--chat-text-dim)' }}>
+                    {met} of {total} met
+                  </div>
+                </div>
+                {total === 0 ? (
+                  <div className="text-[12.5px] italic text-[var(--chat-text-faint)]">No acceptance criteria recorded — the PRD's assertions become these lines.</div>
+                ) : (
+                  <div className="space-y-1">
+                    {task.workItems.map((wi) =>
+                      wi.acceptance.map((a, i) => {
+                        const on = a.status === 'pass'
+                        const no = a.status === 'fail'
+                        const dfr = a.status === 'deferred'
+                        return (
+                          <div key={`${wi.id}-${i}`} className="flex items-start gap-2.5 rounded-[10px] px-1.5 py-2" style={{ background: no ? 'rgba(239,68,68,0.04)' : dfr ? 'rgba(224,184,74,0.07)' : undefined }}>
+                            <span
+                              className="mt-0.5 flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-[4px] text-[9px] font-bold text-white"
+                              style={{
+                                background: on ? '#587000' : no ? '#b91c1c' : dfr ? '#c8951a' : '#cfcfc8',
+                                borderColor: on ? '#587000' : no ? '#b91c1c' : '#cfcfc8',
+                              }}
+                            >
+                              {on ? '✓' : no ? '✕' : dfr ? '↺' : '·'}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-[12.5px] leading-[1.45]" style={{ color: no ? '#b91c1c' : dfr ? '#8a6114' : 'var(--chat-body)' }}>
+                                {a.text}
+                                {dfr && <span className="ml-1.5 rounded-[200px] bg-[#f6ecd8] px-1.5 py-0.5 text-[9.5px] font-semibold text-[#8a6114]">deferred by decision</span>}
+                              </div>
+                              {a.evidence && <div className="chat-mono mt-0.5 text-[10.5px] text-[var(--chat-text-faint)]">{a.evidence}</div>}
+                            </div>
+                          </div>
+                        )
+                      }),
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* ── Handoff packet — six fields ───────────────────────── */}
+              {task.handoff?.entry && (
+                <div className="chat-glass-soft mt-4 p-5">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--chat-text-faint)]">Handoff packet</div>
+                    <div className="chat-mono text-[11px] text-[var(--chat-text-dim)]">6 fields</div>
+                  </div>
+                  <div className="space-y-2">
+                    {(
+                      [
+                        ['entry', task.handoff.entry],
+                        ['contract', task.handoff.contract],
+                        ['stubbed', task.handoff.stubbed],
+                        ['needs_wiring', task.handoff.needs_wiring],
+                        ['tokens', task.handoff.tokens],
+                        ['verified_on', task.handoff.verified_on],
+                      ] as const
+                    ).map(([k, v]) => (
+                      <div key={k} className="flex items-start gap-2.5">
+                        <span className="chat-mono mt-0.5 flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-[5px] bg-[#ede8ff] text-[9px] text-[#592eff]">→</span>
+                        <div className="min-w-0 flex-1">
+                          <span className="chat-mono text-[10.5px] font-semibold text-[var(--chat-text)]">{k}</span>
+                          <div className="text-[12px] leading-[1.45] text-[var(--chat-text-dim)]">{v}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {/* ── Selected stage detail ─────────────────────────────── */}
-              <div className="chat-glass-soft mt-4 p-5">
-                {openStage === 'gate0' ? <Gate0Body task={task} /> : <StageBody stage={(openStage ?? task.status) as TaskStage} task={task} />}
-              </div>
+              {/* ── Artifacts — produces + the run record ─────────────── */}
+              {task.workItems.some((wi) => wi.produces) && (
+                <div className="chat-glass-soft mt-4 p-5">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--chat-text-faint)]">Artifacts · produces</div>
+                    <div className="chat-mono text-[11px] text-[var(--chat-text-dim)]">{task.workItems.filter((wi) => wi.produces).length} item(s)</div>
+                  </div>
+                  <div className="space-y-1.5">
+                    {task.workItems.map((wi) =>
+                      wi.produces ? (
+                        <div key={`${wi.id}-p`} className="flex items-center gap-2.5">
+                          <FileText className="h-3.5 w-3.5 shrink-0 text-[var(--chat-text-faint)]" />
+                          <span className="chat-mono min-w-0 flex-1 truncate text-[11.5px] text-[var(--chat-text)]">{wi.produces}</span>
+                        </div>
+                      ) : null,
+                    )}
+                    {task.runRef && (
+                      <div className="flex items-center gap-2.5">
+                        <CircleCheck className="h-3.5 w-3.5 shrink-0 text-[#587000]" />
+                        <span className="chat-mono min-w-0 flex-1 truncate text-[11.5px] text-[var(--chat-text)]">{task.runRef}</span>
+                        <span className="text-[10px] text-[var(--chat-text-faint)]">run record · the proof</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* ── Design preview — only for tasks sourced from cli/design.py's
-                  handoff (task.designSessionId set via `task.sh set-design-origin`,
-                  docs/PRD-design-first-workflow.md). Absent entirely for every other
-                  task, never an empty panel shown speculatively. ── */}
+                  handoff (task.designSessionId set via `task.sh set-design-origin`).
+                  Absent entirely for every other task. ── */}
               {task.designSessionId && (
                 <DesignPreviewPanel
                   task={task}
@@ -303,34 +497,64 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
                 />
               )}
 
-              {/* ── History — sourceful trail ─────────────────────────── */}
+              {/* ── People — doer · verifier · integrator ─────────────── */}
+              <div className="chat-glass-soft mt-4 p-5">
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--chat-text-faint)]">People</div>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <RoleCard label="Doer" who={uniqueRoles(task, 'doer')} note="writes the code" tone="ok" />
+                  <RoleCard
+                    label="Verifier"
+                    who={uniqueRoles(task, 'verifier')}
+                    note="owns the suite — assertions ≠ author"
+                    tone={task.status === 'review' && failed ? 'warn' : 'wait'}
+                  />
+                  <RoleCard
+                    label="Integrator"
+                    who={uniqueRoles(task, 'integrator')}
+                    note={task.status === 'done' ? 'takes the brief — the session opens next' : 'takes the brief at handoff'}
+                    tone="wait"
+                  />
+                </div>
+              </div>
+
+              {/* ── History — iconed trail ────────────────────────────── */}
               <div className="chat-glass-soft mt-4 p-5">
                 <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--chat-text-faint)]">History</div>
                 {task.history.length === 0 ? (
                   <div className="text-[12.5px] italic text-[var(--chat-text-faint)]">
-                    No history recorded — this task was created before the history trail existed (2026-08-18), or nothing has happened
-                    to it yet.
+                    No history recorded — this task was created before the history trail existed (2026-08-18), or nothing has happened to it yet.
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {task.history.map((h, i) => (
-                      <div key={i} className="border-l-2 border-[rgba(89,46,255,0.35)] pl-3">
-                        <div className="text-[10.5px] text-[var(--chat-text-faint)]">{h.ts}</div>
-                        <div className="text-[12.5px]">
-                          <span className="font-semibold">{h.actor}</span>{' '}
-                          <span className="text-[var(--chat-text-dim)]">{h.event.replace(/_/g, ' ')}</span>
+                  <div className="space-y-2.5">
+                    {task.history.map((h, i) => {
+                      const tone = evtTone(h.event)
+                      return (
+                        <div key={i} className="flex items-start gap-2.5">
+                          <span
+                            className="mt-0.5 flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-[5px] text-[9px] font-bold"
+                            style={{
+                              background: tone === 'success' ? '#eef4e2' : tone === 'error' ? '#fdf2f0' : tone === 'warn' ? '#fdf8ec' : '#f2f2ee',
+                              color: tone === 'success' ? '#587000' : tone === 'error' ? '#b91c1c' : tone === 'warn' ? '#c8951a' : 'var(--chat-text-faint)',
+                            }}
+                          >
+                            {tone === 'success' ? '✓' : tone === 'error' ? '✕' : tone === 'warn' ? '↺' : '●'}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[12.5px] leading-[1.35]">
+                              <span className="font-semibold">{h.event.replace(/_/g, ' ')}</span>
+                              <span className="text-[var(--chat-text-dim)]"> · {h.actor}</span>
+                            </div>
+                            <div className="chat-mono mt-0.5 text-[10px] text-[var(--chat-text-faint)]">{h.ts}</div>
+                            {h.note && <div className="mt-0.5 text-[12px] text-[var(--chat-text-faint)]">{h.note}</div>}
+                          </div>
                         </div>
-                        {h.note && <div className="mt-0.5 text-[12px] text-[var(--chat-text-faint)]">{h.note}</div>}
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
 
-              {/* ── PRD — honest, opt-in per task: most tasks have no PRD.md at
-                  all (docs/PRD-task-detail-lifecycle-actions.md §4 out-of-scope), so
-                  this says so plainly rather than faking a comparison. When a task DOES
-                  have store/tasks/{id}-prd.md, the full file renders here instead. ── */}
+              {/* ── PRD ───────────────────────────────────────────────── */}
               {task.prdContent ? (
                 <div className="mt-4 rounded-[14px] border border-[var(--chat-hairline)] bg-white px-5 py-4">
                   <div className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--chat-text-faint)]">
@@ -346,6 +570,19 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
                 </div>
               )}
 
+              {/* ── Provenance sidebar ────────────────────────────────── */}
+              <div className="chat-glass-soft mt-4 p-5">
+                <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--chat-text-faint)]">Provenance</div>
+                <div className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
+                  <KvRow k="prd_ref" v={task.prdRef || '—'} mono />
+                  <KvRow k="rice" v={task.riceScore || '—'} mono />
+                  <KvRow k="revision_of" v={task.revisionOf || '—'} mono link={Boolean(task.revisionOf)} />
+                  <KvRow k="derived_from" v={task.derivedFrom || '—'} mono link={Boolean(task.derivedFrom)} />
+                  <KvRow k="superseded_by" v={task.supersededBy || '—'} mono />
+                  <KvRow k="last activity" v={task.updatedAt || task.createdAt || '—'} mono />
+                </div>
+              </div>
+
               {task.status !== 'done' && (
                 <div className="mt-4 flex items-center gap-2 rounded-[14px] border border-[var(--chat-hairline-soft)] bg-[var(--chat-surface-strong)] px-4 py-2.5 text-[12.5px] text-[var(--chat-text-dim)]">
                   <ArrowRight className="h-4 w-4 shrink-0" />
@@ -353,13 +590,13 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
                 </div>
               )}
 
-              {/* ── Lifecycle actions ──────────────────────────────────── */}
+              {/* ── Lifecycle actions ─────────────────────────────────── */}
               <div className="mt-5 flex flex-wrap gap-2.5">
                 <button
                   onClick={handleMakeChanges}
                   disabled={!task.roomId}
                   title={!task.roomId ? 'No originating chat room found for this task' : undefined}
-                  className="flex min-w-[170px] flex-1 flex-col gap-0.5 rounded-[14px] border border-[rgba(89,46,255,0.3)] bg-white px-4 py-2.5 text-left transition hover:border-[rgba(89,46,255,0.55)] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex min-w-[150px] flex-1 flex-col gap-0.5 rounded-[14px] border border-[rgba(89,46,255,0.3)] bg-white px-4 py-2.5 text-left transition hover:border-[rgba(89,46,255,0.55)] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[var(--chat-accent)]">
                     <Pencil className="h-3.5 w-3.5" /> Make changes
@@ -370,7 +607,7 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
                   onClick={() => handleLifecycle('retry')}
                   disabled={!task.roomId || actionPending !== null}
                   title={!task.roomId ? 'No originating chat room found for this task' : undefined}
-                  className="flex min-w-[170px] flex-1 flex-col gap-0.5 rounded-[14px] border border-[rgba(224,184,74,0.5)] bg-white px-4 py-2.5 text-left transition hover:border-[rgba(224,184,74,0.8)] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex min-w-[150px] flex-1 flex-col gap-0.5 rounded-[14px] border border-[rgba(224,184,74,0.5)] bg-white px-4 py-2.5 text-left transition hover:border-[rgba(224,184,74,0.8)] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[#a15c00]">
                     <RotateCcw className="h-3.5 w-3.5" /> {actionPending === 'retry' ? 'Retrying…' : 'Retry'}
@@ -381,13 +618,81 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
                   onClick={() => handleLifecycle('redo')}
                   disabled={!task.roomId || actionPending !== null}
                   title={!task.roomId ? 'No originating chat room found for this task' : undefined}
-                  className="flex min-w-[170px] flex-1 flex-col gap-0.5 rounded-[14px] border border-[rgba(46,214,255,0.5)] bg-white px-4 py-2.5 text-left transition hover:border-[rgba(46,214,255,0.8)] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex min-w-[150px] flex-1 flex-col gap-0.5 rounded-[14px] border border-[rgba(46,214,255,0.5)] bg-white px-4 py-2.5 text-left transition hover:border-[rgba(46,214,255,0.8)] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[#0a7ea6]">
                     <Redo2 className="h-3.5 w-3.5" /> {actionPending === 'redo' ? 'Redoing…' : 'Redo'}
                   </span>
                   <span className="text-[11px] text-[var(--chat-text-faint)]">Same goal, another pass — same mechanism as Retry.</span>
                 </button>
+
+                {task.status !== 'done' && !task.blocked && task.status !== 'draft' && task.status !== 'discovery' && (
+                  <div className="flex min-w-[150px] flex-1 flex-col rounded-[14px] border border-[rgba(239,68,68,0.35)] bg-white px-4 py-2.5">
+                    {blockOpen ? (
+                      <div className="flex flex-col gap-1.5">
+                        <input
+                          value={blockReason}
+                          onChange={(e) => setBlockReason(e.target.value)}
+                          placeholder="Why is it blocked?"
+                          className="w-full rounded-[8px] border border-[var(--chat-hairline)] bg-[var(--chat-surface-strong)] px-2 py-1 text-[12px] outline-none focus:border-[rgba(239,68,68,0.5)]"
+                        />
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={() => blockReason.trim() && runCommand('block', { reason: blockReason.trim() })}
+                            disabled={!blockReason.trim() || actionPending !== null}
+                            className="rounded-[8px] bg-[#b91c1c] px-2.5 py-1 text-[11.5px] font-semibold text-white disabled:opacity-40"
+                          >
+                            {actionPending === 'block' ? 'Blocking…' : 'Block'}
+                          </button>
+                          <button onClick={() => { setBlockOpen(false); setBlockReason('') }} className="rounded-[8px] border border-[var(--chat-hairline)] px-2.5 py-1 text-[11.5px] text-[var(--chat-text-dim)]">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => setBlockOpen(true)} disabled={actionPending !== null} className="flex flex-col items-start gap-0.5 text-left">
+                        <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[#b91c1c]">
+                          <Ban className="h-3.5 w-3.5" /> Block
+                        </span>
+                        <span className="text-[11px] text-[var(--chat-text-faint)]">Sidecar — status stays {task.status}; a task can be blocked and executing.</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+                {task.blocked && (
+                  <button
+                    onClick={() => runCommand('unblock')}
+                    disabled={actionPending !== null}
+                    className="flex min-w-[150px] flex-1 flex-col gap-0.5 rounded-[14px] border border-[rgba(162,234,19,0.4)] bg-white px-4 py-2.5 text-left transition hover:border-[rgba(162,234,19,0.7)] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[#4d7000]">
+                      {actionPending === 'unblock' ? 'Unblocking…' : 'Unblock'}
+                    </span>
+                    <span className="text-[11px] text-[var(--chat-text-faint)]">Clears the sidecar — the record keeps the blocked history entry.</span>
+                  </button>
+                )}
+                {task.status === 'gated' && (
+                  <button
+                    onClick={() => runCommand('review')}
+                    disabled={actionPending !== null}
+                    className="flex min-w-[150px] flex-1 flex-col gap-0.5 rounded-[14px] border border-[rgba(89,46,255,0.45)] bg-white px-4 py-2.5 text-left transition hover:border-[rgba(89,46,255,0.8)] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[var(--chat-accent)]">
+                      <Play className="h-3.5 w-3.5" /> {actionPending === 'review' ? 'Opening…' : 'Open review'}
+                    </span>
+                    <span className="text-[11px] text-[var(--chat-text-faint)]">gated → review. The suite decides — a run, not a signature.</span>
+                  </button>
+                )}
+                {task.status === 'review' && (
+                  <div className="flex min-w-[150px] flex-1 flex-col gap-1 rounded-[14px] border border-[rgba(89,46,255,0.3)] bg-white px-4 py-2.5">
+                    <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[var(--chat-accent)]">
+                      <Users className="h-3.5 w-3.5" /> Suite decides
+                    </span>
+                    <span className="chat-mono text-[10.5px] leading-[1.5] text-[var(--chat-text-faint)]">
+                      task.sh suite {task.id} --result pass|fail --run &lt;path&gt;
+                    </span>
+                  </div>
+                )}
               </div>
               {actionError && (
                 <div className="mt-2 rounded-[10px] border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.05)] px-3 py-2 text-[11.5px] text-[#b91c1c]">
@@ -396,14 +701,34 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
               )}
               {!task.roomId && (
                 <div className="mt-2 text-[11px] text-[var(--chat-text-faint)]">
-                  These actions need a known originating room — this task has no linked <span className="chat-mono">task.proposal.accepted</span>{' '}
-                  event, so it can&apos;t be resolved.
+                  These actions need a known originating room — this task has no linked <span className="chat-mono">task.proposal.accepted</span> event, so it can&apos;t be resolved.
                 </div>
               )}
             </>
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+function RoleCard({ label, who, note }: { label: string; who: string; note: string; tone: 'ok' | 'wait' | 'warn' }) {
+  return (
+    <div className="rounded-[12px] border border-[var(--chat-hairline)] bg-white px-3.5 py-3">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--chat-text-faint)]">{label}</div>
+      <div className="mt-1 text-[13px] font-semibold text-[var(--chat-text)]">{who}</div>
+      <div className="mt-0.5 text-[10.5px] text-[var(--chat-text-faint)]">{note}</div>
+    </div>
+  )
+}
+
+function KvRow({ k, v, mono, link }: { k: string; v: string; mono?: boolean; link?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-[var(--chat-hairline-soft)] pb-1.5">
+      <span className="text-[11px] text-[var(--chat-text-faint)]">{k}</span>
+      <span className={mono ? 'chat-mono text-[11.5px] font-medium' : 'text-[12px] font-medium'} style={{ color: link ? 'var(--chat-accent)' : 'var(--chat-text)' }}>
+        {v}
+      </span>
     </div>
   )
 }
@@ -499,108 +824,4 @@ function DesignPreviewPanel({
       )}
     </div>
   )
-}
-
-function Gate0Body({ task }: { task: TaskSpecItem }) {
-  return (
-    <div>
-      <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--chat-text-faint)]">RFC Sign-off · Gate 0</div>
-      {task.gate0Signoffs.length === 0 ? (
-        <div className="text-[12.5px] italic text-[var(--chat-text-faint)]">No sign-offs recorded yet — approval is blocked until at least one is added.</div>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {task.gate0Signoffs.map((s, i) => (
-            <span key={i} className="inline-flex items-center gap-1 rounded-[200px] bg-[rgba(162,234,19,0.16)] px-2.5 py-1 text-[12px] font-medium text-[#4d7000]">
-              ✓ {s}
-            </span>
-          ))}
-        </div>
-      )}
-      <div className="mt-2 text-[11px] text-[var(--chat-text-faint)]">
-        Sign-off itself happens outside this UI (a backend/agent action per MASTER §7.0) — this view only reads and displays the current state.
-      </div>
-    </div>
-  )
-}
-
-function StageBody({ stage, task }: { stage: TaskStage; task: TaskSpecItem }) {
-  if (stage === 'draft') {
-    return (
-      <Field label="Requested by">
-        {task.requester || '—'}
-        {task.taskType ? ` · ${task.taskType}` : ''}
-      </Field>
-    )
-  }
-  if (stage === 'discovery') {
-    return task.discoveryQuestions.length > 0 ? (
-      <div className="space-y-2">
-        {task.discoveryQuestions.map((q, i) => (
-          <div key={i} className="text-[13px] text-[var(--chat-body)]">
-            · {q}
-          </div>
-        ))}
-      </div>
-    ) : (
-      <EmptyNote>No discovery questions recorded yet.</EmptyNote>
-    )
-  }
-  if (stage === 'approved') {
-    return (
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="Lead">{task.lead || '—'}</Field>
-        <Field label="Departments">{task.departments.join(', ') || '—'}</Field>
-        <Field label="Approved by">{task.approvedBy || '—'}</Field>
-      </div>
-    )
-  }
-  if (stage === 'executing') {
-    return task.workItems.length > 0 ? (
-      <div className="grid gap-3 sm:grid-cols-2">
-        {task.workItems.map((wi) => (
-          <div key={wi.id} className="rounded-[14px] border border-[var(--chat-hairline)] bg-white px-4 py-3">
-            <div className="flex items-center gap-1.5 text-[11px]">
-              <span className="chat-mono text-[var(--chat-text-faint)]">{wi.id}</span>
-              {wi.owner && (
-                <span className="adora-tag" style={{ color: 'var(--chat-accent)' }}>
-                  {wi.owner}
-                </span>
-              )}
-            </div>
-            <p className="mt-1.5 text-[13px] leading-[1.45] text-[var(--chat-body)]">{wi.objective || '—'}</p>
-          </div>
-        ))}
-      </div>
-    ) : (
-      <EmptyNote>No work items filled in yet.</EmptyNote>
-    )
-  }
-  if (stage === 'gated') {
-    return (
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Exit owner">{task.exitOwner || '—'}</Field>
-        <Field label="Proof">{task.exitProof || <EmptyNote>Not filed yet.</EmptyNote>}</Field>
-      </div>
-    )
-  }
-  // done
-  return (
-    <div className="flex items-start gap-2.5">
-      <CircleCheck className="mt-0.5 h-5 w-5 shrink-0" style={{ color: '#4d7000' }} />
-      <Field label="Shipped">{task.exitProof || '—'}</Field>
-    </div>
-  )
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-[var(--chat-text-faint)]">{label}</div>
-      <div className="mt-1 text-[13px] leading-[1.5] text-[var(--chat-body)]">{children}</div>
-    </div>
-  )
-}
-
-function EmptyNote({ children }: { children: React.ReactNode }) {
-  return <span className="text-[var(--chat-text-faint)]">{children}</span>
 }

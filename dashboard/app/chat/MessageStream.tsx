@@ -75,6 +75,13 @@ interface MessageStreamProps {
   onStarter?: (text: string) => void
   /** real per-agent status, for the orb */
   agentLive?: Record<string, string>
+  /** FIX (2026-08-21, concern #2): which agent CAOS routed THIS turn to,
+   *  known from the moment the input.analysis SSE event lands — well before
+   *  any reply text arrives. Previously the streaming/thinking placeholders
+   *  hardcoded an empty agentId, so the real agent only ever appeared once
+   *  the finished message row existed in `messages`, i.e. after the turn was
+   *  already done. Null while nothing is classified yet for the live turn. */
+  liveAgentId?: string | null
 }
 
 export function MessageStream({
@@ -90,6 +97,7 @@ export function MessageStream({
   starters,
   onStarter,
   agentLive,
+  liveAgentId,
 }: MessageStreamProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const endRef = useRef<HTMLDivElement | null>(null)
@@ -253,15 +261,15 @@ export function MessageStream({
           {streamingText != null && (
             <li>
               <AgentCard
-                agentName="agent"
-                agentId=""
+                agentName={liveAgentId || 'agent'}
+                agentId={liveAgentId ?? ''}
                 time={safeTime(new Date().toISOString())}
                 streaming={streamingText}
               />
             </li>
           )}
 
-          {awaitingReply && streamingText == null && <ThinkingCard />}
+          {awaitingReply && streamingText == null && <ThinkingCard agentId={liveAgentId ?? null} />}
         </ul>
         <div ref={endRef} className="h-1" />
       </div>
@@ -434,25 +442,36 @@ function AgentCard({
   )
 }
 
-/** Awaiting the first token — three painted dots, not a spinner. */
-function ThinkingCard() {
+/** Awaiting the first token — three painted dots, not a spinner.
+ *
+ * FIX (2026-08-21, concern #2): now takes the CAOS-routed agent for this
+ * turn, so "who's working" is visible from the moment classification lands
+ * — not just once tokens start streaming. Null (nothing classified yet, or
+ * routing failed to resolve) falls back to the old generic dots-only look. */
+function ThinkingCard({ agentId }: { agentId: string | null }) {
+  const agent = agentId ? FLEET_BY_ID[agentId] : undefined
   return (
     <li className="pl-[22px]">
       <div className="chat-agent-card inline-flex items-center gap-3 px-6 py-4">
-        <span className="flex items-center gap-1.5">
-          {[0, 1, 2].map((i) => (
-            <span
-              key={i}
-              className="h-2 w-2 rounded-full"
-              style={{
-                background: ['#2ed6ff', '#592eff', '#f843c2'][i],
-                animation: `chat-breathe 1.2s ease-in-out ${i * 0.16}s infinite`,
-              }}
-            />
-          ))}
-        </span>
+        {agent ? (
+          <AgentAvatar id={agent.id} name={agent.name} size={28} />
+        ) : (
+          <span className="flex items-center gap-1.5">
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className="h-2 w-2 rounded-full"
+                style={{
+                  background: ['#2ed6ff', '#592eff', '#f843c2'][i],
+                  animation: `chat-breathe 1.2s ease-in-out ${i * 0.16}s infinite`,
+                }}
+              />
+            ))}
+          </span>
+        )}
         <span className="text-[13px] text-[var(--chat-text-dim)]">
-          working on it<span className="chat-ellipsis" />
+          {agent ? <span className="font-semibold text-[var(--chat-text)]">{agent.name}</span> : null}
+          {agent ? ' is working on it' : 'working on it'}<span className="chat-ellipsis" />
         </span>
       </div>
     </li>

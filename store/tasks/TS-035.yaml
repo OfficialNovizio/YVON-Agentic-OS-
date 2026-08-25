@@ -120,8 +120,10 @@ history:
   - {ts: "2026-08-21T00:00:00+00:00", actor: "Claude", event: "opened_draft", note: "hand-authored retroactively — feature already built directly in the Cowork session before the operator asked for it to be tracked as a task; NOT run through the real meta/task.sh discovery protocol. A human/meta pass should true this up."}
   - {ts: "2026-08-21T00:00:00+00:00", actor: "Claude", event: "status_set_executing", note: "WI-1/WI-2/WI-3 code written and main.py py_compile-clean; tsc, git commit/push, VPS scp+restart, and WI-4 (DNS/nginx) all still open"}
 
-prd_ref: ""
-rice_score: ""
+prd_ref: "store/tasks/TS-035-prd.md"
+rice_score: "0"          # unranked — transcribed E2 backfill 2026-08-24, no formula run
+approved_by: operator    # E2 backfill 2026-08-24 — operator requested this be tracked as a task (record header)
+approved_at: "2026-08-21T00:00:00+00:00"
 
 design_session_id: ""
 design_tool: ""

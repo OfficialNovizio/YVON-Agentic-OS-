@@ -108,5 +108,24 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // Execution gate (2026-08-21, concern #5, chat_rooms_execution_gate
+  // migration): the user just explicitly said "yes, make this a task" —
+  // that's the sign-off stream/route.ts's discussion-only gate is waiting
+  // for. Unlock this room so its NEXT turn onward gets real repo/tool
+  // access. Via RPC, not a plain .update() — chat_rooms' only UPDATE RLS
+  // policy is scoped to kind='thread' AND owner_user_id=auth.uid(), so a
+  // direct update would silently no-op for Workforce/department/agent
+  // rooms (0 rows, no error). Best-effort: if this fails, the task record
+  // itself (the thing that must not silently fail) is already safely
+  // created above — worst case the room just stays discussion-only until
+  // a retry/reload.
+  try {
+    await (supabase as unknown as {
+      rpc: (fn: string, args: Record<string, unknown>) => Promise<{ error: { message: string } | null }>
+    }).rpc('chat_room_unlock_execution', { p_room_id: roomId, p_task_id: taskId })
+  } catch {
+    // best-effort — see comment above
+  }
+
   return NextResponse.json({ ok: true, taskId, kanbanOk, kanbanError: kanbanOk ? null : kanbanError })
 }

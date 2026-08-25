@@ -18,17 +18,16 @@ import { MessageStream } from './MessageStream'
 import { Composer } from './Composer'
 import { DockRail } from './DockRail'
 import { TeamsPanel } from './TeamsPanel'
-import { TasksPanel } from './TasksPanel'
 import { HistoryPanel } from './HistoryPanel'
 import { TaskPill } from './TaskPill'
-import { TaskFocusView } from './TaskFocusView'
 import { LiveStrip } from './LiveStrip'
-import { PipelineHud } from './PipelineHud'
+import { CaosPanel } from './CaosPanel'
 import { TaskProposalPrompt, type PendingTaskProposal } from './TaskProposalPrompt'
 import { PrdProposalCard, type PendingPrdProposal } from './PrdProposalCard'
 import { VentureSelector } from './VentureSelector'
 import { AtelierBackdrop } from './Atelier'
 import './chat.css'
+import './caos-panel.css'
 import type { UploadedAttachment } from '@/lib/attachments-client'
 import type { ChatRoom } from '@/app/api/chat/rooms/route'
 import type { ChatMessage } from '@/app/api/chat/messages/route'
@@ -73,12 +72,49 @@ export type Focus =
 
 const POLL_INTERVAL_MS = 4000
 
+/** Raised on a 401 so callers can tell "signed out" from a real failure. */
+class SessionExpiredError extends Error {
+  constructor() {
+    super('Your session expired — refreshing sign-in…')
+    this.name = 'SessionExpiredError'
+  }
+}
+
+// A 401 means the Supabase access token expired and was not refreshed in time.
+// Every chat route answers 401 with a bare body, so before this the message
+// list, the events poll and the 4-second room poll each surfaced a raw
+// "HTTP 401" and then carried on hammering the same dead session — which is
+// what produced the pair of 401s in the browser log. Recover once, quietly:
+// ask supabase-js to refresh, and only fall back to a reload if it cannot.
+// Guarded so twenty concurrent polls trigger exactly one recovery attempt.
+let sessionRecovery: Promise<void> | null = null
+async function recoverSession(): Promise<void> {
+  if (!sessionRecovery) {
+    sessionRecovery = (async () => {
+      try {
+        const { data, error } = await supabaseBrowser().auth.refreshSession()
+        if (error || !data.session) window.location.reload()
+      } catch {
+        window.location.reload()
+      } finally {
+        // Allow another attempt if the session dies again later in the session.
+        setTimeout(() => { sessionRecovery = null }, 10_000)
+      }
+    })()
+  }
+  return sessionRecovery
+}
+
 async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     credentials: 'same-origin',
     ...init,
     headers: { Accept: 'application/json', ...(init?.headers || {}) },
   })
+  if (res.status === 401) {
+    void recoverSession()
+    throw new SessionExpiredError()
+  }
   if (!res.ok) {
     const ct = res.headers.get('content-type') ?? ''
     if (ct.includes('application/json')) {
@@ -103,6 +139,9 @@ export default function ChatPage() {
   const { setFullBleed } = useShellFullBleed()
   const [rooms, setRooms] = useState<ChatRoom[]>([])
   const [roomsLoading, setRoomsLoading] = useState(true)
+  // Workforce is only the pre-hydration placeholder; the landing effect below
+  // immediately switches to a blank chat. It stays as the fallback because a
+  // real working room beats an empty screen if provisioning fails.
   const [focus, setFocus] = useState<Focus>({ kind: 'workforce' })
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [messagesLoading, setMessagesLoading] = useState(false)
@@ -132,6 +171,23 @@ export default function ChatPage() {
   // after TaskProposalPrompt hands off a generated PRD. null = nothing pending.
   const [prdProposal, setPrdProposal] = useState<PendingPrdProposal | null>(null)
   const [streamingText, setStreamingText] = useState<string | null>(null)
+  // Which room the in-flight turn belongs to (2026-08-21 bug fix). The live
+  // turn's state — streamingText, awaitingReply, statusChips, pipeline — is
+  // page-level, but `send()` closes over the room it started in. Before this,
+  // switching rooms mid-turn re-rendered that state in whatever room you
+  // landed on, so a reply being generated in a new chat appeared to be
+  // happening inside Workforce too. The turn was never actually in the wrong
+  // room; only the rendering was. Everything live is now gated on this id.
+  const [streamingRoomId, setStreamingRoomId] = useState<string | null>(null)
+  // FIX (2026-08-21, concern #2): the agent CAOS routed THIS turn to, known
+  // as soon as the input.analysis SSE event lands — well before any reply
+  // text arrives. Previously nothing captured this for live display:
+  // activeAgentId (below) only reflects which @agent ROOM you're viewing,
+  // not who was just classified for an in-flight turn in Workforce/thread/
+  // department rooms, so "who's working" only ever appeared once the
+  // finished message was already in `messages`. Reset at the start of every
+  // send() (below) and set from the input.analysis handler.
+  const [liveAgentId, setLiveAgentId] = useState<string | null>(null)
   // Added 2026-08-20 (Task #18/#20): usage/context data from the most
   // recently completed turn's `done` event — see hermes-client.ts's
   // TurnUsage. Null until the first reply lands; the Composer's chip row
@@ -207,6 +263,63 @@ export default function ChatPage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // Land on a BLANK chat, not on Workforce (2026-08-21 — asked for twice; my
+  // first attempt restored the last room instead, which was the opposite).
+  //
+  // Workforce is a single permanent room holding every message ever sent to
+  // the fleet, so defaulting into it meant every visit opened onto ten hours
+  // of unrelated backlog — including, at the top, a wall of old rate-limit
+  // errors. Opening on an empty chat is what the page should have done all
+  // along; History is how you get back to anything, and the dock rail still
+  // has Workforce one click away.
+  //
+  // reuseEmpty means repeated visits share one untouched draft rather than
+  // breeding a new empty room per page load.
+  // NOTE ON THE MISSING `cancelled` FLAG — it is absent on purpose, and
+  // putting it back reintroduces a bug that took three rounds to find.
+  //
+  // reactStrictMode is on (Next.js default, not overridden in next.config.ts),
+  // so in dev React runs every effect, tears it down, and runs it again:
+  //
+  //     run #1   → landedRef = true → POST starts
+  //     cleanup  → cancelled = true            ← immediately, by StrictMode
+  //     run #2   → landedRef already true → returns early
+  //     POST resolves → `if (cancelled) return` → setFocus NEVER FIRES
+  //
+  // The blank chat was created every time and then silently discarded, so
+  // the page stayed on Workforce — and because the catch was guarded the same
+  // way, no error surfaced either. It worked in production and never in
+  // `npm run dev`, which is the only place it was being tested.
+  //
+  // A one-shot mount action guarded by a ref must NOT also be cancel-guarded:
+  // the ref already prevents a second request, and the single in-flight one
+  // must be allowed to land. Setting state after unmount is a no-op in
+  // React 18 — it does not warn and it does not leak.
+  const landedRef = useRef(false)
+  useEffect(() => {
+    if (landedRef.current) return
+    landedRef.current = true
+    ;(async () => {
+      try {
+        const { room } = await jsonFetch<{ room: ChatRoom }>('/api/chat/threads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reuseEmpty: true }),
+        })
+        setRooms((prev) => (prev.some((r) => r.id === room.id) ? prev : [...prev, room]))
+        setFocus({ kind: 'room', roomId: room.id })
+      } catch (e) {
+        // Surfaced, never swallowed — an invisible failure here is
+        // indistinguishable from the feature not existing.
+        if (!(e instanceof SessionExpiredError)) {
+          setError(
+            `Couldn't open a new chat (${e instanceof Error ? e.message : String(e)}) — showing Workforce instead.`,
+          )
+        }
+      }
+    })()
+  }, [])
+
   // Auth user id for uploads
   useEffect(() => {
     let cancelled = false
@@ -223,9 +336,48 @@ export default function ChatPage() {
     let cancelled = false
     ;(async () => {
       try {
-        const data = await jsonFetch<{ rooms: ChatRoom[] }>('/api/chat/rooms')
+        // Threads are fetched alongside the fixed rooms and merged in, because
+        // activeRoom resolves focus.kind==='room' against this one array. A
+        // restored focus pointing at a thread (or History opening one) would
+        // otherwise never resolve, leaving the composer stuck on "Loading room".
+        const [data, threadData] = await Promise.all([
+          jsonFetch<{ rooms: ChatRoom[] }>('/api/chat/rooms'),
+          jsonFetch<{ threads: { id: string; title: string; kind: string }[] }>(
+            '/api/chat/threads',
+          ).catch(() => ({ threads: [] as { id: string; title: string; kind: string }[] })),
+        ])
         if (cancelled) return
-        setRooms(data.rooms)
+        const threadRooms: ChatRoom[] = threadData.threads
+          .filter((t) => t.kind === 'thread')
+          .map((t) => ({
+            id: t.id,
+            kind: 'thread',
+            department: null,
+            agentId: null,
+            ownerUserId: null,
+            ventureSlug: null,
+            title: t.title,
+            label: t.title,
+            section: 'recent',
+          }))
+        // MERGE, never replace. The landing effect runs in parallel and adds
+        // the blank chat's room to this array; a plain replace here would
+        // race it and wipe that room out — and because an empty thread is
+        // (correctly) absent from /api/chat/threads, the fetch below cannot
+        // put it back. The symptom is a focus pointing at a room that no
+        // longer exists in state, so activeRoom resolves null and the page
+        // falls back to looking like nothing happened.
+        setRooms((prev) => {
+          const merged = [...data.rooms, ...threadRooms]
+          const known = new Set(merged.map((r) => r.id))
+          const carried = prev.filter((r) => !known.has(r.id))
+          const seen = new Set<string>()
+          return [...merged, ...carried].filter((r) => {
+            if (seen.has(r.id)) return false
+            seen.add(r.id)
+            return true
+          })
+        })
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e))
       } finally {
@@ -291,15 +443,25 @@ export default function ChatPage() {
     if (!activeRoom) return
     setMessages([])
     lastMessageIdRef.current = null
-    setPipeline({ stages: [], source: 'none' })
-    setStreamingText(null)
     setTaskProposal(null)
     setPrdProposal(null)
+    // Don't wipe the live turn's state just because the user looked at another
+    // room — the turn is still running and they may well come back to watch it
+    // finish. Display is gated on streamingRoomId instead, so the other room
+    // shows nothing while this one keeps its stream intact.
+    if (streamingRoomId === null) {
+      setPipeline({ stages: [], source: 'none' })
+      setStreamingText(null)
+    }
     loadMessages(activeRoom.id)
     const t = setInterval(() => {
       if (activeRoom) loadMessages(activeRoom.id, { silent: true })
     }, POLL_INTERVAL_MS)
     return () => clearInterval(t)
+    // streamingRoomId is read but deliberately not a dependency: it changes
+    // when a turn starts/ends, and re-running this effect then would clear the
+    // message list mid-turn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRoom, loadMessages])
 
   // Pipeline panel, past turns (TS-018 WI-5 · YVON-CHAT §5.3)
@@ -334,10 +496,12 @@ export default function ChatPage() {
       if (!activeRoom) return
       setSending(true)
       setAwaitingReply(true)
+      setStreamingRoomId(activeRoom.id)
       setError(null)
       setStatusChips([])
       setPipeline({ stages: [], source: 'live' })
       setStreamingText('')
+      setLiveAgentId(null)
       // A new turn starting supersedes any unresolved proposal from the
       // previous one — sending a follow-up message is itself "discuss more".
       setTaskProposal(null)
@@ -596,6 +760,14 @@ export default function ChatPage() {
                   }),
                   source: 'live',
                 }))
+                // FIX (2026-08-21, concern #2): this is the earliest point
+                // in the whole turn where the real routed agent is known —
+                // capture it now so the live placeholders (ThinkingCard /
+                // streaming AgentCard / LiveStrip) can show it immediately
+                // instead of waiting for the finished reply.
+                if (event.targetAgents?.primary) {
+                  setLiveAgentId(event.targetAgents.primary)
+                }
               }
 
               // Skill disclosure (2026-08-11): real per-turn skill matching
@@ -666,6 +838,7 @@ export default function ChatPage() {
         sendAbortRef.current = null
         setStreamingText(null)
         setSending(false)
+        setStreamingRoomId(null)
         if (activeRoom) await loadMessages(activeRoom.id, { silent: true })
         setTimeout(() => setAwaitingReply(false), 500)
       }
@@ -698,6 +871,7 @@ export default function ChatPage() {
     setSending(false)
     setStatusChips([])
     setStreamingText(null)
+    setStreamingRoomId(null)
   }, [])
 
   // 2026-08-21: manual context reset — see the resettingContext state's
@@ -719,10 +893,25 @@ export default function ChatPage() {
     }
   }, [activeRoom, resettingContext])
 
+  // Collapsing the sidebar is a TeamsPanel preference stored in localStorage,
+  // but the PAGE owns the container width — so a collapsed rail squeezed Tasks
+  // and History into 64px too, which read as "the secondary bar doesn't open"
+  // (2026-08-21 report). Choosing a destination from the dock is an explicit
+  // request to see that panel, so it always expands.
+  const setSidebarCollapsed = useCallback((next: boolean) => {
+    setTeamsCollapsed(next)
+    try {
+      localStorage.setItem('teams-panel-collapsed', next ? '1' : '0')
+    } catch {
+      // Private mode / storage disabled — the in-memory state still applies.
+    }
+  }, [])
+
   const focusAndClose = useCallback((next: Focus) => {
     setFocus(next)
     setTeamsOpen(false)
-  }, [])
+    setSidebarCollapsed(false)
+  }, [setSidebarCollapsed])
 
   // ── New chat + History (2026-08-21) ──────────────────────────────────────
   // Until now /chat had no way to start a conversation: the header's
@@ -778,16 +967,8 @@ export default function ChatPage() {
     setTeamsOpen(false)
   }, [])
 
-  // TaskFocusView lifecycle actions (make changes / retry / redo): switch
-  // focus to the task's originating room and hand the composer a drafted
-  // message, same hand-off pattern as the empty-state starter prompts.
-  const openRoomWithPrefill = useCallback(
-    (roomId: string, text: string) => {
-      focusAndClose({ kind: 'room', roomId })
-      setPrefill(text)
-    },
-    [focusAndClose],
-  )
+  // (openRoomWithPrefill removed 2026-08-25 — task focus view moved to
+  // /task-board; chat no longer hosts the task section.)
 
   // ── Derived: live strip + HUD inputs ─────────────────────────────────────
   // Bug fix (2026-08-11): this used to map only the 4 raw kinds
@@ -821,10 +1002,31 @@ export default function ChatPage() {
     return latest ? map[latest.kind] : null
   }, [pipeline.stages])
 
+  // Elapsed seconds on the current turn (2026-08-21). Long turns are now
+  // expected — the TPM governor paces calls rather than failing them — but a
+  // motionless "thinking" with no clock made a working turn indistinguishable
+  // from a hung one. A running count is the cheapest possible proof of life.
+  const [turnElapsed, setTurnElapsed] = useState(0)
+  useEffect(() => {
+    if (streamingRoomId === null) {
+      setTurnElapsed(0)
+      return
+    }
+    const startedAt = Date.now()
+    setTurnElapsed(0)
+    const id = setInterval(() => setTurnElapsed(Math.floor((Date.now() - startedAt) / 1000)), 1000)
+    return () => clearInterval(id)
+  }, [streamingRoomId])
+
   const thinking = useMemo<string | null>(() => {
     const last = [...statusChips].reverse().find((c) => c.kind === 'thinking' || c.kind === 'notice')
-    return last?.message ?? last?.summary ?? last?.toolName ?? null
-  }, [statusChips])
+    const base = last?.message ?? last?.summary ?? last?.toolName ?? null
+    if (streamingRoomId === null) return base
+    const clock = turnElapsed >= 60
+      ? `${Math.floor(turnElapsed / 60)}m ${String(turnElapsed % 60).padStart(2, '0')}s`
+      : `${turnElapsed}s`
+    return base ? `${base} · ${clock}` : clock
+  }, [statusChips, streamingRoomId, turnElapsed])
 
   const involvedAgents = useMemo<string[]>(() => {
     const set = new Set<string>()
@@ -932,7 +1134,13 @@ export default function ChatPage() {
     }
   }, [focus])
 
-  const isLive = awaitingReply || pipeline.source === 'live'
+  // True only when the room on screen is the one the in-flight turn belongs to.
+  // Everything live — the streaming bubble, the thinking strip, the CAOS panel,
+  // the "live" chip — hangs off this, so another room never borrows this room's
+  // activity. When no turn is running at all, streamingRoomId is null and this
+  // is false, which is correct: there is nothing live to show anywhere.
+  const showingLiveTurn = streamingRoomId !== null && activeRoom?.id === streamingRoomId
+  const isLive = (showingLiveTurn && awaitingReply) || (showingLiveTurn && pipeline.source === 'live')
 
   return (
     <div className="chat-shell flex h-full min-h-0 flex-col" data-live={isLive ? 'true' : 'false'}>
@@ -1016,14 +1224,15 @@ export default function ChatPage() {
             When collapsed, the container shrinks to a rail and the chat
             (main) expands to fill the freed space — no blank gap (TS-030). */}
         <div className={`hidden shrink-0 py-3 pl-3 md:block ${teamsCollapsed ? 'w-[64px]' : 'w-[312px]'}`}>
-          {focus.kind === 'tasks' ? (
-            <TasksPanel focus={focus} onFocus={focusAndClose} roomId={activeRoom?.id ?? null} />
-          ) : focus.kind === 'history' || focus.kind === 'room' ? (
+          {focus.kind === 'history' || focus.kind === 'room' ? (
             <HistoryPanel
               activeRoomId={activeRoom?.id ?? null}
               onOpen={openThread}
               onNewChat={handleNewChat}
               refreshToken={historyRefresh}
+              collapsed={teamsCollapsed}
+              onCollapse={() => setSidebarCollapsed(true)}
+              onExpand={() => setSidebarCollapsed(false)}
             />
           ) : (
             <TeamsPanel
@@ -1033,26 +1242,18 @@ export default function ChatPage() {
               variant="sidebar"
               live={agentLive}
               collapsed={teamsCollapsed}
-              onToggleCollapsed={(v) => setTeamsCollapsed(v)}
+              onToggleCollapsed={(v) => setSidebarCollapsed(v)}
             />
           )}
         </div>
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {focus.kind === 'tasks' && focus.taskId ? (
-            <div className="min-h-0 flex-1 py-3 pr-3">
-              <TaskFocusView
-                taskId={focus.taskId}
-                onBack={() => focusAndClose({ kind: 'tasks' })}
-                onOpenInChat={openRoomWithPrefill}
-              />
-            </div>
-          ) : (
+          {(
             <>
               <MessageStream
                 messages={messages}
-                awaitingReply={awaitingReply || messagesLoading}
-                streamingText={streamingText}
+                awaitingReply={(showingLiveTurn && awaitingReply) || messagesLoading}
+                streamingText={showingLiveTurn ? streamingText : null}
                 hasEarlier={messages.length >= 50}
                 loadingEarlier={loadingEarlier}
                 onLoadEarlier={loadEarlier}
@@ -1062,14 +1263,17 @@ export default function ChatPage() {
                 starters={empty.starters}
                 onStarter={(t) => setPrefill(t)}
                 agentLive={agentLive}
+                liveAgentId={liveAgentId}
               />
               <LiveStrip
-                agentId={activeAgentId}
-                active={awaitingReply}
+                agentId={liveAgentId ?? activeAgentId}
+                active={showingLiveTurn && awaitingReply}
                 phase={activePhase}
                 thinking={thinking}
               />
-              <TaskPill roomId={activeRoom?.id ?? null} onOpen={(taskId) => focusAndClose({ kind: 'tasks', taskId })} />
+              {/* Task section moved to /task-board (2026-08-25) — the pill
+                  now deep-links to the kanban's focus view. */}
+              <TaskPill roomId={activeRoom?.id ?? null} onOpen={(taskId) => router.push(`/task-board?task=${encodeURIComponent(taskId)}`)} />
               <TaskProposalPrompt
                 proposal={taskProposal}
                 roomId={activeRoom?.id ?? ''}
@@ -1083,10 +1287,12 @@ export default function ChatPage() {
               />
               <Composer
                 sending={sending}
-                awaitingReply={awaitingReply}
-                disabled={!activeRoom || !userId}
+                awaitingReply={showingLiveTurn && awaitingReply}
+                disabled={!activeRoom || !userId || (sending && !showingLiveTurn)}
                 disabledReason={
-                  !userId
+                  sending && !showingLiveTurn && activeRoom
+                    ? 'A turn is still running in another chat — it has to finish first'
+                    : !userId
                     ? 'Signing in…'
                     : !activeRoom
                       ? focus.kind === 'history'
@@ -1110,11 +1316,21 @@ export default function ChatPage() {
         {/* Fixed CAOS card (right column, always present, no close — TS-023).
             Disabled + 'waiting' until a turn starts, then live metrics. */}
         <div className="hidden w-[312px] shrink-0 py-3 pr-3 xl:block">
-          <PipelineHud
-            stages={pipeline.stages}
-            source={pipeline.source}
+          {/* CAOS v2 (2026-08-22) — replaces PipelineHud's twelve-phase
+              catalogue with seven steps that all run. `usage` carries the
+              measured per-turn cost (llmCalls / estInputTokens / poolTurns);
+              `awaiting` drives the live and rate-limit-hold states. Same
+              stages/source gating as before, so past-turn reconstruction is
+              unchanged. PipelineHud.tsx is left on disk unimported — this is
+              a route that has been rolled back before, and a one-line revert
+              is cheaper than a restore. */}
+          <CaosPanel
+            stages={showingLiveTurn || pipeline.source !== 'live' ? pipeline.stages : []}
+            source={showingLiveTurn || pipeline.source !== 'live' ? pipeline.source : 'none'}
             agents={involvedAgents}
             thinking={thinking}
+            usage={lastUsage}
+            awaiting={showingLiveTurn && awaitingReply}
           />
         </div>
       </div>
@@ -1122,11 +1338,12 @@ export default function ChatPage() {
       {/* Teams panel — desktop: permanent sidebar above. Mobile: overlay
           drawer toggled from the dock. Scope follows the selected department
           (workforce = everything). */}
+      {/* Mobile overlay: fixed 320px, never collapses — so the panels inside
+          get no collapse control, which would toggle a state with no visible
+          effect here. */}
       {teamsOpen && (
         <div className="absolute inset-y-3 left-[78px] z-50 w-[320px] md:hidden">
-          {focus.kind === 'tasks' ? (
-            <TasksPanel focus={focus} onFocus={focusAndClose} roomId={activeRoom?.id ?? null} />
-          ) : focus.kind === 'history' || focus.kind === 'room' ? (
+          {focus.kind === 'history' || focus.kind === 'room' ? (
             <HistoryPanel
               activeRoomId={activeRoom?.id ?? null}
               onOpen={openThread}

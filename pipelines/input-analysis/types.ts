@@ -23,7 +23,13 @@ export interface InputAnalysis {
   /** The MUST-HAVE checklist — defines "done". Verification checks each item. */
   mustHaves?: string[]
   /** The agent routing plan — primary agent + team (by name). */
-  targetAgents?: { primary: string; team: string[]; reason: string }
+  targetAgents?: {
+    primary: string
+    team: string[]
+    reason: string
+    /** per-bucket routing scores (2026-08-22) — see routing.ts RouteScore */
+    scores?: { agent: string; score: number; hits: string[] }[]
+  }
   /** Implicit requirements (preservation/propagation/connecting) — F2. */
   implicit?: { preservation: string[]; propagation: string[]; connecting: string[] }
   analyzed: boolean

@@ -11,6 +11,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { Landmark, Terminal, Sparkles, Shield, Package, Scale, Bot, Orbit, HeartHandshake, Megaphone, Globe2, TrendingUp, Users, ShieldAlert, PanelRight, ClipboardList, History } from 'lucide-react'
 import { FLEET, FLEET_DEPARTMENTS, type FleetDepartment } from '@/lib/fleet'
 import { deptTint } from '@/lib/chat-theme'
@@ -45,6 +46,7 @@ interface DockRailProps {
 }
 
 export function DockRail({ rooms, focus, onFocus, onOpenTeams, teamsOpen, agentLive }: DockRailProps) {
+  const router = useRouter()
   // Active counts per department, derived from the shared live map (no extra
   // network calls — was a duplicated 20s poll here).
   const activeByDept = useMemo(() => {
@@ -78,12 +80,14 @@ export function DockRail({ rooms, focus, onFocus, onOpenTeams, teamsOpen, agentL
           <Orbit className="h-[19px] w-[19px]" strokeWidth={1.5} />
         </DockButton>
 
-        {/* Tasks — the task section living inside chat (2026-08-18) */}
+        {/* Tasks — moved out of chat to the kanban page (2026-08-25); the
+            rail button now navigates there. The board is the same real
+            TASK-SPEC surface (store/tasks via /api/task-spec). */}
         <DockButton
           label="Tasks"
           tint="#592eff"
-          active={focus.kind === 'tasks'}
-          onClick={() => onFocus({ kind: 'tasks' })}
+          active={false}
+          onClick={() => router.push('/task-board')}
         >
           <ClipboardList className="h-[19px] w-[19px]" strokeWidth={1.5} />
         </DockButton>

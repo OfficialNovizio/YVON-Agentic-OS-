@@ -146,12 +146,20 @@ echo "  nodes=$NODE_COUNT edges=$EDGE_COUNT communities=$COMMUNITY_COUNT"
 echo "[5/6] commit graph.json to $BRANCH (orphan — never touches the client's default branch)"
 git config user.name "yvon-graphify"
 git config user.email "graphify@yvon.bot"
-if git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
+if git ls-remote --exit-code "$AUTH_URL" "refs/heads/$BRANCH" >/dev/null 2>&1; then
   git checkout -B "$BRANCH" "origin/$BRANCH" 2>&1 || fail "checkout existing $BRANCH failed"
 else
   git checkout --orphan "$BRANCH" 2>&1 || fail "orphan checkout failed"
   git rm -rf . >/dev/null 2>&1 || true
 fi
+# 2026-08-25: the branch check used to be `git show-ref --verify
+# refs/remotes/origin/$BRANCH` — a LOCAL tracking ref. `git push` does not
+# update tracking refs, so a workdir that had only ever pushed $BRANCH
+# (never pulled it) reported the branch as missing, fell into the orphan
+# path, and failed ("orphan checkout failed" — hit live on the first full
+# rebuild after the repo was pushed). ls-remote asks origin directly — the
+# authoritative answer every time, no tracking-ref state involved.
+#
 # 2026-08-14: was `cp graphify-out/graph.json graph/graph.json` only —
 # operator asked to push everything graphify produces, not just the raw
 # graph data. graphify-out/ is generated fresh per-clone inside this

@@ -1,10 +1,10 @@
 // task-theme.ts — shared stage metadata for the Tasks panel (chat's task
 // section) and anywhere else that renders TASK-SPEC stage cards. One
 // definition, so the card row always matches cli/task.py's real STATES list
-// (draft → discovery → approved → executing → gated → done) instead of
+// (draft → discovery → approved → executing → gated → review → done) instead of
 // drifting out of sync with it.
 
-export type TaskStage = 'draft' | 'discovery' | 'approved' | 'executing' | 'gated' | 'done'
+export type TaskStage = 'draft' | 'discovery' | 'approved' | 'executing' | 'gated' | 'review' | 'done'
 
 export const TASK_STAGES: { key: TaskStage; label: string; hint: string }[] = [
   { key: 'draft', label: 'Draft', hint: 'Captured, not yet scoped' },
@@ -12,6 +12,7 @@ export const TASK_STAGES: { key: TaskStage; label: string; hint: string }[] = [
   { key: 'approved', label: 'Approved', hint: 'Scoped, ready to start' },
   { key: 'executing', label: 'Executing', hint: 'Work items in flight' },
   { key: 'gated', label: 'Gated', hint: 'Awaiting exit proof' },
+  { key: 'review', label: 'Review', hint: 'Suite ran — evidence decides' },
   { key: 'done', label: 'Done', hint: 'Shipped' },
 ]
 

@@ -16,14 +16,26 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ClipboardList, RefreshCw, Lock, User } from 'lucide-react'
+import { ClipboardList, RefreshCw, Lock, User, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { TASK_STAGES, type TaskStage } from '@/lib/task-theme'
 import type { Focus } from './page'
+
+export interface TaskAcceptanceCriterion {
+  text: string
+  status: string
+  evidence: string
+}
 
 export interface TaskSpecWorkItem {
   id: string
   owner: string
   objective: string
+  doer: string
+  verifier: string
+  integrator: string
+  produces: string
+  blockedBy: string[]
+  acceptance: TaskAcceptanceCriterion[]
 }
 
 export interface TaskHistoryEntry {
@@ -31,6 +43,15 @@ export interface TaskHistoryEntry {
   actor: string
   event: string
   note: string
+}
+
+export interface TaskHandoffPacket {
+  entry: string
+  contract: string
+  stubbed: string
+  needs_wiring: string
+  tokens: string
+  verified_on: string
 }
 
 export interface TaskSpecItem {
@@ -51,29 +72,42 @@ export interface TaskSpecItem {
   active: boolean
   fromRoom?: boolean
   createdAt: string
+  updatedAt: string
   revisionOf: string
+  derivedFrom: string
+  supersededBy: string
+  blocked: boolean
+  blockedAt: string
+  blockedReason: string
+  runRef: string
+  handoff: TaskHandoffPacket
   gate0: boolean
   gate0Signoffs: string[]
   history: TaskHistoryEntry[]
   roomId?: string
   prdContent?: string
-  /** 2026-08-19 (docs/PRD-design-first-workflow.md) — set via `task.sh
-   * set-design-origin`, absent on every task not sourced from cli/design.py's
-   * handoff. Powers TaskFocusView's unified design-preview panel. */
-  designSessionId?: string
-  designTool?: string
-  designArtifactId?: string
-  designProjectId?: string
-  designHandoffPath?: string
+  designSessionId: string
+  designTool: string
+  designArtifactId: string
+  designHandoffPath: string
+  prdRef: string
+  riceScore: string
 }
 
 interface TasksPanelProps {
   focus: Focus
   onFocus: (next: Focus) => void
   roomId: string | null
+  /** Collapse the sidebar. Added 2026-08-21 so every panel sharing this slot
+   *  offers the same control — previously only TeamsPanel did, so collapsing
+   *  was possible from Workforce and nowhere else. */
+  onCollapse?: () => void
+  /** See HistoryPanel — a 64px container clips a full-width panel mid-word. */
+  collapsed?: boolean
+  onExpand?: () => void
 }
 
-export function TasksPanel({ focus, onFocus, roomId }: TasksPanelProps) {
+export function TasksPanel({ focus, onFocus, roomId, onCollapse, collapsed, onExpand }: TasksPanelProps) {
   const [tasks, setTasks] = useState<TaskSpecItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -108,6 +142,22 @@ export function TasksPanel({ focus, onFocus, roomId }: TasksPanelProps) {
 
   const activeTaskId = focus.kind === 'tasks' ? focus.taskId : undefined
 
+  if (collapsed) {
+    return (
+      <div className="flex h-full w-full flex-col items-center rounded-[200px] border border-[var(--chat-hairline)] bg-white py-3">
+        <button
+          onClick={onExpand}
+          title="Expand Tasks"
+          aria-label="Expand Tasks"
+          className="chat-ghost-btn h-9 w-9"
+        >
+          <ChevronsRight className="h-4 w-4" />
+        </button>
+        <ClipboardList className="mt-2 h-4 w-4 text-[var(--chat-text-faint)]" strokeWidth={1.75} />
+      </div>
+    )
+  }
+
   return (
     <div className="chat-glass flex h-full flex-col overflow-hidden">
       <TaskList
@@ -119,6 +169,7 @@ export function TasksPanel({ focus, onFocus, roomId }: TasksPanelProps) {
         activeId={activeTaskId}
         onScope={setScope}
         onRefresh={load}
+        onCollapse={onCollapse}
         onOpen={(id) => onFocus({ kind: 'tasks', taskId: id })}
       />
     </div>
@@ -136,6 +187,7 @@ function TaskList({
   activeId,
   onScope,
   onRefresh,
+  onCollapse,
   onOpen,
 }: {
   tasks: TaskSpecItem[]
@@ -146,6 +198,7 @@ function TaskList({
   activeId?: string
   onScope: (s: 'room' | 'all') => void
   onRefresh: () => void
+  onCollapse?: () => void
   onOpen: (id: string) => void
 }) {
   return (
@@ -160,6 +213,16 @@ function TaskList({
         >
           <RefreshCw className="h-3.5 w-3.5" />
         </button>
+        {onCollapse && (
+          <button
+            onClick={onCollapse}
+            aria-label="Collapse sidebar"
+            title="Collapse sidebar"
+            className="chat-ghost-btn h-6 w-6"
+          >
+            <ChevronsLeft className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {hasRoom && (
@@ -194,6 +257,11 @@ function TaskList({
             >
               <div className="flex items-center gap-2">
                 <StagePill stage={t.status} compact />
+                {t.blocked && (
+                  <span className="rounded-[200px] bg-[#fdf2f0] px-2 py-0.5 text-[10.5px] font-semibold text-[#b91c1c]">
+                    blocked
+                  </span>
+                )}
                 <span className="chat-mono text-[var(--chat-text-faint)]">{t.id}</span>
                 {t.active && <span className="ml-auto adora-tag" style={{ color: 'var(--chat-accent)' }}>active</span>}
               </div>
@@ -231,12 +299,13 @@ function ScopeTab({ active, onClick, label }: { active: boolean; onClick: () => 
 export function StagePill({ stage, compact }: { stage: TaskStage; compact?: boolean }) {
   const meta = TASK_STAGES.find((s) => s.key === stage)
   const done = stage === 'done'
+  const review = stage === 'review'
   return (
     <span
       className="inline-flex items-center gap-1 rounded-[200px] px-2 py-0.5 text-[10.5px] font-medium"
       style={{
-        background: done ? 'rgba(162,234,19,0.16)' : 'rgba(89,46,255,0.07)',
-        color: done ? '#4d7000' : 'var(--chat-accent)',
+        background: done ? 'rgba(162,234,19,0.16)' : review ? 'rgba(46,214,255,0.14)' : 'rgba(89,46,255,0.07)',
+        color: done ? '#4d7000' : review ? '#0a7ea6' : 'var(--chat-accent)',
       }}
     >
       {stage === 'gated' && <Lock className="h-2.5 w-2.5" />}

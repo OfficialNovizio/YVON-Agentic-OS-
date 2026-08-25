@@ -102,6 +102,13 @@ const NAV_SECTIONS: NavSection[] = [
     workspaces: YVON_ONLY,
     items: [
       { label: 'Idea Feed', href: '/idea-feed', icon: 'lightbulb', badge: 94 },
+      // Generations (2026-08-25) — the asset library + generation surface.
+      // Built on our own /api/krea/* routes, not a vendored studio. See
+      // dashboard/app/generations/page.tsx for why.
+      { label: 'Generations', href: '/generations', icon: 'auto_awesome' },
+      // Task Lineage (2026-08-24) — one request → its record chain: revisions
+      // collapse to an attempt count, derived tasks nest. See app/tasks/page.tsx.
+      { label: 'Task Lineage', href: '/tasks', icon: 'account_tree' },
       { label: 'Software Pipeline', href: '/software-pipeline', icon: 'code', badge: 1 },
     ],
   },

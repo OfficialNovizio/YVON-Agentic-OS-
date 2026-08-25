@@ -36,12 +36,27 @@ const TASK_PY = path.join(REPO_ROOT, 'cli', 'task.py')
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-export type TaskStage = 'draft' | 'discovery' | 'approved' | 'executing' | 'gated' | 'done'
+export type TaskStage = 'draft' | 'discovery' | 'approved' | 'executing' | 'gated' | 'review' | 'done'
+
+export interface TaskAcceptanceCriterion {
+  text: string
+  /** pass | fail | not_run | pending | deferred — the run's verdict per criterion. */
+  status: string
+  /** The run detail ("chromium 1300×1000 · pass") — a criterion and an assertion are the same line. */
+  evidence: string
+}
 
 export interface TaskSpecWorkItem {
   id: string
   owner: string
   objective: string
+  /** v3 roles — doer writes, verifier owns the suite (assertions ≠ author), integrator takes the brief. */
+  doer: string
+  verifier: string
+  integrator: string
+  produces: string
+  blockedBy: string[]
+  acceptance: TaskAcceptanceCriterion[]
 }
 
 export interface TaskHistoryEntry {
@@ -49,6 +64,15 @@ export interface TaskHistoryEntry {
   actor: string
   event: string
   note: string
+}
+
+export interface TaskHandoffPacket {
+  entry: string
+  contract: string
+  stubbed: string
+  needs_wiring: string
+  tokens: string
+  verified_on: string
 }
 
 export interface TaskSpecItem {
@@ -84,6 +108,22 @@ export interface TaskSpecItem {
    * disk (opt-in, per task — no PRD is auto-generated). undefined = no such file,
    * which the frontend must render as an honest "not available" state, never faked. */
   prdContent?: string
+  /** v3 (2026-08-24, "One Request, End to End") — emitted by task.py list.
+   * Missing keys are absent/empty on records written before the patch, never invented. */
+  updatedAt: string
+  derivedFrom: string
+  supersededBy: string
+  blocked: boolean
+  blockedAt: string
+  blockedReason: string
+  runRef: string
+  handoff: TaskHandoffPacket
+  designSessionId: string
+  designTool: string
+  designArtifactId: string
+  designHandoffPath: string
+  prdRef: string
+  riceScore: string
 }
 
 export async function GET(request: NextRequest) {

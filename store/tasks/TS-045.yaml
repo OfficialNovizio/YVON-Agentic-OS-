@@ -1,0 +1,114 @@
+# TS-045 — the backend (derived_from TS-043's handoff; fan-out 2 of 3).
+# Suite passed 3 of 3 IN SCOPE; the fourth criterion is DEFERRED at the scope gate
+# (cost cell reads "not measured" until a ledger link exists) — recorded as an
+# explicit criterion status, not a silent gap. Currently BLOCKED sidecar on the
+# ledger decision: status stays review, blocked AND review simultaneously.
+# Seeded 2026-08-24.
+id: TS-045
+status: review
+source_message: "Backend: /api/task-spec returns run records; a failed run is returned as failed, never omitted; absent data returns undefined, never a default."
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only — no transcript inheritance
+  inject_form: .toon (this YAML is the source form)
+
+classification:
+  task_type: "build"
+  departments:
+    - Engineering
+  lead: "quinn"
+
+context:
+  chunks: []
+  existing_assets: []
+  conflicts: []
+
+discovery:
+  questions: []
+  decisions:
+    - "A failed run is a datum, not an error — it is returned as failed, never omitted"
+    - "Absent data returns undefined, never a default — a number you don't have must never render as a number you do"
+
+work_items:
+  - id: WI-1
+    owner: "quinn"
+    objective: "Run records in the task API — run_ref, verdicts, evidence"
+    strategy: BALANCE 1.0x
+    consumes: []
+    produces: "dashboard/app/api/task-spec/route.ts"
+    owns_paths:
+      - dashboard/app/api/task-spec/route.ts
+    skills: []
+    scripts: []
+    blocked_by:
+      - TS-044
+    acceptance:
+      - text: "GET /api/task-spec returns run records"
+        status: pass
+        evidence: "12 assertions · pass"
+      - text: "A failed run is returned as failed, never omitted"
+        status: pass
+        evidence: "pass"
+      - text: "Absent data returns undefined, never a default"
+        status: pass
+        evidence: "pass"
+      - text: "Cost per task is returned"
+        status: deferred
+        evidence: "deferred at the scope gate — no ledger link exists"
+    security_review: none
+    doer: "quinn"
+    verifier: "quinn"
+    integrator: ""
+  - id: WI-2
+    owner: "quinn"
+    objective: "dashboard/lib/db/runs.ts — the run-record store"
+    strategy: BALANCE 1.0x
+    consumes: []
+    produces: "dashboard/lib/db/runs.ts"
+    owns_paths:
+      - dashboard/lib/db/runs.ts
+    skills: []
+    scripts: []
+    blocked_by:
+      - TS-044
+    acceptance: []
+    security_review: none
+
+dag:
+  parallel: []
+  critical_path:
+    - WI-1
+
+exit_gate:
+  owner: "quinn"
+  proof: "store/runs/run-2645.md"
+
+feedback:
+  outcome: null
+  lesson: null
+
+created_at: "2026-08-23T18:00:00Z"
+updated_at: "2026-08-24T11:05:00Z"
+revision_of: null
+derived_from: TS-043
+superseded_by: null
+blocked: true
+blocked_at: "2026-08-24T11:05:00Z"
+blocked_reason: "cost field needs the ledger link — deferred at the eng.integration scope gate; the cost cell reads 'not measured' until it exists"
+run_ref: "store/runs/run-2645.md"
+approved_by: "operator"
+approved_at: "2026-08-23T18:00:00Z"
+history:
+  - {ts: "2026-08-23T18:00:00Z", actor: "operator", event: "opened_draft", note: "fan-out 2 of 3 from eng.integration"}
+  - {ts: "2026-08-23T18:01:00Z", actor: "quinn", event: "executing_started", note: "blocked_by TS-044"}
+  - {ts: "2026-08-23T18:02:00Z", actor: "operator", event: "criterion_deferred", note: "cost field, agreed at the scope gate"}
+  - {ts: "2026-08-24T09:20:00Z", actor: "quinn", event: "gated", note: ""}
+  - {ts: "2026-08-24T09:30:00Z", actor: "quinn", event: "review_opened", note: "suite queued"}
+  - {ts: "2026-08-24T10:02:00Z", actor: "quinn", event: "suite_passed", note: "store/runs/run-2645.md · 3 of 3 in scope"}
+  - {ts: "2026-08-24T11:05:00Z", actor: "operator", event: "blocked", note: "cost field needs the ledger link — deferred at the scope gate"}
+
+handoff: {}
+
+prd_ref: "store/tasks/TS-045-prd.md"
+rice_score: "7.2"

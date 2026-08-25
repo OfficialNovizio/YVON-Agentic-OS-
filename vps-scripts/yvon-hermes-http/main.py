@@ -130,7 +130,13 @@ OPENAI_TPM_HEADROOM = float(os.environ.get("YVON_OPENAI_TPM_HEADROOM", "0.90"))
 # Hard stop on how long one call may be held back before we send it anyway
 # and let the provider decide — prevents a wedged ledger from hanging a turn.
 OPENAI_TPM_MAX_WAIT_S = float(os.environ.get("YVON_OPENAI_TPM_MAX_WAIT", "120"))
-OPENAI_429_MAX_RETRIES = int(os.environ.get("YVON_OPENAI_429_RETRIES", "8"))
+# FIX (2026-08-22, cost teardown Cause 04): was 8. Every retry re-sends the
+# IDENTICAL full prompt, so a rate-limited 76k-token call retried 8 times
+# bills 9 x 76k = 684k input tokens for one round trip that produced nothing.
+# Two retries keeps the genuine transient-blip recovery and drops the six
+# that only ever re-bought the same failure. The TPM governor above is the
+# real defence against 429s; retries are the fallback, not the strategy.
+OPENAI_429_MAX_RETRIES = int(os.environ.get("YVON_OPENAI_429_RETRIES", "2"))
 # Endpoint paths that actually consume the token budget. Anything else
 # (Supabase REST, GitHub, health checks) must never be metered or delayed.
 _LLM_PATH_HINTS = ("/chat/completions", "/responses", "/v1/messages", "/completions")
@@ -176,6 +182,17 @@ class _TpmGovernor:
         self._server_remaining: Optional[int] = None
         self._server_reset_at: float = 0.0
         self._server_seen_at: float = 0.0
+        # When a call is currently being held back, the wall-clock time it is
+        # expected to be released. Read by the SSE keepalive so the dashboard
+        # can say "waiting out the rate limit, ~40s" instead of leaving the
+        # user to guess whether a slow turn is a stuck one.
+        self._holding_until: float = 0.0
+
+    def hold_status(self) -> Optional[int]:
+        """Seconds left on the current hold, or None if nothing is waiting."""
+        with self._lock:
+            left = self._holding_until - time.time()
+        return max(1, int(round(left))) if left > 0.5 else None
 
     # ── ledger bookkeeping (callers hold no lock) ──────────────────────
     def _used_locked(self, now: float) -> int:
@@ -185,15 +202,30 @@ class _TpmGovernor:
 
     def _plan_locked(self, now: float, est: int) -> float:
         """Seconds to wait before `est` tokens may be spent. 0.0 = go now."""
-        # Server truth first, while it is still fresh enough to trust.
-        # Expiring it is not optional: once the stated reset has passed, the
-        # provider's window has rolled over and a stale "remaining=100" would
-        # otherwise re-arm the same 0.25s wait on every pass, spinning until
-        # the max-wait escape hatch fires and defeating the whole governor.
+        # Server truth first, while it is still fresh enough to trust — and it
+        # is allowed to RELEASE a call, not only to hold one.
+        #
+        # That asymmetry was a real bug (found 2026-08-21 from production logs
+        # showing ~60s holds between every call). The local ledger is built
+        # from a bytes/4 estimate of the request body, which knows nothing
+        # about prompt caching — and these turns run at 98% cache hits
+        # (`cache=98999/100623` in the logs). Whatever the provider actually
+        # charges those cached tokens against the per-minute budget, its own
+        # `x-ratelimit-remaining-tokens` header is the authority on it and our
+        # estimate is not. Previously a fresh header saying "plenty left" was
+        # ignored whenever the local sum said otherwise, so the governor
+        # throttled against its own guess and nothing could correct it
+        # downward. Now: if the provider says there is room, go.
+        #
+        # Expiring the view stays mandatory: once the stated reset has passed
+        # the window has rolled over, and a stale "remaining=100" would re-arm
+        # the same 0.25s wait forever.
         if self._server_remaining is not None:
             if now >= self._server_reset_at or now - self._server_seen_at >= 60.0:
                 self._server_remaining = None
-            elif self._server_remaining < est:
+            elif self._server_remaining >= est:
+                return 0.0
+            else:
                 return max(0.0, self._server_reset_at - now) + 0.25
         used = self._used_locked(now)
         budget = int(OPENAI_TPM_LIMIT * OPENAI_TPM_HEADROOM)
@@ -220,41 +252,69 @@ class _TpmGovernor:
         with self._lock:
             self._book_locked(time.time(), est)
 
+    def _mark_hold(self, wait: float) -> None:
+        with self._lock:
+            self._holding_until = max(self._holding_until, time.time() + wait)
+
+    def _clear_hold(self) -> None:
+        with self._lock:
+            self._holding_until = 0.0
+
     def acquire(self, est: int) -> None:
         deadline = time.time() + OPENAI_TPM_MAX_WAIT_S
-        while True:
-            wait = self._try_reserve(est)
-            if wait <= 0.0:
-                return
-            remaining = deadline - time.time()
-            if remaining <= 0:
-                log.warning(
-                    "TPM governor: waited %.0fs for %d tokens, sending anyway",
-                    OPENAI_TPM_MAX_WAIT_S, est,
-                )
-                self._force_reserve(est)
-                return
-            nap = min(wait, 5.0, remaining)
-            log.info("TPM governor: holding %.1fs before a ~%d-token call", nap, est)
-            time.sleep(nap)
+        announced = False
+        try:
+            while True:
+                wait = self._try_reserve(est)
+                if wait <= 0.0:
+                    return
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    log.warning(
+                        "TPM governor: waited %.0fs for %d tokens, sending anyway",
+                        OPENAI_TPM_MAX_WAIT_S, est,
+                    )
+                    self._force_reserve(est)
+                    return
+                nap = min(wait, 5.0, remaining)
+                # Advertise the FULL expected wait, not this 5s slice, so the
+                # dashboard's countdown is honest rather than resetting.
+                self._mark_hold(min(wait, remaining))
+                # One line per hold, stating the whole wait — the previous
+                # version logged every 5s slice, which buried the real signal
+                # under a dozen near-identical lines per call.
+                if not announced:
+                    announced = True
+                    log.info(
+                        "TPM governor: holding ~%.0fs before a ~%d-token call", wait, est
+                    )
+                else:
+                    log.debug("TPM governor: still holding (%.1fs slice)", nap)
+                time.sleep(nap)
+        finally:
+            self._clear_hold()
 
     async def acquire_async(self, est: int) -> None:
         deadline = time.time() + OPENAI_TPM_MAX_WAIT_S
-        while True:
-            wait = self._try_reserve(est)
-            if wait <= 0.0:
-                return
-            remaining = deadline - time.time()
-            if remaining <= 0:
-                log.warning(
-                    "TPM governor: waited %.0fs for %d tokens, sending anyway",
-                    OPENAI_TPM_MAX_WAIT_S, est,
-                )
-                self._force_reserve(est)
-                return
-            nap = min(wait, 5.0, remaining)
-            log.info("TPM governor: holding %.1fs before a ~%d-token call", nap, est)
-            await asyncio.sleep(nap)
+        try:
+            while True:
+                wait = self._try_reserve(est)
+                if wait <= 0.0:
+                    return
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    log.warning(
+                        "TPM governor: waited %.0fs for %d tokens, sending anyway",
+                        OPENAI_TPM_MAX_WAIT_S, est,
+                    )
+                    self._force_reserve(est)
+                    return
+                nap = min(wait, 5.0, remaining)
+                self._mark_hold(min(wait, remaining))
+                log.info("TPM governor: holding %.1fs before a ~%d-token call", nap, est)
+                await asyncio.sleep(nap)
+        finally:
+            self._clear_hold()
 
     def observe(self, headers: Any) -> None:
         """Correct the ledger against the provider's own rate-limit headers."""
@@ -280,6 +340,153 @@ class _TpmGovernor:
 
 
 _governor = _TpmGovernor()
+
+
+# ── Per-turn LLM meter (2026-08-22, revised) ────────────────────────────────
+# WHY: probe 3 confirmed hermes-agent exposes no usage attribute at all
+# (`usage_attr: NOT_IN_SOURCE`), so `_extract_token_usage` has always returned
+# None, every turn reported `tokensReported: false`, and the dashboard's 130k
+# auto-reset — gated on `usage.totalTokens ?? 0` — could never fire.
+#
+# We cannot read the provider's accounting, but every LLM request already
+# passes through the governed httpx hooks below, so we can measure exactly what
+# this process put on the wire.
+#
+# FIRST ATTEMPT WAS WRONG, AND THE BENCHMARK CAUGHT IT: v1 kept the counters in
+# a threading.local() opened inside run_agent(). The after-deploy run came back
+# with llmCalls=0 on a turn that had demonstrably made 8 tool calls — because
+# hermes-agent does not issue its HTTP requests on the same thread run_agent()
+# occupies (and may use the async client entirely, which v1 never hooked at
+# all). A thread-local was simply the wrong scope.
+#
+# This version is a PROCESS-GLOBAL monotonic counter, sampled before and after
+# the agent call. Delta-based, so it is correct no matter which thread — or
+# event loop — the request is issued from, and it covers the sync and async
+# hooks alike.
+#
+# KNOWN LIMIT: two turns running concurrently in different rooms will
+# cross-attribute, because the counter is process-wide and the delta cannot
+# tell them apart. Acceptable for a single-operator system, and the honest
+# alternative (correlating requests back to turns) needs a hook into
+# hermes-agent that does not exist. `llmCallsExact` on the usage payload says
+# whether this turn had the process to itself.
+_llm_counter_lock = threading.Lock()
+_llm_counter: dict[str, float] = {"calls": 0, "est_tokens": 0, "wait_s": 0.0}
+# Snapshots currently open (one per turn between _meter_snapshot and
+# _meter_delta). Tracked as a list rather than a counter because exactness has
+# to be judged over the WHOLE life of a turn: a turn that started alone and was
+# overlapped halfway through is not exact, and a start/end count cannot see
+# that — it reads as alone at both ends. Caught by test_meter.py case [5].
+_llm_open_snaps: list[dict[str, Any]] = []
+
+
+def _llm_counter_bump(est: int, waited_s: float = 0.0) -> None:
+    """Called from BOTH governed httpx hooks for every metered LLM request."""
+    with _llm_counter_lock:
+        _llm_counter["calls"] += 1
+        _llm_counter["est_tokens"] += max(0, int(est))
+        _llm_counter["wait_s"] += max(0.0, float(waited_s))
+
+
+# ── Payload composition (2026-08-22) ────────────────────────────────────────
+# The benchmark showed a ONE-round-trip, zero-tool, info-tier question costing
+# 22,406 input tokens. The user message is ~15 tokens and our own injected
+# preamble is nowhere near that, so ~22k is fixed overhead riding on every
+# single call — and until we know what it is made of, any budget work is
+# optimising the wrong term. Most likely candidates are the tool schemas (this
+# build advertises 31 tools, several of them browser/computer_use with large
+# JSON schemas) and hermes-agent's own context files, which main.py currently
+# loads by passing skip_context_files=False / skip_memory=False.
+#
+# Rather than guess again, measure the real wire payload. Parsed from the same
+# request object the governor already inspects, so it costs one json.loads per
+# call and reports what was ACTUALLY sent, not what we think we sent.
+_shape_lock = threading.Lock()
+_recent_shapes: deque = deque(maxlen=64)  # (monotonic_ts, shape)
+
+
+def _record_payload_shape(request: Any) -> None:
+    try:
+        body = request.content or b""
+        if not body or len(body) > 8_000_000:
+            return
+        payload = json.loads(body)
+        if not isinstance(payload, dict):
+            return
+        tools = payload.get("tools") or []
+        msgs = payload.get("messages") or []
+        sys_chars = 0
+        msg_chars = 0
+        for m in msgs if isinstance(msgs, list) else []:
+            c = m.get("content") if isinstance(m, dict) else None
+            n = len(c) if isinstance(c, str) else len(json.dumps(c or ""))
+            msg_chars += n
+            if isinstance(m, dict) and m.get("role") == "system":
+                sys_chars += n
+        tools_chars = len(json.dumps(tools)) if tools else 0
+        shape = {
+            "totalChars": len(body),
+            "toolCount": len(tools) if isinstance(tools, list) else 0,
+            "toolSchemaChars": tools_chars,
+            "messageCount": len(msgs) if isinstance(msgs, list) else 0,
+            "systemChars": sys_chars,
+            "messageChars": msg_chars,
+            # what fraction of this request is tool schemas the model may never use
+            "toolSchemaPct": round(100.0 * tools_chars / max(1, len(body)), 1),
+        }
+        with _shape_lock:
+            _recent_shapes.append((time.monotonic(), shape))
+    except Exception:  # noqa: BLE001 — diagnostics must never break a turn
+        pass
+
+
+def _first_shape_since(ts: float) -> Optional[dict[str, Any]]:
+    with _shape_lock:
+        for when, shape in _recent_shapes:
+            if when >= ts:
+                return shape
+    return None
+
+
+def _meter_snapshot() -> dict[str, Any]:
+    with _llm_counter_lock:
+        snap: dict[str, Any] = {**_llm_counter, "_concurrent": False, "_t": time.monotonic()}
+        _llm_open_snaps.append(snap)
+        if len(_llm_open_snaps) > 1:
+            # Overlap taints every turn currently open, not just the new one.
+            for other in _llm_open_snaps:
+                other["_concurrent"] = True
+        return snap
+
+
+def _meter_delta(before: dict[str, Any]) -> dict[str, Any]:
+    with _llm_counter_lock:
+        after = dict(_llm_counter)
+        was_alone = not before.get("_concurrent")
+        try:
+            _llm_open_snaps.remove(before)
+        except ValueError:
+            pass
+    out = {
+        "llmCalls": int(after["calls"] - before["calls"]),
+        "estInputTokens": int(after["est_tokens"] - before["est_tokens"]),
+        "governorWaitS": round(float(after["wait_s"] - before["wait_s"]), 1),
+        "llmCallsExact": bool(was_alone),
+    }
+    shape = _first_shape_since(float(before.get("_t", 0.0)))
+    if shape:
+        out["firstCallShape"] = shape
+    return out
+
+
+def _llm_counter_totals() -> dict[str, Any]:
+    """Lifetime totals — exposed on /healthz so it is possible to tell
+    'this turn made no calls' apart from 'the httpx hook never fires at all',
+    which would also mean the TPM governor is inert."""
+    with _llm_counter_lock:
+        return {"llmCalls": int(_llm_counter["calls"]),
+                "estInputTokens": int(_llm_counter["est_tokens"]),
+                "governorWaitS": round(float(_llm_counter["wait_s"]), 1)}
 
 
 def _is_llm_request(request: Any) -> bool:
@@ -338,7 +545,15 @@ def _governed_send(self: httpx.Client, request: Any, **kwargs: Any) -> Any:
     est = _estimate_tokens(request)
     attempt = 0
     while True:
+        # FIX (2026-08-22): meter every metered LLM call so a turn can report
+        # its REAL round-trip count and estimated input size — see the
+        # process-global meter above.
+        # Timed around acquire() so governor sleep shows up as latency the
+        # dashboard can attribute, instead of an unexplained slow turn.
+        _wait_t0 = time.time()
         _governor.acquire(est)
+        _llm_counter_bump(est, time.time() - _wait_t0)
+        _record_payload_shape(request)
         response = _orig_httpx_send(self, request, **kwargs)
         _governor.observe(response.headers)
         if response.status_code != 429 or attempt >= OPENAI_429_MAX_RETRIES:
@@ -363,7 +578,12 @@ async def _governed_send_async(self: httpx.AsyncClient, request: Any, **kwargs: 
     est = _estimate_tokens(request)
     attempt = 0
     while True:
+        # v1 metered only the sync hook — if hermes-agent uses the async
+        # client, every call was invisible. Both are metered now.
+        _wait_t0 = time.time()
         await _governor.acquire_async(est)
+        _llm_counter_bump(est, time.time() - _wait_t0)
+        _record_payload_shape(request)
         response = await _orig_httpx_async_send(self, request, **kwargs)
         _governor.observe(response.headers)
         if response.status_code != 429 or attempt >= OPENAI_429_MAX_RETRIES:
@@ -504,6 +724,15 @@ except ImportError as exc:  # pragma: no cover — surfaces during deploy issues
 # ── Config ──────────────────────────────────────────────────────────────────
 BEARER_TOKEN_PATH = os.environ.get("YVON_HERMES_TOKEN_PATH", "/etc/yvon-hermes/token")
 POOL_IDLE_TTL_S = int(os.environ.get("YVON_HERMES_POOL_TTL", "1800"))  # 30 min
+# FIX (2026-08-22, cost teardown Cause 02/03): proactive ceilings on a pooled
+# agent, replacing a 130k-token auto-reset on the dashboard side that read
+# `usage.totalTokens ?? 0` — a probe that returns null on this runtime, so
+# `?? 0` meant it never fired. These are enforced HERE instead, against
+# numbers this process actually owns, so the reset no longer depends on the
+# provider reporting usage at all. Deliberately well under the model window:
+# the point is to recycle BEFORE a turn gets expensive, not after it fails.
+POOL_RECYCLE_TURNS = int(os.environ.get("YVON_HERMES_POOL_RECYCLE_TURNS", "12"))
+POOL_RECYCLE_CHARS = int(os.environ.get("YVON_HERMES_POOL_RECYCLE_CHARS", "240000"))  # ~60k tokens
 # RAISED BACK 15 → 30 (2026-08-21, second pass). The 40 → 15 cut below was
 # the ninth failed attempt at the TPM problem and is now superseded by the
 # httpx TPM governor at the top of this file. The arithmetic that kills it:
@@ -541,6 +770,19 @@ POOL_IDLE_TTL_S = int(os.environ.get("YVON_HERMES_POOL_TTL", "1800"))  # 30 min
 # rate-limit failures without hermes-agent itself trimming/summarizing a
 # turn's own tool-call scratchpad, which lives outside this repo).
 MAX_ITERATIONS = int(os.environ.get("YVON_HERMES_MAX_ITER", "30"))
+# FIX (2026-08-22, cost teardown Cause 01): the single biggest multiplier in
+# the whole system was applying a 30-iteration ceiling to EVERY turn — an
+# info-tier question ("what does this do?") got the same budget as a build
+# task, and each iteration re-sends the entire history. The dashboard already
+# classifies every message into generic/info/build (pipelines/input-analysis)
+# but never forwarded it, so Hermes could not act on it. It does now, via
+# ChatRequest.tier. Unknown/absent tier falls back to MAX_ITERATIONS, so an
+# older dashboard that doesn't send the field behaves exactly as before.
+MAX_ITER_BY_TIER = {
+    "generic": int(os.environ.get("YVON_HERMES_MAX_ITER_GENERIC", "1")),
+    "info":    int(os.environ.get("YVON_HERMES_MAX_ITER_INFO", "4")),
+    "build":   MAX_ITERATIONS,
+}
 STREAM_KEEPALIVE_S = float(os.environ.get("YVON_HERMES_KEEPALIVE", "15"))
 HERMES_API_URL = os.environ.get("HERMES_API_URL", "http://127.0.0.1:9119")
 # Repo-mode toggle (2026-08-11, dashboard RepoModeToggle.tsx): clone/pull
@@ -559,6 +801,26 @@ HERMES_API_URL = os.environ.get("HERMES_API_URL", "http://127.0.0.1:9119")
 REPO_WORKSPACES_DIR = os.environ.get("YVON_REPO_WORKSPACES_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "workspaces"))
 GITHUB_PAT = os.environ.get("GITHUB_PAT", "").strip()  # fallback only — see comment above
 REPO_CLONE_TIMEOUT_S = int(os.environ.get("YVON_REPO_CLONE_TIMEOUT", "120"))
+
+# ── CAOS phase 04/07 — real hybrid retrieval + 5-gate harness (2026-08-21) ──
+# FIX (concern #1): dashboard/lib/caos-phases.ts has always described these
+# phases honestly as "not emitted — hermes-agent phase hooks are probe-gated"
+# — real Python implementing them (rag/core/retriever.py, rag/harness/
+# gates.py) already existed in the repo but nothing in this live turn path
+# ever called it. rag/run_turn_pipeline.py is a small, self-contained
+# subprocess entrypoint (see its own docstring) that calls both for real and
+# returns one JSON line. Same pattern as GRAPHIFY_VENTURE_SCRIPT/
+# MEMPALACE_VENTURE_SCRIPT below: an env-overridable absolute path with a
+# real-deployment default, checked with os.path.isfile before use.
+RAG_PIPELINE_SCRIPT = os.environ.get(
+    "RAG_PIPELINE_SCRIPT",
+    "/root/YVON-Agentic-OS-/rag/run_turn_pipeline.py",
+)
+# Deliberately short — this rides on the same turn that concern #4 already
+# flagged as taking ~20 minutes; retrieval must never become a second tax on
+# top of that. On timeout the turn just continues without retrieved context
+# (see _run_rag_pipeline_sync's degrade-gracefully contract below).
+RAG_PIPELINE_TIMEOUT_S = float(os.environ.get("YVON_RAG_PIPELINE_TIMEOUT", "8"))
 
 # ── Repo file browser + live dev-server preview (2026-08-21) ────────────────
 # "Give me a URL to view the repo files, and a URL for a live localhost-style
@@ -634,9 +896,31 @@ class PooledAgent:
     # to re-resolve or guess which provider/model actually served a turn.
     provider: Optional[str] = None
     model: Optional[str] = None
+    # FIX (2026-08-22, cost teardown Cause 02): a pooled agent's internal
+    # conversation grew without any ceiling — only the 30-minute idle timer
+    # ever cleared it, and real logs caught it at "Used 143383". These two
+    # counters are the cheapest honest proxy this wrapper can keep for that
+    # growth: it cannot see inside AIAgent's history, but it knows exactly
+    # how much prompt it has handed over and how many turns it has run.
+    # Checked in chat_stream against POOL_RECYCLE_* below.
+    turns: int = 0
+    cum_prompt_chars: int = 0
 
     def touch(self) -> None:
         self.last_used_ts = time.time()
+
+    def record_turn(self, prompt_chars: int) -> None:
+        self.turns += 1
+        self.cum_prompt_chars += max(0, int(prompt_chars))
+
+    def should_recycle(self, next_prompt_chars: int = 0) -> Optional[str]:
+        """Reason to recycle before the next turn, or None to keep going."""
+        if self.turns >= POOL_RECYCLE_TURNS:
+            return f"{self.turns} turns in this room"
+        projected = self.cum_prompt_chars + max(0, int(next_prompt_chars))
+        if projected >= POOL_RECYCLE_CHARS:
+            return f"~{projected // 4000}k tokens of accumulated context"
+        return None
 
 
 _pool: dict[tuple[str, str], PooledAgent] = {}
@@ -873,6 +1157,49 @@ def _ensure_repo_clone(repo_url: str, venture_slug: str, github_pat: str = "") -
         return None, f"git operation timed out after {REPO_CLONE_TIMEOUT_S}s"
     except Exception as exc:  # noqa: BLE001 — surface any clone failure, never swallow
         return None, _redact(str(exc))[:500]
+
+
+def _run_rag_pipeline_sync(
+    query: str, agent_id: str, dept: str, project_root: str, top_k: int = 40,
+) -> tuple[Optional[dict[str, Any]], Optional[str]]:
+    """CAOS phase 04/07 — real hybrid retrieval + 5-gate harness for this
+    turn (concern #1). Spawns rag/run_turn_pipeline.py, writes one JSON
+    object on stdin, reads one JSON object back from stdout. Runs
+    synchronously — callers must dispatch it off the event loop
+    (asyncio.to_thread), same as _ensure_repo_clone above.
+
+    Never raises: any failure (script missing, import/dep error, cold
+    index, timeout, malformed output) returns (None, reason) so the turn
+    continues without retrieved context rather than breaking the reply —
+    same discipline as _ensure_repo_clone. A real, successful pipeline run
+    returns (parsed_dict, None); parsed_dict['ok'] is still checked by the
+    caller since the script itself can report a handled internal failure.
+    """
+    if not os.path.isfile(RAG_PIPELINE_SCRIPT):
+        return None, f"pipeline script not found at {RAG_PIPELINE_SCRIPT}"
+    try:
+        payload = json.dumps({
+            "query": query, "agent_id": agent_id, "dept": dept,
+            "project_root": project_root, "top_k": top_k,
+        })
+        proc = subprocess.run(
+            [sys.executable, RAG_PIPELINE_SCRIPT],
+            input=payload, capture_output=True, text=True,
+            timeout=RAG_PIPELINE_TIMEOUT_S,
+        )
+        if proc.returncode != 0:
+            return None, f"exit {proc.returncode}: {(proc.stderr or '').strip()[:300]}"
+        lines = [ln for ln in (proc.stdout or "").splitlines() if ln.strip()]
+        if not lines:
+            return None, "pipeline produced no output"
+        out = json.loads(lines[-1])  # last line — library prints may precede it on stdout
+        if not out.get("ok"):
+            return None, str(out.get("error") or "pipeline reported failure")
+        return out, None
+    except subprocess.TimeoutExpired:
+        return None, f"timed out after {RAG_PIPELINE_TIMEOUT_S}s"
+    except Exception as exc:  # noqa: BLE001 — surface any failure, never swallow
+        return None, str(exc)[:300]
 
 
 def _repo_fingerprint(workdir: str) -> str:
@@ -1127,6 +1454,12 @@ def healthz() -> JSONResponse:
             "hermes_home": HERMES_HOME,
             "pool_size": len(_pool),
             "pool_ttl_s": POOL_IDLE_TTL_S,
+            # Lifetime LLM-request totals as seen by the governed httpx hooks.
+            # If these stay at zero while chat turns are completing, the hooks
+            # are not intercepting the provider client — which means the TPM
+            # governor is pacing nothing and the per-turn meter cannot work
+            # either. One curl distinguishes that from "quiet right now".
+            "llm": _llm_counter_totals(),
         }
     )
 
@@ -1163,6 +1496,21 @@ class ChatRequest(BaseModel):
     # past-turn reconstruction (dashboard's /api/chat/events?correlation=)
     # only ever found this wrapper's own run.*/phase.* events as a result.
     correlation: Optional[str] = Field(default=None, description="Turn correlation minted by the dashboard; reused verbatim if present")
+    # FIX (2026-08-21, concern #1): the room's department (dashboard/lib/
+    # fleet.ts's FleetDepartment strings — "Engineering", "Brand Studio", etc,
+    # already what chat_rooms.department stores), forwarded so real CAOS
+    # retrieval/gates (see _run_rag_pipeline_sync below) can pass a
+    # recognized department to rag/core/plan_lock.py's Rail-1 check instead
+    # of always tripping its "unknown department" block. None for
+    # department-less rooms (Workforce/whole_team, a thread) — genuinely no
+    # fixed identity there, so the block is the honest outcome, not a bug.
+    department: Optional[str] = Field(default=None, description="Room's department (chat_rooms.department), if any")
+    # FIX (2026-08-22, cost teardown Cause 01): the dashboard has always
+    # classified every message as generic/info/build (pipelines/input-analysis)
+    # and never forwarded it, so every turn got the same 30-iteration budget.
+    # Forwarded now and used to pick MAX_ITER_BY_TIER below. Absent/unknown
+    # values fall back to MAX_ITERATIONS — an older dashboard is unaffected.
+    tier: Optional[str] = Field(default=None, description="Turn tier: generic | info | build")
 
 
 # ── Chat stream endpoint ────────────────────────────────────────────────────
@@ -1233,18 +1581,106 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     def on_thinking(*_args: Any) -> None:
         _sse({"kind": "thinking"})
 
-    def on_tool_start(name: str, args_preview: str) -> None:
-        _tool_starts[name] = time.time()
-        _sse({"kind": "tool_call.start", "toolName": name, "argsPreview": args_preview})
-        # TS-018 WI-4 — persisted phase detail (fire-and-forget; see events.py).
-        _emit_all("tool.call", tool=name, status="start")
+    # ── FIX (2026-08-22): the invisible tool loop ────────────────────────
+    # ROOT CAUSE, found by probing the live runtime (dashboard/_hermes_probe*.mjs,
+    # 22 Aug). These two handlers were declared with a FIXED arity:
+    #
+    #     def on_tool_start(name, args_preview)          # 2 positional
+    #
+    # but hermes-agent invokes the callback with THREE arguments — see
+    # tui_gateway/server.py:5335, which registers it as
+    #     lambda tc_id, name, args: ...
+    # and agent/tool_executor.py:592-598, which does
+    #     if agent.tool_start_callback: agent.tool_start_callback(...)
+    #
+    # So every invocation raised TypeError instantly. agent/codex_runtime.py:508
+    # catches that and merely logs "tool_start_callback raised for %s" — the
+    # exception never surfaced anywhere the dashboard could see it. Net effect:
+    # tools really ran, the callback really fired, and it died on arrival,
+    # silently, on every tool call this system has ever made. The events table
+    # has zero tool.call rows across its entire history for this one reason.
+    #
+    # The natural experiment that proves it: on_thinking above was already
+    # declared `*_args` — variadic — and thinking events have always arrived
+    # fine (7 of them in the last probe). Same binding mechanism, same turn,
+    # only difference is arity.
+    #
+    # Both handlers are now variadic and normalize whatever they are handed, so
+    # they survive this build and any neighbouring signature. An unrecognized
+    # shape degrades to a named-but-undetailed event rather than an exception —
+    # never re-introduce a fixed signature here.
+    def _norm_tool_start(cb_args: tuple, cb_kwargs: dict) -> tuple[str, str, Optional[str]]:
+        """→ (tool_name, args_preview, tool_call_id|None) from any known shape."""
+        tc_id = cb_kwargs.get("tool_call_id") or cb_kwargs.get("tc_id")
+        name = cb_kwargs.get("name") or cb_kwargs.get("tool_name")
+        args = cb_kwargs.get("args") or cb_kwargs.get("arguments") or cb_kwargs.get("args_preview")
+        pos = list(cb_args)
+        if name is None:
+            # 3-positional (tc_id, name, args) — this build. 2-positional
+            # (name, args) — older. 1-positional (name) — degenerate.
+            if len(pos) >= 3:
+                tc_id, name, args = pos[0], pos[1], pos[2]
+            elif len(pos) == 2:
+                name, args = pos[0], pos[1]
+            elif len(pos) == 1:
+                name = pos[0]
+        return (str(name or "tool"), str(args if args is not None else "")[:300],
+                str(tc_id) if tc_id else None)
 
-    def on_tool_end(name: str, ok: bool, summary: str) -> None:
-        _sse({"kind": "tool_call.end", "toolName": name, "ok": ok, "summary": summary})
-        started = _tool_starts.pop(name, None)
-        ms = int((time.time() - started) * 1000) if started else None
-        _tool_call_count[0] += 1
-        _emit_all("tool.call", tool=name, ok=bool(ok), ms=ms, summary=str(summary)[:300])
+    def _norm_tool_end(cb_args: tuple, cb_kwargs: dict) -> tuple[str, bool, str, Optional[str]]:
+        """→ (tool_name, ok, summary, tool_call_id|None) from any known shape."""
+        tc_id = cb_kwargs.get("tool_call_id") or cb_kwargs.get("tc_id")
+        name = cb_kwargs.get("name") or cb_kwargs.get("tool_name")
+        ok = cb_kwargs.get("ok")
+        summary = cb_kwargs.get("summary") or cb_kwargs.get("result")
+        pos = list(cb_args)
+        if name is None and pos:
+            # Identify by shape rather than by position count alone: the ok flag
+            # is the only bool in the tuple, so anchor on it and read around it.
+            bool_at = next((i for i, v in enumerate(pos) if isinstance(v, bool)), None)
+            if bool_at is not None:
+                ok = pos[bool_at]
+                name = pos[bool_at - 1] if bool_at >= 1 else None
+                summary = pos[bool_at + 1] if len(pos) > bool_at + 1 else summary
+                if bool_at >= 2:
+                    tc_id = pos[0]
+            else:
+                if len(pos) >= 3:
+                    tc_id, name, summary = pos[0], pos[1], pos[2]
+                elif len(pos) == 2:
+                    name, summary = pos[0], pos[1]
+                else:
+                    name = pos[0]
+        return (str(name or "tool"), True if ok is None else bool(ok),
+                str(summary if summary is not None else "")[:300],
+                str(tc_id) if tc_id else None)
+
+    def on_tool_start(*cb_args: Any, **cb_kwargs: Any) -> None:
+        try:
+            name, args_preview, tc_id = _norm_tool_start(cb_args, cb_kwargs)
+            # Key the timer by tool_call_id when the runtime gives us one:
+            # `multi_tool_use.parallel` is in this build's tool list, so two
+            # concurrent calls to the same tool name would otherwise overwrite
+            # each other's start time and report a nonsense duration.
+            _tool_starts[tc_id or name] = time.time()
+            _sse({"kind": "tool_call.start", "toolName": name, "argsPreview": args_preview})
+            # TS-018 WI-4 — persisted phase detail (fire-and-forget; see events.py).
+            _emit_all("tool.call", tool=name, status="start")
+        except Exception:  # noqa: BLE001
+            # The runtime swallows whatever we raise (codex_runtime.py:508), so a
+            # throw here would be invisible — exactly the failure being fixed.
+            log.exception("on_tool_start failed for args=%r kwargs=%r", cb_args, cb_kwargs)
+
+    def on_tool_end(*cb_args: Any, **cb_kwargs: Any) -> None:
+        try:
+            name, ok, summary, tc_id = _norm_tool_end(cb_args, cb_kwargs)
+            _sse({"kind": "tool_call.end", "toolName": name, "ok": ok, "summary": summary})
+            started = _tool_starts.pop(tc_id or name, None)
+            ms = int((time.time() - started) * 1000) if started else None
+            _tool_call_count[0] += 1
+            _emit_all("tool.call", tool=name, ok=bool(ok), ms=ms, summary=str(summary)[:300])
+        except Exception:  # noqa: BLE001
+            log.exception("on_tool_end failed for args=%r kwargs=%r", cb_args, cb_kwargs)
 
     def on_notice(level: str, message: str) -> None:
         _sse({"kind": "notice", "level": level, "message": message})
@@ -1301,7 +1737,22 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
             on_notice("info", f"repo ready · {req.repo_url} → {repo_workdir}")
             prompt_parts.append(
                 f"[WORKING REPO] Your working repo for this turn is checked out at: {repo_workdir}\n"
-                f"`cd {repo_workdir}` before running any terminal/code_execution commands this turn. "
+                # FIX (2026-08-22): probe 1 caught `pwd` returning
+                # /opt/yvon-hermes-http — this wrapper's OWN folder, not the
+                # checkout — which is exactly the "Defect A" predicted in
+                # vps-scripts/hermes-patch-notes.md and still live. A bare
+                # `cd` does not stick: the terminal tool resolves a working
+                # directory per command (tools/terminal.py:1041 — "Working
+                # directory: Use 'workdir' for per-command cwd"), so a cd in
+                # one call is not in effect for the next. Naming the real
+                # parameter is the difference between steering and instructing;
+                # an agent that edits files from the wrong directory looks
+                # exactly like an agent that claims work it never did.
+                f"IMPORTANT: pass workdir=\"{repo_workdir}\" on EVERY terminal and "
+                f"code_execution call this turn. Do not rely on `cd` — this tool resolves "
+                f"its working directory per command, so a `cd` in one call does not carry "
+                f"over to the next, and without workdir you will silently operate in the "
+                f"wrapper's own directory instead of the repo. "
                 f"This is a persistent, shared checkout for this venture — not a throwaway clone — so "
                 f"commit locally as normal (git add / git commit) whenever it makes sense to save "
                 f"progress. But NEVER run `git push` (or anything else that reaches the real GitHub "
@@ -1350,6 +1801,42 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     prompt_parts.append(req.message)
     full_prompt = "\n".join(prompt_parts)
 
+    # FIX (2026-08-22, cost teardown Cause 02/03): recycle a pooled agent that
+    # has accumulated too much before spending anything on this turn. The old
+    # dashboard-side reset fired on `usage.totalTokens >= 130_000`, but that
+    # figure is a best-effort probe that returns null on this runtime, and
+    # `null ?? 0` never crosses a threshold — so in practice nothing ever
+    # reset until the 30-minute idle timer. This check uses only numbers this
+    # process owns, so it cannot be defeated by a missing usage report.
+    _recycle_reason = pooled.should_recycle(len(full_prompt))
+    if _recycle_reason:
+        with _pool_lock:
+            _pool.pop((req.user_id, req.room_id), None)
+        log.info("recycling pooled agent for room=%s (%s)", req.room_id, _recycle_reason)
+        pooled = _agent_for(req.user_id, req.room_id)
+        on_notice(
+            "info",
+            f"context reset — this room had built up {_recycle_reason}. Starting the "
+            f"agent fresh keeps replies fast and avoids the per-minute token ceiling; "
+            f"your chat history above is untouched.",
+        )
+    pooled.record_turn(len(full_prompt))
+
+    # FIX (2026-08-22, cost teardown Cause 01): per-tier iteration ceiling.
+    # AIAgent owns the loop, so the cap can only be set on the object — done
+    # defensively because the attribute name is not guaranteed by any contract
+    # this repo can see (same reason _agent_for has to guess its constructor).
+    # A failure here is non-fatal: the agent simply keeps its construction-time
+    # MAX_ITERATIONS, which is the pre-fix behaviour.
+    _tier = (req.tier or "").strip().lower()
+    _iter_cap = MAX_ITER_BY_TIER.get(_tier, MAX_ITERATIONS)
+    if _iter_cap != MAX_ITERATIONS:
+        try:
+            setattr(pooled.agent, "max_iterations", _iter_cap)
+            log.info("tier=%s → max_iterations=%d (room=%s)", _tier, _iter_cap, req.room_id)
+        except Exception:  # noqa: BLE001 — never fail a turn over a tuning knob
+            log.warning("could not set max_iterations=%d for tier=%s", _iter_cap, _tier)
+
     result_holder: dict[str, Any] = {"response": None, "error": None, "token_usage": None}
 
     # ── run lifecycle → event log (architecture §5.4) ───────────────────────
@@ -1372,13 +1859,112 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     _emit_all("run.started", room_id=req.room_id)
     # TS-018 WI-4 (YVON-CHAT §5.2): phases observable from the wrapper, sharing
     # the turn's correlation. classify/resolve carry REAL input facts — the
-    # wrapper cannot see in-model classification, retrieval or gates, so those
-    # kinds are reserved until hermes-agent exposes phase hooks (events.py
-    # vocabulary). Never fabricate a phase the wrapper cannot observe.
+    # wrapper cannot see in-model classification, so that kind stays a plain
+    # echo of the raw message. retrieve/gate.* WERE reserved here too (the
+    # wrapper never called the real Python pipeline that implements them) —
+    # FIX (2026-08-21, concern #1): now wired for real via
+    # _run_rag_pipeline_sync below, so those kinds carry real outcomes,
+    # never fabricated ones. Never fabricate a phase the wrapper cannot
+    # observe.
     _emit_all("phase.classify", intent=req.message[:400], workspace=req.workspace)
     _emit_all("phase.resolve", targets=_actors, workspace=req.workspace)
 
+    # FIX (2026-08-21, concern #1): CAOS phase 04 (HYBRID RETRIEVAL) + phase
+    # 07 (HARNESS GATES) — real rag/core/retriever.py + rag/harness/gates.py,
+    # previously implemented but never called from a live turn (dashboard/
+    # lib/caos-phases.ts documented this honestly as "probe-gated"/"not
+    # emitted"). Bounded by RAG_PIPELINE_TIMEOUT_S so this never becomes a
+    # second tax on top of the latency concern #4 already flagged; any
+    # failure degrades to "no retrieved context this turn" plus an honest
+    # notice, exactly like the repo-clone failure path above — never breaks
+    # the turn, never fabricates a result.
+    _rag_agent_id = _actors[0] if _actors else ""
+    rag_result, rag_error = await asyncio.to_thread(
+        _run_rag_pipeline_sync, req.message, _rag_agent_id, req.department or "", repo_workdir or "",
+    )
+    if rag_result:
+        _rag_injection = rag_result.get("injection_text") or ""
+        if _rag_injection:
+            full_prompt = (
+                f"{full_prompt}\n\n[RETRIEVED CONTEXT — hybrid dense+BM25 retrieval, "
+                f"gate-checked; use only what's relevant, cite the source file if you "
+                f"rely on it]\n{_rag_injection}"
+            )
+        _emit_all(
+            "phase.retrieve",
+            count=rag_result.get("chunk_count", 0),
+            sources=rag_result.get("sources", ""),
+        )
+        _rag_gates = rag_result.get("gates") or {}
+        # Rail 1 plan-lock (rag/core/plan_lock.py): 'blocked' means
+        # `req.department` wasn't a recognized department — an
+        # untrusted-identity signal distinct from (and more severe than) the
+        # 5 harness gates below, folded into source-authentication since
+        # that's the closest semantic match and caos-phases.ts has no
+        # separate gate id for it.
+        _g1 = _rag_gates.get("source-authentication") or {}
+        if rag_result.get("lock_status") == "blocked":
+            _emit_all(
+                "gate.blocked", gate="source-authentication",
+                reason="unscoped/unrecognized department identity (Rail 1 plan-lock)",
+            )
+        elif _g1.get("blocked", 0) > 0:
+            _emit_all(
+                "gate.blocked", gate="source-authentication",
+                reason=f"{_g1.get('blocked')} chunk(s) blocked, {_g1.get('flagged', 0)} flagged",
+            )
+        else:
+            _emit_all("gate.passed", gate="source-authentication")
+        _g2 = _rag_gates.get("reliability") or {}
+        if _g2.get("unreliable", 0) > 0:
+            _emit_all(
+                "gate.blocked", gate="reliability",
+                reason=f"{_g2.get('unreliable')} chunk(s) below reliability threshold",
+            )
+        else:
+            _emit_all("gate.passed", gate="reliability")
+        _g3 = _rag_gates.get("conflict-detection") or {}
+        if _g3.get("conflicts", 0) > 0:
+            _emit_all(
+                "gate.blocked", gate="conflict-detection",
+                reason=f"{_g3.get('conflicts')} conflict(s) flagged",
+            )
+        else:
+            _emit_all("gate.passed", gate="conflict-detection")
+        _g4 = _rag_gates.get("priority-budget") or {}
+        _dropped = _g4.get("dropped_levels") or []
+        if _dropped:
+            _emit_all(
+                "gate.blocked", gate="priority-budget",
+                reason=f"budget exhausted — dropped tier(s) {_dropped}",
+            )
+        else:
+            _emit_all("gate.passed", gate="priority-budget")
+        _g5 = _rag_gates.get("quarantine-recovery") or {}
+        _net_quarantined = max(0, int(_g5.get("quarantined", 0)) - int(_g5.get("recovered", 0)))
+        if _net_quarantined > 0:
+            _emit_all(
+                "gate.blocked", gate="quarantine-recovery",
+                reason=f"{_net_quarantined} chunk(s) quarantined ({_g5.get('recovered', 0)} recovered)",
+            )
+        else:
+            _emit_all("gate.passed", gate="quarantine-recovery")
+    else:
+        # Deliberately log-only, not on_notice(): CAOS phase 04/07 retrieval is
+        # intentionally NOT deployed yet (the subprocess + sentence-transformers
+        # approach cannot meet the 100-500ms budget for CAOS — it is being
+        # replaced with a pgvector query against embeddings that already exist
+        # in Supabase). Until then this path is expected to be unavailable on
+        # every turn, and telling the operator so on every single message is
+        # noise that trains them to ignore notices.
+        log.info("rag pipeline unavailable (expected until the pgvector rewrite): %s", rag_error or "unknown")
+
     def run_agent() -> None:
+        # Sample the process-global LLM counter before and after the agent
+        # call; the delta is this turn's cost. Thread-agnostic on purpose —
+        # see the meter's own comment for why the first, thread-local version
+        # returned zero on a turn that made eight tool calls.
+        _meter_before = _meter_snapshot()
         try:
             with pooled.lock:  # serialize per-session; AIAgent isn't thread-safe
                 pooled.agent._stream_delta_callback = on_delta  # rebind for this turn
@@ -1396,11 +1982,28 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
                 # have set it — see _extract_token_usage's own comment on
                 # why this is best-effort, not confirmed against source.
                 result_holder["token_usage"] = _extract_token_usage(pooled.agent)
-            _emit_all("run.completed")
+            # Measured, not probed: exact round-trip count + estimated input
+            # size for this turn. Recorded even on the failure path below, so a
+            # turn that dies at the rate limit still reports what it spent
+            # getting there — that is the case we most need numbers for.
+            result_holder["meter"] = _meter_delta(_meter_before)
+            # If a turn produced a reply but the hook saw no LLM request, the
+            # httpx patch is not intercepting this client — which would ALSO
+            # mean the TPM governor is inert and pacing nothing. Loud in the
+            # log, because it silently invalidates both.
+            if result_holder["meter"]["llmCalls"] == 0:
+                log.warning(
+                    "LLM meter saw 0 requests for room=%s — the governed httpx hook "
+                    "did not intercept this provider client; TPM pacing is likely "
+                    "inactive too. Lifetime totals: %s",
+                    req.room_id, _llm_counter_totals(),
+                )
+            _emit_all("run.completed", **result_holder["meter"])
         except Exception as exc:  # noqa: BLE001 — surface any agent failure
             log.exception("agent.chat failed for user=%s room=%s", req.user_id, req.room_id)
             result_holder["error"] = str(exc)
-            _emit_all("run.failed", error=str(exc)[:500])
+            result_holder["meter"] = _meter_delta(_meter_before)
+            _emit_all("run.failed", error=str(exc)[:500], **result_holder["meter"])
         finally:
             loop.call_soon_threadsafe(queue.put_nowait, {"kind": "__internal_done__"})
 
@@ -1412,8 +2015,30 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
                 try:
                     event = await asyncio.wait_for(queue.get(), timeout=STREAM_KEEPALIVE_S)
                 except asyncio.TimeoutError:
-                    # Idle keepalive — helps some proxies not close the SSE stream
-                    yield f"data: {json.dumps({'kind': 'ping'})}\n\n"
+                    # Idle keepalive — helps some proxies not close the SSE
+                    # stream. Since the TPM governor was added, an idle gap is
+                    # often not the agent thinking but the governor deliberately
+                    # holding a call back to stay under the per-minute ceiling.
+                    # A bare 'ping' left the user staring at "thinking" with no
+                    # way to tell a paced turn from a hung one, which is exactly
+                    # the confusion that made this look broken. Say which it is.
+                    hold = _governor.hold_status()
+                    if hold is not None:
+                        yield (
+                            "data: "
+                            + json.dumps({
+                                'kind': 'notice',
+                                'level': 'info',
+                                'message': (
+                                    "Waiting out the AI account's per-minute token limit "
+                                    f"— about {hold}s left before the next step. "
+                                    "The turn is still running."
+                                ),
+                            })
+                            + "\n\n"
+                        )
+                    else:
+                        yield f"data: {json.dumps({'kind': 'ping'})}\n\n"
                     continue
 
                 if event.get("kind") == "__internal_done__":
@@ -1440,6 +2065,33 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
                             "totalTokens": (_tok or {}).get("totalTokens"),
                             "contextWindow": _context_window_for(pooled.model),
                         }
+                        # FIX (2026-08-22): measured per-turn figures. Kept in
+                        # SEPARATE keys from the provider ones above and named
+                        # est*/llm* so nothing can mistake an estimate for the
+                        # provider's accounting — `tokensReported` still means
+                        # "the provider told us", and stays false here.
+                        # llmCalls is the number this system has never been
+                        # able to see: how many model round-trips one chat
+                        # message actually cost.
+                        _meter = result_holder.get("meter") or {}
+                        _usage["llmCalls"] = _meter.get("llmCalls", 0)
+                        _usage["estInputTokens"] = _meter.get("estInputTokens", 0)
+                        _usage["governorWaitS"] = _meter.get("governorWaitS", 0.0)
+                        _usage["llmCallsExact"] = _meter.get("llmCallsExact", True)
+                        # Pool position, for the CAOS panel's recycle countdown.
+                        # PooledAgent already counts these (the Cause 02 fix);
+                        # they simply never left the process. Without them the
+                        # panel cannot say "3 turns until this room resets" —
+                        # the one conversation-scope number that predicts cost,
+                        # since every turn before a recycle is dearer than the
+                        # last. Cheap to send, and it makes rising cost inside
+                        # a long chat legible instead of looking like noise.
+                        _usage["poolTurns"] = pooled.turns
+                        _usage["poolChars"] = pooled.cum_prompt_chars
+                        _usage["poolRecycleTurns"] = POOL_RECYCLE_TURNS
+                        if _meter.get("firstCallShape"):
+                            _usage["firstCallShape"] = _meter["firstCallShape"]
+                        _usage["estimated"] = True
                         # 2026-08-21: did this turn actually change the repo?
                         # Compares the post-turn fingerprint against the
                         # pre-turn baseline captured above — real git state,

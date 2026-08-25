@@ -148,6 +148,23 @@ export async function POST(request: NextRequest) {
       }, { status: 207 })
     }
 
+    // Execution gate (2026-08-21, concern #5, chat_rooms_execution_gate
+    // migration): result.status === 'executing' here means the full
+    // new→prd→set-prd→fill-discovery→discover→approve→start chain actually
+    // completed — a real, started TASK-SPEC, not just a draft. That's the
+    // explicit sign-off stream/route.ts's discussion-only gate is waiting
+    // for. Via RPC, not a plain .update() — see task-proposal/route.ts's
+    // accept handler for why (chat_rooms' only UPDATE RLS policy is
+    // thread-only; a direct update silently no-ops for every other room
+    // kind). Best-effort — the TASK-SPEC itself is already safely created.
+    try {
+      await (supabase as unknown as {
+        rpc: (fn: string, args: Record<string, unknown>) => Promise<{ error: { message: string } | null }>
+      }).rpc('chat_room_unlock_execution', { p_room_id: roomId, p_task_id: result.taskId })
+    } catch {
+      // best-effort — see comment above
+    }
+
     return NextResponse.json({ ok: true, taskId: result.taskId, status: result.status, kanbanOk: result.kanbanOk, kanbanError: result.kanbanOk ? null : result.kanbanError })
   }
 

@@ -48,6 +48,8 @@ const ALL_PAGES: PageEntry[] = [
   // Build
   { label: 'Idea Feed', href: '/idea-feed', section: 'Build' },
   { label: 'Software Pipeline', href: '/software-pipeline', section: 'Build' },
+  { label: 'Generations', href: '/generations', section: 'Build' },
+  { label: 'Task Lineage', href: '/tasks', section: 'Build' },
   // Revenue
   { label: 'Consulting CRM', href: '/consulting-crm', section: 'Revenue' },
   { label: 'Cinematic Sites', href: '/cinematic-sites', section: 'Revenue' },

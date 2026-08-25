@@ -1,0 +1,102 @@
+# TS-043 — the revision: rotation, not rewind (revision_of TS-042).
+# Inherits TS-042's PRD + the three passing criteria; fixes the keyboard path;
+# suite passes 4 of 4; the six-field handoff packet is written while the context
+# is still live; closes done. Seeded 2026-08-24.
+id: TS-043
+status: done
+source_message: "Rework the keyboard path — Enter on .caos2-head must expand the row. Revision of TS-042, inherits its PRD and the three passing criteria."
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only — no transcript inheritance
+  inject_form: .toon (this YAML is the source form)
+
+classification:
+  task_type: "build"
+  departments:
+    - Engineering
+  lead: "mia"
+
+context:
+  chunks: []
+  existing_assets: []
+  conflicts: []
+
+discovery:
+  questions: []
+  decisions:
+    - "Revision inherits the PRD and the passing criteria — rotation is a rework, not a new discovery"
+    - "One failed assertion opens one revision; cap is two automated rotations, then the question becomes 'is this criterion right?'"
+
+work_items:
+  - id: WI-1
+    owner: "mia"
+    objective: "Keyboard path on .caos2-head — Enter + Tab must expand every row"
+    strategy: BALANCE 1.0x
+    consumes: []
+    produces: "dashboard/app/chat/CaosPanel.tsx"
+    owns_paths:
+      - dashboard/app/chat/CaosPanel.tsx
+    skills: []
+    scripts: []
+    blocked_by: []
+    acceptance:
+      - text: "Renders inside the 312px rail"
+        status: pass
+        evidence: "chromium 1300×1000 · pass · inherited"
+      - text: "Every step row expands to its decision"
+        status: pass
+        evidence: "8 rows checked · pass · inherited"
+      - text: "No measurement rendered that was not taken"
+        status: pass
+        evidence: "47 assertions · pass · inherited"
+      - text: "Keyboard reachable at every control"
+        status: pass
+        evidence: "Enter + Tab path · pass · run-2631"
+    security_review: none
+    doer: "mia"
+    verifier: "quinn"
+    integrator: "engineering"
+
+dag:
+  parallel: []
+  critical_path:
+    - WI-1
+
+exit_gate:
+  owner: "quinn"
+  proof: "store/runs/run-2631.md"
+
+feedback:
+  outcome: null
+  lesson: null
+
+created_at: "2026-08-22T10:15:00Z"
+updated_at: "2026-08-23T14:31:00Z"
+revision_of: TS-042
+derived_from: null
+superseded_by: null
+blocked: false
+blocked_at: ""
+blocked_reason: ""
+run_ref: "store/runs/run-2631.md"
+approved_by: "operator"
+approved_at: "2026-08-22T10:15:00Z"
+history:
+  - {ts: "2026-08-22T10:15:00Z", actor: "system", event: "revision_opened", note: "forked from TS-042"}
+  - {ts: "2026-08-22T10:16:00Z", actor: "mia", event: "executing_started", note: "inherited PRD + 3 passing criteria"}
+  - {ts: "2026-08-23T14:02:00Z", actor: "mia", event: "gated", note: ""}
+  - {ts: "2026-08-23T14:22:00Z", actor: "quinn", event: "suite_passed", note: "store/runs/run-2631.md · 4 of 4"}
+  - {ts: "2026-08-23T14:31:00Z", actor: "system", event: "handoff_emitted", note: "6-field packet written"}
+  - {ts: "2026-08-23T14:31:00Z", actor: "system", event: "done", note: "store/runs/run-2631.md"}
+
+handoff:
+  entry: "dashboard/app/chat/CaosPanel.tsx — mounts when focus.kind === 'tasks'"
+  contract: "TaskSpecItem from /api/task-spec, plus designSessionId — not on the interface (fixed in TS-044)"
+  stubbed: "preview HTML has no live deployment · rice_score is always '0'"
+  needs_wiring: "no polling · changes_requested has no caller · prd_ref unsurfaced"
+  tokens: "Adora — violet #592eff, paper #f4f4f1, hairline #e0e0db"
+  verified_on: "chromium 1300×1000, light + dark, keyboard path"
+
+prd_ref: "store/tasks/TS-042-prd.md"
+rice_score: "0"

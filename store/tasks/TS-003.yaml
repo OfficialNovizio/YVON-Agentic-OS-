@@ -50,6 +50,7 @@ work_items:
 
 dag: { parallel: [[WI-1, WI-3]], critical_path: [WI-1, WI-2, WI-4] }
 exit_gate: { owner: quinn, proof: "awesome-design re-installed via quarantine box, PASS logged" }
+approved_by: operator   # E2 backfill 2026-08-24 — pre-history record, operator-directed; approved_at not recorded
 feedback:
   outcome: gated
   proof: >

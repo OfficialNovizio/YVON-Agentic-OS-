@@ -16,7 +16,7 @@ const BARE_ROUTE_PREFIXES = ['/login', '/auth/']
 // <body> carries the dark background photo, which lives above the Shell.
 // To take the whole app light, add data-theme="adora" to <html> in layout.tsx
 // and delete this list.
-const ADORA_ROUTE_PREFIXES = ['/chat']
+const ADORA_ROUTE_PREFIXES = ['/chat', '/generations', '/tasks', '/task-board']
 
 // ── Responsive context ────────────────────────────────────────────────────────
 type SidebarMode = 'full' | 'icons'

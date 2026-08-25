@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YVON Task Kanban — How Work Flows</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f7f7f5;
+    --card: #ffffff;
+    --ink: #1c1c1e;
+    --mut: #6b6b74;
+    --line: #e3e3de;
+    --green: #587000;
+    --green-bg: #eef4e2;
+    --amber: #8a6114;
+    --amber-bg: #fdf8ec;
+    --blue: #0a7ea6;
+    --blue-bg: #e6f4f9;
+    --purple: #592eff;
+    --purple-bg: #ede8ff;
+    --gray-bg: #f2f2ee;
+    --accent: #2f6f4f;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--ink);
+    padding: 32px 20px 60px; max-width: 1080px; margin: 0 auto;
+  }
+  h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+  .sub { color: var(--mut); font-size: 14px; margin-top: 4px; line-height: 1.5; }
+  .meta { margin-top: 14px; font-size: 12.5px; color: var(--mut); display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .dot.built { background: var(--green); }
+  .dot.new { background: var(--amber); }
+  .dot.hybrid { background: var(--blue); }
+
+  nav.tabs { display: flex; gap: 8px; margin: 22px 0 16px; flex-wrap: wrap; }
+  .tab-btn {
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    padding: 8px 14px; border-radius: 999px; font-size: 13.5px; font-weight: 600; cursor: pointer;
+    transition: all .15s;
+  }
+  .tab-btn.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .tab-btn:hover:not(.active) { border-color: var(--mut); }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .flow-wrap { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+  .flow {
+    display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px;
+    margin-bottom: 4px;
+  }
+  .node {
+    flex: 1 1 150px; min-width: 128px; border-radius: 10px; padding: 10px 10px;
+    border: 1.5px solid var(--line); background: var(--gray-bg);
+    font-size: 12px; line-height: 1.35; position: relative;
+    transition: all .25s; opacity: .45;
+  }
+  .node .n-title { font-weight: 700; font-size: 12.5px; display: block; }
+  .node .n-sub { color: var(--mut); font-size: 11px; display: block; margin-top: 2px; }
+  .node .chip {
+    position: absolute; top: -7px; right: 8px; font-size: 9.5px; font-weight: 800;
+    padding: 2px 7px; border-radius: 999px; letter-spacing: .03em;
+  }
+  .chip.built { background: var(--green-bg); color: var(--green); }
+  .chip.new { background: var(--amber-bg); color: var(--amber); }
+  .chip.hybrid { background: var(--blue-bg); color: var(--blue); }
+  .node.st-on { opacity: 1; border-color: var(--mut); box-shadow: 0 0 0 3px rgba(0,0,0,.05); }
+  .node.st-done { opacity: .9; border-color: var(--line); }
+  .arrow { align-self: center; color: var(--mut); font-size: 15px; flex: 0 0 auto; }
+  .branch-arrow { color: var(--mut); font-size: 12px; text-align: center; margin: 4px 0; }
+
+  .state-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; align-items: stretch; }
+  .state-cell {
+    flex: 1 1 130px; border-radius: 10px; padding: 9px 10px; font-size: 11.5px;
+    border: 1.5px solid var(--line); background: var(--gray-bg); opacity: .4; transition: all .25s;
+  }
+  .state-cell .s-name { font-weight: 700; display: block; font-size: 12px; }
+  .state-cell .s-who { color: var(--mut); font-size: 10.5px; display: block; margin-top: 1px; }
+  .state-cell.on { opacity: 1; border-color: var(--mut); box-shadow: 0 0 0 3px rgba(0,0,0,.05); }
+
+  .steps-card { margin-top: 16px; }
+  .steps-card .step-title { font-size: 16px; font-weight: 700; }
+  .steps-card .step-desc { margin-top: 6px; font-size: 13.5px; line-height: 1.6; color: #3a3a40; }
+  .steps-card .step-desc code { background: var(--gray-bg); padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+  .steps-card .step-meta { margin-top: 8px; font-size: 11.5px; color: var(--mut); }
+
+  .controls { display: flex; align-items: center; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .ctrl-btn {
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    padding: 7px 16px; border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .ctrl-btn.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .ctrl-btn:hover { border-color: var(--mut); }
+  .dots { display: flex; gap: 6px; align-items: center; }
+  .dot-i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); cursor: pointer; transition: all .15s; }
+  .dot-i.on { background: var(--ink); transform: scale(1.25); }
+  .counter { font-size: 12px; color: var(--mut); font-variant-numeric: tabular-nums; }
+
+  .zones { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; }
+  .zone { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: #fbfbf9; }
+  .zone h4 { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+  .zone .z-list { margin-top: 8px; font-size: 12px; line-height: 1.55; color: #3a3a40; }
+  .zone .z-list .item { padding: 4px 0; border-bottom: 1px dashed var(--line); }
+  .zone .z-list .item:last-child { border-bottom: none; }
+  .zone .item .k { font-weight: 600; }
+  .zone .item.delta { background: var(--green-bg); border-radius: 6px; padding: 4px 8px; margin-top: 4px; border-bottom: none; }
+  .zone .item.delta b { color: var(--green); }
+  .zone .item.delta-amber { background: var(--amber-bg); border-radius: 6px; padding: 4px 8px; margin-top: 4px; border-bottom: none; }
+  .zone .item.delta-amber b { color: var(--amber); }
+
+  .note { margin-top: 16px; font-size: 12px; color: var(--mut); background: var(--gray-bg); border-radius: 10px; padding: 10px 14px; line-height: 1.55; }
+  .note b { color: var(--ink); }
+</style>
+</head>
+<body>
+
+  <h1>YVON Engine — Task Kanban: How Work Flows</h1>
+  <div class="sub">Every flow, end to end: how a chat message becomes a card, how the card gets executed, and how the kanban rebuilds graphs + MemPalace by itself — into the repo, onto GitHub, and into the database.</div>
+
+  <div class="meta">
+    <span>Design · 2026-08-25 · grounded in <code>cli/task.py</code>, <code>store/tasks/TEMPLATE.yaml</code>, the dashboard, and the VPS graph pipeline</span>
+    <span class="legend">
+      <span><i class="dot built"></i> BUILT today</span>
+      <span><i class="dot new"></i> NEW in this design</span>
+      <span><i class="dot hybrid"></i> Partial (demo/wiring exists)</span>
+    </span>
+  </div>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="t1">1 · Chat → Kanban</button>
+    <button class="tab-btn" data-tab="t2">2 · Nightly Graph Rebuild</button>
+    <button class="tab-btn" data-tab="t3">3 · Where It Lands</button>
+  </nav>
+
+  <!-- ══════════════ TAB 1: CHAT → KANBAN ══════════════ -->
+  <div class="panel active" id="t1">
+    <div class="flow-wrap">
+      <div class="flow" id="flow1"></div>
+      <div class="state-row" id="states1"></div>
+      <div class="steps-card">
+        <div class="step-title" id="s1-title"></div>
+        <div class="step-desc" id="s1-desc"></div>
+        <div class="step-meta" id="s1-meta"></div>
+      </div>
+      <div class="controls">
+        <button class="ctrl-btn" id="prev1">← Prev</button>
+        <button class="ctrl-btn primary" id="play1">▶ Play</button>
+        <button class="ctrl-btn" id="next1">Next →</button>
+        <span class="counter" id="cnt1"></span>
+        <div class="dots" id="dots1"></div>
+      </div>
+      <div class="note"><b>Decision (2026-08-25):</b> work-shaped chat moves to the kanban — chat is the front door, not a second board. Informational chat (questions, facts) never becomes cards; classification is the filter.</div>
+    </div>
+  </div>
+
+  <!-- ══════════════ TAB 2: NIGHTLY GRAPH REBUILD ══════════════ -->
+  <div class="panel" id="t2">
+    <div class="flow-wrap">
+      <div class="flow" id="flow2"></div>
+      <div class="steps-card">
+        <div class="step-title" id="s2-title"></div>
+        <div class="step-desc" id="s2-desc"></div>
+        <div class="step-meta" id="s2-meta"></div>
+      </div>
+      <div class="zones" id="zones2"></div>
+      <div class="controls">
+        <button class="ctrl-btn" id="prev2">← Prev</button>
+        <button class="ctrl-btn primary" id="play2">▶ Play</button>
+        <button class="ctrl-btn" id="next2">Next →</button>
+        <span class="counter" id="cnt2"></span>
+        <div class="dots" id="dots2"></div>
+      </div>
+      <div class="note"><b>No button, no SSH, no 4am session.</b> The heartbeat derives a card each night; the agent runs the scripts detached with logging; the board shows the verified result. Tonight's manual saga becomes a card.</div>
+    </div>
+  </div>
+
+  <!-- ══════════════ TAB 3: WHERE IT LANDS ══════════════ -->
+  <div class="panel" id="t3">
+    <div class="flow-wrap">
+      <h3 style="font-size:15px;margin-bottom:4px;">One build → three landing zones</h3>
+      <div class="sub" style="margin-top:0;margin-bottom:14px;">The same card, once executed, writes to the VPS repo clone, pushes to GitHub, and updates the database. All three must agree — that's what the card's acceptance criteria verify.</div>
+      <div class="zones" id="zones3"></div>
+      <div class="note"><b>Honest gap:</b> the sidebar Kanban today reads the Hermes API while the lineage board reads <code>store/tasks/</code>. Phase A aligns them to one source so a card can never exist on one surface and not the other.</div>
+    </div>
+  </div>
+
+<script>
+/* ════════════ shared helpers ════════════ */
+function nodeEl(n) {
+  const chip = n.state === 'new' ? '<span class="chip new">NEW</span>'
+    : n.state === 'built' ? '<span class="chip built">BUILT</span>'
+    : '<span class="chip hybrid">PARTIAL</span>';
+  return `<div class="node" data-id="${n.id}">${chip}<span class="n-title">${n.t}</span><span class="n-sub">${n.s || ''}</span></div>`;
+}
+function arrows(n) { let a = ''; for (let i = 0; i < n; i++) a += '<span class="arrow">→</span>'; return a; }
+function esc(s){ return s; }
+
+/* ════════════ TAB 1: CHAT → KANBAN ════════════ */
+const flow1 = [
+  { id:'n1', t:'User message', s:'chat — any request', state:'built' },
+  { id:'n2', t:'Classification', s:'work-shaped?', state:'built' },
+  { id:'n3', t:'Proposal card', s:'renders in chat', state:'hybrid' },
+  { id:'n4', t:'Accept', s:'operator sign-off', state:'built' },
+  { id:'n5', t:'Record created', s:'source_message verbatim', state:'built' },
+  { id:'n6', t:'Kanban card', s:'sidebar → /task-board', state:'built' },
+];
+const states1 = [
+  { id:'st-draft', name:'draft', who:'idea captured', col:'#6b6b74', bg:'#f2f2ee' },
+  { id:'st-disc', name:'discovery', who:'questions + decisions', col:'#7c5cf0', bg:'#f3f0ff' },
+  { id:'st-appr', name:'approved', who:'PRD-gated, ready', col:'#592eff', bg:'#ede8ff' },
+  { id:'st-exec', name:'executing', who:'agent owns it', col:'#592eff', bg:'#ede8ff' },
+  { id:'st-gate', name:'gated', who:'produces on disk', col:'#8a6114', bg:'#fdf8ec' },
+  { id:'st-rev', name:'review', who:'verifier suite', col:'#0a7ea6', bg:'#e6f4f9' },
+  { id:'st-done', name:'done', who:'run_ref proof', col:'#587000', bg:'#eef4e2' },
+];
+const steps1 = [
+  { hl:['n1'], st:[],
+    t:'The front door', d:'The operator types in chat. Every message is classified first — the routing rail decides: is this a work request (build, research, design, restructure) or a conversation (question, fact, quick answer)?', m:'Chat · TasksPanel (built)' },
+  { hl:['n2'], st:[],
+    t:'Classification is the filter', d:'Only work-shaped messages become tasks. Informational exchanges stay pure chat — they never flood the board. The classification step is what keeps the kanban fed with exactly the work.', m:'Routing table (built)' },
+  { hl:['n3'], st:[],
+    t:'The proposal card', d:'A work-shaped message emits a proposal event — a card renders in the chat panel with the shaped request. (Demo-seeded today; live wiring is Phase C.)', m:'Proposal events · demo-seeded (partial)' },
+  { hl:['n4'], st:[],
+    t:'Accept', d:'The operator accepts the proposal — this is the human gate. Nothing enters the pipeline unshaped.', m:'Chat panel (built)' },
+  { hl:['n5'], st:[],
+    t:'The record is born', d:'A task record is created in store/tasks/ with source_message set verbatim — never paraphrased. The PRD gate (prd_ref + rice_score) is attached at this stage.', m:'cli/task.py new · store/tasks/ (built)' },
+  { hl:['n6'], st:[],
+    t:'The card appears on the board', d:'The same record renders as a card in the sidebar Kanban (/task-board) and in the lineage board (/tasks). One record, many surfaces — the board is the durable home; chat was the doorway.', m:'/task-board · /tasks (built)' },
+  { hl:['n6'], st:['st-draft'],
+    t:'draft — Backlog', d:'Idea captured, not yet shaped. The card sits in the Backlog column. updated_at stamps every transition; history[] grows with each move.', m:'task.sh (built)' },
+  { hl:['n6'], st:['st-disc'],
+    t:'discovery — questions first', d:'No fan-out until discovery.questions/decisions are resolved — the §0.1 rule: questions before building, enforced mechanically. The agent raises questions back; the card can sit here waiting on the operator.', m:'task.sh discover (built)' },
+  { hl:['n6'], st:['st-appr'],
+    t:'approved — Ready', d:'Discovery resolved, PRD-gated (approve refuses without prd_ref + rice_score + gate_0 signoffs). The card now waits in the Ready column for an agent to claim it.', m:'task.sh approve --by (built)' },
+  { hl:['n6'], st:['st-exec'],
+    t:'executing — agent claims', d:'The executor agent claims the card (routing by classification.lead — the same table as the routing rail). Claim = start with owner set; the owner field is the lock — two agents can’t grab the same card.', m:'Executor loop (NEW — Phase A)' },
+  { hl:['n6'], st:['st-gate'],
+    t:'gated — produce proof', d:'Work complete: every produces path must exist on disk — the artifact must be verifiable, not asserted. Handoff packet written while context is still live.', m:'task.sh gate (built)' },
+  { hl:['n6'], st:['st-rev'],
+    t:'review — the verifier’s turn', d:'The suite runs: every acceptance criterion judged pass/fail with evidence. Fail → stays review; fix or rotate as a revision_of (forward-only).', m:'task.sh review + suite (built)' },
+  { hl:['n6'], st:['st-done'],
+    t:'done — run record as proof', d:'Suite passed, run_ref recorded, exit proof on disk. The card closes — and the lineage board shows the whole chain from source message to done.', m:'task.sh suite (built)' },
+];
+
+/* ════════════ TAB 2: NIGHTLY GRAPH REBUILD ════════════ */
+const flow2 = [
+  { id:'m1', t:'Heartbeat', s:'engine loop, 03:00', state:'new' },
+  { id:'m2', t:'Derives card', s:'child of TS-REC-002', state:'new' },
+  { id:'m3', t:'Agent claims', s:'graph-brain skill', state:'new' },
+  { id:'m4', t:'Runs scripts', s:'graphify + mempalace', state:'built' },
+  { id:'m5', t:'Push yvon-graph', s:'to GitHub', state:'built' },
+  { id:'m6', t:'Upsert DB rows', s:'status + counts', state:'built' },
+  { id:'m7', t:'Verify + close', s:'acceptance pass', state:'built' },
+];
+const steps2 = [
+  { hl:['m1'], zones:[],
+    t:'The heartbeat wakes', d:'A small loop inside the engine (on the VPS beside hermes — not Vercel, not crontab) checks recurring task templates. TS-REC-002 "venture graph rebuild" is due → time to work.', m:'scripts/task-heartbeat.py (NEW — Phase A)' },
+  { hl:['m2'], zones:[],
+    t:'A card is born — the night’s build', d:'The heartbeat derives a child card (derived_from: TS-REC-002): "graph rebuild · 2026-08-26" appears in Ready on the sidebar Kanban. The lineage board will show the nightly chain: template → night 1 → night 2 → …', m:'Recurring templates (NEW — Phase B)' },
+  { hl:['m3'], zones:[],
+    t:'An agent picks it up', d:'The executor agent claims the card — routing by classification.lead, with the graph-brain skill that encodes this week’s lessons: env sourced from /root/.yvon-supabase.env (never the wrapper’s), runs detached with a log file, orphan-checkout fix, DSN sanity check.', m:'task-executor skill + graph-brain skill (NEW)' },
+  { hl:['m4'], zones:['z-vps'],
+    t:'The scripts run — on the VPS', d:'graphify-venture.sh extracts the code graph (nodes/edges/communities); mempalace-venture.sh mines the semantic palace (entries/entities). Both write to Supabase status rows as they go: building → ready or error.', m:'system-harness/graph-brain/ci/*.sh (built)' },
+  { hl:['m5'], zones:['z-gh'],
+    t:'Push to GitHub — automatically', d:'The yvon-graph branch (orphan — never touches the default branch) is pushed: graph/ (graph.json, graph.html, GRAPH_REPORT.md) + knowledge/ (entries.json, entities.json, manifest.json). Anyone with the repo can open the interactive graph from GitHub.', m:'Built — the scripts already push' },
+  { hl:['m6'], zones:['z-db'],
+    t:'The database updates — automatically', d:'venture_graphs: status=ready, node_count, edge_count, community_count, commit_sha, built_at, graph_data. venture_repo_knowledge: status=ready, entry_count, entries, entities, commit_sha, built_at. The dashboard reads these rows — no git round-trip.', m:'Supabase REST upserts (built)' },
+  { hl:['m7'], zones:['z-vps','z-gh','z-db'],
+    t:'Verify, then close', d:'The verifier runs the acceptance criteria: every venture’s rows ready with counts > 0, yvon-graph pushed. Suite passes → card done with run_ref. Morning: open the board, see green — or see exactly which venture skipped and why.', m:'task.sh suite (built) + executor (NEW)' },
+];
+const zones2def = [
+  { id:'z-vps', h:'VPS — the runner', rows:[
+      { k:'Workdirs', v:'/opt/yvon-venture-graphs/<slug>[+ -mempalace]' },
+      { k:'Env', v:'/root/.yvon-supabase.env (clean source of truth)' },
+      { k:'Logs', v:'/tmp/mempalace-venture.log (detached — SSH drops can’t kill it)' },
+      { k:'After', v:'graphify-out/ + mined palace rows written', delta:true },
+  ]},
+  { id:'z-gh', h:'GitHub — the artifact', rows:[
+      { k:'Branch', v:'yvon-graph (orphan — default branch untouched)' },
+      { k:'graph/', v:'graph.json · graph.html · GRAPH_REPORT.md' },
+      { k:'knowledge/', v:'entries.json · entities.json · manifest.json' },
+      { k:'After', v:'New commit "yvon: refresh code graph — N nodes, E edges"', delta:true },
+  ]},
+  { id:'z-db', h:'Supabase — the record', rows:[
+      { k:'venture_graphs', v:'status · node_count · edge_count · commit_sha · built_at · graph_data' },
+      { k:'venture_repo_knowledge', v:'status · entry_count · entries · entities · commit_sha · built_at' },
+      { k:'Read by', v:'Dashboard — no live GitHub round-trip' },
+      { k:'After', v:'status=ready, counts > 0, fresh built_at', delta:true },
+  ]},
+];
+
+/* ════════════ TAB 3: WHERE IT LANDS ════════════ */
+const zones3 = [
+  { h:'VPS — the runner', rows:[
+      { k:'Clones', v:'Per-venture workspaces under /opt/yvon-venture-graphs/' },
+      { k:'Scripts', v:'graphify-venture.sh + mempalace-venture.sh (ci/)' },
+      { k:'Env', v:'/root/.yvon-supabase.env — the clean source of truth' },
+      { k:'Run style', v:'Detached + logged — a dropped SSH session cannot kill a build' },
+  ]},
+  { h:'GitHub — the repo artifact', rows:[
+      { k:'yvon-graph branch', v:'Pushed by the scripts themselves — no human git' },
+      { k:'graph/', v:'graph.json (machine) + graph.html (interactive) + GRAPH_REPORT.md' },
+      { k:'knowledge/', v:'entries.json + entities.json + manifest.json' },
+      { k:'Safety', v:'Orphan branch — the default branch is never touched' },
+  ]},
+  { h:'Supabase — the database', rows:[
+      { k:'venture_graphs', v:'status · node_count · edge_count · community_count · commit_sha · built_at · graph_data (jsonb)' },
+      { k:'venture_repo_knowledge', v:'status · entry_count · entries (jsonb) · entities (jsonb) · commit_sha · built_at' },
+      { k:'Who writes', v:'The scripts, via REST upserts — on_conflict=venture_slug' },
+      { k:'Who reads', v:'The dashboard — status badges, counts, graph viewer' },
+  ]},
+  { h:'The board — visibility', rows:[
+      { k:'Card', v:'"graph rebuild · <date>" — derived from TS-REC-002 each night' },
+      { k:'Evidence', v:'Acceptance criteria: rows ready, counts > 0, branch pushed' },
+      { k:'Lineage', v:'/tasks shows the nightly chain with per-night acceptance' },
+      { k:'Failure', v:'Card stays in review with the run log path — visible, not silent' },
+  ]},
+];
+
+/* ════════════ render ════════════ */
+function renderFlow(el, nodes) { el.innerHTML = nodes.map((n,i)=>nodeEl(n)+(i<nodes.length-1?arrows(1):'')).join(''); }
+function renderStates(el, states) {
+  el.innerHTML = states.map(s=>`<div class="state-cell" data-id="${s.id}" style="--sc:${s.col}"><span class="s-name">${s.name}</span><span class="s-who">${s.who}</span></div>`).join('');
+}
+function renderZones(el, defs, activeIds) {
+  el.innerHTML = defs.map(z=>{
+    const rows = z.rows.map(r=>`<div class="item ${r.delta?'delta':''}">${r.delta?'<b>'+r.k+'</b>':''}<span class="k">${r.delta?'':r.k+': '}</span>${r.v}</div>`).join('');
+    return `<div class="zone" data-id="${z.id}" style="opacity:.5;transition:opacity .3s"><h4>${z.h}</h4><div class="z-list">${rows}</div></div>`;
+  }).join('');
+  (activeIds||[]).forEach(id=>{ const z=el.querySelector(`[data-id="${id}"]`); if(z) z.style.opacity=1; });
+}
+function buildDots(el, n, cur) { el.innerHTML = Array.from({length:n},(_,i)=>`<span class="dot-i ${i===cur?'on':''}" data-i="${i}"></span>`).join(''); }
+
+function makeRunner(flowId, statesId, steps, flowElId, statesElId, dotsElId, cntElId, titleElId, descElId, metaElId, prevId, nextId, playId, zonesElId, zonesDef) {
+  const flow = document.getElementById(flowElId);
+  const statesEl = statesId ? document.getElementById(statesElId) : null;
+  const dotsEl = document.getElementById(dotsElId);
+  const cntEl = document.getElementById(cntElId);
+  const titleEl = document.getElementById(titleElId);
+  const descEl = document.getElementById(descElId);
+  const metaEl = document.getElementById(metaElId);
+  const zonesEl = zonesElId ? document.getElementById(zonesElId) : null;
+  let cur = 0, timer = null;
+  renderFlow(flow, flowId);
+  if (statesEl) renderStates(statesEl, statesId);
+  if (zonesEl) renderZones(zonesEl, zonesDef, null);
+  function paint() {
+    const s = steps[cur];
+    document.querySelectorAll(`#${flowElId} .node`).forEach(n=>n.classList.remove('st-on'));
+    s.hl.forEach(id=>{ const n=flow.querySelector(`[data-id="${id}"]`); if(n) n.classList.add('st-on'); });
+    if (statesEl) statesEl.querySelectorAll('.state-cell').forEach(c=>c.classList.remove('on'));
+    (s.st||[]).forEach(id=>{ const c=statesEl&&statesEl.querySelector(`[data-id="${id}"]`); if(c) c.classList.add('on'); });
+    if (zonesEl) zonesEl.querySelectorAll('.zone').forEach(z=>z.style.opacity=.4);
+    (s.zones||[]).forEach(id=>{ const z=zonesEl&&zonesEl.querySelector(`[data-id="${id}"]`); if(z) z.style.opacity=1; });
+    titleEl.textContent = s.t;
+    descEl.innerHTML = s.d;
+    metaEl.textContent = s.m;
+    cntEl.textContent = `${cur+1} / ${steps.length}`;
+    buildDots(dotsEl, steps.length, cur);
+  }
+  function go(i){ cur = (i+steps.length)%steps.length; paint(); }
+  document.getElementById(prevId).onclick = ()=>{ go(cur-1); };
+  document.getElementById(nextId).onclick = ()=>{ go(cur+1); };
+  document.getElementById(playId).onclick = ()=>{
+    if (timer) { clearInterval(timer); timer=null; document.getElementById(playId).textContent='▶ Play'; return; }
+    timer = setInterval(()=>{ go(cur+1); if(cur===0){ clearInterval(timer); timer=null; document.getElementById(playId).textContent='▶ Play'; } }, 2200);
+    document.getElementById(playId).textContent='❚❚ Pause';
+  };
+  dotsEl.addEventListener('click', e=>{ const i=e.target.dataset.i; if(i!==undefined) go(+i); });
+  paint();
+}
+
+makeRunner(flow1, states1, steps1, 'flow1','states1','dots1','cnt1','s1-title','s1-desc','s1-meta','prev1','next1','play1', null, null);
+makeRunner(flow2, null, steps2, 'flow2', null, 'dots2','cnt2','s2-title','s2-desc','s2-meta','prev2','next2','play2', 'zones2', zones2def);
+renderZones(document.getElementById('zones3'), zones3, null);
+
+/* tabs */
+document.querySelectorAll('.tab-btn').forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById(b.dataset.tab).classList.add('active');
+  };
+});
+</script>
+</body>
+</html>

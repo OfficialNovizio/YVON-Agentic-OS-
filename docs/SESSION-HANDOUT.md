@@ -20,6 +20,13 @@ still owed to this handout.*
 findings, 1 gate bug). Read §12 first if resuming this thread; it has the exact fix + the
 still-open user decision blocking the cron-count finding.*
 
+*Addendum 2026-08-25: §13 added — the chat→task→generation track. Covers the Work Ladder
+design decisions, the Generations tab (`/generations`), the hand-port of Open-Generative-AI's
+model registry and Marketing Studio, the three `/api/muapi/*` server routes, and the browser
+harness that now gates this work. **Read §13.6 (open gaps) and §13.7 (verification method)
+before touching the generation surface** — §13.7 records the second occurrence of shipping a
+design as a product, and the traps that only a real browser catches.*
+
 > **This file is the durable memory of the project.** In-session task lists are ephemeral and
 > die with the session — anything that must survive lives here. It is written to be
 > **self-contained and exportable**: a fresh session, a different AI, or a human should be
@@ -46,6 +53,9 @@ still-open user decision blocking the cron-count finding.*
 | 9 | Corrections & known errors |
 | 10 | Known gaps (unchanged from before) |
 | 11 | Key files and commands |
+| 12 | Job Hunt module (2026-08-15) |
+| 13 | **Chat → Task → Generation (2026-08-22/25) — Generations tab + OGAI port** |
+| 14 | **Task surface v4 + demo chain (2026-08-24) — the artifact, built** |
 
 ---
 
@@ -145,11 +155,10 @@ keys, verify the :9119 Hermes API, metrics service, decommission Hostinger (§2)
    `/api/hermes/*` proxy (Foundry / Task Board / Office) now has a live backend. (The earlier
    M3 "done" was false — the API wasn't running; this is the real close.)
 
-3. **E2 — Backfill/close the legacy ledger.** `cli/task.sh validate` (now built, E1 done)
-   FAILS on **12 legacy records** (TS-001…013): `approved` with no `approved_by`, and TS-006/007
-   `done` with empty/self-asserting `exit_gate.proof`. Backfill these (or re-drive via task.sh)
-   so the ledger is honest **before** E3 wires `validate` into the deploy gate. This is now the
-   concrete next step — validate surfaces exactly which records and why.
+3. **E2 — Backfill/close the legacy ledger.** **DONE 2026-08-24** — `task.sh validate` is now
+   green on all records (TS-001..004 approved_by backfilled; TS-006/007 exit_gate converted to
+   parseable block form with their real proofs; TS-035 PRD-transcribed + approved). **E3 is now
+   unblocked**: wire `validate` into `verify-deploy.sh` as check 9 — the next P0.
 
 4. **E3 — wire `task.sh validate` into `verify-deploy.sh`** as the first blocking point — only
    after E2 (else every push blocks on the 12 legacy fails).
@@ -860,4 +869,349 @@ bash cli/quarantine.sh <name> <git|npm> <source>
 
 ---
 
+## 14. Task surface v4 + demo chain — 2026-08-24 (the "One Request, End to End" artifact, built)
+
+*Status: built, NOT yet verified in a browser or by `python3` — the sandbox VM was down all
+session (disk-full). Everything below is code-reviewed by inspection only. Verify with the
+commands in §14.4 before trusting it.*
+
+### 14.1 What this is
+
+The operator's ask: the task section of the **One Request, End to End** artifact
+(`onerequestendtoend.html`, uploaded to the session; the claude.ai URL is
+f6219d05-f9cf-4749-a210-f91488ca9806) was a design, not a build — a demo task still showed
+the pre-artifact v3 UI. This session implemented the artifact's task design for real and
+seeded the demo chain behind it.
+
+### 14.2 What shipped (all files real)
+
+**CLI / data model** (`cli/task.py`, `store/tasks/TEMPLATE.yaml` v3):
+- `review` state added to the machine: `draft → discovery → approved → executing → gated → review → done`
+- `blocked` SIDECAR (`block` / `unblock` commands) — status unchanged; a task can be blocked AND executing
+- `review` / `suite` commands (gated → review; suite pass → done / fail stays review); the **run record**
+  (`--run <path>`, must exist on disk) replaces prose `exit_gate.proof` — the self-assertion hole is closed
+  BY DESIGN (proof is a path), and the legacy prose blocklist is strengthened with phrase matching
+  (was exact-match only; `"I verified it works"` passed before)
+- `set-acceptance` — per-criterion status (`pass|fail|not_run|pending|deferred`) + evidence; flat-string
+  criteria (legacy) still parse
+- `set-roles` — doer / verifier / integrator per work item (doer defaults to owner)
+- `set-handoff` — the six-field packet (entry/contract/stubbed/needs_wiring/tokens/verified_on) + `handoff_emitted` event
+- `derived_from` (distinct link from `revision_of`) via `new --derived-from`; `superseded_by` auto-marked
+  on `new --revision-of` (forward-only rotation)
+- `updated_at` stamped on every transition/activity (staleness)
+- new events: `blocked`, `unblocked`, `review_opened`, `suite_failed`, `suite_passed`, `handoff_emitted`,
+  `revision_opened`, `criterion_deferred`, `superseded`
+- `list` emits everything; `validate` extended (blocked-reason/at, acceptance statuses, handoff fields, run proof)
+
+**API + UI** (`dashboard/`):
+- `app/api/task-spec/route.ts` — types extended (**fixes the live tsc error**: `designSessionId` was read
+  at 3 call sites and missing from `TaskSpecItem`)
+- `app/api/task-spec/[id]/command/route.ts` — NEW: block/unblock/review/note(criterion_deferred) via task.py
+- `lib/task-theme.ts` — review stage; `app/chat/TasksPanel.tsx` — blocked badge + review pill
+- `app/chat/TaskFocusView.tsx` — rebuilt to the artifact's task surface: status strip with age/staleness,
+  acceptance block with verdicts + evidence, handoff packet, artifacts, people (doer/verifier/integrator),
+  iconed history, provenance sidebar (prd/rice/revision_of/derived_from/superseded_by/last activity),
+  Block/Unblock/Open-review actions. The old linear stage-card row is gone.
+- `app/tasks/page.tsx` + `tasks.css` — NEW lineage board: by-request grouped (revision → attempt count,
+  derived → one-level nesting, blocked_by ordering) + All-records flat view; wired into Sidebar (Build),
+  TopBar ⌘K, and Shell's ADORA_ROUTE_PREFIXES
+- `lib/db/runs.ts` — NEW run-record store (read side; TS-045's produces)
+
+**Demo seed:**
+- `store/tasks/TS-042…TS-047.yaml` — the artifact's chain, timeline compressed to end 2026-08-24:
+  TS-042 (review, suite FAILED 3 of 4, superseded_by TS-043) · TS-043 (revision, done, 6-field handoff
+  packet) · TS-044 (derived, done, contract) · TS-045 (derived, review + **blocked sidecar** + 1 criterion
+  **deferred**) · TS-046 (derived, done, e2e) · TS-047 (derived from TS-045, draft — the deferral)
+- `store/tasks/TS-042/044/045/046-prd.md` — the PRDs (TS-043 inherits TS-042's)
+- `store/runs/run-{2617,2631,2644,2645,2646}.md` — the run records (the proofs)
+- `dashboard/scripts/seed-demo-flow.mjs` — idempotent: demo room + transcript messages + 6
+  `task.proposal.accepted` events (powers roomId linkage + Open in chat). Title-column fallback included.
+
+**Tests:** `cli/test_task.py` §11 (v3: 11a–11k) · `dashboard/tests/e2e/e2e-panel.spec.ts` (full, mocked
+API) · `dashboard/tests/e2e/task-flow.spec.ts` (smoke). **Both live in tests/e2e/ because
+playwright.config.ts's testDir is ./tests/e2e** — a spec in the tests/ root never runs (found the
+hard way: "No tests found"; the root-level copies are neutralized tombstones, delete when a
+terminal is available). TS-046's produces updated to the real path.
+
+### 14.3 How to view the demo
+
+1. `cd dashboard && npm run dev` (signed in) — task records are repo files, no DB needed for the Tasks panel or /tasks.
+2. `node scripts/seed-demo-flow.mjs` — once, for the demo chat room (Supabase service role key in .env.local).
+3. Open **History → "Demo · One request, end to end"** (the transcript) or the **Tasks dock** → TS-042…TS-047.
+   **Task Lineage** (`/tasks`, sidebar Build) shows the whole chain grouped by request.
+
+### 14.4 Verification commands
+
+```bash
+python3 cli/test_task.py                       # 97/97 PASS (verified by operator 2026-08-24)
+python3 cli/task.py validate                   # PASS (E2 backfill closed; verified 2026-08-24)
+cd dashboard && npx tsc --noEmit               # 0 errors (fixed to 0; re-verified after last shim fix)
+E2E_USERNAME=<username> E2E_PASSWORD=<...> npx playwright test tests/e2e/e2e-panel.spec.ts
+#   browser gate — the config's `setup` project signs in via the app's own
+#   password auth and saves tests/e2e/.auth/user.json (gitignored); later
+#   runs need no env vars until the stored session expires. The specs live in
+#   tests/e2e/ because testDir is ./tests/e2e — root-level specs never run.
+```
+
+### 14.5 First-run fixes (operator ran the tests 2026-08-24 evening)
+
+Five bugs in the new code, all fixed after the operator's first run:
+1. `superseded_by: null` was treated as a real value — `new --revision-of` / `supersede` /
+   `list` now treat `null` as unset.
+2. `set-acceptance` crashed: the indentation capture group was missing from the acceptance-key
+   regex (`IndexError: no such group`).
+3. `set-handoff` flags were snake_case (`--needs_wiring`) while the CLI/tests used kebab-case
+   (`--needs-wiring`) — flags now map kebab → field.
+4. `cli/test_task.py` §11 fixtures never set `work_items[].owner` / `exit_gate.owner`, so
+   suite/done/roles failed on records that were missing real records' required fields.
+5. Same owner gap for the §10 record used by 11b.
+
+**tsc --noEmit — fixed to 0 errors (2026-08-24 evening):** first run showed 23 errors. 2 were
+this build's (Provenance panel read `prdRef`/`riceScore` before they were declared on
+`TaskSpecItem` — declared in both TasksPanel.tsx and route.ts). 21 were pre-existing, in files
+this session never touched, from the 2026-08-22/25-era work: `stream/route.ts` forwards
+`tier:` into `HermesChatInput` which never declared it (declared now, hermes-client.ts);
+`types/supabase-ssr.d.ts` shim (NOT dormant despite its comment — ambient declarations win
+over installed types) was missing `refreshSession`, breaking page.tsx's quiet session recovery
+(added); `tests/caos-v2.test.ts` imported `./caos-v2`/`./pipeline` which don't exist under
+tests/ (fixed to `../lib/…` — the 16 implicit-any errors all cascaded from that).
+
+**E2 legacy ledger — CLOSED (2026-08-24):** `python3 cli/task.py validate` now fails on
+nothing. Backfilled: TS-001..004 `approved_by: operator` (approved_at not recorded — pre-history);
+TS-006/007 converted from unparseable inline-flow `exit_gate: {…}` to block form with their real
+proofs (verify-deploy.sh regression run; vercel-classify 5-log replay — both cited from each
+record's own feedback block); TS-035 `approved_by/approved_at` + `prd_ref` (`TS-035-prd.md`,
+transcribed from the record's own content) + `rice_score: "0"` (unranked). **E3 (wire validate
+into verify-deploy.sh) is now unblocked** — the next session's P0 per §2.
+
+### 14.6 Honest gaps (unchanged by this session)
+
+- The **session engine** (live ceiling gate, provider screening, probes, spend ledger — ORCHESTRATION §7)
+  is still unbuilt; the demo chat is a seeded transcript, not a live session.
+- `chat_rooms.title` has no migration (dashboard-side add) — seed script falls back gracefully.
+- `docs/MASTER.md` untouched this session (PART 6/8 state lists still say 6 states — update + re-run
+  `cli/toc.py` in a later session; the handout rule says never hand-edit MASTER without regenerating the index).
+
+---
+
 *End of handout. This file is the persistent backlog — update it before ending any session.*
+
+---
+
+## 13. Chat → Task → Generation — 2026-08-22/25 sessions (Generations tab + OGAI port)
+
+*Written as a standalone brief. A fresh session should be able to read only this section and
+resume the generation track without re-deriving anything. Everything here was verified in a
+browser, not by reading compiled CSS — see §13.7 for why that distinction is load-bearing.*
+
+### 13.1 What this track is for
+
+Two surfaces that were previously only designed, now partly built:
+
+1. **The Work Ladder** — the chat→task→delivery model. Spec at `docs/ORCHESTRATION.md`.
+2. **The Generations tab** (`/generations`) — the asset surface where every image/video the
+   system produces lands, addressable by `request_id`, scoped per-session **and** globally.
+
+The connective idea: a chat conversation reaches a *gate*, the gate produces an approved spec,
+the spec becomes a task, and any media that task needs is generated in `/generations` and
+referred back into the chat by id. The hard spend ceiling is a **quality gate, not a budget
+line** — its purpose is to make an under-specified prompt fail loudly before it is paid for
+five times.
+
+### 13.2 Design artifacts published (claude.ai) — read these before redesigning anything
+
+| Artifact | Covers | URL |
+|---|---|---|
+| The Work Ladder | orchestration model, ladder vs. flat tasks | `https://claude.ai/code/artifact/fdb57400-bd72-49fc-9576-e2b290ef5b60` |
+| Fifty Cents | the hard-ceiling mechanic as a quality gate | `https://claude.ai/code/artifact/e78286c4-aa89-4c60-8cdb-d87a15efee79` |
+| Three Scroll Directions | chat / task / library scroll axes | `https://claude.ai/code/artifact/95524fc0-6012-47e5-8ad6-ae5fcc1b2efa` |
+| The Task Surface | what a task shows, who reviews, who integrates | `https://claude.ai/code/artifact/e0913f86-c9ec-453b-888c-0efe12db79dc` |
+| One Request, End to End | full chat→task→delivery walkthrough | `https://claude.ai/code/artifact/f6219d05-f9cf-4749-a210-f91488ca9806` |
+| Two Prompts, One Image | the A/B (json vs prose) mechanic | `https://claude.ai/code/artifact/c66953f5-9a7e-43aa-85f5-a5661c24dba2` |
+
+**Decisions settled in those artifacts** (do not relitigate without cause):
+
+- **Sub-tasks inherit inside the parent task.** Five sibling tasks all contributing to one
+  piece of work was the rejected shape — it does not scale past a handful of tasks.
+- **Review = the owning team runs the browser suite.** A bug does not open a new task; it
+  *rotates the existing one* back a rung on the ladder.
+- **Integration = the whole engineering team**, not a designated integrator.
+- **A/B means one JSON-shaped prompt vs one prose prompt of the same intent**, run as two
+  separate requests. It is not "which looks prettier" — it asks whether the spec is tight
+  enough that wording does not change the result. No seed, no fps: seeds were dropped because
+  the models in the default roster do not expose one, which is a real limit on what A/B proves
+  and is stated in the UI.
+
+### 13.3 Open-Generative-AI — what was taken, what was deliberately left
+
+Upstream: `https://github.com/Anil-matcha/Open-Generative-AI.git`, cloned to `/tmp/ogai` in
+session (**not vendored into the repo** — verified: OGAI is *not* installed as a dependency or
+submodule, and should not be). It is a **MuAPI.ai client**. Useful parts were ported by hand.
+
+**Ported:**
+
+| From | To | Notes |
+|---|---|---|
+| `packages/studio/src/models.js` | `dashboard/lib/generation-models.ts` | 439 models, 8 categories, real per-model aspect / quality / duration |
+| `components/MarketingStudio.jsx` | `dashboard/app/generations/MarketingComposer.tsx` | full composer, see §13.5 |
+| `MarketingStudio.jsx` `ASSETS`/`OPTIONS` | `dashboard/lib/marketing-presets.ts` | verbatim ids + CDN urls |
+| `muapi.js` `uploadFile` / `estimateV2VCost` / `generateMarketingStudioAd` | `dashboard/app/api/muapi/*` | moved server-side |
+
+**Deliberately NOT ported — each of these is a hazard. Do not reintroduce them:**
+
+1. **Site-wide CSP middleware** — would apply to every route in our app, not just theirs.
+2. **Unscoped `* { margin: 0 }` reset** — would leak into every other page.
+3. **Shared axios interceptor** that attaches `x-api-key` — it fires on *relative* URLs too,
+   so the MuAPI key leaks to our own endpoints.
+4. **Non-HttpOnly `muapi_key` cookie** — the key is readable by any script on the page.
+5. **Unnamespaced `localStorage["token"]`** (in their Design Agent) — collides with ours.
+6. **`window.location.reload()` on tab change** — throws away all in-flight state.
+7. **30-minute in-tab polling** (900 attempts × 2s). A refresh loses the job *and the money*.
+   Ours submits and returns the `request_id`; see the gap in §13.6.
+
+### 13.4 The Generations tab — current shape
+
+Files:
+
+```
+dashboard/app/generations/page.tsx            the surface (library + generic composer)
+dashboard/app/generations/MarketingComposer.tsx
+dashboard/app/generations/generations.css     all styles, scoped to .gen-shell
+dashboard/lib/generation-models.ts            the 439-model registry
+dashboard/lib/marketing-presets.ts            marketing avatars / motion templates
+dashboard/app/api/generations/route.ts        the library read  ← currently 401s, see §13.6
+dashboard/app/api/muapi/_shared.ts            key handling, one place
+dashboard/app/api/muapi/upload/route.ts       multipart → MuAPI upload_file
+dashboard/app/api/muapi/estimate/route.ts     POST models/{id}/estimate-cost
+dashboard/app/api/muapi/marketing/route.ts    submit the ad, return request_id
+dashboard/tests/generations.spec.ts           browser gate
+dashboard/tests/marketing.spec.ts             browser gate for the marketing composer
+```
+
+**Sidebar / TopBar wiring** (three files must agree, they are not derived from each other):
+
+- `components/Sidebar.tsx` → `Build` section, `{ label: 'Generations', href: '/generations',
+  icon: 'auto_awesome' }`. **Icon is a Material Symbols Outlined ligature, not a lucide
+  component** — the sidebar and the page use different icon systems.
+- `components/TopBar.tsx` → has its **own duplicated `ALL_PAGES` list** for ⌘K. Adding a route
+  to the sidebar does not add it to ⌘K. Both must be edited.
+- `components/Shell.tsx` → `ADORA_ROUTE_PREFIXES = ['/chat', '/generations']`.
+
+**THE LAYOUT CONTRACT — this caused a shipped bug, it is now a comment in `page.tsx`:**
+
+> Shell renders `<main className="flex-1 overflow-hidden">` and hands full-bleed pages a plain
+> `height:100%` div. The page is therefore a normal `height:100%` flex column. It must **NEVER**
+> be `position:absolute; inset:0` — that escapes to the viewport and paints over the sidebar
+> and collides with the TopBar. Use `useShellFullBleed()` → `setFullBleed(true)`.
+
+**Studios.** `STUDIOS` in `generation-models.ts` — **7 entries, all active**: Image, Video,
+Cinema, Audio, Lip Sync, Body Swap, Marketing. `Studio` has **no `available` flag any more**;
+five studios that had nothing behind them (AI Clipping, Vibe Motion, Workflows, Agents, Design
+Agent) were removed rather than shown greyed out, with a comment block in the file recording
+each one's reason. `modelsForStudio()` honours an optional `only: string[]` allow-list.
+
+**Design tokens are duplicated in four places** and must be kept in sync by hand:
+`app/adora.css`, `tailwind.config.ts` (`adora.*`), `chat/chat.css` (`--chat-*`),
+`chat/caos-panel.css` (`--paper/--hair/--vio`). `generations.css` defines its own `--g-*`
+layer that *falls back* to the adora vars, so it degrades rather than breaking if they move.
+
+### 13.5 Marketing Studio — the shape, and the mistake that produced the wrong one
+
+**The mistake, recorded so it is not repeated:** the first Marketing implementation was derived
+from the *signature* of `generateMarketingStudioAd()` — `{prompt, aspect_ratio, duration,
+images_list, video_files}` — without opening `MarketingStudio.jsx`. That signature reads like a
+video model, so it shipped as "the video composer with a 2-model roster". It had no way to
+populate `images_list` or `video_files` at all, so it could not have generated anything. **Read
+the component, not the function signature.**
+
+**The actual shape:**
+
+- **No model dropdown.** Resolution picks the endpoint:
+  `720p → seedance-2-vip-omni-reference`, `1080p → seedance-2-vip-omni-reference-1080p`.
+  The resolution popover shows which endpoint each choice selects.
+- **Three typed upload slots — Product (required), Avatar, References (max 6).** Their order
+  **is** `images_list`, which is what `@image1` / `@image2` in the script refer to. A missing
+  avatar collapses the list rather than leaving a hole. Reference chips are labelled
+  `@image3`, `@image4`, … so the numbering is visible.
+- **Video format presets** — six motion templates (UGC, Tutorial, Unboxing, Hyper Motion,
+  Product Review, TV Spot). These are **not decoration**: the chosen url is sent as
+  `video_files: [url]` and is what the endpoint conditions the motion on.
+- **Avatar presets** — eight reference faces, upstream's ids preserved.
+- Ratio (5, default `9:16`), duration (4–15s, default 5), **Launch** — not Generate.
+- Placeholder: `Describe your ad script… Use @image1 for product, @image2 for avatar.`
+
+**Our changes from upstream:** uploads go through `/api/muapi/upload` so no key reaches the
+browser; `localStorage` is namespaced `yvon.marketing.v1` and stores only text/urls; `alert()`
+became an inline error line; cyan `#22d3ee` became Adora violet.
+
+**Preset media is hotlinked** from `https://d3adwkbyhxyrtq.cloudfront.net/web-app/`. That host
+is **blocked from the cloud build container** (403 at the proxy) but resolves fine in a real
+browser — same call as `PROVIDER_LOGOS`. Every tile has an `onError` fallback to a labelled,
+still-selectable plate, because a preset is valid whether or not we could show a picture of it.
+
+### 13.6 Open gaps — the honest list
+
+| # | Gap | Where | Consequence if ignored |
+|---|---|---|---|
+| 1 | `generations` + `design_sessions` tables **do not exist** | Supabase | `/api/generations` 401s; the library is always empty |
+| 2 | Supabase auth **cookie names were guessed** (`sb-access-token`, `supabase-auth-token`) | `app/api/generations/route.ts` | may be the real cause of the 401, independent of #1 |
+| 3 | **No durable job store** | `app/api/muapi/marketing/route.ts` has the `TODO` | a submitted job's `request_id` is returned but never persisted — a refresh loses a paid 30-min video |
+| 4 | `MUAPI_KEY` not set | `.env.local` | all three `/api/muapi/*` routes return **503** with that exact message |
+| 5 | The **generic** composer's Generate is still disabled | `page.tsx`, `const estimate = null` | only Marketing has a wired estimate; the other studios never got one |
+| 6 | `tsc --noEmit` has **never** been run against the real `@/components/Shell` types | — | the browser harness shims Shell, so a type error there would not have been caught |
+
+Item 3 is the one that costs money. Do it before shipping Marketing to anyone.
+
+### 13.7 How this work is verified — and why the method matters
+
+**A design was once shipped as a product here.** A React component with no handlers, no model
+registry, and no picker was delivered as done, having been "verified" by reading the compiled
+CSS. It also carried `position:absolute; inset:0`, which ate the sidebar. Nothing was ever
+opened in a browser. §5.1 of this handout already says a browser gate "is precisely the tool
+that would have caught this session's failure" — this is the second time that sentence applied.
+
+**The harness that now guards it** (recreate it if a fresh session needs one — it is throwaway,
+it lives in `/tmp/harness`, not the repo):
+
+1. `esbuild` bundles the **real** `page.tsx` with shims for `@/components/Shell`,
+   `next/navigation`, `@/lib/*` — no mock of the component under test.
+2. A tiny static server + Playwright clicks **every control**.
+3. Assertions are on behaviour (`this popover opened`, `this payload was posted`), never on
+   "the class is present".
+
+Current: **27 tests** on the generic surface, **18** on Marketing, zero console errors. The
+repo-resident equivalents are `tests/generations.spec.ts` and `tests/marketing.spec.ts`, which
+run against `npm run dev`.
+
+**Traps the harness caught that a code read did not:**
+
+- **`.gen-ctls` is `overflow-x: auto` — a clipping context.** A popover rendered *inside* it is
+  cut off and the visible remnant falls behind `.gen-canvas`, so clicks land on the canvas.
+  Every popover must be a child of the bar (`position: relative`), never of the control row.
+  This is exactly how the generic composer was already built; the Marketing port broke it and
+  the test found it.
+- **Headless Chromium has no H.264 decoder.** `<video src="…mp4">` fails with
+  `MediaError.code 4`, which looks identical to a broken component. Serve **webm** in tests, or
+  you will "fix" a bug that does not exist. Confirmed working with webm:
+  `readyState 4, paused false, 240×320`.
+- **Playwright gives precedence to the LAST registered route.** A specific `route()` must be
+  registered *after* the general one or it never fires.
+- **A stubbed asset can trip the very fallback you are testing.** The "these tiles are videos"
+  assertion silently began testing the fallback plate once the CDN stub returned a GIF.
+- **Toy static servers must read the file before `writeHead`.** `writeHead(200)` then a
+  throwing `readFileSync` then `writeHead(404)` in the catch → `ERR_HTTP_HEADERS_SENT`, which
+  kills the server mid-suite and looks like a test hang.
+
+**A recurring CSS bug, hit three separate times in the design artifacts:** a generic class
+name (`.gate`, `.gen`) used for a *layout block* also matched a *modifier* on small chips
+(`.bt.gate`, `.bt.gen`), turning buttons into 600px black boxes. Namespace modifiers.
+
+### 13.8 Exact next steps on resume
+
+1. **Supabase migration** for `generations` + `design_sessions` (gap #1). Then fix the guessed
+   cookie names (#2) and confirm `/api/generations` returns 200.
+2. **Persist the job** in `app/api/muapi/marketing/route.ts` where the `TODO(quinn)` is — insert
+   the row with `request_id`, endpoint, estimate, and status, so a refresh survives (#3).
+3. Wire `estimate-cost` for the **generic** composer the way Marketing does (#5).
+4. Run `npx tsc --noEmit` in `dashboard/` — it has genuinely never been run against these files.
+5. Run both browser specs against `npm run dev` with `MUAPI_KEY` set.

@@ -85,6 +85,7 @@ exit_gate:
   owner: quinn
   proof: apple_full_page.png (real Chromium render) + impeccable 0 findings + tsc clean
 
+approved_by: operator   # E2 backfill 2026-08-24 — pre-history record, operator-directed; approved_at not recorded
 feedback:
   outcome: gated             # exit gate PASSED — awaiting operator accept
   proof: dashboard/tests/e2e/__screenshots__/apple_full_page.png (HTTP 200) · impeccable 0 findings · tsc 0 errors

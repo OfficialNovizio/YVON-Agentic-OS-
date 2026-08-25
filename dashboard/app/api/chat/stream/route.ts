@@ -82,9 +82,23 @@ export async function GET(request: Request): Promise<Response> {
 
   const { data: room } = await supabase
     .from('chat_rooms')
-    .select('kind, department')
+    .select('kind, department, execution_unlocked_at, execution_task_id')
     .eq('id', userMsg.room_id)
     .single()
+
+  // Safety gate (2026-08-21, concern #5): a room only gets real repo/tool
+  // access once its discussion has been explicitly converted into an
+  // approved task — flipped by /api/chat/task-proposal 'accept' or
+  // /api/chat/prd-proposal 'convert' (see chat_rooms_execution_gate
+  // migration). Until then this stays discussion-only: repoUrl/repoGithubPat
+  // are withheld below regardless of what the venture has configured, so
+  // Hermes has no checkout to steer terminal/code_execution tools into.
+  const executionUnlocked = !!(room as { execution_unlocked_at?: string | null } | null)?.execution_unlocked_at
+  // FIX (2026-08-21, concern #1): forwarded to Hermes so real CAOS
+  // retrieval/gates (main.py's _run_rag_pipeline_sync) can pass a
+  // recognized department to rag/core/plan_lock.py's Rail-1 check —
+  // undefined for department-less rooms (Workforce/whole_team, a thread).
+  const roomDepartment = (room as { department?: string | null } | null)?.department ?? undefined
   const cookieStore = await cookies()
   // Real ventures from the DB — no hardcoded sub-brands (TS-026). Also pulls
   // repo_url so the active venture's linked repo resolves without a second query.
@@ -115,6 +129,13 @@ export async function GET(request: Request): Promise<Response> {
   // Supabase, nothing to configure on the VPS. Only fetched when there's
   // actually a repo to clone.
   const repoGithubPat = repoUrl ? ((await getVentureGithubPatBySlug(workspace)) ?? undefined) : undefined
+
+  // Gated versions actually forwarded to Hermes (see executionUnlocked above)
+  // — repoUrl/repoGithubPat themselves stay ungated so the rest of this
+  // route (e.g. the repo-links-shown logic below) still knows what the
+  // venture has configured; only what reaches Hermes is restricted.
+  const hermesRepoUrl = executionUnlocked ? repoUrl : undefined
+  const hermesRepoGithubPat = executionUnlocked ? repoGithubPat : undefined
 
   const cfg = hermesConfig()
   if (!cfg.configured) {
@@ -332,6 +353,20 @@ export async function GET(request: Request): Promise<Response> {
           // (that one's trigger-heading parsing never matches real files).
           const { prompt, disclosure } = await skillDisclosureFor(effectiveAgentId, content)
           agentContext = prompt ?? undefined
+          // Concern #5: tool access is withheld below (hermesRepoUrl), but
+          // the agent itself still needs to know NOT to promise/describe
+          // work as already done — tell it plainly so it discusses and
+          // proposes instead of narrating actions it can't actually take.
+          if (repoUrl && !executionUnlocked) {
+            const lockNotice =
+              'NOTE: this chat has not been converted into an approved task yet, so ' +
+              'you do NOT have file/terminal/repo access this turn. Discuss the ' +
+              'request, ask clarifying questions, and propose a plan in words only ' +
+              '— never claim to have made, committed, or run anything. If real work ' +
+              'is warranted, tell the user to approve this as a task (or click the ' +
+              'task-proposal prompt) before any code changes can happen.'
+            agentContext = agentContext ? `${agentContext}\n\n${lockNotice}` : lockNotice
+          }
           if (disclosure) {
             controller.enqueue(
               encoder.encode(
@@ -419,6 +454,24 @@ export async function GET(request: Request): Promise<Response> {
           // observability never breaks the send
         }
 
+        // Concern #5: tell the user plainly, in the live event feed, that
+        // this turn is discussion-only — not a silent restriction. Only
+        // fires when there's actually a repo that WOULD have been forwarded
+        // if this room were unlocked, so a venture with no repo configured
+        // (nothing to gate) stays quiet.
+        if (repoUrl && !executionUnlocked) {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                kind: 'notice',
+                level: 'info',
+                message: 'Discussion only — this chat has no repo/file access yet. Approve it as a task to let an agent actually make changes.',
+                correlation: turnCorrelation,
+              })}\n\n`,
+            ),
+          )
+        }
+
         // Safety net: normally userMsg.correlation is already set (send/route.ts
         // sets it at insert time), so this is a no-op. Only fires for rows that
         // predate that fix or if send's write somehow failed.
@@ -446,11 +499,16 @@ export async function GET(request: Request): Promise<Response> {
             roomId: userMsg.room_id,
             workspace,
             mentions,
+            department: roomDepartment,
+            // FIX (2026-08-22, cost teardown Cause 01): forward the tier we
+            // already computed so Hermes can cap its tool loop per tier
+            // instead of giving every turn a 30-iteration budget.
+            tier: analysis.tier,
             agentContext,
             ventureContext,
             inputAnalysis: inputAnalysis ?? undefined,
-            repoUrl,
-            repoGithubPat,
+            repoUrl: hermesRepoUrl,
+            repoGithubPat: hermesRepoGithubPat,
             // TS-018 WI-2 fix (2026-08-11): forward the dashboard's turn
             // correlation so Hermes reuses it instead of minting its own
             // (main.py used to always uuid4() a fresh one, completely
@@ -476,7 +534,12 @@ export async function GET(request: Request): Promise<Response> {
             // migration chat_rooms_repo_links_shown_at), not every turn that
             // touches the repo — a long work session shouldn't repeat the
             // same two links every message.
-            if (event.repoChanged && repoUrl) {
+            // hermesRepoUrl (not repoUrl) — repoChanged can only be true if
+            // Hermes actually had repo access this turn, i.e. the room was
+            // unlocked; guarding on the gated value keeps that explicit
+            // rather than relying on Hermes never touching a repo it wasn't
+            // given.
+            if (event.repoChanged && hermesRepoUrl) {
               try {
                 const { data: roomFlag } = await supabase
                   .from('chat_rooms')

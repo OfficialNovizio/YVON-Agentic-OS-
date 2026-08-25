@@ -227,6 +227,167 @@ def main() -> int:
         entry_fresh = next(t for t in listed if t["id"] == tid)
         check("list exposes empty designTool for a non-design task, not a guess", entry_fresh["designTool"] == "", entry_fresh)
 
+        # ── 11. v3 (2026-08-24, "One Request, End to End"): blocked sidecar,
+        #       review state, suite run records, acceptance statuses, roles,
+        #       handoff packet, derived_from, superseded_by ──────────────────
+        def drive_to(tid_n: str, lead: str = "dev") -> None:
+            """fill lead + decisions + owner + exit-gate owner, set-prd,
+            discover, approve, start — a realistic record all the way to executing."""
+            p = scratch / f"{tid_n}.yaml"
+            t = p.read_text()
+            t = re.sub(r'(classification:\n[ \t]*task_type:[ \t]*"[^"]*"\n[ \t]*departments:[ \t]*\[\]\n[ \t]*lead:)[ \t]*""',
+                      rf'\1 "{lead}"', t, count=1)
+            t = t.replace("  questions: []\n  decisions: []",
+                          "  questions: []\n  decisions:\n    - \"test decision\"")
+            t = re.sub(r'^([ \t]*)owner:[ \t]*""[ \t]*$', rf'\1owner: "{lead}"', t, count=1, flags=re.M)
+            t = t.replace('exit_gate:\n  owner: ""\n  proof: ""', 'exit_gate:\n  owner: "quinn"\n  proof: ""')
+            p.write_text(t)
+            prd = scratch / f"{tid_n}-prd.md"
+            prd.write_text("# PRD — test\n")
+            r = run(scratch, "set-prd", tid_n, "--ref", str(prd), "--rice", "1.0", "--actor", "spec")
+            assert r.returncode == 0, r.stderr
+            r = run(scratch, "discover", tid_n)
+            assert r.returncode == 0, r.stderr
+            r = run(scratch, "approve", tid_n, "--by", "operator")
+            assert r.returncode == 0, r.stderr
+            r = run(scratch, "start", tid_n)
+            assert r.returncode == 0, r.stderr
+
+        # 11a. blocked sidecar — status unchanged
+        r = run(scratch, "block", tid2, "--reason", "OPENAI_API_KEY unset — screenshot-to-code has no key")
+        check("block succeeds on an executing record", r.returncode == 0, r.stderr)
+        t2b = rec2.read_text()
+        check("block writes blocked: true", "blocked: true" in t2b)
+        check("block writes blocked_reason", "OPENAI_API_KEY unset" in t2b)
+        check("block appends a blocked history entry", "blocked" in t2b and "unblocked" not in t2b)
+        r = run(scratch, "block", tid2, "--reason", "again")
+        check("block refuses to double-block", r.returncode != 0)
+        listed = json.loads(run(scratch, "list").stdout)
+        e2 = next(t for t in listed if t["id"] == tid2)
+        check("blocked sidecar does not change status (still executing)", e2["status"] == "executing" and e2["blocked"] is True, e2)
+        check("list exposes blockedReason", e2["blockedReason"] == "OPENAI_API_KEY unset — screenshot-to-code has no key", e2)
+        r = run(scratch, "unblock", tid2)
+        check("unblock succeeds", r.returncode == 0, r.stderr)
+        check("unblock clears the sidecar", "blocked: false" in rec2.read_text())
+        check("unblock appends an unblocked history entry", "unblocked" in rec2.read_text())
+        r = run(scratch, "unblock", tid2)
+        check("unblock refuses when not blocked", r.returncode != 0)
+
+        # 11b. gate → review → suite pass (run record replaces prose proof)
+        # tid2 came from the §10 chain (not drive_to) — give it a real
+        # exit-gate owner like every record that reaches gated has.
+        t2b = rec2.read_text()
+        t2b = t2b.replace('exit_gate:\n  owner: ""\n  proof: ""', 'exit_gate:\n  owner: "quinn"\n  proof: ""')
+        rec2.write_text(t2b)
+        r = run(scratch, "gate", tid2)
+        check("gate reaches gated", r.returncode == 0, r.stderr)
+        r = run(scratch, "review", tid2, "--runner", "quinn")
+        check("review opens from gated", r.returncode == 0, r.stderr)
+        check("review writes review_opened history", "review_opened" in rec2.read_text())
+        r = run(scratch, "suite", tid2, "--result", "pass", "--run", "store/runs/run-9999.md")
+        check("suite pass requires a run file on disk", r.returncode != 0)
+        runpath = scratch / "run-9999.md"
+        runpath.write_text("# Run record · run-9999\n- result: PASS\n")
+        r = run(scratch, "suite", tid2, "--result", "pass", "--run", str(runpath))
+        check("suite pass closes the task", r.returncode == 0, r.stderr)
+        t2c = rec2.read_text()
+        check("suite pass writes run_ref", "run-9999" in t2c)
+        check("suite pass appends suite_passed history", "suite_passed" in t2c)
+        check("suite pass sets status done", "status: done" in t2c)
+
+        # 11c. suite fail stays in review
+        r = run(scratch, "new", "test: suite fail path")
+        tid3c = re.search(r"TS-\d+", r.stdout).group(0)
+        drive_to(tid3c)
+        r = run(scratch, "gate", tid3c)
+        assert r.returncode == 0, r.stderr
+        r = run(scratch, "review", tid3c, "--runner", "quinn")
+        assert r.returncode == 0, r.stderr
+        r = run(scratch, "suite", tid3c, "--result", "fail", "--run", str(runpath), "--detail", "1 of 4 assertions")
+        check("suite fail stays in review", r.returncode == 0 and "status: review" in (scratch / f"{tid3c}.yaml").read_text(), r.stderr)
+        check("suite fail appends suite_failed history", "suite_failed" in (scratch / f"{tid3c}.yaml").read_text())
+
+        # 11d. rotation: new --revision-of marks the parent superseded
+        r = run(scratch, "new", "test: revision", "--revision-of", tid3c)
+        tid4 = re.search(r"TS-\d+", r.stdout).group(0)
+        parent_text = (scratch / f"{tid3c}.yaml").read_text()
+        check("revision marks the parent superseded_by", f"superseded_by: {tid4}" in parent_text)
+        check("revision appends superseded history on the parent", "superseded" in parent_text)
+        check("revision record carries revision_of", f"revision_of: {tid3c}" in (scratch / f"{tid4}.yaml").read_text())
+        check("revision record appends revision_opened history", "revision_opened" in (scratch / f"{tid4}.yaml").read_text())
+
+        # 11e. derived_from — distinct link, no parent mutation
+        r = run(scratch, "new", "test: derived", "--derived-from", tid3c)
+        tid5 = re.search(r"TS-\d+", r.stdout).group(0)
+        check("derived record carries derived_from", f"derived_from: {tid3c}" in (scratch / f"{tid5}.yaml").read_text())
+        check("derived record has no superseded_by", "superseded_by: null" in (scratch / f"{tid5}.yaml").read_text())
+        listed = json.loads(run(scratch, "list").stdout)
+        e5 = next(t for t in listed if t["id"] == tid5)
+        check("list exposes derivedFrom", e5["derivedFrom"] == tid3c, e5)
+
+        # 11f. acceptance statuses + evidence
+        drive_to(tid5, lead="quinn")
+        r = run(scratch, "set-acceptance", tid5, "--wi", "WI-1", "--i", "0", "--status", "fail",
+                "--evidence", "FAIL — Enter on .caos2-head did not expand")
+        check("set-acceptance succeeds on an object-form criterion", r.returncode == 0, r.stderr)
+        listed = json.loads(run(scratch, "list").stdout)
+        e5b = next(t for t in listed if t["id"] == tid5)
+        acc0 = e5b["workItems"][0]["acceptance"][0]
+        check("list exposes acceptance status", acc0["status"] == "fail", acc0)
+        check("list exposes acceptance evidence", "caos2-head" in acc0["evidence"], acc0)
+        r = run(scratch, "set-acceptance", tid5, "--wi", "WI-1", "--i", "0", "--status", "bogus")
+        check("set-acceptance rejects an unknown status", r.returncode != 0)
+        r = run(scratch, "set-acceptance", tid5, "--wi", "WI-9", "--i", "0", "--status", "pass")
+        check("set-acceptance rejects an unknown work item", r.returncode != 0)
+
+        # 11g. roles — doer defaults to owner, verifier/integrator explicit
+        r = run(scratch, "set-roles", tid5, "--wi", "WI-1", "--verifier", "quinn", "--integrator", "engineering")
+        check("set-roles succeeds with explicit verifier+integrator", r.returncode == 0, r.stderr)
+        listed = json.loads(run(scratch, "list").stdout)
+        e5c = next(t for t in listed if t["id"] == tid5)
+        wi = e5c["workItems"][0]
+        check("doer defaults to the owner", wi["doer"] == "quinn", wi)
+        check("verifier set explicitly", wi["verifier"] == "quinn", wi)
+        check("integrator set explicitly", wi["integrator"] == "engineering", wi)
+
+        # 11h. handoff packet — all six fields, one command
+        r = run(scratch, "set-handoff", tid5, "--entry", "dashboard/app/chat/CaosPanel.tsx",
+                "--contract", "TaskSpecItem from /api/task-spec",
+                "--stubbed", "preview HTML has no live deployment",
+                "--needs-wiring", "no polling",
+                "--tokens", "Adora — violet #592eff",
+                "--verified-on", "chromium 1300×1000, light + dark")
+        check("set-handoff succeeds with all six fields", r.returncode == 0, r.stderr)
+        check("set-handoff writes the packet", "handoff:" in (scratch / f"{tid5}.yaml").read_text())
+        check("set-handoff appends handoff_emitted history", "handoff_emitted" in (scratch / f"{tid5}.yaml").read_text())
+        r = run(scratch, "set-handoff", tid5, "--entry", "x")
+        check("set-handoff refuses missing fields", r.returncode != 0)
+        listed = json.loads(run(scratch, "list").stdout)
+        e5d = next(t for t in listed if t["id"] == tid5)
+        check("list exposes handoff.entry", e5d["handoff"].get("entry") == "dashboard/app/chat/CaosPanel.tsx", e5d["handoff"])
+        check("list exposes handoff.verified_on", "chromium 1300×1000" in e5d["handoff"].get("verified_on", ""), e5d["handoff"])
+
+        # 11i. self-assertion hole (v2 bug: exact-match blocklist) — closed
+        drive_to(tid4, lead="dev")
+        r = run(scratch, "gate", tid4)
+        assert r.returncode == 0, r.stderr
+        r = run(scratch, "done", tid4, "--proof", "I verified it works")
+        check("done rejects the exact anti-pattern from MASTER §8.2", r.returncode != 0)
+        r = run(scratch, "done", tid4, "--proof", "it works")
+        check("done rejects a phrase-level self-assertion", r.returncode != 0)
+        r = run(scratch, "done", tid4, "--run-ref", str(runpath))
+        check("done --run-ref closes with the run record as proof", r.returncode == 0, r.stderr)
+        check("done --run-ref writes the run path as exit proof", "run-9999" in (scratch / f"{tid4}.yaml").read_text())
+
+        # 11j. updated_at stamped on transitions
+        listed = json.loads(run(scratch, "list").stdout)
+        e2d = next(t for t in listed if t["id"] == tid2)
+        check("list exposes updatedAt after transitions", bool(e2d.get("updatedAt")), e2d)
+
+        # 11k. validate stays green across the v3 surface
+        r = run(scratch, "validate")
+        check("validate PASSes the whole v3 scratch set", r.returncode == 0, r.stdout + r.stderr)
+
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 

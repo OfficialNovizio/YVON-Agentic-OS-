@@ -71,8 +71,11 @@ work_items:
       - "Fleet lesson pushed: 'external verification signals must be internalized — see cli/deploy.sh'"
 
 dag: { critical_path: [WI-1, WI-2, WI-3, WI-4] }
-exit_gate: { owner: quinn, proof: "classifier matches all 5 real deploy-failure logs" }
+exit_gate:
+  owner: quinn
+  proof: "cli/vercel-classify.sh: 7 known classes; regression test replayed all 5 real Vercel failure logs (deploys #1-#5) — 4 classified first pass, 1 after Next-15-format pattern; cli/vercel-watch.sh polls via vercel CLI; cli/deploy.sh wires gate → push → watch"
 
+approved_by: operator   # E2 backfill 2026-08-24 — pre-history record, operator-directed; approved_at not recorded
 feedback:
   outcome: done
   proof: >

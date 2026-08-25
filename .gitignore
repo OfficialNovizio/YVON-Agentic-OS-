@@ -87,3 +87,7 @@ store/design-sessions/*-handoff.md
 !store/design-sessions/pricing.example.json
 !store/design-sessions/curated-references.json
 !store/design-sessions/README.md
+
+# MemPalace per-project files (issue #185)
+mempalace.yaml
+entities.json
