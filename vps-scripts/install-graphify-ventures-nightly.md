@@ -24,9 +24,14 @@ anything.
 #    VPS keeps it fresh automatically).
 scp vps-scripts/graphify-ventures-nightly.sh root@169.58.107.148:/root/YVON-Agentic-OS-/vps-scripts/
 
-# 2. Install the cron (on the VPS, as root — same style as the existing
-#    graphify-cron.sh entry). 03:15 UTC every day.
+# 2. Create the log dir BEFORE anything references it (the shell opens the
+#    redirect before the script's own mkdir runs — without this, the first
+#    launch dies with "No such file or directory").
 ssh root@169.58.107.148
+mkdir -p /var/log/yvon-venture-nightly
+
+# 3. Install the cron (on the VPS, as root — same style as the existing
+#    graphify-cron.sh entry). 03:15 UTC every day.
 crontab -e
 # add:
 15 3 * * * /bin/bash /root/YVON-Agentic-OS-/vps-scripts/graphify-ventures-nightly.sh >> /var/log/yvon-venture-nightly/cron.log 2>&1
