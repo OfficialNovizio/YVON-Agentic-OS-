@@ -40,7 +40,7 @@ export const adzunaSource: JobSource = {
   id: 'adzuna',
   label: 'Adzuna',
   needsKey: true,
-  async search({ query, location, industry, province, limit = 25, config }: SourceSearchOptions): Promise<NormalizedJob[]> {
+  async search({ query, location, industry, province, limit = 25, config, page = 1 }: SourceSearchOptions): Promise<NormalizedJob[]> {
     const appId = config?.app_id as string | undefined
     const appKey = config?.app_key as string | undefined
     if (!appId || !appKey) return [] // not configured — silent no-op, not an error
@@ -51,7 +51,7 @@ export const adzunaSource: JobSource = {
     const where = location?.trim() || (province ? PROVINCE_TO_LOCATION[province] ?? province : '')
 
     try {
-      const url = new URL(`https://api.adzuna.com/v1/api/jobs/${country}/search/1`)
+      const url = new URL(`https://api.adzuna.com/v1/api/jobs/${country}/search/${page}`)
       url.searchParams.set('app_id', appId)
       url.searchParams.set('app_key', appKey)
       url.searchParams.set('results_per_page', String(limit))

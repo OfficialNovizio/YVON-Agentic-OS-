@@ -3,7 +3,7 @@
 // Shared bits between /job-hunt/companies (curated watchlist) and
 // /job-hunt/companies/leads (raw OrgBook BC leads review) — extracted
 // 2026-08-15 so both pages use the same Add/Promote form instead of two
-// copies drifting apart.
+// copies drifting apart. Adora restyle 2026-08-25 (light gallery tokens).
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Modal } from '@/components/Modal'
@@ -52,34 +52,38 @@ export function MultiSelect({
     : selected.length === 1 ? (options.find((o) => o.value === selected[0])?.label ?? selected[0])
     : `${label}: ${selected.length} selected`
 
+  const triggerCls = selected.length > 0
+    ? 'border-transparent bg-[rgba(89,46,255,0.08)] text-[var(--chat-accent)]'
+    : 'border-[var(--chat-hairline)] bg-white text-[var(--chat-text-dim)] hover:border-[var(--chat-text-faint)]'
+
   return (
     <div className="relative" ref={ref}>
       <button onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border transition ${selected.length ? 'border-white/25 bg-white/[0.06] text-on-surface' : 'border-white/10 text-on-surface-variant/60'}`}>
+        className={`flex items-center gap-1 rounded-[200px] border px-3 py-1.5 text-[11.5px] font-medium transition ${triggerCls}`}>
         {triggerText} <ChevronDown size={11} />
       </button>
       {open && (
-        <div className="absolute z-20 mt-1 w-56 max-h-72 overflow-y-auto rounded-lg border border-white/10 bg-surface-container-high shadow-xl p-1.5">
+        <div className="absolute z-20 mt-1 max-h-72 w-56 overflow-y-auto rounded-[16px] border border-[var(--chat-hairline)] bg-white p-1.5 shadow-[0_18px_44px_-32px_rgba(33,22,76,0.4)]">
           {selected.length > 0 && (
             <button onClick={() => onChange([])}
-              className="w-full flex items-center gap-1 text-[10.5px] px-2 py-1 rounded text-on-surface-variant/60 hover:text-on-surface hover:bg-white/[0.04] mb-1">
+              className="mb-1 flex w-full items-center gap-1 rounded-[8px] px-2 py-1 text-[10.5px] text-[var(--chat-text-faint)] hover:bg-[rgba(89,46,255,0.05)] hover:text-[var(--chat-body)]">
               <X size={10} /> Clear ({selected.length})
             </button>
           )}
           {searchable && (
-            <div className="flex items-center gap-1.5 px-2 py-1 mb-1 rounded border border-white/10 bg-white/[0.02]">
-              <Search size={11} className="text-on-surface-variant/50 shrink-0" />
+            <div className="mb-1 flex items-center gap-1.5 rounded-[8px] border border-[var(--chat-hairline)] bg-white px-2 py-1">
+              <Search size={11} className="shrink-0 text-[var(--chat-text-faint)]" />
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search cities…" autoFocus
-                className="w-full bg-transparent text-[11px] text-on-surface outline-none placeholder:text-on-surface-variant/40" />
+                className="w-full bg-transparent text-[11px] text-[var(--chat-body)] outline-none placeholder:text-[var(--chat-text-faint)]" />
             </div>
           )}
           {filtered.length === 0 ? (
-            <p className="text-[10.5px] text-on-surface-variant/50 italic px-2 py-2">No matches.</p>
+            <p className="px-2 py-2 text-[10.5px] italic text-[var(--chat-text-faint)]">No matches.</p>
           ) : (
             filtered.map((o) => (
-              <label key={o.value} className="flex items-center gap-2 text-[11.5px] px-2 py-1 rounded hover:bg-white/[0.04] cursor-pointer text-on-surface-variant">
+              <label key={o.value} className="flex cursor-pointer items-center gap-2 rounded-[8px] px-2 py-1 text-[11.5px] text-[var(--chat-text-dim)] hover:bg-[rgba(89,46,255,0.05)]">
                 <input type="checkbox" checked={selected.includes(o.value)} onChange={() => toggle(o.value)}
-                  className="accent-primary" />
+                  className="accent-[#592eff]" />
                 {o.label}
               </label>
             ))
@@ -159,35 +163,36 @@ export function AddCompanyModal({
     setSaving(false)
   }
 
-  const inputCls = 'w-full text-[12.5px] px-2.5 py-1.5 rounded-lg border border-white/10 bg-white/[0.02] text-on-surface placeholder:text-on-surface-variant/40 outline-none focus:border-white/25'
+  const labelCls = 'mb-1 block text-[10.5px] uppercase tracking-wide text-[var(--chat-text-faint)]'
+  const inputCls = 'w-full rounded-[10px] border border-[var(--chat-hairline)] bg-white px-2.5 py-1.5 text-[12.5px] text-[var(--chat-body)] outline-none placeholder:text-[var(--chat-text-faint)] focus:border-[var(--chat-accent)]'
 
   return (
     <Modal open={open} onClose={onClose} title="Add company" subtitle="Any real company you want to track — doesn't need an active posting."
       footer={(
         <>
-          <button onClick={onClose} className="text-[12px] px-3 py-1.5 rounded-lg border border-white/10 text-on-surface-variant">Cancel</button>
+          <button onClick={onClose} className="chat-ghost-btn rounded-[10px] px-3 py-1.5 text-[12px]">Cancel</button>
           <button onClick={submit} disabled={saving}
-            className="text-[12px] px-3 py-1.5 rounded-lg bg-primary text-on-primary disabled:opacity-50">
+            className="rounded-[10px] bg-[#592eff] px-3.5 py-1.5 text-[12px] font-semibold text-white hover:bg-[#4520cc] disabled:opacity-50">
             {saving ? 'Adding…' : 'Add company'}
           </button>
         </>
       )}>
       <div className="flex flex-col gap-3">
-        {error && <p className="text-[11.5px] text-red-400">{error}</p>}
+        {error && <p className="text-[11.5px] text-[#b91c1c]">{error}</p>}
         <div>
-          <label className="text-[10.5px] uppercase tracking-wide text-on-surface-variant/60 mb-1 block">Name *</label>
+          <label className={labelCls}>Name *</label>
           <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={inputCls} placeholder="Company name" />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[10.5px] uppercase tracking-wide text-on-surface-variant/60 mb-1 block">Industry *</label>
+            <label className={labelCls}>Industry *</label>
             <select value={form.industry} onChange={(e) => setForm((f) => ({ ...f, industry: e.target.value }))} className={inputCls}>
               <option value="">Select…</option>
               {INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-[10.5px] uppercase tracking-wide text-on-surface-variant/60 mb-1 block">Size</label>
+            <label className={labelCls}>Size</label>
             <select value={form.size} onChange={(e) => setForm((f) => ({ ...f, size: e.target.value }))} className={inputCls}>
               {['startup', 'small', 'medium', 'large', 'enterprise'].map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -195,30 +200,30 @@ export function AddCompanyModal({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[10.5px] uppercase tracking-wide text-on-surface-variant/60 mb-1 block">Province *</label>
+            <label className={labelCls}>Province *</label>
             <select value={form.province} onChange={(e) => setForm((f) => ({ ...f, province: e.target.value, city: '' }))} className={inputCls}>
               <option value="">Select…</option>
               {PROVINCES.map((p) => <option key={p.code} value={p.code}>{p.name} ({p.code})</option>)}
             </select>
           </div>
           <div>
-            <label className="text-[10.5px] uppercase tracking-wide text-on-surface-variant/60 mb-1 block">City</label>
+            <label className={labelCls}>City</label>
             <input value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} className={inputCls}
               placeholder={form.province ? 'Type or pick below' : 'Pick a province first'} list="city-datalist" />
             <datalist id="city-datalist">{cityOptions.map((c) => <option key={c} value={c} />)}</datalist>
           </div>
         </div>
         <div>
-          <label className="text-[10.5px] uppercase tracking-wide text-on-surface-variant/60 mb-1 block">Description</label>
+          <label className={labelCls}>Description</label>
           <textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} className={inputCls} rows={2} placeholder="What do they do?" />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[10.5px] uppercase tracking-wide text-on-surface-variant/60 mb-1 block">Domain</label>
+            <label className={labelCls}>Domain</label>
             <input value={form.domain} onChange={(e) => setForm((f) => ({ ...f, domain: e.target.value }))} className={inputCls} placeholder="company.com" />
           </div>
           <div>
-            <label className="text-[10.5px] uppercase tracking-wide text-on-surface-variant/60 mb-1 block">Careers URL</label>
+            <label className={labelCls}>Careers URL</label>
             <input value={form.careers_url} onChange={(e) => setForm((f) => ({ ...f, careers_url: e.target.value }))} className={inputCls} placeholder="https://…" />
           </div>
         </div>

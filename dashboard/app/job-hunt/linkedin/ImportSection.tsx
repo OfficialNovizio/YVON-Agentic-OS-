@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Card } from '@/components/ui'
 import { Loader2, Upload, FileArchive, Trash2, Sparkles, PlusCircle } from 'lucide-react'
 
 // LinkedIn profile import — NOT scraping. The operator downloads their own
@@ -9,6 +8,7 @@ import { Loader2, Upload, FileArchive, Trash2, Sparkles, PlusCircle } from 'luci
 // and uploads that ZIP here. Mirrors app/job-hunt/resume/page.tsx's
 // upload -> analyze -> pick-what-to-add-to-profile pattern exactly, since
 // the analyze route returns the same shape (skills/education/experience).
+// Adora restyle 2026-08-25 — embedded in the already-shelled LinkedIn page.
 
 type SkillCategory = 'programming' | 'domain' | 'tools'
 
@@ -34,6 +34,7 @@ interface Analysis {
 }
 
 const SKILL_LABELS: Record<SkillCategory, string> = { programming: 'Programming / ML', domain: 'Domain expertise', tools: 'Software & tools' }
+const LABEL_CLS = 'mb-1.5 text-[10.5px] uppercase tracking-wide text-[var(--chat-text-faint)]'
 
 export default function LinkedInImportSection() {
   const [imp, setImp] = useState<Imp | null>(null)
@@ -163,43 +164,44 @@ export default function LinkedInImportSection() {
     setApplying(false)
   }, [analysis, selectedEdu, selectedExp, selectedSkills])
 
+  const ghostBtn = 'flex items-center gap-1.5 whitespace-nowrap rounded-[10px] border border-[var(--chat-hairline)] px-2.5 py-2 text-[11px] text-[var(--chat-text-dim)] hover:bg-[rgba(89,46,255,0.05)] hover:text-[var(--chat-body)]'
+
   return (
-    <Card className="p-4 mb-4">
-      <div className="flex items-center gap-3 flex-wrap mb-1">
-        <FileArchive size={16} className="text-on-surface-variant/70 shrink-0" />
+    <div className="chat-glass mt-4 p-4">
+      <div className="mb-1 flex flex-wrap items-center gap-3">
+        <FileArchive size={16} className="shrink-0 text-[var(--chat-text-faint)]" />
         <div className="min-w-0 flex-1">
-          <h3 className="text-[13px] font-semibold text-on-surface">Import from LinkedIn</h3>
-          <p className="text-[11.5px] text-on-surface-variant/70">
+          <h3 className="text-[13px] font-semibold text-[var(--chat-body)]">Import from LinkedIn</h3>
+          <p className="text-[11.5px] text-[var(--chat-text-faint)]">
             Not scraping — upload your own data export (LinkedIn Settings &amp; Privacy → &quot;Get a copy of your data&quot;) for your full profile history, no account risk.
           </p>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-12"><Loader2 size={16} className="animate-spin text-on-surface-variant" /></div>
+        <div className="flex h-12 items-center justify-center"><Loader2 size={16} className="animate-spin text-[var(--chat-text-faint)]" /></div>
       ) : imp ? (
-        <div className="flex items-center gap-3 flex-wrap mt-2">
-          <div className="min-w-0 flex-1 text-[11.5px] text-on-surface-variant/70">
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <div className="min-w-0 flex-1 text-[11.5px] text-[var(--chat-text-faint)]">
             {imp.files_found.length} file{imp.files_found.length === 1 ? '' : 's'} found ({imp.files_found.join(', ')}) — uploaded {new Date(imp.created_at).toLocaleDateString()}
             {imp.analyzed_at && ` — analyzed ${new Date(imp.analyzed_at).toLocaleDateString()}`}
           </div>
           <button onClick={analyze} disabled={analyzing}
-            className="flex items-center gap-1.5 text-xs btn-accent px-3 py-2 whitespace-nowrap disabled:opacity-50">
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-[10px] bg-[#592eff] px-3 py-2 text-xs font-semibold text-white hover:bg-[#4520cc] disabled:opacity-50">
             {analyzing ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
             {imp.analysis_json ? 'Re-analyze' : 'Analyze'}
           </button>
-          <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
-            className="flex items-center gap-1.5 text-[11px] px-2.5 py-2 rounded-md border border-white/10 hover:bg-white/[0.05] text-on-surface-variant hover:text-on-surface whitespace-nowrap">
+          <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className={ghostBtn}>
             <Upload size={12} /> Replace
           </button>
-          <button onClick={removeImport} className="p-2 rounded-md border border-white/10 hover:bg-white/[0.05] text-on-surface-variant/50 hover:text-on-surface-variant">
+          <button onClick={removeImport} className="rounded-[10px] border border-[var(--chat-hairline)] p-2 text-[var(--chat-text-faint)] hover:text-[var(--chat-body)]">
             <Trash2 size={13} />
           </button>
         </div>
       ) : (
-        <div className="flex items-center gap-2 mt-2">
+        <div className="mt-2 flex items-center gap-2">
           <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
-            className="btn-accent text-xs px-3 py-2 flex items-center gap-1.5">
+            className="flex items-center gap-1.5 rounded-[10px] bg-[#592eff] px-3 py-2 text-xs font-semibold text-white hover:bg-[#4520cc]">
             {uploading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />} Upload LinkedIn export (.zip)
           </button>
         </div>
@@ -208,27 +210,26 @@ export default function LinkedInImportSection() {
         onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} />
 
       {analysis && expanded && (
-        <div className="mt-3 pt-3 border-t border-white/[0.06]">
-          {analysis.summary && <p className="text-[12.5px] text-on-surface-variant/80 mb-3">{analysis.summary}</p>}
+        <div className="mt-3 border-t border-[var(--chat-hairline)] pt-3">
+          {analysis.summary && <p className="mb-3 text-[12.5px] text-[var(--chat-text-dim)]">{analysis.summary}</p>}
 
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="text-[12px] font-semibold text-on-surface">Pick what to add to your profile</h4>
+          <div className="mb-2 flex items-center justify-between">
+            <h4 className="text-[12px] font-semibold text-[var(--chat-body)]">Pick what to add to your profile</h4>
             <button onClick={addToProfile} disabled={applying}
-              className="flex items-center gap-1.5 text-xs btn-accent px-3 py-1.5 disabled:opacity-50 whitespace-nowrap">
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-[10px] bg-[#592eff] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#4520cc] disabled:opacity-50">
               {applying ? <Loader2 size={13} className="animate-spin" /> : <PlusCircle size={13} />} Add selected to profile
             </button>
           </div>
-          {appliedMsg && <p className="text-[12px] text-emerald-300 mb-2">{appliedMsg}</p>}
+          {appliedMsg && <p className="mb-2 text-[12px] text-[#047857]">{appliedMsg}</p>}
 
           {(analysis.education?.length ?? 0) > 0 && (
             <div className="mb-3">
-              <p className="text-[10.5px] uppercase tracking-wide text-on-surface-variant/50 mb-1.5">Education</p>
+              <p className={LABEL_CLS}>Education</p>
               <div className="flex flex-col gap-1">
                 {analysis.education!.map((e, i) => (
-                  <label key={i} className="flex items-start gap-2 text-[12.5px] text-on-surface-variant/80 cursor-pointer">
-                    <input type="checkbox" checked={selectedEdu.has(i)}
-                      onChange={() => setSelectedEdu((prev) => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n })}
-                      className="mt-0.5" />
+                  <label key={i} className="flex cursor-pointer items-start gap-2 text-[12.5px] text-[var(--chat-text-dim)]">
+                    <input type="checkbox" checked={selectedEdu.has(i)} className="mt-0.5 accent-[#592eff]"
+                      onChange={() => setSelectedEdu((prev) => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n })} />
                     <span>{e.degree}{e.institution ? ` — ${e.institution}` : ''}{e.period ? ` (${e.period})` : ''}</span>
                   </label>
                 ))}
@@ -238,13 +239,12 @@ export default function LinkedInImportSection() {
 
           {(analysis.experience?.length ?? 0) > 0 && (
             <div className="mb-3">
-              <p className="text-[10.5px] uppercase tracking-wide text-on-surface-variant/50 mb-1.5">Experience</p>
+              <p className={LABEL_CLS}>Experience</p>
               <div className="flex flex-col gap-1">
                 {analysis.experience!.map((e, i) => (
-                  <label key={i} className="flex items-start gap-2 text-[12.5px] text-on-surface-variant/80 cursor-pointer">
-                    <input type="checkbox" checked={selectedExp.has(i)}
-                      onChange={() => setSelectedExp((prev) => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n })}
-                      className="mt-0.5" />
+                  <label key={i} className="flex cursor-pointer items-start gap-2 text-[12.5px] text-[var(--chat-text-dim)]">
+                    <input type="checkbox" checked={selectedExp.has(i)} className="mt-0.5 accent-[#592eff]"
+                      onChange={() => setSelectedExp((prev) => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n })} />
                     <span>{e.title}{e.company ? ` at ${e.company}` : ''}{e.bullets ? ` — ${e.bullets}` : ''}</span>
                   </label>
                 ))}
@@ -255,11 +255,11 @@ export default function LinkedInImportSection() {
           {(['programming', 'domain', 'tools'] as SkillCategory[]).map((cat) => (
             (analysis.skills?.[cat]?.length ?? 0) > 0 && (
               <div key={cat} className="mb-3">
-                <p className="text-[10.5px] uppercase tracking-wide text-on-surface-variant/50 mb-1.5">{SKILL_LABELS[cat]}</p>
+                <p className={LABEL_CLS}>{SKILL_LABELS[cat]}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {analysis.skills![cat]!.map((s, i) => (
                     <button key={s} onClick={() => toggleSkill(cat, i)}
-                      className={`text-[11px] px-2 py-1 rounded-full border transition ${selectedSkills[cat].has(i) ? 'border-white/25 bg-white/[0.06] text-on-surface' : 'border-white/10 text-on-surface-variant/40 line-through'}`}>
+                      className={`rounded-[200px] border px-2 py-1 text-[11px] transition ${selectedSkills[cat].has(i) ? 'border-transparent bg-[rgba(89,46,255,0.08)] text-[var(--chat-accent)]' : 'border-[var(--chat-hairline)] text-[var(--chat-text-faint)] line-through'}`}>
                       {s}
                     </button>
                   ))}
@@ -269,6 +269,6 @@ export default function LinkedInImportSection() {
           ))}
         </div>
       )}
-    </Card>
+    </div>
   )
 }

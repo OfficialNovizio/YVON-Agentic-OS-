@@ -26,6 +26,8 @@ export interface SourceSearchOptions {
   industry?: string
   /** Canadian province code (ON/BC/AB/QC/MB/SK/...) driving Adzuna's location mapping. */
   province?: string
+  /** Pagination page (1-based) — deep pulls page through history (2026-08-25). */
+  page?: number
 }
 
 export interface JobSource {

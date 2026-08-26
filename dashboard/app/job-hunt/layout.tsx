@@ -8,7 +8,6 @@ import { usePathname } from 'next/navigation'
 const TABS = [
   { href: '/job-hunt', label: 'Profile' },
   { href: '/job-hunt/resume', label: 'Resume' },
-  { href: '/job-hunt/discover', label: 'Discover' },
   { href: '/job-hunt/companies', label: 'Companies' },
   { href: '/job-hunt/network', label: 'Network' },
   { href: '/job-hunt/linkedin', label: 'LinkedIn' },

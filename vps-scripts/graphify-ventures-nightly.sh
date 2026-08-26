@@ -59,9 +59,9 @@ if ! curl -fsS -G "$SUPABASE_URL/rest/v1/ventures" \
   --data-urlencode "github_pat=not.is.null" \
   -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
   -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-  | python3 -c 'import sys, json
+  | python3 -c "import sys, json
 for v in json.load(sys.stdin):
-    print(f"{v.get(\"slug\",\"\")}\t{v.get(\"repo_url\",\"\")}\t{v.get(\"github_pat\",\"\")}")' \
+    print(v['slug'] + chr(9) + v['repo_url'] + chr(9) + v['github_pat'])" \
   > "$LIST"; then
   log "✗ ventures query failed — aborting run"
   exit 1
@@ -76,11 +76,15 @@ while IFS=$'\t' read -r SLUG REPO_URL PAT; do
   [ -n "${SLUG:-}" ] || continue
   [ -n "${REPO_URL:-}" ] || continue
   log "  $SLUG — graphify-venture.sh"
-  nohup bash "$CI_DIR/graphify-venture.sh" "$SLUG" "$REPO_URL" "$PAT" >> "$LOG_DIR/$SLUG.$TS.log" 2>&1 &
+  # < /dev/null on every child: the while loop's stdin IS the ventures list
+  # file, and an interactive child (see mempalace-venture.sh [4/6]) will
+  # otherwise swallow the NEXT line as its input — skipping a venture and
+  # ending the loop early (hit live 2026-08-25 on novizio → yvon-os).
+  nohup bash "$CI_DIR/graphify-venture.sh" "$SLUG" "$REPO_URL" "$PAT" < /dev/null >> "$LOG_DIR/$SLUG.$TS.log" 2>&1 &
   if wait $!; then log "    ✓ graphify ok"; else log "    ✗ graphify failed — see $LOG_DIR/$SLUG.$TS.log"; fi
 
   log "  $SLUG — mempalace-venture.sh"
-  nohup bash "$CI_DIR/mempalace-venture.sh" "$SLUG" "$REPO_URL" "$PAT" >> "$LOG_DIR/$SLUG.$TS.log" 2>&1 &
+  nohup bash "$CI_DIR/mempalace-venture.sh" "$SLUG" "$REPO_URL" "$PAT" < /dev/null >> "$LOG_DIR/$SLUG.$TS.log" 2>&1 &
   if wait $!; then log "    ✓ mempalace ok"; else log "    ✗ mempalace failed — see $LOG_DIR/$SLUG.$TS.log"; fi
 done < "$LIST"
 

@@ -16,7 +16,12 @@ const BARE_ROUTE_PREFIXES = ['/login', '/auth/']
 // <body> carries the dark background photo, which lives above the Shell.
 // To take the whole app light, add data-theme="adora" to <html> in layout.tsx
 // and delete this list.
-const ADORA_ROUTE_PREFIXES = ['/chat', '/generations', '/tasks', '/task-board']
+// NOTE (2026-08-25): '/job-hunt' was first tried before the section was
+// restyled and REVERTED (old-theme pages became unreadable on the light
+// gallery background). The whole section is now Adora (profile, companies,
+// leads, discover, network, linkedin, resume — restyled 2026-08-25), so the
+// section-wide prefix is safe. Rule stays: only restyled routes join.
+const ADORA_ROUTE_PREFIXES = ['/chat', '/generations', '/tasks', '/task-board', '/job-hunt']
 
 // ── Responsive context ────────────────────────────────────────────────────────
 type SidebarMode = 'full' | 'icons'

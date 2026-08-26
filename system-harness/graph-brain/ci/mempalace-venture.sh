@@ -62,6 +62,17 @@ export MEMPALACE_BACKEND=pgvector
 export MEMPALACE_PGVECTOR_DSN
 export MEMPALACE_PGVECTOR_NAMESPACE="venture-$VENTURE_SLUG"
 
+# 2026-08-25: per-venture palace HOME. mempalace resolves the palace as
+# ~/.mempalace/palace (config.py DEFAULT_PALACE_PATH via expanduser, which
+# honors $HOME) and the marker there records ONE namespace/table_prefix.
+# With a shared HOME, the second venture's mine always dies with
+# BackendMismatchError (hit live: novizio after yvon-os). Isolating HOME
+# per venture isolates palace + entity registry + locks to match the
+# per-venture namespace — the fix the error message itself sanctions
+# ("use a fresh palace directory"), made permanent.
+export HOME="/root/.yvon-mempalace/$VENTURE_SLUG"
+mkdir -p "$HOME"
+
 AUTH_URL="$REPO_URL"
 if [[ "$REPO_URL" == https://* ]]; then
   AUTH_URL="${REPO_URL/https:\/\//https:\/\/x-access-token:$PAT@}"
@@ -132,7 +143,12 @@ echo "[2/6] clone or pull $REPO_URL"
 if [ -d "$WORKDIR/.git" ]; then
   DEFAULT_BRANCH=$(git -C "$WORKDIR" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@') \
     || DEFAULT_BRANCH="main"
-  DEFAULT_CHECKOUT_OUT=$(git -C "$WORKDIR" checkout "$DEFAULT_BRANCH" 2>&1) \
+  # 2026-08-25: -f — step [3/6]'s `mempalace init` edits tracked files (e.g.
+  # .gitignore) in this disposable clone; a plain checkout refuses to switch
+  # away from them and the next pull fails with "local changes would be
+  # overwritten" (hit live: yvon-os second run). Nothing in this working tree
+  # needs to survive — same philosophy as [5/6]'s own -f checkout.
+  DEFAULT_CHECKOUT_OUT=$(git -C "$WORKDIR" checkout -f "$DEFAULT_BRANCH" 2>&1) \
     || fail "checkout $DEFAULT_BRANCH failed: $DEFAULT_CHECKOUT_OUT"
   PULL_OUT=$(git -C "$WORKDIR" pull --ff-only 2>&1) || fail "git pull failed: $PULL_OUT"
 else
@@ -145,7 +161,12 @@ cd "$WORKDIR"
   echo "  (init non-fatal warning — continuing to mine; some repos are already initialized)"
 
 echo "[4/6] mempalace mine . --wing $VENTURE_SLUG"
-MINE_OUT=$("$MEMPALACE_BIN" mine . --backend pgvector --wing "$VENTURE_SLUG" --agent yvon-mempalace 2>&1) \
+# 2026-08-25: `mine` prompts "Mine this directory now? [Y/n]" on first run of
+# a directory. Under the nightly runner (graphify-ventures-nightly.sh) the
+# script's stdin is the ventures list — the prompt swallowed the NEXT
+# venture's line as its answer, the mine died, and the loop skipped that
+# venture. Answer the prompt ourselves, and never inherit caller stdin.
+MINE_OUT=$(printf 'y\n' | "$MEMPALACE_BIN" mine . --backend pgvector --wing "$VENTURE_SLUG" --agent yvon-mempalace < /dev/null 2>&1) \
   || fail "mempalace mine failed: $MINE_OUT"
 echo "$MINE_OUT"
 

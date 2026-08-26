@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Card } from '@/components/ui'
 import { Loader2, Upload, FileText, Trash2, Sparkles, CheckCircle2, AlertTriangle, PlusCircle } from 'lucide-react'
+import { AtelierBackdrop, Squiggle } from '../../chat/Atelier'
+import '../../chat/chat.css'
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  JOB HUNT — RESUME (2026-08-15)
+//  JOB HUNT — RESUME (2026-08-15 · Adora restyle 2026-08-25)
 // ═══════════════════════════════════════════════════════════════════════════
 // Fifth Job Hunt artifact — replaces "type everything into the Master
 // Profile form" with "upload a resume, let AI read it, pick what to keep."
@@ -47,11 +48,12 @@ interface Analysis {
 }
 
 const SKILL_LABELS: Record<SkillCategory, string> = { programming: 'Programming / ML', domain: 'Domain expertise', tools: 'Software & tools' }
+const LABEL_CLS = 'mb-1.5 text-[10.5px] uppercase tracking-wide text-[var(--chat-text-faint)]'
 
 function scoreTone(score: number): string {
-  if (score >= 80) return 'text-emerald-300'
-  if (score >= 60) return 'text-tertiary'
-  return 'text-red-300'
+  if (score >= 80) return 'text-[#047857]'
+  if (score >= 60) return 'text-[#8a6114]'
+  return 'text-[#b91c1c]'
 }
 
 export default function JobHuntResumePage() {
@@ -190,172 +192,176 @@ export default function JobHuntResumePage() {
     setApplying(false)
   }, [analysis, selectedEdu, selectedExp, selectedSkills])
 
+  const ghostBtn = 'flex items-center gap-1.5 whitespace-nowrap rounded-[10px] border border-[var(--chat-hairline)] px-2.5 py-2 text-[11px] text-[var(--chat-text-dim)] hover:bg-[rgba(89,46,255,0.05)] hover:text-[var(--chat-body)]'
+
   return (
-    <div>
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold tracking-tight text-on-surface">Resume</h1>
-        <p className="mt-1 text-sm text-on-surface-variant max-w-2xl">
-          Upload your resume, let AI score it and pull out the details — then pick what to add to your profile instead of typing it all in by hand.
+    <div className="chat-shell relative min-h-screen overflow-hidden">
+      <AtelierBackdrop />
+
+      <div className="relative z-10 mx-auto max-w-[1240px] px-4 py-8 md:px-8 md:py-10">
+        <h1 className="adora-display text-[30px] font-bold leading-[1.1] tracking-[-0.02em] text-[var(--chat-text)] md:text-[34px]">
+          <Squiggle>Resume</Squiggle>
+        </h1>
+        <p className="mt-2 max-w-[640px] text-[13.5px] leading-[1.55] text-[var(--chat-text-dim)]">
+          Upload your resume, let AI score it and pull out the details — then pick what to add to your profile instead
+          of typing it all in by hand.
         </p>
-      </div>
 
-      <Card className="p-4 mb-4">
-        {loading ? (
-          <div className="flex items-center justify-center h-16"><Loader2 size={18} className="animate-spin text-on-surface-variant" /></div>
-        ) : resume ? (
-          <div className="flex items-center gap-3 flex-wrap">
-            <FileText size={18} className="text-on-surface-variant/70 shrink-0" />
-            <div className="min-w-0 flex-1">
-              <div className="text-[13px] text-on-surface font-medium truncate">{resume.name}</div>
-              <div className="text-[11px] text-on-surface-variant/60">
-                Uploaded {new Date(resume.created_at).toLocaleDateString()}
-                {resume.analyzed_at && ` — analyzed ${new Date(resume.analyzed_at).toLocaleDateString()}`}
-              </div>
-            </div>
-            <button onClick={analyze} disabled={analyzing}
-              className="flex items-center gap-1.5 text-xs btn-accent px-3 py-2 whitespace-nowrap disabled:opacity-50">
-              {analyzing ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-              {resume.analysis_json ? 'Re-analyze' : 'Analyze'}
-            </button>
-            <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
-              className="flex items-center gap-1.5 text-[11px] px-2.5 py-2 rounded-md border border-white/10 hover:bg-white/[0.05] text-on-surface-variant hover:text-on-surface whitespace-nowrap">
-              <Upload size={12} /> Replace
-            </button>
-            <button onClick={removeResume} className="p-2 rounded-md border border-white/10 hover:bg-white/[0.05] text-on-surface-variant/50 hover:text-on-surface-variant">
-              <Trash2 size={13} />
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-            <Upload size={22} className="text-on-surface-variant/40" />
-            <p className="text-[13px] text-on-surface-variant">No resume uploaded yet — PDF or DOCX, up to 10MB.</p>
-            <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
-              className="btn-accent text-xs px-3 py-2 mt-1 flex items-center gap-1.5">
-              {uploading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />} Upload resume
-            </button>
-          </div>
-        )}
-        <input ref={fileInputRef} type="file" accept=".pdf,.docx" className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} />
-      </Card>
-
-      {analysis && (
-        <>
-          <Card className="p-4 mb-4 flex flex-col gap-3">
-            <div className="flex items-center gap-4 flex-wrap">
-              {typeof analysis.ats_score === 'number' && (
-                <div className="flex items-baseline gap-1.5">
-                  <span className={`text-2xl font-bold ${scoreTone(analysis.ats_score)}`}>{analysis.ats_score}</span>
-                  <span className="text-[11px] text-on-surface-variant/60">/ 100 ATS score</span>
+        <div className="chat-glass mt-6 p-4">
+          {loading ? (
+            <div className="flex h-16 items-center justify-center"><Loader2 size={18} className="animate-spin text-[var(--chat-text-faint)]" /></div>
+          ) : resume ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <FileText size={18} className="shrink-0 text-[var(--chat-text-faint)]" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-medium text-[var(--chat-body)]">{resume.name}</div>
+                <div className="text-[11px] text-[var(--chat-text-faint)]">
+                  Uploaded {new Date(resume.created_at).toLocaleDateString()}
+                  {resume.analyzed_at && ` — analyzed ${new Date(resume.analyzed_at).toLocaleDateString()}`}
                 </div>
-              )}
-              {analysis.experience_years !== undefined && (
-                <span className="text-[11px] px-2 py-1 rounded-full border border-white/10 text-on-surface-variant/70">{analysis.experience_years} yrs experience</span>
-              )}
-              {(analysis.industries ?? []).map((ind) => (
-                <span key={ind} className="text-[11px] px-2 py-1 rounded-full border border-white/10 text-on-surface-variant/70">{ind}</span>
-              ))}
-            </div>
-            {analysis.summary && <p className="text-[13px] text-on-surface-variant/80">{analysis.summary}</p>}
-          </Card>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-            {(analysis.strengths?.length ?? 0) > 0 && (
-              <Card className="p-3.5">
-                <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-300/80 mb-2 flex items-center gap-1"><CheckCircle2 size={12} /> Strengths</h3>
-                <ul className="flex flex-col gap-1.5">
-                  {analysis.strengths!.map((s, i) => <li key={i} className="text-[12px] text-on-surface-variant/80">• {s}</li>)}
-                </ul>
-              </Card>
-            )}
-            {(analysis.weaknesses?.length ?? 0) > 0 && (
-              <Card className="p-3.5">
-                <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary/90 mb-2 flex items-center gap-1"><AlertTriangle size={12} /> Gaps</h3>
-                <ul className="flex flex-col gap-1.5">
-                  {analysis.weaknesses!.map((s, i) => <li key={i} className="text-[12px] text-on-surface-variant/80">• {s}</li>)}
-                </ul>
-              </Card>
-            )}
-          </div>
-
-          {(analysis.suggestions?.length ?? 0) > 0 && (
-            <Card className="p-3.5 mb-4">
-              <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant/60 mb-2">Improve it</h3>
-              <ul className="flex flex-col gap-1.5">
-                {analysis.suggestions!.map((s, i) => <li key={i} className="text-[12px] text-on-surface-variant/80">• {s}</li>)}
-              </ul>
-            </Card>
-          )}
-
-          {(analysis.ats_issues?.length ?? 0) > 0 && (
-            <Card className="p-3.5 mb-4">
-              <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant/60 mb-2">ATS issues</h3>
-              <ul className="flex flex-col gap-1.5">
-                {analysis.ats_issues!.map((s, i) => <li key={i} className="text-[12px] text-on-surface-variant/80">• {s}</li>)}
-              </ul>
-            </Card>
-          )}
-
-          <Card className="p-4 mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-[13px] font-semibold text-on-surface">Pick what to add to your profile</h3>
-              <button onClick={addToProfile} disabled={applying}
-                className="flex items-center gap-1.5 text-xs btn-accent px-3 py-1.5 disabled:opacity-50 whitespace-nowrap">
-                {applying ? <Loader2 size={13} className="animate-spin" /> : <PlusCircle size={13} />} Add selected to profile
+              </div>
+              <button onClick={analyze} disabled={analyzing}
+                className="flex items-center gap-1.5 whitespace-nowrap rounded-[10px] bg-[#592eff] px-3 py-2 text-xs font-semibold text-white hover:bg-[#4520cc] disabled:opacity-50">
+                {analyzing ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                {resume.analysis_json ? 'Re-analyze' : 'Analyze'}
+              </button>
+              <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className={ghostBtn}>
+                <Upload size={12} /> Replace
+              </button>
+              <button onClick={removeResume} className="rounded-[10px] border border-[var(--chat-hairline)] p-2 text-[var(--chat-text-faint)] hover:text-[var(--chat-body)]">
+                <Trash2 size={13} />
               </button>
             </div>
-            {appliedMsg && <p className="text-[12px] text-emerald-300 mb-2">{appliedMsg}</p>}
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+              <Upload size={22} className="text-[var(--chat-text-faint)]" />
+              <p className="text-[13px] text-[var(--chat-text-dim)]">No resume uploaded yet — PDF or DOCX, up to 10MB.</p>
+              <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
+                className="mt-1 flex items-center gap-1.5 rounded-[10px] bg-[#592eff] px-3 py-2 text-xs font-semibold text-white hover:bg-[#4520cc]">
+                {uploading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />} Upload resume
+              </button>
+            </div>
+          )}
+          <input ref={fileInputRef} type="file" accept=".pdf,.docx" className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} />
+        </div>
 
-            {(analysis.education?.length ?? 0) > 0 && (
-              <div className="mb-3">
-                <p className="text-[10.5px] uppercase tracking-wide text-on-surface-variant/50 mb-1.5">Education</p>
-                <div className="flex flex-col gap-1">
-                  {analysis.education!.map((e, i) => (
-                    <label key={i} className="flex items-start gap-2 text-[12.5px] text-on-surface-variant/80 cursor-pointer">
-                      <input type="checkbox" checked={selectedEdu.has(i)}
-                        onChange={() => setSelectedEdu((prev) => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n })}
-                        className="mt-0.5" />
-                      <span>{e.degree}{e.institution ? ` — ${e.institution}` : ''}{e.period ? ` (${e.period})` : ''}</span>
-                    </label>
-                  ))}
+        {analysis && (
+          <>
+            <div className="chat-glass mt-4 flex flex-col gap-3 p-4">
+              <div className="flex flex-wrap items-center gap-4">
+                {typeof analysis.ats_score === 'number' && (
+                  <div className="flex items-baseline gap-1.5">
+                    <span className={`text-2xl font-bold ${scoreTone(analysis.ats_score)}`}>{analysis.ats_score}</span>
+                    <span className="text-[11px] text-[var(--chat-text-faint)]">/ 100 ATS score</span>
+                  </div>
+                )}
+                {analysis.experience_years !== undefined && (
+                  <span className="rounded-[200px] border border-[var(--chat-hairline)] px-2 py-1 text-[11px] text-[var(--chat-text-dim)]">{analysis.experience_years} yrs experience</span>
+                )}
+                {(analysis.industries ?? []).map((ind) => (
+                  <span key={ind} className="rounded-[200px] border border-[var(--chat-hairline)] px-2 py-1 text-[11px] text-[var(--chat-text-dim)]">{ind}</span>
+                ))}
+              </div>
+              {analysis.summary && <p className="text-[13px] text-[var(--chat-text-dim)]">{analysis.summary}</p>}
+            </div>
+
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+              {(analysis.strengths?.length ?? 0) > 0 && (
+                <div className="chat-glass p-3.5">
+                  <h3 className="mb-2 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#047857]"><CheckCircle2 size={12} /> Strengths</h3>
+                  <ul className="flex flex-col gap-1.5">
+                    {analysis.strengths!.map((s, i) => <li key={i} className="text-[12px] text-[var(--chat-text-dim)]">• {s}</li>)}
+                  </ul>
                 </div>
+              )}
+              {(analysis.weaknesses?.length ?? 0) > 0 && (
+                <div className="chat-glass p-3.5">
+                  <h3 className="mb-2 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8a6114]"><AlertTriangle size={12} /> Gaps</h3>
+                  <ul className="flex flex-col gap-1.5">
+                    {analysis.weaknesses!.map((s, i) => <li key={i} className="text-[12px] text-[var(--chat-text-dim)]">• {s}</li>)}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {(analysis.suggestions?.length ?? 0) > 0 && (
+              <div className="chat-glass mt-3 p-3.5">
+                <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--chat-text-faint)]">Improve it</h3>
+                <ul className="flex flex-col gap-1.5">
+                  {analysis.suggestions!.map((s, i) => <li key={i} className="text-[12px] text-[var(--chat-text-dim)]">• {s}</li>)}
+                </ul>
               </div>
             )}
 
-            {(analysis.experience?.length ?? 0) > 0 && (
-              <div className="mb-3">
-                <p className="text-[10.5px] uppercase tracking-wide text-on-surface-variant/50 mb-1.5">Experience</p>
-                <div className="flex flex-col gap-1">
-                  {analysis.experience!.map((e, i) => (
-                    <label key={i} className="flex items-start gap-2 text-[12.5px] text-on-surface-variant/80 cursor-pointer">
-                      <input type="checkbox" checked={selectedExp.has(i)}
-                        onChange={() => setSelectedExp((prev) => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n })}
-                        className="mt-0.5" />
-                      <span>{e.title}{e.company ? ` at ${e.company}` : ''}{e.bullets ? ` — ${e.bullets}` : ''}</span>
-                    </label>
-                  ))}
-                </div>
+            {(analysis.ats_issues?.length ?? 0) > 0 && (
+              <div className="chat-glass mt-3 p-3.5">
+                <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--chat-text-faint)]">ATS issues</h3>
+                <ul className="flex flex-col gap-1.5">
+                  {analysis.ats_issues!.map((s, i) => <li key={i} className="text-[12px] text-[var(--chat-text-dim)]">• {s}</li>)}
+                </ul>
               </div>
             )}
 
-            {(['programming', 'domain', 'tools'] as SkillCategory[]).map((cat) => (
-              (analysis.skills?.[cat]?.length ?? 0) > 0 && (
-                <div key={cat} className="mb-3">
-                  <p className="text-[10.5px] uppercase tracking-wide text-on-surface-variant/50 mb-1.5">{SKILL_LABELS[cat]}</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {analysis.skills![cat]!.map((s, i) => (
-                      <button key={s} onClick={() => toggleSkill(cat, i)}
-                        className={`text-[11px] px-2 py-1 rounded-full border transition ${selectedSkills[cat].has(i) ? 'border-white/25 bg-white/[0.06] text-on-surface' : 'border-white/10 text-on-surface-variant/40 line-through'}`}>
-                        {s}
-                      </button>
+            <div className="chat-glass mt-3 p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-[13px] font-semibold text-[var(--chat-body)]">Pick what to add to your profile</h3>
+                <button onClick={addToProfile} disabled={applying}
+                  className="flex items-center gap-1.5 whitespace-nowrap rounded-[10px] bg-[#592eff] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#4520cc] disabled:opacity-50">
+                  {applying ? <Loader2 size={13} className="animate-spin" /> : <PlusCircle size={13} />} Add selected to profile
+                </button>
+              </div>
+              {appliedMsg && <p className="mb-2 text-[12px] text-[#047857]">{appliedMsg}</p>}
+
+              {(analysis.education?.length ?? 0) > 0 && (
+                <div className="mb-3">
+                  <p className={LABEL_CLS}>Education</p>
+                  <div className="flex flex-col gap-1">
+                    {analysis.education!.map((e, i) => (
+                      <label key={i} className="flex cursor-pointer items-start gap-2 text-[12.5px] text-[var(--chat-text-dim)]">
+                        <input type="checkbox" checked={selectedEdu.has(i)} className="mt-0.5 accent-[#592eff]"
+                          onChange={() => setSelectedEdu((prev) => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n })} />
+                        <span>{e.degree}{e.institution ? ` — ${e.institution}` : ''}{e.period ? ` (${e.period})` : ''}</span>
+                      </label>
                     ))}
                   </div>
                 </div>
-              )
-            ))}
-          </Card>
-        </>
-      )}
+              )}
+
+              {(analysis.experience?.length ?? 0) > 0 && (
+                <div className="mb-3">
+                  <p className={LABEL_CLS}>Experience</p>
+                  <div className="flex flex-col gap-1">
+                    {analysis.experience!.map((e, i) => (
+                      <label key={i} className="flex cursor-pointer items-start gap-2 text-[12.5px] text-[var(--chat-text-dim)]">
+                        <input type="checkbox" checked={selectedExp.has(i)} className="mt-0.5 accent-[#592eff]"
+                          onChange={() => setSelectedExp((prev) => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n })} />
+                        <span>{e.title}{e.company ? ` at ${e.company}` : ''}{e.bullets ? ` — ${e.bullets}` : ''}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(['programming', 'domain', 'tools'] as SkillCategory[]).map((cat) => (
+                (analysis.skills?.[cat]?.length ?? 0) > 0 && (
+                  <div key={cat} className="mb-3">
+                    <p className={LABEL_CLS}>{SKILL_LABELS[cat]}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {analysis.skills![cat]!.map((s, i) => (
+                        <button key={s} onClick={() => toggleSkill(cat, i)}
+                          className={`rounded-[200px] border px-2 py-1 text-[11px] transition ${selectedSkills[cat].has(i) ? 'border-transparent bg-[rgba(89,46,255,0.08)] text-[var(--chat-accent)]' : 'border-[var(--chat-hairline)] text-[var(--chat-text-faint)] line-through'}`}>
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              ))}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   )
 }

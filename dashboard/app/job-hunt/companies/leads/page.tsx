@@ -2,24 +2,25 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { Card } from '@/components/ui'
 import { ArrowLeft, Loader2, Plus, X, Search, ExternalLink, Download, Square } from 'lucide-react'
 import { INDUSTRIES, AddCompanyModal, type AddForm } from '../shared'
+import { AtelierBackdrop, Squiggle } from '../../../chat/Atelier'
+import '../../../chat/chat.css'
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  JOB HUNT — COMPANIES / RAW LEADS (2026-08-15)
+//  JOB HUNT — COMPANIES / RAW LEADS (2026-08-15 · Adora restyle 2026-08-25)
 // ═══════════════════════════════════════════════════════════════════════════
 // Raw, unverified company leads bulk-pulled from OrgBook BC (the BC
 // government's free, public, official corporate-registry API — not
-// scraped). Pulled live from this page via /api/job-hunt/companies/leads/
-// fetch-batch (runs on whichever server is running this dashboard — dev or
-// deployed, both have normal internet) or, as a fallback, via
-// scripts/fetch-orgbook-leads.mjs run locally. Each row here is a real
-// registered legal entity name and
-// nothing else — no confirmed industry, city, size, or description. This
-// page is where a human skims and promotes the real ones into the curated
-// target_companies watchlist; it deliberately never writes to that table
-// automatically.
+// scraped). Since 2026-08-25 the nightly VPS puller
+// (vps-scripts/fetch-orgbook-bc-leads.py) enumerates the FULL registry —
+// every active BC business, hiring or not — into company_leads, page by
+// page. This page lists them at 50/page; a human skims and promotes the
+// real ones into the curated target_companies watchlist; it deliberately
+// never writes to that table automatically.
+//
+// Adora treatment: same gallery surface as /chat and /task-board — shell
+// canvas, painterly washes, display face, glass cards.
 
 interface Lead {
   id: string
@@ -55,9 +56,8 @@ export default function CompanyLeadsPage() {
   const [stats, setStats] = useState<Record<string, number>>({})
   const [addModal, setAddModal] = useState<{ open: boolean; prefill?: Partial<AddForm>; leadId?: string }>({ open: false })
 
-  // "Pull leads now" — client-driven loop over OrgBook keywords/pages.
-  // Each call hits fetch-batch for ONE page, so no single request risks a
-  // serverless timeout; the delay + stop flag live here in the browser.
+  // "Pull leads now" — client-driven loop over OrgBook keywords/pages
+  // (legacy keyword path; the nightly full-registry puller supersedes it).
   const [pulling, setPulling] = useState(false)
   const [pullLog, setPullLog] = useState<string[]>([])
   const [pullCounts, setPullCounts] = useState({ seen: 0, upserted: 0 })
@@ -175,146 +175,188 @@ export default function CompanyLeadsPage() {
   }, [addModal.leadId, loadStats])
 
   const totalUnclassified = stats.unclassified ?? 0
+  const totalAll = Object.values(stats).reduce((a, b) => a + b, 0)
+
+  const chip = (active: boolean) =>
+    `rounded-[200px] px-3 py-1.5 text-[11.5px] font-medium transition border transition-colors ` +
+    (active
+      ? 'border-transparent bg-[rgba(89,46,255,0.08)] text-[var(--chat-accent)]'
+      : 'border-[var(--chat-hairline)] bg-white text-[var(--chat-text-dim)] hover:border-[var(--chat-text-faint)]')
 
   return (
-    <div>
-      <div className="mb-4">
-        <Link href="/job-hunt/companies" className="inline-flex items-center gap-1 text-[11.5px] text-on-surface-variant/70 hover:text-on-surface mb-2">
+    <div className="chat-shell relative min-h-screen overflow-hidden">
+      <AtelierBackdrop />
+
+      <div className="relative z-10 mx-auto max-w-[1240px] px-4 py-8 md:px-8 md:py-10">
+        <Link href="/job-hunt/companies" className="mb-3 inline-flex items-center gap-1 text-[11.5px] text-[var(--chat-text-dim)] hover:text-[var(--chat-accent)]">
           <ArrowLeft size={12} /> Back to Companies
         </Link>
-        <h1 className="text-2xl font-bold tracking-tight text-on-surface">Raw leads — British Columbia</h1>
-        <p className="mt-1 text-sm text-on-surface-variant max-w-2xl">
+        <h1 className="adora-display text-[30px] font-bold leading-[1.1] tracking-[-0.02em] text-[var(--chat-text)] md:text-[34px]">
+          <Squiggle>Raw leads</Squiggle> — British Columbia
+        </h1>
+        <p className="mt-2 max-w-[640px] text-[13.5px] leading-[1.55] text-[var(--chat-text-dim)]">
           Real company names pulled from{' '}
-          <a href="https://orgbook.gov.bc.ca" target="_blank" rel="noopener noreferrer" className="underline hover:text-on-surface">
+          <a href="https://orgbook.gov.bc.ca" target="_blank" rel="noopener noreferrer" className="text-[var(--chat-accent)] underline hover:opacity-80">
             OrgBook BC
           </a>
-          , the BC government&apos;s free public corporate registry — not scraped, not invented. Each row is just a
-          registered legal name and status; nothing here is verified as a real employer worth applying to.
-          Skim and <strong>promote</strong> the ones that look real to add them to your watchlist with full details.
+          , the BC government&apos;s free public corporate registry — not scraped, not invented. The nightly puller
+          enumerates the full registry: every active BC business, hiring or not. Skim and{' '}
+          <strong className="text-[var(--chat-body)]">promote</strong> the ones worth applying to.
         </p>
-      </div>
 
-      <Card className="p-3.5 mb-4">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <p className="text-[12.5px] font-medium text-on-surface">Pull leads now</p>
-            <p className="text-[11px] text-on-surface-variant/60 mt-0.5">
-              Runs live from this browser tab against OrgBook BC — 29 industry keywords, paginated, ~30 pages/keyword max.
-              {pulling && ` ${pullCounts.seen} seen, ${pullCounts.upserted} upserted so far.`}
-            </p>
+        {/* Pull card — legacy keyword path; the nightly full-registry pull supersedes it */}
+        <div className="chat-glass mt-6 p-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-[12.5px] font-semibold text-[var(--chat-body)]">Pull leads now</p>
+              <p className="mt-0.5 text-[11px] text-[var(--chat-text-dim)]">
+                Legacy keyword pull from this tab. The nightly full-registry puller already fills this page — this is
+                for immediate small refreshes.
+                {pulling && ` ${pullCounts.seen} seen, ${pullCounts.upserted} upserted so far.`}
+              </p>
+            </div>
+            {pulling ? (
+              <button onClick={() => { stopRef.current = true }} className="chat-ghost-btn flex shrink-0 items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px]">
+                <Square size={12} /> Stop
+              </button>
+            ) : (
+              <button onClick={startPull}
+                className="flex shrink-0 items-center gap-1.5 rounded-[10px] bg-[#592eff] px-3.5 py-2 text-[12px] font-semibold text-white hover:bg-[#4520cc]">
+                <Download size={13} /> Pull leads now
+              </button>
+            )}
           </div>
-          {pulling ? (
-            <button onClick={() => { stopRef.current = true }}
-              className="shrink-0 flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-lg border border-white/10 text-on-surface-variant hover:text-on-surface">
-              <Square size={12} /> Stop
-            </button>
-          ) : (
-            <button onClick={startPull}
-              className="shrink-0 flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-lg bg-primary text-on-primary">
-              <Download size={13} /> Pull leads now
-            </button>
+          {pullLog.length > 0 && (
+            <div className="mt-2.5 max-h-40 overflow-y-auto rounded-[12px] border border-[var(--chat-hairline)] bg-[var(--chat-surface-strong)] p-2.5 font-mono text-[10.5px] leading-relaxed text-[var(--chat-text-dim)]">
+              {pullLog.map((line, i) => <div key={i}>{line}</div>)}
+            </div>
           )}
         </div>
-        {pullLog.length > 0 && (
-          <div className="mt-2.5 max-h-40 overflow-y-auto rounded-lg border border-white/10 bg-black/20 p-2 font-mono text-[10.5px] text-on-surface-variant/70 leading-relaxed">
-            {pullLog.map((line, i) => <div key={i}>{line}</div>)}
-          </div>
-        )}
-      </Card>
 
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <button onClick={() => setIndustryFilter(null)}
-          className={`text-[11px] px-2.5 py-1 rounded-full border transition ${!industryFilter ? 'border-white/25 bg-white/[0.06] text-on-surface' : 'border-white/10 text-on-surface-variant/60'}`}>
-          All ({Object.values(stats).reduce((a, b) => a + b, 0)})
-        </button>
-        {INDUSTRIES.map((ind) => (
-          <button key={ind} onClick={() => setIndustryFilter(ind)}
-            className={`text-[11px] px-2.5 py-1 rounded-full border transition ${industryFilter === ind ? 'border-white/25 bg-white/[0.06] text-on-surface' : 'border-white/10 text-on-surface-variant/60'}`}>
-            {ind} ({stats[ind] ?? 0})
+        {/* Filters */}
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <button onClick={() => setIndustryFilter(null)} className={chip(!industryFilter)}>
+            All ({totalAll})
           </button>
-        ))}
-        {totalUnclassified > 0 && (
-          <button onClick={() => setIndustryFilter('unclassified')}
-            className={`text-[11px] px-2.5 py-1 rounded-full border transition ${industryFilter === 'unclassified' ? 'border-white/25 bg-white/[0.06] text-on-surface' : 'border-white/10 text-on-surface-variant/60'}`}>
-            Unclassified ({totalUnclassified})
+          {INDUSTRIES.map((ind) => (
+            <button key={ind} onClick={() => setIndustryFilter(ind)} className={chip(industryFilter === ind)}>
+              {ind} ({stats[ind] ?? 0})
+            </button>
+          ))}
+          {totalUnclassified > 0 && (
+            <button onClick={() => setIndustryFilter('unclassified')} className={chip(industryFilter === 'unclassified')}>
+              Unclassified ({totalUnclassified})
+            </button>
+          )}
+          <div className="mx-1 h-4 w-px bg-[var(--chat-hairline)]" />
+          <button onClick={() => setActiveOnly((v) => !v)} className={chip(activeOnly)}>
+            Active registrations only
           </button>
-        )}
-        <div className="w-px h-4 bg-white/10 mx-1" />
-        <button onClick={() => setActiveOnly((v) => !v)}
-          className={`text-[11px] px-2.5 py-1 rounded-full border transition ${activeOnly ? 'border-white/25 bg-white/[0.06] text-on-surface' : 'border-white/10 text-on-surface-variant/60'}`}>
-          Active registrations only
-        </button>
-        <div className="relative ml-auto">
-          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant/50" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name…"
-            className="text-[11.5px] pl-7 pr-2.5 py-1.5 rounded-full border border-white/10 bg-white/[0.02] text-on-surface placeholder:text-on-surface-variant/40 outline-none focus:border-white/25 w-48" />
+          <div className="relative ml-auto">
+            <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--chat-text-faint)]" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name…"
+              className="w-48 rounded-[200px] border border-[var(--chat-hairline)] bg-white py-1.5 pl-8 pr-3 text-[11.5px] text-[var(--chat-body)] outline-none placeholder:text-[var(--chat-text-faint)] focus:border-[var(--chat-accent)]"
+            />
+          </div>
         </div>
-      </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center h-32"><Loader2 size={20} className="animate-spin text-on-surface-variant" /></div>
-      ) : leads.length === 0 ? (
-        <Card className="p-6 text-center">
-          <p className="text-sm text-on-surface-variant/70">
-            No leads match this filter yet. Click <strong>Pull leads now</strong> above to fetch some from OrgBook BC.
-          </p>
-        </Card>
-      ) : (
-        <>
-          <div className="flex flex-col gap-1.5 mb-4">
-            {leads.map((lead) => (
-              <Card key={lead.id} className="p-2.5 flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[12.5px] font-medium text-on-surface truncate">{lead.name}</span>
-                    {lead.industry_guess && (
-                      <span className="text-[9.5px] px-1.5 py-0.5 rounded-full bg-white/5 text-on-surface-variant/70">{lead.industry_guess}</span>
-                    )}
-                    {lead.entity_status && (
-                      <span className={`text-[9.5px] px-1.5 py-0.5 rounded-full ${lead.entity_status === 'ACT' ? 'bg-emerald-400/10 text-emerald-300' : 'bg-white/5 text-on-surface-variant/50'}`}>
-                        {lead.entity_status === 'ACT' ? 'active' : lead.entity_status.toLowerCase()}
-                      </span>
-                    )}
+        {/* List */}
+        {loading ? (
+          <div className="flex h-32 items-center justify-center">
+            <Loader2 size={20} className="animate-spin text-[var(--chat-text-faint)]" />
+          </div>
+        ) : leads.length === 0 ? (
+          <div className="chat-glass mt-4 p-8 text-center">
+            <p className="text-sm text-[var(--chat-text-dim)]">
+              No leads match this filter yet. The nightly puller keeps the full BC registry here — or click{' '}
+              <strong className="text-[var(--chat-body)]">Pull leads now</strong> above for an immediate refresh.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="mt-4 flex flex-col gap-2">
+              {leads.map((lead) => (
+                <div key={lead.id} className="chat-glass flex items-center gap-3 p-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="truncate text-[13px] font-semibold text-[var(--chat-body)]">{lead.name}</span>
+                      {lead.industry_guess && (
+                        <span className="rounded-[200px] bg-[rgba(89,46,255,0.07)] px-2 py-0.5 text-[9.5px] font-medium text-[var(--chat-accent)]">
+                          {lead.industry_guess}
+                        </span>
+                      )}
+                      {lead.entity_status && (
+                        <span className={`rounded-[200px] px-2 py-0.5 text-[9.5px] font-medium ${lead.entity_status === 'ACT' ? 'bg-[rgba(16,185,129,0.12)] text-[#047857]' : 'bg-[var(--chat-surface-strong)] text-[var(--chat-text-faint)]'}`}>
+                          {lead.entity_status === 'ACT' ? 'active' : lead.entity_status.toLowerCase()}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-[10.5px] text-[var(--chat-text-faint)]">
+                      {lead.registration_id}
+                      {lead.matched_keyword && <> · matched &quot;{lead.matched_keyword}&quot;</>}
+                      {!lead.matched_keyword && <> · full-registry pull</>}
+                      {!lead.registration_id.startsWith('topic:') && (
+                        <>
+                          {' · '}
+                          <a
+                            href={`https://orgbook.gov.bc.ca/entity/${lead.registration_id}`}
+                            target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-0.5 text-[var(--chat-accent)] hover:opacity-80"
+                          >
+                            verify on OrgBook <ExternalLink size={9} />
+                          </a>
+                        </>
+                      )}
+                    </p>
                   </div>
-                  <p className="text-[10.5px] text-on-surface-variant/50 mt-0.5">
-                    {lead.registration_id} · matched &quot;{lead.matched_keyword}&quot;
-                    {' · '}
-                    <a href={`https://orgbook.gov.bc.ca/entity/${lead.registration_id}`} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-0.5 hover:text-on-surface">
-                      verify on OrgBook <ExternalLink size={9} />
-                    </a>
-                  </p>
+                  <button
+                    onClick={() => openPromote(lead)}
+                    className="flex shrink-0 items-center gap-1 rounded-[10px] bg-[#592eff] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#4520cc]"
+                  >
+                    <Plus size={11} /> Promote
+                  </button>
+                  <button
+                    onClick={() => dismiss(lead)}
+                    className="chat-ghost-btn flex shrink-0 items-center gap-1 rounded-[10px] px-2.5 py-1.5 text-[11px]"
+                  >
+                    <X size={11} /> Dismiss
+                  </button>
                 </div>
-                <button onClick={() => openPromote(lead)}
-                  className="shrink-0 flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg bg-primary text-on-primary">
-                  <Plus size={11} /> Promote
-                </button>
-                <button onClick={() => dismiss(lead)}
-                  className="shrink-0 flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg border border-white/10 text-on-surface-variant/60 hover:text-on-surface">
-                  <X size={11} /> Dismiss
-                </button>
-              </Card>
-            ))}
-          </div>
-
-          <div className="flex items-center justify-between text-[11.5px] text-on-surface-variant/60">
-            <span>{offset + 1}–{Math.min(offset + PAGE_SIZE, total)} of {total}</span>
-            <div className="flex gap-2">
-              <button disabled={offset === 0} onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
-                className="px-2.5 py-1 rounded-lg border border-white/10 disabled:opacity-30">Previous</button>
-              <button disabled={offset + PAGE_SIZE >= total} onClick={() => setOffset((o) => o + PAGE_SIZE)}
-                className="px-2.5 py-1 rounded-lg border border-white/10 disabled:opacity-30">Next</button>
+              ))}
             </div>
-          </div>
-        </>
-      )}
 
-      <AddCompanyModal
-        open={addModal.open}
-        prefill={addModal.prefill}
-        onClose={() => setAddModal({ open: false })}
-        onSaved={onPromoted}
-      />
+            <div className="mt-4 flex items-center justify-between text-[11.5px] text-[var(--chat-text-dim)]">
+              <span>{offset + 1}–{Math.min(offset + PAGE_SIZE, total)} of {total}</span>
+              <div className="flex gap-2">
+                <button
+                  disabled={offset === 0}
+                  onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
+                  className="chat-ghost-btn rounded-[10px] px-3 py-1.5 disabled:opacity-30"
+                >
+                  Previous
+                </button>
+                <button
+                  disabled={offset + PAGE_SIZE >= total}
+                  onClick={() => setOffset((o) => o + PAGE_SIZE)}
+                  className="chat-ghost-btn rounded-[10px] px-3 py-1.5 disabled:opacity-30"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        <AddCompanyModal
+          open={addModal.open}
+          prefill={addModal.prefill}
+          onClose={() => setAddModal({ open: false })}
+          onSaved={onPromoted}
+        />
+      </div>
     </div>
   )
 }

@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Card } from '@/components/ui'
 import { Loader2, Plus, Sparkles, Trash2, X, Copy, Linkedin, Key, Send, CheckCircle2 } from 'lucide-react'
 import LinkedInImportSection from './ImportSection'
+import { AtelierBackdrop, Squiggle } from '../../chat/Atelier'
+import '../../chat/chat.css'
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  JOB HUNT — LINKEDIN CONTENT LAB (2026-08-15)
+//  JOB HUNT — LINKEDIN CONTENT LAB (2026-08-15 · Adora restyle 2026-08-25)
 // ═══════════════════════════════════════════════════════════════════════════
 // Fourth Job Hunt artifact. Schema pulled verbatim from the operator's own
 // prior YVON-OS design (025_content_lab.sql: linkedin_posts + post_ideas).
@@ -38,12 +39,12 @@ interface Post {
 const INDUSTRIES = ['Aerospace', 'IT', 'Trucking', 'Drone', 'Business']
 const TONES = ['story', 'insight', 'announcement', 'opinion']
 const STATUS_TONE: Record<string, string> = {
-  draft: 'bg-white/5 text-on-surface-variant',
-  ready: 'bg-tertiary/15 text-tertiary',
-  scheduled: 'bg-primary/10 text-primary',
-  published: 'bg-emerald-400/10 text-emerald-300',
-  new: 'bg-white/5 text-on-surface-variant',
-  expanded: 'bg-tertiary/15 text-tertiary',
+  draft: 'bg-[var(--chat-surface-strong)] text-[var(--chat-text-faint)]',
+  ready: 'bg-[rgba(89,46,255,0.08)] text-[var(--chat-accent)]',
+  scheduled: 'bg-[rgba(89,46,255,0.08)] text-[var(--chat-accent)]',
+  published: 'bg-[rgba(16,185,129,0.12)] text-[#047857]',
+  new: 'bg-[var(--chat-surface-strong)] text-[var(--chat-text-faint)]',
+  expanded: 'bg-[rgba(89,46,255,0.08)] text-[var(--chat-accent)]',
 }
 
 interface ConnectionStatus {
@@ -53,6 +54,14 @@ interface ConnectionStatus {
   person_name: string | null
   person_headline: string | null
 }
+
+const chip = (active: boolean) =>
+  `rounded-[200px] px-3 py-1.5 text-[11.5px] font-medium transition border transition-colors ` +
+  (active
+    ? 'border-transparent bg-[rgba(89,46,255,0.08)] text-[var(--chat-accent)]'
+    : 'border-[var(--chat-hairline)] bg-white text-[var(--chat-text-dim)] hover:border-[var(--chat-text-faint)]')
+
+const INPUT_CLS = 'flex-1 rounded-[10px] border border-[var(--chat-hairline)] bg-white px-2.5 py-1.5 text-[12px] text-[var(--chat-body)] placeholder:text-[var(--chat-text-faint)] focus:border-[var(--chat-accent)] focus:outline-none'
 
 export default function JobHuntLinkedInPage() {
   const [ideas, setIdeas] = useState<Idea[]>([])
@@ -199,202 +208,206 @@ export default function JobHuntLinkedInPage() {
   }, [load])
 
   return (
-    <div>
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-on-surface">LinkedIn</h1>
-          <p className="mt-1 text-sm text-on-surface-variant max-w-2xl">
-            Content Lab — capture post ideas, expand them with AI, keep drafts ready. Nothing publishes automatically yet;
-            connecting your account for real posting is a separate step, not built here.
-          </p>
+    <div className="chat-shell relative min-h-screen overflow-hidden">
+      <AtelierBackdrop />
+
+      <div className="relative z-10 mx-auto max-w-[1240px] px-4 py-8 md:px-8 md:py-10">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="adora-display text-[30px] font-bold leading-[1.1] tracking-[-0.02em] text-[var(--chat-text)] md:text-[34px]">
+              <Squiggle>LinkedIn</Squiggle>
+            </h1>
+            <p className="mt-2 max-w-[640px] text-[13.5px] leading-[1.55] text-[var(--chat-text-dim)]">
+              Content Lab — capture post ideas, expand them with AI, keep drafts ready. Nothing publishes automatically
+              yet; connecting your account for real posting is a separate step, not built here.
+            </p>
+          </div>
+          <button onClick={() => setAddingIdea((v) => !v)}
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-[10px] bg-[#592eff] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#4520cc]">
+            <Plus size={14} /> New idea
+          </button>
         </div>
-        <button onClick={() => setAddingIdea((v) => !v)} className="btn-accent flex items-center gap-1.5 text-xs px-3 py-2 whitespace-nowrap">
-          <Plus size={14} /> New idea
-        </button>
-      </div>
 
-      <Card className="p-3.5 mb-4 flex flex-col gap-2">
-        {status?.connected ? (
-          <div className="flex items-center gap-2 flex-wrap">
-            <CheckCircle2 size={14} className="text-emerald-300 shrink-0" />
-            <span className="text-[12.5px] text-on-surface">
-              Connected as <span className="font-medium">{status.person_name}</span>
-            </span>
-            <a href="/api/job-hunt/linkedin/connect" className="ml-auto text-[11px] text-on-surface-variant hover:text-on-surface underline decoration-dotted">
-              Reconnect
-            </a>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 flex-wrap">
-            <Linkedin size={14} className="text-on-surface-variant/60 shrink-0" />
-            <span className="text-[12.5px] text-on-surface-variant">
-              {status?.expired ? 'LinkedIn connection expired.' : 'Not connected — publishing is disabled until you connect your account.'}
-            </span>
-            {status?.app_configured ? (
-              <a href="/api/job-hunt/linkedin/connect" className="ml-auto flex items-center gap-1 text-[11px] btn-accent px-3 py-1.5 whitespace-nowrap">
-                <Linkedin size={12} /> Connect LinkedIn
+        <div className="chat-glass mt-6 flex flex-col gap-2 p-3.5">
+          {status?.connected ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <CheckCircle2 size={14} className="shrink-0 text-[#047857]" />
+              <span className="text-[12.5px] text-[var(--chat-body)]">
+                Connected as <span className="font-medium">{status.person_name}</span>
+              </span>
+              <a href="/api/job-hunt/linkedin/connect" className="ml-auto text-[11px] text-[var(--chat-text-dim)] underline decoration-dotted hover:text-[var(--chat-accent)]">
+                Reconnect
               </a>
-            ) : (
-              <button onClick={() => setAppSetupOpen((v) => !v)} className="ml-auto flex items-center gap-1 text-[11px] text-on-surface-variant hover:text-on-surface underline decoration-dotted whitespace-nowrap">
-                <Key size={11} /> set up LinkedIn app credentials
-              </button>
-            )}
-          </div>
-        )}
-
-        {appSetupOpen && !status?.app_configured && (
-          <div className="flex flex-col gap-2 rounded-md border border-white/10 bg-white/[0.02] p-2.5">
-            <span className="text-[11px] text-on-surface-variant/70">
-              Create an app at developer.linkedin.com (request the &quot;Sign In with LinkedIn using OpenID Connect&quot; and &quot;Share on LinkedIn&quot; products), then paste its credentials here. Nothing is sent to LinkedIn until you click Connect above.
-            </span>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="Client ID"
-                className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-1 text-[12px] text-on-surface flex-1" />
-              <input value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} placeholder="Client Secret" type="password"
-                className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-1 text-[12px] text-on-surface flex-1" />
             </div>
-            <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-              <input value={redirectUri} onChange={(e) => setRedirectUri(e.target.value)} placeholder="Redirect URI"
-                className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-1 text-[12px] text-on-surface flex-1" />
-              <span className="text-[10.5px] text-on-surface-variant/50 whitespace-nowrap">↑ add this exact URL as an authorized redirect URL on the LinkedIn app</span>
-            </div>
-            <button onClick={saveAppCredentials} className="btn-accent text-[11px] px-3 py-1.5 self-start">Save</button>
-          </div>
-        )}
-      </Card>
-
-      <LinkedInImportSection />
-
-      {addingIdea && (
-        <Card className="p-3.5 mb-4 flex flex-col gap-2">
-          <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Topic (short)"
-            className="rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[13px] text-on-surface" />
-          <textarea value={roughIdea} onChange={(e) => setRoughIdea(e.target.value)} placeholder="Rough idea / notes (optional)" rows={2}
-            className="rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[13px] text-on-surface resize-none" />
-          <div className="flex flex-wrap items-center gap-1.5">
-            {INDUSTRIES.map((ind) => (
-              <button key={ind} onClick={() => setIndustryTag(industryTag === ind ? '' : ind)}
-                className={`text-[11px] px-2.5 py-1 rounded-full border transition ${industryTag === ind ? 'border-white/25 bg-white/[0.06] text-on-surface' : 'border-white/10 text-on-surface-variant/60'}`}>
-                {ind}
-              </button>
-            ))}
-            <button onClick={addIdea} className="btn-accent text-[11px] px-3 py-1.5 ml-auto whitespace-nowrap">Save idea</button>
-          </div>
-        </Card>
-      )}
-
-      {loading ? (
-        <div className="flex items-center justify-center h-32"><Loader2 size={20} className="animate-spin text-on-surface-variant" /></div>
-      ) : (
-        <>
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant/60 mb-2">Idea bank</h3>
-          {ideas.length === 0 ? (
-            <p className="text-sm text-on-surface-variant/60 italic py-4 text-center">No ideas yet — jot down anything worth posting about.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 mb-6">
-              {ideas.map((idea) => (
-                <Card key={idea.id} className="p-3.5 flex flex-col gap-1.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-[13px] font-medium text-on-surface">{idea.topic}</span>
-                    <button onClick={() => deleteIdea(idea.id)} className="shrink-0 text-on-surface-variant/40 hover:text-on-surface-variant">
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                  {idea.rough_idea && <p className="text-[11.5px] text-on-surface-variant/70 line-clamp-2">{idea.rough_idea}</p>}
-                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full capitalize ${STATUS_TONE[idea.status] ?? 'bg-white/5 text-on-surface-variant'}`}>{idea.status}</span>
-                    {idea.industry_tag && <span className="text-[10px] px-1.5 py-0.5 rounded border border-white/10 text-on-surface-variant/60">{idea.industry_tag}</span>}
-                    <button onClick={() => openCompose(idea)} className="ml-auto flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-white/10 hover:bg-white/[0.05] text-on-surface-variant hover:text-on-surface">
-                      <Sparkles size={11} /> Compose
-                    </button>
-                  </div>
-                </Card>
-              ))}
+            <div className="flex flex-wrap items-center gap-2">
+              <Linkedin size={14} className="shrink-0 text-[var(--chat-text-faint)]" />
+              <span className="text-[12.5px] text-[var(--chat-text-dim)]">
+                {status?.expired ? 'LinkedIn connection expired.' : 'Not connected — publishing is disabled until you connect your account.'}
+              </span>
+              {status?.app_configured ? (
+                <a href="/api/job-hunt/linkedin/connect" className="ml-auto flex items-center gap-1 whitespace-nowrap rounded-[10px] bg-[#592eff] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#4520cc]">
+                  <Linkedin size={12} /> Connect LinkedIn
+                </a>
+              ) : (
+                <button onClick={() => setAppSetupOpen((v) => !v)} className="ml-auto flex items-center gap-1 whitespace-nowrap text-[11px] text-[var(--chat-text-dim)] underline decoration-dotted hover:text-[var(--chat-accent)]">
+                  <Key size={11} /> set up LinkedIn app credentials
+                </button>
+              )}
             </div>
           )}
 
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant/60 mb-2">Drafts &amp; schedule</h3>
-          {posts.length === 0 ? (
-            <p className="text-sm text-on-surface-variant/60 italic py-4 text-center">No drafted posts yet.</p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {posts.map((p) => (
-                <Card key={p.id} className="p-3.5 flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full capitalize ${STATUS_TONE[p.status] ?? 'bg-white/5 text-on-surface-variant'}`}>{p.status}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded border border-white/10 text-on-surface-variant/60">{p.industry_tag}</span>
-                      <span className="text-[10px] text-on-surface-variant/50 capitalize">{p.tone}</span>
-                    </div>
-                    <p className="text-[12.5px] text-on-surface-variant/80 line-clamp-3 whitespace-pre-wrap">{p.content}</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button onClick={() => navigator.clipboard.writeText(p.content)}
-                      className="p-1.5 rounded-md border border-white/10 hover:bg-white/[0.05] text-on-surface-variant hover:text-on-surface">
-                      <Copy size={12} />
-                    </button>
-                    {p.status === 'draft' && (
-                      <button onClick={() => setPostStatus(p.id, 'ready')} className="text-[11px] px-2 py-1.5 rounded-md border border-white/10 hover:bg-white/[0.05] text-on-surface-variant hover:text-on-surface whitespace-nowrap">
-                        Mark ready
-                      </button>
-                    )}
-                    {p.status === 'ready' && (
-                      <button onClick={() => publishPost(p.id)} disabled={!status?.connected || publishing === p.id}
-                        className="flex items-center gap-1 text-[11px] px-2 py-1.5 rounded-md border border-white/10 hover:bg-white/[0.05] text-on-surface-variant hover:text-on-surface whitespace-nowrap disabled:opacity-40">
-                        {publishing === p.id ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Publish
-                      </button>
-                    )}
-                    <button onClick={() => deletePost(p.id)} className="p-1.5 rounded-md border border-white/10 hover:bg-white/[0.05] text-on-surface-variant/40 hover:text-on-surface-variant">
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                </Card>
-              ))}
+          {appSetupOpen && !status?.app_configured && (
+            <div className="flex flex-col gap-2 rounded-[12px] border border-[var(--chat-hairline)] bg-white p-2.5">
+              <span className="text-[11px] text-[var(--chat-text-faint)]">
+                Create an app at developer.linkedin.com (request the &quot;Sign In with LinkedIn using OpenID Connect&quot; and &quot;Share on LinkedIn&quot; products), then paste its credentials here. Nothing is sent to LinkedIn until you click Connect above.
+              </span>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="Client ID" className={INPUT_CLS} />
+                <input value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} placeholder="Client Secret" type="password" className={INPUT_CLS} />
+              </div>
+              <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+                <input value={redirectUri} onChange={(e) => setRedirectUri(e.target.value)} placeholder="Redirect URI" className={INPUT_CLS} />
+                <span className="whitespace-nowrap text-[10.5px] text-[var(--chat-text-faint)]">↑ add this exact URL as an authorized redirect URL on the LinkedIn app</span>
+              </div>
+              <button onClick={saveAppCredentials} className="self-start rounded-[10px] bg-[#592eff] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#4520cc]">Save</button>
             </div>
           )}
-        </>
-      )}
+        </div>
 
-      {composeFor && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setComposeFor(null)}>
-          <div className="glass-card p-4 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold flex items-center gap-1.5"><Linkedin size={14} /> {composeFor.topic}</h3>
-              <button onClick={() => setComposeFor(null)}><X size={16} className="text-on-surface-variant" /></button>
-            </div>
+        <LinkedInImportSection />
 
-            <div className="flex flex-wrap items-center gap-1.5 mb-2">
-              {TONES.map((t) => (
-                <button key={t} onClick={() => setComposeTone(t)}
-                  className={`text-[11px] px-2.5 py-1 rounded-full border capitalize transition ${composeTone === t ? 'border-white/25 bg-white/[0.06] text-on-surface' : 'border-white/10 text-on-surface-variant/60'}`}>
-                  {t}
+        {addingIdea && (
+          <div className="chat-glass mt-4 flex flex-col gap-2 p-3.5">
+            <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Topic (short)" className={INPUT_CLS} />
+            <textarea value={roughIdea} onChange={(e) => setRoughIdea(e.target.value)} placeholder="Rough idea / notes (optional)" rows={2}
+              className={`${INPUT_CLS} resize-none`} />
+            <div className="flex flex-wrap items-center gap-1.5">
+              {INDUSTRIES.map((ind) => (
+                <button key={ind} onClick={() => setIndustryTag(industryTag === ind ? '' : ind)} className={chip(industryTag === ind)}>
+                  {ind}
                 </button>
               ))}
-              <button onClick={expandIdea} disabled={expanding === composeFor.id}
-                className="ml-auto flex items-center gap-1 text-[11px] px-3 py-1.5 rounded-md border border-white/10 hover:bg-white/[0.05] text-on-surface-variant hover:text-on-surface whitespace-nowrap">
-                {expanding === composeFor.id ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} Expand with AI
-              </button>
-            </div>
-
-            {expanding === composeFor.id ? (
-              <div className="flex items-center justify-center h-32"><Loader2 size={18} className="animate-spin text-on-surface-variant" /></div>
-            ) : (
-              <textarea value={composeText} onChange={(e) => setComposeText(e.target.value)} rows={8}
-                placeholder="Write, or use Expand with AI to draft from the idea..."
-                className="w-full text-[13px] text-on-surface whitespace-pre-wrap border border-white/10 rounded-md p-3 bg-white/[0.02] resize-none" />
-            )}
-
-            <div className="flex gap-2 mt-3">
-              <button onClick={() => navigator.clipboard.writeText(composeText)} className="flex items-center gap-1 text-[11px] px-3 py-1.5 rounded-md border border-white/10 hover:bg-white/[0.05]">
-                <Copy size={12} /> Copy
-              </button>
-              <button onClick={saveAsDraftPost} disabled={!composeText.trim()} className="btn-accent text-[11px] px-3 py-1.5 disabled:opacity-40">
-                Save as draft
-              </button>
+              <button onClick={addIdea} className="ml-auto whitespace-nowrap rounded-[10px] bg-[#592eff] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#4520cc]">Save idea</button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {loading ? (
+          <div className="flex h-32 items-center justify-center"><Loader2 size={20} className="animate-spin text-[var(--chat-text-faint)]" /></div>
+        ) : (
+          <>
+            <h3 className="mb-2 mt-5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--chat-text-faint)]">Idea bank</h3>
+            {ideas.length === 0 ? (
+              <p className="py-4 text-center text-sm italic text-[var(--chat-text-faint)]">No ideas yet — jot down anything worth posting about.</p>
+            ) : (
+              <div className="mb-6 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {ideas.map((idea) => (
+                  <div key={idea.id} className="chat-glass flex flex-col gap-1.5 p-3.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-[13px] font-semibold text-[var(--chat-body)]">{idea.topic}</span>
+                      <button onClick={() => deleteIdea(idea.id)} className="shrink-0 text-[var(--chat-text-faint)] hover:text-[var(--chat-body)]">
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                    {idea.rough_idea && <p className="line-clamp-2 text-[11.5px] text-[var(--chat-text-dim)]">{idea.rough_idea}</p>}
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <span className={`rounded-[200px] px-1.5 py-0.5 text-[10px] capitalize ${STATUS_TONE[idea.status] ?? 'bg-[var(--chat-surface-strong)] text-[var(--chat-text-faint)]'}`}>{idea.status}</span>
+                      {idea.industry_tag && <span className="rounded border border-[var(--chat-hairline)] px-1.5 py-0.5 text-[10px] text-[var(--chat-text-faint)]">{idea.industry_tag}</span>}
+                      <button onClick={() => openCompose(idea)}
+                        className="ml-auto flex items-center gap-1 rounded-[10px] border border-[var(--chat-hairline)] px-2 py-1 text-[11px] text-[var(--chat-text-dim)] hover:bg-[rgba(89,46,255,0.05)] hover:text-[var(--chat-body)]">
+                        <Sparkles size={11} /> Compose
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--chat-text-faint)]">Drafts &amp; schedule</h3>
+            {posts.length === 0 ? (
+              <p className="py-4 text-center text-sm italic text-[var(--chat-text-faint)]">No drafted posts yet.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {posts.map((p) => (
+                  <div key={p.id} className="chat-glass flex items-start justify-between gap-3 p-3.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
+                        <span className={`rounded-[200px] px-1.5 py-0.5 text-[10px] capitalize ${STATUS_TONE[p.status] ?? 'bg-[var(--chat-surface-strong)] text-[var(--chat-text-faint)]'}`}>{p.status}</span>
+                        <span className="rounded border border-[var(--chat-hairline)] px-1.5 py-0.5 text-[10px] text-[var(--chat-text-faint)]">{p.industry_tag}</span>
+                        <span className="text-[10px] capitalize text-[var(--chat-text-faint)]">{p.tone}</span>
+                      </div>
+                      <p className="line-clamp-3 whitespace-pre-wrap text-[12.5px] text-[var(--chat-text-dim)]">{p.content}</p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <button onClick={() => navigator.clipboard.writeText(p.content)}
+                        className="rounded-[10px] border border-[var(--chat-hairline)] p-1.5 text-[var(--chat-text-dim)] hover:bg-[rgba(89,46,255,0.05)] hover:text-[var(--chat-body)]">
+                        <Copy size={12} />
+                      </button>
+                      {p.status === 'draft' && (
+                        <button onClick={() => setPostStatus(p.id, 'ready')} className="whitespace-nowrap rounded-[10px] border border-[var(--chat-hairline)] px-2 py-1.5 text-[11px] text-[var(--chat-text-dim)] hover:bg-[rgba(89,46,255,0.05)] hover:text-[var(--chat-body)]">
+                          Mark ready
+                        </button>
+                      )}
+                      {p.status === 'ready' && (
+                        <button onClick={() => publishPost(p.id)} disabled={!status?.connected || publishing === p.id}
+                          className="flex items-center gap-1 whitespace-nowrap rounded-[10px] border border-[var(--chat-hairline)] px-2 py-1.5 text-[11px] text-[var(--chat-text-dim)] hover:bg-[rgba(89,46,255,0.05)] hover:text-[var(--chat-body)] disabled:opacity-40">
+                          {publishing === p.id ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Publish
+                        </button>
+                      )}
+                      <button onClick={() => deletePost(p.id)} className="rounded-[10px] border border-[var(--chat-hairline)] p-1.5 text-[var(--chat-text-faint)] hover:text-[var(--chat-body)]">
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {composeFor && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setComposeFor(null)}>
+            <div className="chat-glass w-full max-w-lg p-4" onClick={(e) => e.stopPropagation()}>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="flex items-center gap-1.5 text-sm font-semibold text-[var(--chat-body)]"><Linkedin size={14} className="text-[var(--chat-accent)]" /> {composeFor.topic}</h3>
+                <button onClick={() => setComposeFor(null)}><X size={16} className="text-[var(--chat-text-faint)]" /></button>
+              </div>
+
+              <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                {TONES.map((t) => (
+                  <button key={t} onClick={() => setComposeTone(t)} className={`${chip(composeTone === t)} capitalize`}>
+                    {t}
+                  </button>
+                ))}
+                <button onClick={expandIdea} disabled={expanding === composeFor.id}
+                  className="ml-auto flex items-center gap-1 whitespace-nowrap rounded-[10px] border border-[var(--chat-hairline)] px-3 py-1.5 text-[11px] text-[var(--chat-text-dim)] hover:bg-[rgba(89,46,255,0.05)] hover:text-[var(--chat-body)]">
+                  {expanding === composeFor.id ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} Expand with AI
+                </button>
+              </div>
+
+              {expanding === composeFor.id ? (
+                <div className="flex h-32 items-center justify-center"><Loader2 size={18} className="animate-spin text-[var(--chat-text-faint)]" /></div>
+              ) : (
+                <textarea value={composeText} onChange={(e) => setComposeText(e.target.value)} rows={8}
+                  placeholder="Write, or use Expand with AI to draft from the idea..."
+                  className="w-full resize-none whitespace-pre-wrap rounded-[12px] border border-[var(--chat-hairline)] bg-white p-3 text-[13px] text-[var(--chat-body)]" />
+              )}
+
+              <div className="mt-3 flex gap-2">
+                <button onClick={() => navigator.clipboard.writeText(composeText)}
+                  className="flex items-center gap-1 rounded-[10px] border border-[var(--chat-hairline)] px-3 py-1.5 text-[11px] text-[var(--chat-text-dim)] hover:bg-[rgba(89,46,255,0.05)]">
+                  <Copy size={12} /> Copy
+                </button>
+                <button onClick={saveAsDraftPost} disabled={!composeText.trim()}
+                  className="rounded-[10px] bg-[#592eff] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#4520cc] disabled:opacity-40">
+                  Save as draft
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

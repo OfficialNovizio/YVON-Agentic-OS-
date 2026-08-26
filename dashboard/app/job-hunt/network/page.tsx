@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Card } from '@/components/ui'
 import { Loader2, Plus, MessageSquareText, Linkedin, Copy, X } from 'lucide-react'
+import { AtelierBackdrop, Squiggle } from '../../chat/Atelier'
+import '../../chat/chat.css'
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  JOB HUNT — NETWORK CRM (2026-08-15)
+//  JOB HUNT — NETWORK CRM (2026-08-15 · Adora restyle 2026-08-25)
 // ═══════════════════════════════════════════════════════════════════════════
 // Third Job Hunt artifact, folded in per operator instruction. Schema +
 // AI message-drafter pulled from the operator's own prior YVON-OS design
@@ -28,10 +29,12 @@ interface Contact {
 }
 
 const STRENGTH_TONE: Record<string, string> = {
-  strong: 'bg-emerald-400/10 text-emerald-300',
-  medium: 'bg-tertiary/15 text-tertiary',
-  weak: 'bg-white/5 text-on-surface-variant',
+  strong: 'bg-[rgba(16,185,129,0.12)] text-[#047857]',
+  medium: 'bg-[rgba(89,46,255,0.08)] text-[var(--chat-accent)]',
+  weak: 'bg-[var(--chat-surface-strong)] text-[var(--chat-text-faint)]',
 }
+
+const INPUT_CLS = 'flex-1 rounded-[10px] border border-[var(--chat-hairline)] bg-white px-2.5 py-1.5 text-[13px] text-[var(--chat-body)] placeholder:text-[var(--chat-text-faint)] focus:border-[var(--chat-accent)] focus:outline-none'
 
 function daysAgo(iso: string | null): string {
   if (!iso) return 'never'
@@ -99,90 +102,97 @@ export default function JobHuntNetworkPage() {
   }, [load])
 
   return (
-    <div>
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-on-surface">Network</h1>
-          <p className="mt-1 text-sm text-on-surface-variant max-w-2xl">
-            Relationship tracker + AI-drafted re-engagement messages. Nothing is ever sent automatically — you copy, you send.
-          </p>
-        </div>
-        <button onClick={() => setAdding((v) => !v)} className="btn-accent flex items-center gap-1.5 text-xs px-3 py-2 whitespace-nowrap">
-          <Plus size={14} /> Add contact
-        </button>
-      </div>
+    <div className="chat-shell relative min-h-screen overflow-hidden">
+      <AtelierBackdrop />
 
-      {adding && (
-        <Card className="p-3.5 mb-4 flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Name"
-            className="rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[13px] text-on-surface flex-1" />
-          <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Title"
-            className="rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[13px] text-on-surface flex-1" />
-          <input value={newCompany} onChange={(e) => setNewCompany(e.target.value)} placeholder="Company"
-            className="rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[13px] text-on-surface flex-1" />
-          <button onClick={addContact} className="btn-accent text-[11px] px-3 py-1.5 whitespace-nowrap">Save</button>
-        </Card>
-      )}
-
-      {loading ? (
-        <div className="flex items-center justify-center h-32"><Loader2 size={20} className="animate-spin text-on-surface-variant" /></div>
-      ) : contacts.length === 0 ? (
-        <p className="text-sm text-on-surface-variant/60 italic py-8 text-center">No contacts yet — add the people worth staying warm with.</p>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {contacts.map((c) => (
-            <Card key={c.id} className="p-3.5 flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[13px] font-medium text-on-surface">{c.name}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full capitalize ${STRENGTH_TONE[c.relationship_strength] ?? 'bg-white/5 text-on-surface-variant'}`}>{c.relationship_strength}</span>
-                  {c.industry_tag && <span className="text-[10px] px-1.5 py-0.5 rounded border border-white/10 text-on-surface-variant/60">{c.industry_tag}</span>}
-                </div>
-                <div className="mt-1 text-[11px] text-on-surface-variant/70">
-                  {[c.title, c.company].filter(Boolean).join(' at ')}{c.title || c.company ? ' — ' : ''}last contacted {daysAgo(c.last_contacted)}
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {c.linkedin_url && (
-                  <a href={c.linkedin_url} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-md border border-white/10 hover:bg-white/[0.05] text-on-surface-variant hover:text-on-surface">
-                    <Linkedin size={13} />
-                  </a>
-                )}
-                <button onClick={() => draftMessage(c)} disabled={drafting === c.id}
-                  className="flex items-center gap-1 text-[11px] px-2 py-1.5 rounded-md border border-white/10 hover:bg-white/[0.05] text-on-surface-variant hover:text-on-surface">
-                  {drafting === c.id ? <Loader2 size={12} className="animate-spin" /> : <MessageSquareText size={12} />} Draft message
-                </button>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {draftFor && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setDraftFor(null)}>
-          <div className="glass-card p-4 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold">Message for {draftFor.name}</h3>
-              <button onClick={() => setDraftFor(null)}><X size={16} className="text-on-surface-variant" /></button>
-            </div>
-            {drafting ? (
-              <div className="flex items-center justify-center h-24"><Loader2 size={18} className="animate-spin text-on-surface-variant" /></div>
-            ) : (
-              <>
-                <p className="text-[13px] text-on-surface whitespace-pre-wrap border border-white/10 rounded-md p-3 bg-white/[0.02]">{draftText}</p>
-                <div className="flex gap-2 mt-3">
-                  <button onClick={() => navigator.clipboard.writeText(draftText)} className="flex items-center gap-1 text-[11px] px-3 py-1.5 rounded-md border border-white/10 hover:bg-white/[0.05]">
-                    <Copy size={12} /> Copy
-                  </button>
-                  <button onClick={() => { logInteraction(draftFor.id); setDraftFor(null) }} className="btn-accent text-[11px] px-3 py-1.5">
-                    Mark as sent
-                  </button>
-                </div>
-              </>
-            )}
+      <div className="relative z-10 mx-auto max-w-[1240px] px-4 py-8 md:px-8 md:py-10">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="adora-display text-[30px] font-bold leading-[1.1] tracking-[-0.02em] text-[var(--chat-text)] md:text-[34px]">
+              <Squiggle>Network</Squiggle>
+            </h1>
+            <p className="mt-2 max-w-[640px] text-[13.5px] leading-[1.55] text-[var(--chat-text-dim)]">
+              Relationship tracker + AI-drafted re-engagement messages. Nothing is ever sent automatically — you copy, you send.
+            </p>
           </div>
+          <button onClick={() => setAdding((v) => !v)}
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-[10px] bg-[#592eff] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#4520cc]">
+            <Plus size={14} /> Add contact
+          </button>
         </div>
-      )}
+
+        {adding && (
+          <div className="chat-glass mt-4 flex flex-col items-start gap-2 p-3.5 sm:flex-row sm:items-center">
+            <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Name" className={INPUT_CLS} />
+            <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Title" className={INPUT_CLS} />
+            <input value={newCompany} onChange={(e) => setNewCompany(e.target.value)} placeholder="Company" className={INPUT_CLS} />
+            <button onClick={addContact} className="whitespace-nowrap rounded-[10px] bg-[#592eff] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#4520cc]">Save</button>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex h-32 items-center justify-center"><Loader2 size={20} className="animate-spin text-[var(--chat-text-faint)]" /></div>
+        ) : contacts.length === 0 ? (
+          <p className="py-8 text-center text-sm italic text-[var(--chat-text-faint)]">No contacts yet — add the people worth staying warm with.</p>
+        ) : (
+          <div className="mt-4 flex flex-col gap-2">
+            {contacts.map((c) => (
+              <div key={c.id} className="chat-glass flex items-start justify-between gap-3 p-3.5">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[13px] font-semibold text-[var(--chat-body)]">{c.name}</span>
+                    <span className={`rounded-[200px] px-1.5 py-0.5 text-[10px] capitalize ${STRENGTH_TONE[c.relationship_strength] ?? 'bg-[var(--chat-surface-strong)] text-[var(--chat-text-faint)]'}`}>{c.relationship_strength}</span>
+                    {c.industry_tag && <span className="rounded border border-[var(--chat-hairline)] px-1.5 py-0.5 text-[10px] text-[var(--chat-text-faint)]">{c.industry_tag}</span>}
+                  </div>
+                  <div className="mt-1 text-[11px] text-[var(--chat-text-faint)]">
+                    {[c.title, c.company].filter(Boolean).join(' at ')}{c.title || c.company ? ' — ' : ''}last contacted {daysAgo(c.last_contacted)}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {c.linkedin_url && (
+                    <a href={c.linkedin_url} target="_blank" rel="noopener noreferrer"
+                      className="rounded-[10px] border border-[var(--chat-hairline)] p-1.5 text-[var(--chat-text-dim)] hover:bg-[rgba(89,46,255,0.05)] hover:text-[var(--chat-body)]">
+                      <Linkedin size={13} />
+                    </a>
+                  )}
+                  <button onClick={() => draftMessage(c)} disabled={drafting === c.id}
+                    className="flex items-center gap-1 rounded-[10px] border border-[var(--chat-hairline)] px-2 py-1.5 text-[11px] text-[var(--chat-text-dim)] hover:bg-[rgba(89,46,255,0.05)] hover:text-[var(--chat-body)]">
+                    {drafting === c.id ? <Loader2 size={12} className="animate-spin" /> : <MessageSquareText size={12} />} Draft message
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {draftFor && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDraftFor(null)}>
+            <div className="chat-glass w-full max-w-md p-4" onClick={(e) => e.stopPropagation()}>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-[var(--chat-body)]">Message for {draftFor.name}</h3>
+                <button onClick={() => setDraftFor(null)}><X size={16} className="text-[var(--chat-text-faint)]" /></button>
+              </div>
+              {drafting ? (
+                <div className="flex h-24 items-center justify-center"><Loader2 size={18} className="animate-spin text-[var(--chat-text-faint)]" /></div>
+              ) : (
+                <>
+                  <p className="whitespace-pre-wrap rounded-[12px] border border-[var(--chat-hairline)] bg-white p-3 text-[13px] text-[var(--chat-body)]">{draftText}</p>
+                  <div className="mt-3 flex gap-2">
+                    <button onClick={() => navigator.clipboard.writeText(draftText)}
+                      className="flex items-center gap-1 rounded-[10px] border border-[var(--chat-hairline)] px-3 py-1.5 text-[11px] text-[var(--chat-text-dim)] hover:bg-[rgba(89,46,255,0.05)]">
+                      <Copy size={12} /> Copy
+                    </button>
+                    <button onClick={() => { logInteraction(draftFor.id); setDraftFor(null) }}
+                      className="rounded-[10px] bg-[#592eff] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#4520cc]">
+                      Mark as sent
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
