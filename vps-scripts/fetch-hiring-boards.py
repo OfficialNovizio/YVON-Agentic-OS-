@@ -71,13 +71,13 @@ DEFAULT_QUERIES = {
     "Drone": ["drone operator", "UAV", "unmanned aerial", "robotics engineer"],
     "Business": ["business analyst", "operations manager", "project manager", "account manager"],
 }
-RESULTS_PER_QUERY = 100  # 2026-08-25: depth raised — volume is the ask; jobspy pages internally
+RESULTS_PER_QUERY = 50  # 2026-08-25 v6: 50 keeps each query fast (less paging)
 # 2026-08-25: --days=N deep mode — pull N days back (default 60 when set),
 # raising results per query so jobspy pages deeper into history, and
 # dropping anything posted before the cutoff.
 DEEP_DAYS = 60
-DEEP_RESULTS_PER_QUERY = 300
-SLEEP_BETWEEN = 4  # seconds — public boards, be polite
+DEEP_RESULTS_PER_QUERY = 100
+SLEEP_BETWEEN = 2  # seconds — still polite, twice as fast
 # BC relevance filter (2026-08-25 v2, STRICT) — boards can return non-BC
 # matches (US on-site postings from Indeed's "similar" results). Same rule as
 # the dashboard's lib/job-hunt/bc-filter.ts v2: a posting passes ONLY if its

@@ -23,7 +23,7 @@ import type { NormalizedJob } from './types'
 const DAYS_BACK = 60
 const ADZUNA_LIMIT = 50
 const FREE_LIMIT = 30
-const ADZUNA_MAX_PAGES = 10
+const ADZUNA_MAX_PAGES = 5 // v6: fewer pages — halves deep-pull time
 
 // Indeed + LinkedIn run on the VPS (python-jobspy). The dashboard pull drives
 // them over SSH so one button fetches EVERYTHING, streaming their output into
@@ -61,7 +61,7 @@ export interface PullJob {
   log: string[]
   error: string | null
   cancelRequested: boolean
-  child: ReturnType<typeof spawn> | null  // active ssh child, killed on cancel
+  children: ReturnType<typeof spawn>[]  // active ssh children, killed on cancel
 }
 
 const jobs = new Map<string, PullJob>()
@@ -79,10 +79,10 @@ export function cancelPullJob(id: string): { ok: boolean; status?: string; error
   const job = jobs.get(id)
   if (!job) return { ok: false, error: 'unknown job' }
   job.cancelRequested = true
-  if (job.child) {
-    try { job.child.kill('SIGKILL') } catch { /* gone */ }
-    job.child = null
+  for (const c of job.children) {
+    try { c.kill('SIGKILL') } catch { /* gone */ }
   }
+  job.children = []
   job.status = 'cancelled'
   job.finishedAt = Date.now()
   log(job, 'cancelled by operator')
@@ -143,7 +143,7 @@ export async function startPull(opts: { mode?: 'deep' | 'quick'; sources?: strin
   const job: PullJob = {
     id, status: 'running', mode, startedAt: Date.now(), finishedAt: null,
     stepsTotal: 0, stepsDone: 0, fetched: 0, newCount: 0, dropped: 0,
-    perSource: {}, steps: [], log: [], error: null, cancelRequested: false, child: null,
+    perSource: {}, steps: [], log: [], error: null, cancelRequested: false, children: [],
   }
   jobs.set(id, job)
   log(job, `${mode === 'deep' ? 'DEEP' : 'QUICK'} pull started — ${DAYS_BACK} days back`)
@@ -159,14 +159,14 @@ export async function startPull(opts: { mode?: 'deep' | 'quick'; sources?: strin
 async function runBoardSsh(boardCmd: string, job: PullJob, step: PullStep, st: { count: number; skipped: string | null; error?: string }): Promise<boolean> {
   return new Promise((resolve) => {
     const child = spawn('ssh', [...BOARD_SSH_ARGS, BOARD_HOST, boardCmd], { stdio: ['ignore', 'pipe', 'pipe'] })
-    job.child = child
+    job.children.push(child)
     const timer = setTimeout(() => { try { child.kill('SIGKILL') } catch { /* gone */ } }, BOARD_TIMEOUT_MS)
     // Cancel-aware: kill the ssh child within a second of a cancel request.
     const cancelWatcher = setInterval(() => {
       if (job.cancelRequested) {
         clearInterval(cancelWatcher)
         try { child.kill('SIGKILL') } catch { /* gone */ }
-        job.child = null
+        job.children = job.children.filter((c) => c !== child)
       }
     }, 1000)
     let tail = ''
@@ -186,7 +186,7 @@ async function runBoardSsh(boardCmd: string, job: PullJob, step: PullStep, st: {
     child.on('close', (c) => {
       clearTimeout(timer)
       clearInterval(cancelWatcher)
-      job.child = null
+      job.children = job.children.filter((x) => x !== child)
       const exitCode = c ?? -1
       if (exitCode !== 0 && step.count === 0) {
         st.error = tail.slice(-250) || `ssh exited ${exitCode}`
@@ -195,7 +195,7 @@ async function runBoardSsh(boardCmd: string, job: PullJob, step: PullStep, st: {
         resolve(true)
       }
     })
-    child.on('error', () => { clearTimeout(timer); clearInterval(cancelWatcher); job.child = null; st.error = 'ssh spawn failed'; resolve(false) })
+    child.on('error', () => { clearTimeout(timer); clearInterval(cancelWatcher); job.children = job.children.filter((x) => x !== child); st.error = 'ssh spawn failed'; resolve(false) })
   })
 }
 
@@ -203,8 +203,11 @@ async function runBoardSsh(boardCmd: string, job: PullJob, step: PullStep, st: {
 // restart-prone part) runs before the main sources. The script upserts
 // per-query, so boards data is never lost on cancel or restart.
 async function runBoards(sb: ReturnType<typeof supabase>, job: PullJob) {
-  for (const site of ['indeed', 'linkedin']) {
-    if (job.cancelRequested) break
+  // v6: both sites in parallel — halves the boards wall-time.
+  await Promise.all(['indeed', 'linkedin'].map((site) => runBoardSite(sb, job, site)))
+}
+
+async function runBoardSite(sb: ReturnType<typeof supabase>, job: PullJob, site: string) {
     const step: PullStep = { key: `boards|${site}`, label: `${site} (VPS fetch)`, status: 'active', count: 0 }
     job.steps.push(step)
     job.stepsTotal = job.steps.length
@@ -246,7 +249,6 @@ async function runBoards(sb: ReturnType<typeof supabase>, job: PullJob) {
     }
     job.stepsDone += 1
     void persistJob(sb, job)
-  }
 }
 
 async function run(job: PullJob, requestedSources?: string[]) {
