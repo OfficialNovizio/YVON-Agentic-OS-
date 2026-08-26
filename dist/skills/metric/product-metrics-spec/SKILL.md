@@ -16,7 +16,7 @@ identity: README
 provenance:
   source_file: Teams/Product/metric/custom/product-metrics-spec/SKILL.md
   source_hash: 8e55e28a9e1de37ddce31f52ed80d7be540da451643c3ef7152b2504dad2b621
-  generated: 2026-07-20T03:20:23.335Z
+  generated: 2026-07-29T22:20:50.904Z
   generator: cli/skillgen.js
 portable: true
 ---

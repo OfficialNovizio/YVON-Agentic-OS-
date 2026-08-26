@@ -21,7 +21,7 @@ identity: empirical-gardener
 provenance:
   source_file: Teams/AI & Agents/meta/custom/task-dispatch/SKILL.md
   source_hash: ea39dbcd920585646932d29ef5d42d4875d7912c8831b85961ec0397c203e5e7
-  generated: 2026-07-20T03:20:22.234Z
+  generated: 2026-07-29T22:20:50.999Z
   generator: cli/skillgen.js
 portable: true
 ---

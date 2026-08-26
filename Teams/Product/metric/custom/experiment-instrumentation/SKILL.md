@@ -5,7 +5,7 @@ status: built from scratch
 fulfills_catalog_entry: none — new; the measurement arm of loom's experiments (redesign §3), split from product-metrics-spec so no experiment runs uninstrumented
 assigned_agent: metric (Product / Product Analytics)
 portable: true
-includes: scripts/sample_size.py (tested 2026-07-10, 12/12 self-tests pass — two-proportion sample size + significance z-test + normal ppf/cdf; stdlib-only, no network/writes; consumed by loom's experiment-discipline)
+includes: Shared OS/logical/sample_size.py (tested 2026-07-10, 12/12 self-tests pass — two-proportion sample size + significance z-test + normal ppf/cdf; stdlib-only, no network/writes; consumed by loom's experiment-discipline)
 date_added: 2026-07-10
 ---
 

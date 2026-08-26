@@ -59,7 +59,7 @@ price runs the same loop for money:
 | Agent | Pod | Skills | Identity | Operational | Logical | agent.md |
 |---|---|---|---|---|---|---|
 | spec | Definition | 4/4 (+ rice.py, tested) | evidence-first-discoverer (leader) | 5/5 | placeholder | current |
-| metric | Measurement | 4/4 (+ sample_size.py, tested) | empty (non-leader) | 5/5 | placeholder | current |
+| Shared OS/logical/sample_size.py, tested) | empty (non-leader) | 5/5 | placeholder | current |
 | ux | Discovery | 4/4 | empty | 5/5 | placeholder | current |
 | loom | Discovery | 4/4 | empty | 5/5 | placeholder | current |
 | price | Monetization | 4/4 (new agent) | empty | 5/5 | placeholder | current |

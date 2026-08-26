@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+# COMPLEMENTARY 2026-07-29: on review, this script and Shared OS/logical/
+# incident_response.py are NOT duplicates. incident_timeline.py builds a
+# structured chronology from raw events (this is unique to cortex). The
+# Shared OS incident_response.py library exposes incident_severity(),
+# patch_sla(), post_incident_score(), hunting_cadence() — different
+# concerns (severity scoring · SLA computation · post-mortem scoring).
+# Cortex may IMPORT the Shared OS library for severity tagging within
+# the timeline, but the timeline-construction logic properly stays here.
+# No consolidation required per playbook §13.5.
 """
 incident_timeline.py — build a structured IR timeline from raw event data.
 

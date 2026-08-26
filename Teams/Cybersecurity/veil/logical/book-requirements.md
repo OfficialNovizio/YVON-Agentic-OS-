@@ -24,6 +24,7 @@ Logical artifacts are Python scripts in `Shared OS/logical/` (playbook §13.5). 
 | `risk_management.py` | NIST SP 800-30 + SP 800-37 | [csrc.nist.gov](https://csrc.nist.gov/) | DLP alert severity feeds risk register; data classification |
 | `incident_response.py` | NIST SP 800-61r2 + SP 800-40r4 | [csrc.nist.gov](https://csrc.nist.gov/) | Breach notification integrates with IR workflow |
 | `identity_zero_trust.py` | NIST SP 800-207 + SP 800-63-3 | [csrc.nist.gov](https://csrc.nist.gov/) | Data access control and privacy-sensitive authentication |
+| `nist_800_53_r5.py` **✅ EXTRACTED touch-2 2026-08-10** — `Shared OS/logical/nist_800_53_r5.py` (Route B — 20 control families, parse_control_id) | [NIST SP 800-53 Rev. 5](https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final) — public domain | [NIST SP 800-53B](https://csrc.nist.gov/pubs/sp/800/53/b/upd1/final) | Veil references PT (PII Processing and Transparency) family for privacy-control mapping and MP (Media Protection) for data-at-rest safeguards. Parser validates control IDs cited in breach-notification workflows. |
 
 ## Flag Clearance Summary
 

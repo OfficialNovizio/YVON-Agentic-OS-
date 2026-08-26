@@ -25,3 +25,10 @@ The logical layer grounds quinn's judgments in real, citable sources. Until the 
 ## Extraction protocol (when books arrive)
 
 Formulas/thresholds extracted with page-level citations into this folder; affected skills updated to cite them; the reasoning-based flags removed only where a citation replaces them.
+
+## Inherited scripts (Shared OS/logical/)
+
+| Script | Source | Purpose |
+|---|---|---|
+| `sre_slo_error_budget.py` **✅ EXTRACTED touch-2 2026-08-10** | [Google SRE Workbook Ch.2](https://sre.google/workbook/implementing-slos/) — CC BY-NC-ND + [SRE Book Ch.4](https://sre.google/sre-book/service-level-objectives/) | Release-gate error-budget check — quinn calls `error_budget_status(slo, total, observed_failures)` on the pending release's SLO/SLI to determine whether the budget can absorb the risk of the release. |
+| `sre_postmortem_culture.py` **✅ EXTRACTED touch-2 2026-08-10** | [Google SRE Book Ch.15](https://sre.google/sre-book/postmortem-culture/) — CC BY-NC-ND | Release-rollback postmortem scoring (same 5 criteria as ops/cortex). |

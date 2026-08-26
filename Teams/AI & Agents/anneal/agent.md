@@ -15,7 +15,7 @@ AI & Agents (owner: CAIO role) · Lifecycle pod (with proto) · non-leader (empt
 | skill-lifecycle | custom | built from scratch | versioning, deprecation, tombstones; no-autonomy rule |
 | self-annealing-loop | custom | built from scratch | lesson→baseline→minimal diff→board→gauge closure; lessons ledger |
 | prompt-context-engineering | custom | built from scratch | owns Tier-1 prompting-practices content; Shared OS copy PENDING (queued) |
-| skill-quality-audit | custom | built from scratch | + skill_audit.py (tested); mechanizes the manual dept-build audits |
+| skill-quality-audit | custom | built from scratch | + Shared OS/logical/skill_audit.py (tested; migrated 2026-07-29); mechanizes the manual dept-build audits |
 
 ## Identity / Operational / Logical status
 identity/: empty by design (non-leader). operational/: all five built. logical/: placeholder (maintenance-economics/tech-debt source wanted).

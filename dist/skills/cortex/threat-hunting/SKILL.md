@@ -18,7 +18,7 @@ identity: README
 provenance:
   source_file: Teams/Cybersecurity/cortex/marketplace/threat-hunting/SKILL.md
   source_hash: eb0f3464eb27eccb96efb8db89dde7d77fe20303a33466e26584ee3767a5a987
-  generated: 2026-07-20T03:23:08.108Z
+  generated: 2026-08-08T19:03:21.235Z
   generator: cli/skillgen.js
 portable: true
 ---

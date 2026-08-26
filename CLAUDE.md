@@ -15,7 +15,7 @@ except a direct factual question):
 CLASSIFY the task
   → ROUTE to the owning agent (table in §2)
   → LOAD  Teams/<Dept>/<agent>/agent.md + operational/skill/<agent>-skill-routing.md
-  → DISCOVER (§3) — questions, directions, sources. WAIT for sign-off.
+  → DISCOVER (§3) — questions, directions, sources. Present as tables per playbook §0.9, not prose. WAIT for sign-off.
   → RETRIEVE context through the RAG pipeline (§4)
   → BUILD one artifact at a time (§3), from the agent's skills and config
   → VERIFY (§5) before claiming done
@@ -73,9 +73,37 @@ Never skip DISCOVER. Never batch artifacts. Never invent values
 | **Enterprise Risk (ERM) — risk identification COSO/ISO 31000 + assessment quantification Hubbard/FAIR + treatment strategies (Mitigate/Avoid/Transfer/Accept) + monitoring/audit with immutable trail** | **hazard** | `Teams/Risk & ESG/hazard/agent.md` |
 | **ESG Reporting — double-materiality assessment SASB/IFRS S1-S2/GRI + carbon accounting GHG Protocol/CDP/TCFD/SBTi + social impact GRI 400/B Lab/IMP/ILO + governance disclosure SOX/DGCL/ISS-Glass Lewis, all counsel-scoping-first** | **prism** | `Teams/Risk & ESG/prism/agent.md` |
 | **Operational Resilience — business continuity ISO 22301 (LOAD-BEARING tested exercise) + disaster recovery NIST 800-34 (LOAD-BEARING business-derived RTO/RPO) + third-party risk SIG/ISO 27036 (LOAD-BEARING security+compliance review) + operational resilience testing BoE/FCA/BCBS/DORA (LOAD-BEARING IBS+tolerance pairing)** | **shield** | `Teams/Risk & ESG/shield/agent.md` |
+| Regulatory feed monitoring, obligation register, pre-launch regime readiness | comply | `Teams/Legal & Compliance/comply/agent.md` |
+| Contract review, template library, obligation ledger | scribe | `Teams/Legal & Compliance/scribe/agent.md` |
+| Trademark clearance, OSS license review, infringement triage, IP registry | guard | `Teams/Legal & Compliance/guard/agent.md` |
+| Litigation, dispute registry, case assessment, response-deadline tracker | shield | `Teams/Legal & Compliance/shield/agent.md` |
+| Cash forecast, runway model, unit economics, budget scenarios | felix | `Teams/Finance & Treasury/felix/agent.md` |
+| Chart of accounts, month-end close, transaction categorization | ledger | `Teams/Finance & Treasury/ledger/agent.md` |
+| Tax filing calendar, tax optimization, R&D credits | tax | `Teams/Finance & Treasury/tax/agent.md` |
+| Entity-account map, FX exposure, cash management | treasure | `Teams/Finance & Treasury/treasure/agent.md` |
+| Cross-functional BI, metric registry, ad-hoc analysis, exec dashboards | insight | `Teams/Data & Analytics/insight/agent.md` |
+| Warehouse catalog, SQL (read-only), dataset lineage | query | `Teams/Data & Analytics/query/agent.md` |
+| Dashboard standards, WCAG accessibility, portfolio audit | viz | `Teams/Data & Analytics/viz/agent.md` |
+| Metric-anomaly detection rules, alert routing, data-incident triage | anomaly | `Teams/Data & Analytics/anomaly/agent.md` |
+| Market sizing (TAM/SAM/SOM), market-entry analysis, landscape maps | scope | `Teams/Market Intelligence/scope/agent.md` |
+| Competitor tracking, pricing intel, feature comparison | rival | `Teams/Market Intelligence/rival/agent.md` |
+| Macro signals, emerging trends, regulatory horizon (pre-enactment) | trend | `Teams/Market Intelligence/trend/agent.md` |
+| Primary research (surveys, interviews, synthesis, survey templates) | research | `Teams/Market Intelligence/research/agent.md` |
+| Process mapping, bottleneck analysis, SOP registry | flow | `Teams/Ops & Delivery/flow/agent.md` |
+| Sprint cadence, velocity tracking, delivery forecast (Monte Carlo) | pace | `Teams/Ops & Delivery/pace/agent.md` |
+| Capacity model, capacity forecast, build-vs-hire | capacity | `Teams/Ops & Delivery/capacity/agent.md` |
+| Cross-team handoff protocol, handoff registry, dependency map | handoff | `Teams/Ops & Delivery/handoff/agent.md` |
+| Behaviour design (MAP), nudge library, behavioural audit | nudge | `Teams/Behavioural Science/nudge/agent.md` |
+| Framing analysis, narrative arc, messaging A/B testing | frame | `Teams/Behavioural Science/frame/agent.md` |
+| Behavioural experiment design, field deployment, literature review | trial | `Teams/Behavioural Science/trial/agent.md` |
+| Cognitive-bias audit, ethics review (Belmont), pre-mortem | bias | `Teams/Behavioural Science/bias/agent.md` |
 
 Multi-agent tasks: route to the department leader (dev, warden, spark, meta, spec, marcus,
-board, **hire**, **herald**) who sequences the others per `Teams/<Dept>/DEPARTMENT-WORKFLOW.md`.
+board, **hire**, **herald**, **comply**, **felix**, **insight**, **scope**, **flow**, **nudge**) who sequences the others per `Teams/<Dept>/DEPARTMENT-WORKFLOW.md`.
+
+*Legal & Compliance department fully built (4/4 agents) — `comply` (leader), `scribe`, `guard`, `shield` are all runtime-addressable.*
+
+*Finance & Treasury department fully built (4/4 agents) — `felix` (leader), `ledger`, `tax`, `treasure` are all runtime-addressable.*
 
 A dashboard build is at minimum: **mia** (build) + **atlas** (tokens) + **quinn** (verify),
 sequenced by **dev**.

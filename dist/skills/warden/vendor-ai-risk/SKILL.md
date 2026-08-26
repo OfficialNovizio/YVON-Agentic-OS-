@@ -18,7 +18,7 @@ identity: risk-owning-ciso
 provenance:
   source_file: Teams/Cybersecurity/warden/marketplace/vendor-ai-risk/SKILL.md
   source_hash: 82d751b0c067c02fc444c038cef1b2f9f3ac42abdd9a31f95364f9d2dd30f598
-  generated: 2026-07-20T03:20:23.240Z
+  generated: 2026-08-08T19:52:18.914Z
   generator: cli/skillgen.js
 portable: true
 ---
@@ -56,11 +56,7 @@ echo "{\"ts\":\"$(date -u +%FT%TZ)\",\"agent\":\"warden\",\"skill\":\"vendor-ai-
 
 ## Purpose
 
-1. **Security** — infrastructure security, certifications, data handling, access controls
-2. **Privacy** — data collection practices, retention, subprocessors, user consent
-3. **AI-Specific Risks** — training data provenance, model behavior guarantees, output ownership, bias and fairness, explainability
-4. **Contractual Protections** — indemnification, liability caps, SLA commitments, termination rights
-5. **Regulatory Compliance** — GDPR, CCPA, AI Act readiness, sector-specific regulations
+Evaluate third-party AI vendors and tools across five specialized dimensions: security, privacy, AI-specific risks, contractual protections, and regulatory compliance. Designed for the growing category of AI vendor assessments that general vendor review skills don't cover — training data rights, model behavior guarantees, output ownership, and AI-specific regulatory obligations.
 
 ## Protocol
 

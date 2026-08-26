@@ -1,0 +1,19 @@
+# Chart of accounts — ledger/custom/chart-of-accounts
+# Managed by ledger's chart-of-accounts skill. Do not edit rows manually.
+#
+# Schema:
+#   code: 5-digit (1XXXX Asset · 2XXXX Liab · 3XXXX Equity · 4XXXX Rev · 5-9XXXX Exp)
+#   name: <string>
+#   type: asset | liability | equity | revenue | expense
+#   normal_balance: debit | credit
+#   parent_code: <parent code or null for root>
+#   venture_tag: <venture slug | org-wide>
+#   status: active | retired
+#   retired_date: YYYY-MM-DD | null
+#   retired_reason: <string> | null
+#   revision: int (starts 1)
+#   superseded_by: <revision> | null
+#   registered_at: YYYY-MM-DD
+#   registered_by: <name>
+
+accounts: []

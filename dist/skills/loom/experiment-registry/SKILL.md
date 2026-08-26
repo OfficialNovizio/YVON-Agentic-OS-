@@ -17,7 +17,7 @@ identity: README
 provenance:
   source_file: Teams/Product/loom/custom/experiment-registry/SKILL.md
   source_hash: 009758518d122fe2ae9cfe79db8822a015fc6dba7355b1a3d1a3119bb398d5bb
-  generated: 2026-07-20T03:20:23.285Z
+  generated: 2026-07-29T22:20:50.934Z
   generator: cli/skillgen.js
 portable: true
 ---

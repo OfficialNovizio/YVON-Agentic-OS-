@@ -17,7 +17,7 @@ identity: README
 provenance:
   source_file: Teams/Product/loom/custom/pmf-scorecard/SKILL.md
   source_hash: 824f7b7c8474673159f6812b492d57be72e69a6ec1fe890b0cb9a853c4b09ee5
-  generated: 2026-07-20T03:20:23.288Z
+  generated: 2026-07-29T22:20:50.936Z
   generator: cli/skillgen.js
 portable: true
 ---

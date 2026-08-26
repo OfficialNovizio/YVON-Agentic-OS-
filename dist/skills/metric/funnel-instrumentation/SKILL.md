@@ -16,7 +16,7 @@ identity: README
 provenance:
   source_file: Teams/Product/metric/custom/funnel-instrumentation/SKILL.md
   source_hash: 2fa17bc97f3bdaa7c2e2dd66d9afcbfbe2f7413a87f8f85c8bac032efe1351b4
-  generated: 2026-07-20T03:20:23.329Z
+  generated: 2026-07-29T22:20:50.899Z
   generator: cli/skillgen.js
 portable: true
 ---

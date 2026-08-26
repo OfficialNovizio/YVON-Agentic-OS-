@@ -161,16 +161,22 @@ def moving_average(series: List[float], window: int, centered: bool = True) -> L
             for t in range(half, n - half):
                 result[t] = sum(series[t - half:t + half + 1]) / window
         else:
-            # Even window: use 2×k-MA
-            # Step 1: trailing k-MA of order k
+            # Even window: use 2×k-MA (Hyndman & Athanasopoulos FPP3 §3.2)
+            # Trailing k-MA at index i represents the mean centered at i - (k-1)/2.
+            # For k=4, ma_trail[3] represents time 1.5; ma_trail[4] represents 2.5.
+            # Average of the two = midpoint centered at t=2.
+            # So for centered result at time t: use ma_trail[t + k/2 - 1] and
+            # ma_trail[t + k/2].
             k = window
+            half = k // 2
             ma_trail: List[Optional[float]] = [None] * n
             for t in range(k - 1, n):
                 ma_trail[t] = sum(series[t - k + 1:t + 1]) / k
-            # Step 2: 2-MA of the trailing MA → centered
-            for t in range(k // 2, n - k // 2 + 1):
-                if ma_trail[t] is not None and ma_trail[t + 1] is not None:
-                    result[t] = (ma_trail[t] + ma_trail[t + 1]) / 2.0
+            # Center: t + half must be within [k-1, n-1]
+            for t in range(half, n - half):
+                left, right = ma_trail[t + half - 1], ma_trail[t + half]
+                if left is not None and right is not None:
+                    result[t] = (left + right) / 2.0
     else:
         # Trailing MA
         for t in range(window - 1, n):

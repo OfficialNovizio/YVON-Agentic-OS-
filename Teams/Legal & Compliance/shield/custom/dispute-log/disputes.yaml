@@ -1,0 +1,42 @@
+# Dispute log — shield/custom/dispute-log
+# Managed by shield's dispute-log skill. Do not edit rows manually — use the skill's
+# Log / Update / Close / Attest protocol (playbook §5, §0.5, §0.7).
+#
+# Schema per dispute entry:
+#   slug: <kebab-case, unique per (counterparty, jurisdiction, dispute_type)>
+#   revision: <int, starts at 1>
+#   status: <draft | active | archived | closed>
+#   dispute_type: <pre-litigation-demand | litigation-active | litigation-answered |
+#                  arbitration | regulatory-action | ip-dispute | employment-claim |
+#                  insurance-coverage-dispute>
+#   counterparty: <name>
+#   counterparty_counsel: <firm + matter number, or null>
+#   venture_scope: <one or more ventures, or 'org-wide'>
+#   jurisdiction: <governing law>
+#   venue: <specific court / tribunal / arbitration seat / regulator>
+#   description: <plain-language paragraph>
+#   claims_asserted: [<cause of action>, ...]
+#   defenses_raised: [<defense>, ...] or 'N/A'
+#   current_status: <demand received | answer due | discovery | motion pending | trial-set | on-appeal | ...>
+#   received_date: YYYY-MM-DD
+#   next_response_due: YYYY-MM-DD | null
+#   exposure_range: <e.g., "$50K-$180K" — reasoned; from case-assessment-memo> | 'pending case-assessment'
+#   external_counsel: <firm + matter number> | 'none / handling in-house'
+#   insurance_notified: <yes/no + carrier + policy number, or 'N/A'>
+#   related_contract_slug: <cross-ref to scribe/contract-library> | null
+#   related_obligation_slug: <cross-ref to comply/obligation-register> | null
+#   related_ip_slug: <cross-ref to guard/ip-registry> | null
+#   owner: <name, role, or handoff-agent>
+#   source_documents: [<link to demand letter, complaint, notice>, ...]
+#   milestones: [{date, event, note}, ...]
+#   last_attested: YYYY-MM-DD | null
+#   last_attested_by: <name or role>
+#   closure_type: <settled | dismissed | judgment-for-us | judgment-against-us | withdrawn | non-suited | regulatory-action-closed> | null
+#   closure_date: YYYY-MM-DD | null
+#   final_terms: <string> | null
+#   closure_evidence: <link> | null
+#   superseded_by: <revision number | null>
+#   logged_at: YYYY-MM-DD
+#   logged_by: <name>
+
+disputes: []

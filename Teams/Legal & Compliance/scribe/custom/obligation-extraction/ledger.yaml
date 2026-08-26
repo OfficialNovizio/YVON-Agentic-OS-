@@ -1,0 +1,23 @@
+# Obligation ledger — scribe/custom/obligation-extraction
+# Managed by scribe's obligation-extraction skill. Do not edit rows manually —
+# use the skill's Intake → Parse → Review → Commit protocol so classification
+# and audit history stay consistent (playbook §5, §0.5).
+#
+# Schema per contract entry:
+#   counterparty: <name>
+#   slug: <template slug from contract-library, or 'custom'>
+#   effective_date: YYYY-MM-DD
+#   contract_path: <path to signed file>
+#   registered_at: YYYY-MM-DD
+#   obligations:
+#     - id: <auto-slug e.g. renewal-auto, insurance-cyber>
+#       type: <one of: renewal, notice-window, insurance, audit, data-return,
+#              mfn, non-solicit, non-compete, reporting, price-adjustment>
+#       description: <plain-english summary>
+#       trigger_date: YYYY-MM-DD | null
+#       notice_window_days: int | null
+#       source_section: <"§X.Y" or heading>
+#       confidence: confirmed
+#       operator: <name>
+
+contracts: []

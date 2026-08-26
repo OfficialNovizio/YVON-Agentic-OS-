@@ -14,7 +14,7 @@ Product · Measurement pod · non-leader (spec holds the identity) · built 2026
 |---|---|---|---|
 | product-metrics-spec | custom | built from scratch | versioned event taxonomy + definitions; the truth file |
 | funnel-instrumentation | custom | built from scratch | AARRR; rates+cohorts only; MISSING-not-interpolated |
-| experiment-instrumentation | custom | built from scratch (+ sample_size.py, tested) | verify-live-or-BLOCKED; guardrails mandatory; loom's measurement arm; sizing/significance computed |
+| experiment-instrumentation | custom | built from scratch (+ `Shared OS/logical/sample_size.py`, tested; migrated 2026-07-29) | verify-live-or-BLOCKED; guardrails mandatory; loom's measurement arm; sizing/significance computed |
 | metrics-governance | custom | built from scratch | versioned proposals + impact; export interface; material changes → board |
 | (marketplace) | — | PENDING | aarrr-framework searched 2026-07-10 (no verbatim fit); candidates queued for scout |
 

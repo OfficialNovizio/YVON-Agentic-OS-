@@ -1,0 +1,19 @@
+# Canonical metrics registry — insight/custom/metric-definitions-registry
+# Schema:
+#   name: kebab-case unique
+#   version: int (starts 1)
+#   status: draft | active | archived | retired
+#   plain_definition: <one-paragraph>
+#   query_ref: <path in warehouse-catalog>
+#   owner_agent: <agent slug>
+#   owning_dept: <dept>
+#   numerator: <definition or null>
+#   denominator: <definition or null>
+#   time_grain: daily | weekly | monthly | quarterly | annual
+#   filters: <list of applied filters>
+#   effective_date: YYYY-MM-DD
+#   superseded_by: <version> | null
+#   registered_at: YYYY-MM-DD
+#   registered_by: <name>
+
+metrics: []

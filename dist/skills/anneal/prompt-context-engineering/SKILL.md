@@ -16,7 +16,7 @@ identity: README
 provenance:
   source_file: Teams/AI & Agents/anneal/custom/prompt-context-engineering/SKILL.md
   source_hash: bd06b402394a8b04b75d8f4cfe2253b463620f8f7832edf432a72cd4cd26b2cc
-  generated: 2026-07-20T03:20:22.016Z
+  generated: 2026-07-29T22:20:50.960Z
   generator: cli/skillgen.js
 portable: true
 ---

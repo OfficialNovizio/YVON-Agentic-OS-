@@ -1,0 +1,1 @@
+Physical `.docx` templates live here, one file per version, named `<slug>-v<N>.docx`. Populated by the operator via `contract-library`'s Register (Step 1) and Version bump (Step 4) protocols. Empty until the first template is registered. Do not add files here directly — go through the skill so the index and classification are kept in sync.

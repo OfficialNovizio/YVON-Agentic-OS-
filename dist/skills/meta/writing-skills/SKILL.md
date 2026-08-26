@@ -15,7 +15,7 @@ identity: empirical-gardener
 provenance:
   source_file: Teams/AI & Agents/meta/marketplace/writing-skills/SKILL.md
   source_hash: 51ad3449fc914598a7f832bdf5246294b591e20ce60b7e38c3a71da2400d172e
-  generated: 2026-07-20T03:20:22.238Z
+  generated: 2026-07-29T22:20:51.001Z
   generator: cli/skillgen.js
 portable: true
 ---

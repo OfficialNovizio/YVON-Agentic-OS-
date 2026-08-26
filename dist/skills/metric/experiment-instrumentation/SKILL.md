@@ -2,7 +2,7 @@
 name: experiment-instrumentation
 agent: metric
 department: Product
-version: 1.0.0
+version: 1.1.0
 tier: 3
 description: |
   An experiment measured by an event that never fired produces a confident null result — the worst outcome, because it looks like a real answer. (yvon)
@@ -15,8 +15,8 @@ owns-paths: []   # filled per work item from the active TASK-SPEC
 identity: README
 provenance:
   source_file: Teams/Product/metric/custom/experiment-instrumentation/SKILL.md
-  source_hash: 95f16299e8fa754526488eccda8d988ea90f8c4087ac61b19d61d2ab1c05dbaf
-  generated: 2026-07-20T03:20:23.324Z
+  source_hash: 03ffbfac687088956c1c04023b12ad94ebca6f18f790c774b4e790aa63cc52fc
+  generated: 2026-07-29T22:20:50.896Z
   generator: cli/skillgen.js
 portable: true
 ---

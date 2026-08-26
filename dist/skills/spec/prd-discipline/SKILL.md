@@ -16,7 +16,7 @@ identity: evidence-first-discoverer
 provenance:
   source_file: Teams/Product/spec/custom/prd-discipline/SKILL.md
   source_hash: 71b447177591262725cd5c620eab0e7038c7a9a7675f00c4047b8eae538873c3
-  generated: 2026-07-20T03:20:23.434Z
+  generated: 2026-08-08T19:52:18.878Z
   generator: cli/skillgen.js
 portable: true
 ---

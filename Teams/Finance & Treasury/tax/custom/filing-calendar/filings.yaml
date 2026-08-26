@@ -1,0 +1,21 @@
+# Tax filing registry — tax/custom/filing-calendar
+# Schema per filing entry:
+#   slug: kebab-case
+#   filing_type: income | sales-VAT-GST | payroll | info-return | franchise | property | industry
+#   jurisdiction: <code>
+#   venture_scope: <venture | org-wide>
+#   cadence: annual | quarterly | monthly | on-trigger
+#   next_due: YYYY-MM-DD
+#   owner: <name/role>
+#   filing_body: <regulator>
+#   source_url: <link to form>
+#   estimated_time: <days to prepare>
+#   status: draft | active | archived | retired
+#   last_filed: YYYY-MM-DD | null
+#   last_filed_by: <name>
+#   confirmation_number: <string>
+#   evidence: <link to filed return>
+#   revision: int
+#   registered_at: YYYY-MM-DD
+
+filings: []

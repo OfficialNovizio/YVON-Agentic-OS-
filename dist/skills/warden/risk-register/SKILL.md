@@ -18,7 +18,7 @@ identity: risk-owning-ciso
 provenance:
   source_file: Teams/Cybersecurity/warden/custom/risk-register/SKILL.md
   source_hash: 771921a69f404853d33838b4d63057b39855963c5f750fbd480cb11ae13caf32
-  generated: 2026-07-20T03:20:23.215Z
+  generated: 2026-08-08T19:52:18.900Z
   generator: cli/skillgen.js
 portable: true
 ---

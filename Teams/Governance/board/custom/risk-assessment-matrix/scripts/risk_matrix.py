@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# CONSOLIDATED 2026-07-29 per playbook §13.5 refined: P×I arithmetic now
+# delegated to Shared OS/logical/risk_management.risk_score(). Wrapper
+# keeps board-specific policy: mitigation-gate default (12), ruling logic
+# (PASS/HOLD/PASS_WITH_MITIGATIONS), and markdown rendering.
 """risk_matrix.py -- deterministic P×I scoring for the risk-assessment-matrix skill.
 
 Computes probability × impact per risk, applies the mitigation gate, checks
@@ -39,8 +43,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from typing import Any
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_SHARED_OS = os.path.abspath(os.path.join(_HERE, "..", "..", "..", "..", "..", "Shared OS", "logical"))
+if _SHARED_OS not in sys.path:
+    sys.path.insert(0, _SHARED_OS)
+import risk_management  # noqa: E402
 
 DEFAULT_GATE = 12
 
@@ -68,7 +79,8 @@ def compute(spec: dict[str, Any]) -> dict[str, Any]:
             if not isinstance(v, int) or not (1 <= v <= 5):
                 raise ValueError(f"Risk '{name}': {label} must be an integer 1-5, got {v!r}")
 
-        score = p * imp
+        # Delegate P×I arithmetic to Shared OS canonical (playbook §13.5)
+        score = risk_management.risk_score(p, imp)
         gated = score >= gate
         has_mitigation = bool((r.get("mitigation") or "").strip())
         has_owner = bool((r.get("owner") or "").strip())

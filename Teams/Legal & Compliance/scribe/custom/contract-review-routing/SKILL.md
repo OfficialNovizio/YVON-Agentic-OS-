@@ -1,0 +1,175 @@
+---
+name: contract-review-routing
+type: custom
+status: built from scratch
+assigned_agent: scribe (Legal & Compliance / Contracts)
+portable: true
+date_added: 2026-07-29
+tier: 3
+description: "Scribe's entry point for contract review — detects agreement type, loads scribe-config, binds YVON's config layer to the vendor-agreement-review marketplace skill and hands off. Bounces if config has placeholders; runs [PROVISIONAL] if operator opts in."
+triggers:
+  - review this contract
+  - review this agreement
+  - review this vendor msa
+  - review this saas agreement
+  - is this contract okay
+  - check this saas agreement
+  - redline this contract
+  - flag anything in this contract
+  - review the vendor terms
+---
+
+# Contract Review Routing
+
+## Introduction
+
+Built from scratch on 2026-07-29 as scribe's single entry point for any contract-review request. It exists because the marketplace skill scribe adopted — `vendor-agreement-review`, verbatim from `anthropics/claude-for-legal` — is `user-invocable: false` and reads its playbook from a plugin config path that does not exist in YVON:
+
+```
+~/.claude/plugins/config/claude-for-legal/commercial-legal/CLAUDE.md
+```
+
+Under playbook §4.8's "Wraps / Custom + Marketplace" case, the marketplace skill must be preserved verbatim; the plumbing that binds it to YVON's config layer lives here.
+
+## Purpose
+
+Take an inbound contract-review request, do the three things the marketplace skill assumes are already done, and hand off:
+
+1. Detect what kind of agreement it is (MSA, SaaS, NDA, SOW, Order Form, Reseller, Other).
+2. Determine which side scribe is on for this contract (purchasing or sales).
+3. Load the matching playbook block from `operational/agent/scribe-config.md` — playbook positions, escalation matrix, deal-breaker list, governing law, house style.
+
+After the handoff, the marketplace skill's own workflow runs unaltered — orient → deal-breaker check → term-by-term comparison → escalation routing → memo.
+
+## When to Use
+
+- Operator says "review this contract", "review this agreement", "review this vendor MSA", "is this contract okay", "check this SaaS agreement", "redline this contract", "flag anything in this contract".
+- Operator uploads or pastes a contract document.
+- Operator asks about a specific clause in a contract already in scope.
+
+Do NOT use for:
+
+- Contract *drafting* from scratch — that's `contract-library` (template registry + selection).
+- Extracting obligations from an already-signed contract — that's `obligation-extraction`.
+- Litigation over an existing contract — that's `shield`'s domain (`case-assessment-memo`).
+
+## Structure / Protocol
+
+```
+1. INTAKE      confirm a contract is attached / pasted / named
+2. CONFIG      load scribe-config.md; if missing/placeholder → BOUNCE
+3. DETECT      classify agreement type from filename + content signals
+4. SIDE        determine sales vs purchasing (ask if ambiguous)
+5. BIND        pass resolved playbook + escalation matrix + deal-breaker to marketplace skill
+6. HANDOFF     invoke vendor-agreement-review with bound context
+7. RETURN      surface the memo with scribe's preamble/postamble
+```
+
+## Instructions
+
+### Step 1: Intake
+
+Confirm the operator supplied a contract (attached file, pasted text, or explicit reference to a file already in scope). If not, ask before proceeding — do not review the request text itself.
+
+### Step 2: Load scribe-config
+
+Read `Teams/Legal & Compliance/scribe/operational/agent/scribe-config.md`. The following sections must be present and non-placeholder:
+
+- `## Playbook · Sales-side`
+- `## Playbook · Purchasing-side`
+- `## Escalation matrix`
+- `## Deal-breaker list` (at least one entry OR explicit `None declared`)
+- `## Governing law`
+- `## House style`
+
+If any required section contains `<FILL_IN>` or is missing, bounce with the same two-choice pattern the marketplace skill uses:
+
+> Scribe's config hasn't been filled in yet — that's how the review gets tailored to your playbook, escalation, and jurisdiction.
+>
+> **Two choices:**
+> - Fill in the missing sections in `operational/agent/scribe-config.md` first, then re-run. I can list which sections are placeholder.
+> - Say **"provisional"** and I'll review against generic defaults — US jurisdiction, middle risk appetite, no playbook — and every finding will be tagged `[PROVISIONAL — configure scribe-config.md for tailored output]`.
+
+Do not proceed silently on missing config. There is no third path.
+
+### Step 3: Detect agreement type
+
+Classify from filename + first-page content signals:
+
+| Signals | Type |
+|---|---|
+| "Master Services Agreement", "MSA" in title | MSA |
+| "Subscription Agreement", "SaaS", "software as a service", per-seat pricing | SaaS |
+| "Non-Disclosure Agreement", "NDA", "Confidentiality Agreement" | NDA |
+| "Statement of Work", "SOW", exhibit to MSA | SOW |
+| "Order Form", references parent MSA | Order Form |
+| Reseller / partnership / revenue-share language | Reseller |
+| None of the above | Other |
+
+Announce the detected type in the preamble. If Type = Other, flag that generic vendor-contract logic will apply.
+
+### Step 4: Determine side
+
+- Counterparty is a vendor supplying scribe's org → **purchasing**.
+- Counterparty is a customer buying from scribe's org → **sales**.
+- Ambiguous (reseller, partnership, revenue-share) → ask the operator explicitly. Do not guess.
+
+Announce the side in the preamble.
+
+### Step 5: Bind context
+
+Construct the context the marketplace skill expects. Instead of the plugin config path, pass the resolved values inline as the "loaded playbook":
+
+- Playbook positions for the detected side (from `## Playbook · Sales-side` or `## Playbook · Purchasing-side`).
+- Escalation matrix (thresholds and named approvers).
+- Deal-breaker list.
+- Governing law.
+- House-style work-product header.
+
+If any *side-specific* value is `<FILL_IN>` (e.g., sales-side is fully configured but purchasing-side is not, and this is a purchasing contract), bounce as in Step 2.
+
+### Step 6: Handoff
+
+Invoke `marketplace/vendor-agreement-review/SKILL.md` with the bound context. The marketplace skill's workflow runs unaltered; it produces its standard memo.
+
+### Step 7: Return
+
+Return the marketplace skill's memo to the operator with:
+
+- **Preamble** (before the memo): `Detected: [type], [side]. Config loaded: [date_modified of scribe-config.md]. [PROVISIONAL if applicable].`
+- **Postamble** (after the memo): the marketplace skill's own next-steps decision tree (already part of its output — do not duplicate).
+
+## Output Format
+
+The marketplace skill owns the memo format. This skill adds only the preamble in Step 7 and does not modify the memo body.
+
+If the run bounces at Step 2 or Step 5, the output is the bounce message alone — no memo.
+
+## Principles
+
+- **No hardcoded market defaults.** Every threshold, position, and approver name traces to `scribe-config.md`. If it is not in config, it is a `<FILL_IN>` — announce it, never invent (playbook §0.5).
+- **Do not proceed silently on missing config.** Bounce or run `[PROVISIONAL]`. There is no third path.
+- **Do not alter the marketplace skill.** The wrapper's job is to bind context and hand off. It does not summarise, edit, or override the marketplace skill's findings (playbook §4.8).
+- **Announce every classification.** Agreement type and side are called out in the preamble so the operator can correct before reading the memo.
+- **Route provisional runs loudly.** Every finding block inherits the `[PROVISIONAL]` tag; the postamble reminds the operator that a configured run gives calibrated output.
+
+## Fallback
+
+| Failure mode | Response |
+|---|---|
+| Config file missing entirely | Bounce (Step 2 pattern) |
+| Config file present but partial | List missing sections, then bounce |
+| Only the *other* side is configured for this contract | Bounce specifically on the missing side |
+| Agreement type undetectable | Announce "Type: Other", proceed with generic logic, flag in preamble |
+| Side ambiguous | Ask the operator; do not guess |
+| Marketplace skill errors during handoff | Surface the error verbatim; do not paper over |
+
+## Boundaries with Other Skills
+
+- **`vendor-agreement-review` (marketplace, this agent)** — this skill is that skill's only entry point in scribe's build. The marketplace skill is `user-invocable: false`; requests never reach it directly.
+- **`contract-library` (custom, this agent)** — no direct handoff. `contract-library` owns template selection *before* a contract is drafted; this skill handles review *after* one is drafted (usually by the counterparty).
+- **`obligation-extraction` (custom, this agent)** — no direct handoff. That skill runs *after* signing; this one runs *before*.
+- **`Governance/precedent`** — if a review turns up an internal ruling-consistency question ("we said X on this last time; this contract says Y"), scribe surfaces the question but does not resolve it — hand off to `precedent`.
+- **`Cybersecurity/warden`** — if a review flags a control-related obligation (SOC 2 evidence, breach-notification SLA, access-review cadence), scribe surfaces it and hands the control-design question to `warden`.
+- **`Governance/board`** — if the escalation matrix in `scribe-config.md` routes above scribe's threshold, the memo names `board` as approver; the routing does not happen here (that's `precedent` / `board`'s domain).
+- **Shared OS: `verification-before-completion`** — inherited dependency (not owned, per playbook §13.1). Cite before returning the memo to the operator.

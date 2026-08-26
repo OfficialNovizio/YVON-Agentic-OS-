@@ -20,7 +20,7 @@ identity: README
 provenance:
   source_file: Teams/Cybersecurity/cortex/marketplace/detection-engineering/SKILL.md
   source_hash: dc60f949dca1647dd2ea84e210c15ef1c9101b2fbc18a489dc10e37d05f9ce11
-  generated: 2026-07-20T03:23:08.105Z
+  generated: 2026-08-08T19:03:21.233Z
   generator: cli/skillgen.js
 portable: true
 ---

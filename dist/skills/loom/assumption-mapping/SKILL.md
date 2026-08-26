@@ -16,7 +16,7 @@ identity: README
 provenance:
   source_file: Teams/Product/loom/custom/assumption-mapping/SKILL.md
   source_hash: e2a17b2edd229537f6500192765d77675ebea96b4e544073105a34af4d5bea5a
-  generated: 2026-07-20T03:20:23.277Z
+  generated: 2026-07-29T22:20:50.929Z
   generator: cli/skillgen.js
 portable: true
 ---

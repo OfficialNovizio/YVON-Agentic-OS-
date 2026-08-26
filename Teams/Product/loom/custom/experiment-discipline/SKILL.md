@@ -29,7 +29,7 @@ HYPOTHESIS (a falsifiable belief: "≥X% of new users will do Y" — not "users 
 2. Cheapest test that could say NO — the goal is disconfirmation at minimum cost; a fake-door test beats building the feature to "see if people use it."
 3. Decision rule BEFORE data — the if/then is written and frozen before the experiment opens; a bar set after seeing results is not a result (the anti-HARKing rule, house discipline).
 4. Criteria freeze is echo-confirmed and pinned to metric's versioned definition — the same freeze-at-handoff spec uses; a moved goalpost mid-experiment invalidates it.
-5. Instruments verified live first (experiment-instrumentation) — an experiment measured by a dead metric is worse than none; loom does not run until metric says READY. **Sizing is computed, not guessed:** metric's `sample_size.py` returns the per-variant N for the frozen MDE + power, so an under-powered test is flagged BEFORE it opens; the same script's z-test judges the result against the frozen rule after.
+5. Instruments verified live first (experiment-instrumentation) — an experiment measured by a dead Shared OS/logical/sample_size.py` returns the per-variant N for the frozen MDE + power, so an under-powered test is flagged BEFORE it opens; the same script's z-test judges the result against the frozen rule after.
 6. Verdict is honest against the rule — a near-miss is a miss; the pre-committed B branch executes. Wanting it to have worked is not evidence it did.
 
 ## Output Format

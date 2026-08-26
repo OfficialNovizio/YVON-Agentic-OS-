@@ -16,7 +16,7 @@ identity: evidence-first-discoverer
 provenance:
   source_file: Teams/Product/spec/custom/acceptance-criteria-handoff/SKILL.md
   source_hash: ee356d5850149d037fe037c3dd70c05e7d0841c773d065f846361d3a2e9e3bed
-  generated: 2026-07-20T03:20:23.422Z
+  generated: 2026-08-08T19:52:18.867Z
   generator: cli/skillgen.js
 portable: true
 ---

@@ -5,7 +5,7 @@
 | Skill | Needs | Why |
 |---|---|---|
 | agent-architecture-standards | file read (workspace tree) | compare agents against the standard shape |
-| skill-authoring-standards | file read; optionally script execution (anneal's skill_audit.py) | lint skill files |
+| skill-authoring-standards | file read; optionally script execution (Shared OS/logical/skill_audit.py) | lint skill files |
 | writing-skills (marketplace) | subagent dispatch (pressure-test scenarios) | RED-GREEN-REFACTOR testing — degrades to manual review checklists without it |
 | fleet-registry | file read/write (assets/fleet-registry.md only) | append entries, reconcile against tree |
 | fleet-governance | file read/write (proposal docs); message routing to board/operator | run the Rail 3 flow |

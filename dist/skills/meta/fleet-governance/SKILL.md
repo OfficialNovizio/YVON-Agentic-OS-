@@ -17,7 +17,7 @@ identity: empirical-gardener
 provenance:
   source_file: Teams/AI & Agents/meta/custom/fleet-governance/SKILL.md
   source_hash: f1ff2af418b96ee4638e3b8344c8ee5c3101196fe1d76930bbdc32bffaf5814c
-  generated: 2026-07-20T03:20:22.223Z
+  generated: 2026-07-29T22:20:50.993Z
   generator: cli/skillgen.js
 portable: true
 ---

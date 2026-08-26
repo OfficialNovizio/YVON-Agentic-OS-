@@ -1,0 +1,29 @@
+# comply · tool requirements
+
+> **This file states needs, not grants** (playbook §7). Listing tools here does NOT give comply that capability. Actual tool, file, and execution access is a runtime-configuration step done wherever comply is deployed.
+
+---
+
+## Aggregate
+
+| Skill | Required | Optional | Source line |
+|---|---|---|---|
+| reg-monitor-routing | File read (config) · Web fetch (Federal Register API + RSS pulls) | Paid regulatory-feed MCP · CourtListener MCP | Step 2 (config); Step 5 (marketplace handoff delegates web tools) |
+| reg-feed-watcher | Web fetch · File write (digest) | Paid MCPs · CourtListener MCP | Marketplace body — pulls feeds, writes digest to configured path |
+| obligation-register | File read/write | — | Steps 1–4 mutate `register.yaml`; Steps 5–6 read it |
+| regulated-activity-readiness | File read (config + register) · File write (via obligation-register handoff) | Web fetch (regulator catalog when a new jurisdiction is declared) | Steps 2–3 (read config + register); Step 6 (register write via handoff) |
+
+---
+
+## Runtime notes
+
+- **Web fetch** is required by `reg-feed-watcher` (Federal Register API + direct RSS) and cascades to `reg-monitor-routing` since the wrapper hands off. If web fetch is not granted, only Tier 3 (manual entry) works.
+- **Paid regulatory-feed MCP** (any of TR, Bloomberg Law, Lexis, IAPP feed, etc.) is Optional — enhances the marketplace skill's Tier 2 pull. Configured via `comply-config.md`.
+- **CourtListener MCP** is Optional — used for enforcement-action + case-law surfacing during feed pulls.
+- **File writes** are scoped: `reg-feed-watcher` writes to the digest output path in `comply-config.md`; `obligation-register` writes to `custom/obligation-register/register.yaml`; `regulated-activity-readiness` writes only via `obligation-register`'s handoff (does not write files directly).
+
+---
+
+## Governance/policy layer
+
+Permissions (what comply is *allowed* to do at runtime) live in `operational/agent/comply-config.md`. This file (technical layer) is intentionally separate from that governance layer, per playbook §7's split between `tool/` (technical needs) and `agent/` (policy).

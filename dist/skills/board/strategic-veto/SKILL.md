@@ -19,7 +19,7 @@ identity: principled-gatekeeper-charlie-munger
 provenance:
   source_file: Teams/Governance/board/custom/strategic-veto/SKILL.md
   source_hash: 706057eeadcc702aab7ff33bb1f0a91b16717b4309bc74ddcabef78fb2e4d3d5
-  generated: 2026-07-20T03:20:24.017Z
+  generated: 2026-08-08T19:52:18.947Z
   generator: cli/skillgen.js
 portable: true
 ---

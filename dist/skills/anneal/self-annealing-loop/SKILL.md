@@ -18,7 +18,7 @@ identity: README
 provenance:
   source_file: Teams/AI & Agents/anneal/custom/self-annealing-loop/SKILL.md
   source_hash: a9ae2f3211df045c641effb4d8a09c95bcb1aaedb9630ed43397cd07f58f9941
-  generated: 2026-07-20T03:20:22.021Z
+  generated: 2026-07-29T22:20:50.962Z
   generator: cli/skillgen.js
 portable: true
 ---

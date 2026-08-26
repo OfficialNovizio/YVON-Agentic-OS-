@@ -16,7 +16,7 @@ identity: README
 provenance:
   source_file: Teams/Cybersecurity/cortex/custom/security-monitoring/SKILL.md
   source_hash: 19b17934fe0ab58c9bded739ebc4e308f607b9bd1b949c3d51dad95f8830bed2
-  generated: 2026-07-20T03:23:08.101Z
+  generated: 2026-08-08T19:03:21.231Z
   generator: cli/skillgen.js
 portable: true
 ---

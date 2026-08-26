@@ -49,7 +49,7 @@ date_added: <YYYY-MM-DD>
 **7. Scripts:** justified constants, explicit error handling, tested with sample input before the skill is presented as done.
 
 ## Output Format
-Authoring lint verdict: PASS or numbered violations, each citing the rule number above. Machine check available: anneal's `skill_audit.py` covers rules 1 and 5 mechanically; the rest are meta's judgment.
+Authoring lint verdict: PASS or numbered violations, each citing the rule number above. Machine check available: `Shared OS/logical/skill_audit.py` covers rules 1 and 5 mechanically; the rest are meta's judgment.
 
 ## Principles
 - No provenance, no skill — an unsourced skill file is a rumor.

@@ -56,14 +56,33 @@ def _positive(val: float, name: str) -> None:
 
 
 # ── z-critical for common alpha levels ────────────────────────
-_Z = {0.10: 1.282, 0.05: 1.645, 0.025: 1.960, 0.01: 2.326, 0.005: 2.576, 0.001: 3.090}
+# Extended to cover common Bonferroni divisions: α/2, α/3, α/4, α/5, α/6,
+# α/10, α/12 for α = 0.05 and α = 0.01. Values from standard normal tables.
+_Z = {
+    0.10: 1.282, 0.05: 1.645, 0.025: 1.960, 0.0167: 2.128,
+    0.0125: 2.241, 0.01: 2.326, 0.00833: 2.394, 0.005: 2.576,
+    0.00417: 2.638, 0.0025: 2.807, 0.001: 3.090, 0.0005: 3.291,
+}
 
 
 def _z_alpha(alpha: float) -> float:
+    """Return the one-tailed z-critical for a given alpha (small tol tolerated).
+    Interpolates linearly for alphas between tabulated values."""
     for k, v in _Z.items():
         if abs(alpha - k) < 0.0005:
             return v
-    raise ValueError(f"alpha must be one of {list(_Z.keys())}, got {alpha}")
+    # Linear interpolation for values within table range
+    keys = sorted(_Z.keys())
+    if alpha < keys[0] or alpha > keys[-1]:
+        raise ValueError(f"alpha={alpha} outside table range [{keys[0]}, {keys[-1]}]")
+    for i in range(len(keys) - 1):
+        if keys[i] <= alpha <= keys[i + 1]:
+            k1, k2 = keys[i], keys[i + 1]
+            v1, v2 = _Z[k1], _Z[k2]
+            # Linear interp in log-alpha space (z is roughly linear in log-alpha)
+            frac = (alpha - k1) / (k2 - k1)
+            return round(v1 + frac * (v2 - v1), 3)
+    raise ValueError(f"alpha={alpha} not resolvable from table")
 
 
 # ═══════════════════════════════════════════════════════════════════

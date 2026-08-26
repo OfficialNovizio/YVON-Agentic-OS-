@@ -11,7 +11,7 @@ date_added: 2026-07-10
 # Skill Quality Audit
 
 ## Introduction
-The recurring mechanical sweep of every skill file in the fleet: hardcoded venture/stack names, missing/malformed frontmatter, stale dated assets, structural violations. What was done by hand at each department build, made a standing job. Mechanical checks run in `scripts/skill_audit.py`.
+The recurring mechanical sweep of every skill file in the fleet: hardcoded venture/stack names, missing/malformed frontmatter, stale dated assets, structural violations. What was done by hand at each department build, made a standing job. Mechanical checks run in `Shared OS/logical/skill_audit.py`.
 
 ## Purpose
 Drift is cumulative and invisible until audited. A fleet whose substance is plain text needs a linter with a schedule.
@@ -22,7 +22,7 @@ Drift is cumulative and invisible until audited. A fleet whose substance is plai
 - Spot-check before any deployment wave.
 
 ## Structure / Protocol
-SWEEP (`python scripts/skill_audit.py <root> [--forbidden words.txt]`) → TRIAGE (each finding: violation class + owning agent) → JUDGE (mechanical findings are candidates, not verdicts — read each in context; provenance frontmatter legitimately contains venture names) → ROUTE (fix proposals via skill-lifecycle; structural issues to meta; false positives recorded so the next audit is smarter) → REPORT (dated audit report, append-only).
+SWEEP (`python Shared OS/logical/skill_audit.py <root> [--forbidden words.txt]`) → TRIAGE (each finding: violation class + owning agent) → JUDGE (mechanical findings are candidates, not verdicts — read each in context; provenance frontmatter legitimately contains venture names) → ROUTE (fix proposals via skill-lifecycle; structural issues to meta; false positives recorded so the next audit is smarter) → REPORT (dated audit report, append-only).
 
 ## Instructions
 1. Mechanical checks (the script): forbidden-word scan OUTSIDE provenance frontmatter (venture/product names from the operator-supplied list `<FILL_IN: forbidden-words list per business>` + the standing defaults); required frontmatter fields present (name/type/status/assigned_agent/portable/date_added); dated assets older than `<FILL_IN: suggested 12 months>` flagged stale; `portable: false` without a reason flagged.

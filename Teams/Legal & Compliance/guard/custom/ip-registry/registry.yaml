@@ -1,0 +1,34 @@
+# IP registry — guard/custom/ip-registry
+# Managed by guard's ip-registry skill. Do not edit rows manually — use the skill's
+# Register / Update / Renew / Retire / Attest protocol (playbook §5, §0.5, §0.7).
+#
+# Schema per IP asset entry:
+#   slug: <kebab-case, unique for (asset_type, jurisdiction, owner_entity) tuple>
+#   revision: <int, starts at 1>
+#   status: <draft | active | archived | retired>
+#   asset_type: <trademark-registered | trademark-common-law | domain |
+#                patent-utility | patent-design | copyright-registered |
+#                copyright-unregistered | trade-secret-marker | code-ip>
+#   jurisdiction: <US | EU | UK | Madrid | specific country code | N/A>
+#   owner_entity: <org-wide | subsidiary name | venture name>
+#   filing_number: <USPTO reg no. | EU trademark no. | domain record | patent no.>
+#   filing_date: YYYY-MM-DD
+#   effective_date: YYYY-MM-DD
+#   expiry_date: YYYY-MM-DD | null
+#   classes: <Nice classes for TM; patent classification for patent; N/A other>
+#   description: <one-paragraph>
+#   source_url: <link to primary record — USPTO TESS, EUIPO, patent office, registrar>
+#   enforcement_status: <active | watch-only | not-enforcing | disputed>
+#   oss_attribution_obligations: <null, or list of {dependency, notice_file_path}>
+#   last_attested: YYYY-MM-DD | null
+#   last_attested_by: <name or role>
+#   evidence: <link to filing receipt, renewal payment, enforcement action>
+#   remediation: <null, or {owner, due_date, note} on partial attestation>
+#   superseded_by: <revision number | null>
+#   successor_slug: <string | null>
+#   retired_date: YYYY-MM-DD | null
+#   retired_reason: <string | null>
+#   registered_at: YYYY-MM-DD
+#   registered_by: <name>
+
+assets: []

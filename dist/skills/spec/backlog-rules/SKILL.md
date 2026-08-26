@@ -17,7 +17,7 @@ identity: evidence-first-discoverer
 provenance:
   source_file: Teams/Product/spec/custom/backlog-rules/SKILL.md
   source_hash: b942c3a6b7c844c6def66a498add110eafed63b7e289138a8a119a23b6abdb94
-  generated: 2026-07-20T03:20:23.427Z
+  generated: 2026-08-08T19:52:18.874Z
   generator: cli/skillgen.js
 portable: true
 ---

@@ -15,7 +15,7 @@ identity: evidence-first-discoverer
 provenance:
   source_file: Teams/Product/spec/custom/opportunity-assessment/SKILL.md
   source_hash: 5d472c7999d9ee0c5fad88bfa4b10ffe823638898293667935af699f624a2725
-  generated: 2026-07-20T03:20:23.431Z
+  generated: 2026-08-08T19:52:18.876Z
   generator: cli/skillgen.js
 portable: true
 ---
