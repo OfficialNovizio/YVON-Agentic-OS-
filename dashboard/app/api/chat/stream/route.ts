@@ -16,11 +16,23 @@
 import { cookies } from 'next/headers'
 import { randomUUID } from 'crypto'
 import { supabaseServer } from '@/lib/supabase-server'
-import { streamHermesChat, hermesConfig } from '@/lib/hermes-client'
+import { streamHermesChat, hermesConfig, ensureRepoPreview, dropPool } from '@/lib/hermes-client'
+import { getVentureGithubPatBySlug } from '@/lib/db/venture-graphify'
 import { sendPush, type PushSubscriptionRow } from '@/lib/push-server'
 import type { WorkspaceKey } from '@/lib/workspaces'
 import { activeWorkspace } from '@/lib/workspaces'
 import { errMsg } from '@/lib/errors'
+
+// Reworked 2026-08-21: dropped the Local/GitHub toggle entirely (explicit
+// user decision — one system, not two: "hermes keep repo work in it's vps
+// and only push to live github when i said so"). Previously briefly routed
+// through a direct-to-LLM in-process tool loop instead of Hermes at all —
+// reverted per "all the power is for hermes... don't direct connect to
+// llm". Every turn always goes through streamHermesChat(). There's no mode
+// cookie/gate anymore: whenever the active venture has a repo_url, it's
+// always forwarded, and Hermes always ensures its persistent per-venture
+// checkout is cloned/pulled fresh (main.py). No repo_url → Hermes says so
+// plainly instead of guessing.
 
 // TS-018 WI-2 (YVON-CHAT §3.2): the workspace was hardcoded to 'yvon-os' here
 // (the "one defect that underlies more than it appears to"). Now read from the
@@ -29,6 +41,18 @@ import { errMsg } from '@/lib/errors'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+
+// 2026-08-21: auto-reset threshold for main.py's per-room agent pool. Real
+// journalctl evidence (agent.conversation_loop logs) showed a pooled room's
+// per-call input tokens climbing turn over turn — 18k → 72k across one
+// active session — because _pool reuses the same AIAgent (and its internal
+// history) for as long as the room stays active, only evicting after 30min
+// idle. Prompt caching keeps that growth fast/cheap per call but does NOT
+// exempt it from the account's tokens-per-minute rate limit, so an
+// uninterrupted room eventually trips it. 130k leaves real headroom under
+// the observed 200k/min ceiling for whatever else shares that same quota
+// (other rooms, other agents) within the same 60s window.
+const POOL_AUTO_RESET_TOTAL_TOKENS = 130_000
 
 export async function GET(request: Request): Promise<Response> {
   const { searchParams } = new URL(request.url)
@@ -58,13 +82,26 @@ export async function GET(request: Request): Promise<Response> {
 
   const { data: room } = await supabase
     .from('chat_rooms')
-    .select('kind, department')
+    .select('kind, department, execution_unlocked_at, execution_task_id')
     .eq('id', userMsg.room_id)
     .single()
+
+  // Safety gate (2026-08-21, concern #5): a room only gets real repo/tool
+  // access once its discussion has been explicitly converted into an
+  // approved task — flipped by /api/chat/task-proposal 'accept' or
+  // /api/chat/prd-proposal 'convert' (see chat_rooms_execution_gate
+  // migration). Until then this stays discussion-only: repoUrl/repoGithubPat
+  // are withheld below regardless of what the venture has configured, so
+  // Hermes has no checkout to steer terminal/code_execution tools into.
+  const executionUnlocked = !!(room as { execution_unlocked_at?: string | null } | null)?.execution_unlocked_at
+  // FIX (2026-08-21, concern #1): forwarded to Hermes so real CAOS
+  // retrieval/gates (main.py's _run_rag_pipeline_sync) can pass a
+  // recognized department to rag/core/plan_lock.py's Rail-1 check —
+  // undefined for department-less rooms (Workforce/whole_team, a thread).
+  const roomDepartment = (room as { department?: string | null } | null)?.department ?? undefined
   const cookieStore = await cookies()
   // Real ventures from the DB — no hardcoded sub-brands (TS-026). Also pulls
-  // repo_url so the repo-mode toggle (2026-08-11) can resolve the active
-  // venture's linked repo without a second query.
+  // repo_url so the active venture's linked repo resolves without a second query.
   let validVentureSlugs: string[] = []
   let ventureRepoUrls: Record<string, string> = {}
   try {
@@ -77,13 +114,28 @@ export async function GET(request: Request): Promise<Response> {
   }
   const workspace: WorkspaceKey = activeWorkspace(cookieStore.get('yvon_active_venture')?.value, validVentureSlugs)
 
-  // Repo-mode toggle (2026-08-11, RepoModeToggle.tsx): 'github' only ever
-  // pairs with the ACTIVE venture's own configured repo_url — the allowlist
-  // from discovery. A stale 'github' cookie for a venture with no linked
-  // repo silently falls back to local rather than sending a bad/missing URL.
-  const repoModeCookie = cookieStore.get('yvon_repo_mode')?.value
+  // Reworked 2026-08-21: no more Local/GitHub toggle — whenever the active
+  // venture has a repo_url saved, it's always forwarded and Hermes always
+  // ensures its persistent per-venture checkout (main.py). No repo_url at
+  // all → nothing forwarded, Hermes says so plainly instead of guessing.
   const repoUrl = ventureRepoUrls[workspace]
-  const repoMode: 'local' | 'github' = repoModeCookie === 'github' && repoUrl ? 'github' : 'local'
+
+  // Fixed 2026-08-19: chat's repo access used to have no credential of its
+  // own — it relied on a VPS-side GITHUB_PAT env var that install.sh never
+  // sets, so a private venture repo failed to clone with an auth error even
+  // when a PAT was already saved in Settings → Venture → Technical (that
+  // PAT was only ever wired to graphify/MemPalace before now). Reuse the
+  // SAME saved PAT here — one credential per venture, sourced from
+  // Supabase, nothing to configure on the VPS. Only fetched when there's
+  // actually a repo to clone.
+  const repoGithubPat = repoUrl ? ((await getVentureGithubPatBySlug(workspace)) ?? undefined) : undefined
+
+  // Gated versions actually forwarded to Hermes (see executionUnlocked above)
+  // — repoUrl/repoGithubPat themselves stay ungated so the rest of this
+  // route (e.g. the repo-links-shown logic below) still knows what the
+  // venture has configured; only what reaches Hermes is restricted.
+  const hermesRepoUrl = executionUnlocked ? repoUrl : undefined
+  const hermesRepoGithubPat = executionUnlocked ? repoGithubPat : undefined
 
   const cfg = hermesConfig()
   if (!cfg.configured) {
@@ -301,6 +353,20 @@ export async function GET(request: Request): Promise<Response> {
           // (that one's trigger-heading parsing never matches real files).
           const { prompt, disclosure } = await skillDisclosureFor(effectiveAgentId, content)
           agentContext = prompt ?? undefined
+          // Concern #5: tool access is withheld below (hermesRepoUrl), but
+          // the agent itself still needs to know NOT to promise/describe
+          // work as already done — tell it plainly so it discusses and
+          // proposes instead of narrating actions it can't actually take.
+          if (repoUrl && !executionUnlocked) {
+            const lockNotice =
+              'NOTE: this chat has not been converted into an approved task yet, so ' +
+              'you do NOT have file/terminal/repo access this turn. Discuss the ' +
+              'request, ask clarifying questions, and propose a plan in words only ' +
+              '— never claim to have made, committed, or run anything. If real work ' +
+              'is warranted, tell the user to approve this as a task (or click the ' +
+              'task-proposal prompt) before any code changes can happen.'
+            agentContext = agentContext ? `${agentContext}\n\n${lockNotice}` : lockNotice
+          }
           if (disclosure) {
             controller.enqueue(
               encoder.encode(
@@ -388,6 +454,24 @@ export async function GET(request: Request): Promise<Response> {
           // observability never breaks the send
         }
 
+        // Concern #5: tell the user plainly, in the live event feed, that
+        // this turn is discussion-only — not a silent restriction. Only
+        // fires when there's actually a repo that WOULD have been forwarded
+        // if this room were unlocked, so a venture with no repo configured
+        // (nothing to gate) stays quiet.
+        if (repoUrl && !executionUnlocked) {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                kind: 'notice',
+                level: 'info',
+                message: 'Discussion only — this chat has no repo/file access yet. Approve it as a task to let an agent actually make changes.',
+                correlation: turnCorrelation,
+              })}\n\n`,
+            ),
+          )
+        }
+
         // Safety net: normally userMsg.correlation is already set (send/route.ts
         // sets it at insert time), so this is a no-op. Only fires for rows that
         // predate that fix or if send's write somehow failed.
@@ -415,11 +499,16 @@ export async function GET(request: Request): Promise<Response> {
             roomId: userMsg.room_id,
             workspace,
             mentions,
+            department: roomDepartment,
+            // FIX (2026-08-22, cost teardown Cause 01): forward the tier we
+            // already computed so Hermes can cap its tool loop per tier
+            // instead of giving every turn a 30-iteration budget.
+            tier: analysis.tier,
             agentContext,
             ventureContext,
             inputAnalysis: inputAnalysis ?? undefined,
-            repoMode,
-            repoUrl: repoMode === 'github' ? repoUrl : undefined,
+            repoUrl: hermesRepoUrl,
+            repoGithubPat: hermesRepoGithubPat,
             // TS-018 WI-2 fix (2026-08-11): forward the dashboard's turn
             // correlation so Hermes reuses it instead of minting its own
             // (main.py used to always uuid4() a fresh one, completely
@@ -430,23 +519,139 @@ export async function GET(request: Request): Promise<Response> {
           },
           cfg,
         )) {
-          const data = JSON.stringify(event)
-          controller.enqueue(encoder.encode(`data: ${data}\n\n`))
-
           if (event.kind === 'done') {
             replyContent = event.response
             // Was hardcoded 'meta' regardless of who CLASSIFY actually
             // routed to — now the same effectiveAgentId used for context.
             replyAuthorId = effectiveAgentId || 'meta'
             replyAuthorName = effectiveAgentId || 'meta'
+
+            // 2026-08-21: repo-files / live-preview links ("give me 2 URLs
+            // whenever you work on something new"). event.repoChanged is
+            // computed server-side in main.py from real git state
+            // before/after the turn — never a self-reported marker. Only
+            // fires once per ROOM (checked via chat_rooms.repo_links_shown_at,
+            // migration chat_rooms_repo_links_shown_at), not every turn that
+            // touches the repo — a long work session shouldn't repeat the
+            // same two links every message.
+            // hermesRepoUrl (not repoUrl) — repoChanged can only be true if
+            // Hermes actually had repo access this turn, i.e. the room was
+            // unlocked; guarding on the gated value keeps that explicit
+            // rather than relying on Hermes never touching a repo it wasn't
+            // given.
+            if (event.repoChanged && hermesRepoUrl) {
+              try {
+                const { data: roomFlag } = await supabase
+                  .from('chat_rooms')
+                  .select('repo_links_shown_at')
+                  .eq('id', userMsg.room_id)
+                  .single()
+                const alreadyShown = !!(roomFlag as { repo_links_shown_at?: string | null } | null)?.repo_links_shown_at
+                if (!alreadyShown) {
+                  const preview = await ensureRepoPreview(workspace, cfg)
+                  const filesLink = `[View repo files](/repo/${workspace})`
+                  const previewLink = preview.ok
+                    ? `[Live preview](https://${preview.previewHost}/)`
+                    : `Live preview: not ready yet (${preview.error ?? 'unknown error'})`
+                  replyContent = `${replyContent}\n\n---\n📁 ${filesLink} · 🔴 ${previewLink}`
+                  await supabase
+                    .from('chat_rooms')
+                    .update({ repo_links_shown_at: new Date().toISOString() })
+                    .eq('id', userMsg.room_id)
+                }
+              } catch {
+                // Best-effort — never break the turn just because the links
+                // couldn't be added (missing migration, VPS unreachable, etc).
+              }
+            }
+
+            // 2026-08-21: automatic pool reset — see POOL_AUTO_RESET_TOTAL_TOKENS's
+            // comment above for the real evidence behind this. Fires AFTER this
+            // turn's own reply (never blocks or degrades the current response),
+            // so the room's NEXT message gets a fresh, cheap pooled agent instead
+            // of riding the same ballooning history until it hits the TPM ceiling.
+            if ((event.usage?.totalTokens ?? 0) >= POOL_AUTO_RESET_TOTAL_TOKENS) {
+              try {
+                const drop = await dropPool(user.id, userMsg.room_id, cfg)
+                if (drop.ok && drop.dropped) {
+                  replyContent = `${replyContent}\n\n_(context reset — this conversation was getting close to the rate limit, so the next message starts fresh)_`
+                }
+              } catch {
+                // Best-effort — never break the turn just because the reset failed.
+              }
+            }
+
+            // Re-serialize with the (possibly link-augmented) final response
+            // so the SAME turn's live view shows the links, not just a
+            // reload later — augmenting replyContent after the raw event
+            // was already sent would only affect what gets saved to the DB.
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ ...event, response: replyContent })}\n\n`),
+            )
           } else if (event.kind === 'error') {
             replyContent = `[Hermes error] ${event.message}`
             replyAuthorId = 'system'
             replyAuthorName = 'system'
+            let outgoing: typeof event = event
+
+            // CORRECTION (2026-08-21, second pass): the reasoning below was
+            // wrong about the CAUSE, though the reset itself is a harmless
+            // backstop and stays. "Used 143383, Requested 75716" is not a
+            // room carrying too much history — `Requested` is ONE call, and
+            // at ~76k per call a 200k/min ceiling affords only two of them,
+            // so any turn needing three round-trips died regardless of how
+            // clean the room was. That is a RATE problem, and it is now
+            // fixed where it belongs: main.py's TPM governor paces outbound
+            // calls against a rolling 60s ledger. Dropping the pool here
+            // neither caused nor cured it — keep it, but do not read the
+            // note below as an explanation.
+            //
+            // 2026-08-21 fix: the auto-reset above only ever ran on a
+            // SUCCESSFUL turn (event.kind === 'done'), because that's the
+            // only place main.py attaches usage.totalTokens. But a room
+            // whose pooled history is ALREADY too big can fail with a rate
+            // limit INSIDE the turn's own multi-call tool loop — before any
+            // 'done' event ever fires — so the reset above never ran, and
+            // every retry kept hitting the same oversized history forever
+            // (confirmed live: "Used 143383, Requested 75716" on a turn
+            // that never got a usage figure to check against 130k). Detect
+            // a rate-limit failure by message text and force the same
+            // pool-drop here, unconditionally — there's no token count to
+            // gate on this path, so any rate-limit error is reason enough.
+            if (/rate limit|tokens per min|\bTPM\b/i.test(event.message)) {
+              try {
+                const drop = await dropPool(user.id, userMsg.room_id, cfg)
+                if (drop.ok && drop.dropped) {
+                  const resetMsg = `${event.message}\n\n(This room's agent was reset. Note the real cause is the AI account's per-minute token ceiling, not this room — Hermes now paces its own calls to stay under it, so a retry should go through, just more slowly on long tasks.)`
+                  replyContent = `[Hermes error] ${resetMsg}`
+                  outgoing = { ...event, message: resetMsg }
+                }
+              } catch {
+                // Best-effort — never break error reporting just because the reset failed.
+              }
+            }
+
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(outgoing)}\n\n`))
+          } else {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
           }
         }
       } catch (e) {
-        const msg = `[Hermes error] ${errMsg(e)}`
+        let msg = `[Hermes error] ${errMsg(e)}`
+        // Same rate-limit reset as the in-stream 'error' branch above — a
+        // rate-limit failure can also surface as a thrown exception here
+        // (e.g. the whole HTTP call to Hermes failing) rather than a clean
+        // SSE 'error' event, so the same forced pool-drop applies.
+        if (/rate limit|tokens per min|\bTPM\b/i.test(msg)) {
+          try {
+            const drop = await dropPool(user.id, userMsg.room_id, cfg)
+            if (drop.ok && drop.dropped) {
+              msg = `${msg}\n\n(This room's agent was reset. Note the real cause is the AI account's per-minute token ceiling, not this room — Hermes now paces its own calls to stay under it, so a retry should go through, just more slowly on long tasks.)`
+            }
+          } catch {
+            // Best-effort — never break error reporting just because the reset failed.
+          }
+        }
         replyContent = msg
         replyAuthorId = 'system'
         replyAuthorName = 'system'

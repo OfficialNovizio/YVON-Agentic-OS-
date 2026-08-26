@@ -1,28 +1,32 @@
-// /assignTask [description] — manual, instant task creation from chat.
-// Complements the agent-offered flow (task-proposal marker → inline Yes/No/
-// Discuss-more prompt, see /api/chat/stream + TaskProposalPrompt.tsx): if
-// the agent didn't offer, this is the explicit override. No confirm step —
-// deliberately instant, per operator direction 2026-08-11 ("directly
-// assigns task").
+// /assignTask [description] — manual task creation from chat, now PRD-gated
+// (docs/PRD-prd-gated-task-conversion.md, supersedes the instant-create
+// version of 2026-08-11). Two-phase, using the SAME confirm-token mechanism
+// /deploy already uses for infrastructure-touching commands (confirm.ts) —
+// not a new UI, just this command's existing `confirm: true` contract:
 //
-// Two forms:
-//   /assignTask <description>   — creates the task from the typed text.
-//   /assignTask                 — no description given: reads the current
-//                                  room's recent messages and uses that
-//                                  transcript as the task's source, instead
-//                                  of asking the operator to retype what was
-//                                  already discussed ("checking the chat we
-//                                  just have").
+//   /assignTask <description>     (ctx.confirmed=false) — spec generates a
+//     real PRD (prd-generator.ts) from the typed text or the room's recent
+//     chat, writes it to a pending file (not a TASK-SPEC — nothing governed
+//     exists yet), and prints it in full plus a confirm token.
 //
-// Shares the exact same creation path as the agent-offered flow
-// (lib/create-task-spec.ts) — one implementation, not a second one that
-// could drift. Same known gap applies here too (see that file's header):
-// shells out to local python3 + cli/task.py, which works for `next dev`/
-// `next start` run from a real repo checkout, not a Vercel deployment.
+//   /confirm <token>               (ctx.confirmed=true, args=[pendingId]) —
+//     runs createTaskFromPrd: new → PRD file → set-prd → fill-discovery →
+//     discover → approve → start. Reaches `executing` in one shot, since the
+//     PRD already is discovery's answer.
 //
-// Owner: dev · chat-as-task feature, 2026-08-11
+// Complements the agent-offered flow (see /api/chat/prd-proposal +
+// /api/chat/task-proposal), which runs the identical generate/convert split
+// through a chat card instead of a slash command — one PRD-generation
+// implementation (prd-generator.ts), two entry points, per the same
+// principle create-task-spec.ts already establishes.
+//
+// Owner: dev · prd-gated-task-conversion, 2026-08-18
 import type { Command, CommandContext, CommandResult } from './types'
-import { createTaskSpecAndMirror } from '@/lib/create-task-spec'
+import { issueToken } from './confirm-tokens'
+import { generatePrd } from '@/lib/prd-generator'
+import { writePendingPrd, readPendingPrd, discardPendingPrd } from '@/lib/prd-pending'
+import { createTaskFromPrd } from '@/lib/create-task-spec'
+import { errMsg } from '@/lib/errors'
 
 const HISTORY_LIMIT = 12
 
@@ -56,9 +60,49 @@ async function transcriptFromRoom(ctx: CommandContext): Promise<{ title: string;
 export const assignTaskCommand: Command = {
   name: 'assigntask',
   aliases: ['task'],
-  summary: 'Manually create a real TASK-SPEC draft — from typed text, or from the recent chat if no text given',
+  summary: 'Generate a real PRD from typed text (or the recent chat) and, on /confirm, convert it to a governed TASK-SPEC',
   usage: 'assignTask [description]  (no description = uses this room\'s recent messages)',
+  confirm: true,
   async run(ctx: CommandContext): Promise<CommandResult> {
+    // ── Phase 2: /confirm <token> already resolved args to [pendingId] ─────
+    if (ctx.confirmed) {
+      const pendingId = ctx.args[0]
+      if (!pendingId) {
+        return { ok: false, message: 'Confirm token had no pending PRD id attached — re-run /assignTask.', effect: { kind: 'none' } }
+      }
+      const pending = await readPendingPrd(pendingId)
+      if (!pending) {
+        return { ok: false, message: 'That pending PRD is gone (already converted, discarded, or expired) — re-run /assignTask.', effect: { kind: 'none' } }
+      }
+      const result = await createTaskFromPrd(pending.title, pending.summary, pending.prd, 'operator')
+      await discardPendingPrd(pendingId)
+
+      if (!result.taskId) {
+        return {
+          ok: false,
+          message: `Task creation failed at step '${result.failedStep}': ${result.error}`,
+          effect: { kind: 'none' },
+          detail: { ran: true, ok: false, reason: result.error, failedStep: result.failedStep },
+        }
+      }
+      if (result.status !== 'executing') {
+        return {
+          ok: false,
+          message: `**${result.taskId}** was created but stalled at \`${result.failedStep}\` (currently \`${result.status}\`): ${result.error}. The record is real — fix the blocking condition and advance it manually with \`cli/task.sh\`.`,
+          effect: { kind: 'none' },
+          detail: { ran: true, ok: false, taskId: result.taskId, status: result.status, failedStep: result.failedStep },
+        }
+      }
+      return {
+        ok: true,
+        message: `✓ **${result.taskId}** created and advanced to \`executing\` (PRD attached, RICE=${pending.prd.riceScore}, lead=${pending.prd.meta.lead}). ` +
+          `${result.kanbanOk ? 'On the task board too.' : `Task board mirror failed (${result.kanbanError}) — TASK-SPEC is still real.`}`,
+        effect: { kind: 'none' },
+        detail: { ran: true, ok: true, taskId: result.taskId, status: result.status, kanbanOk: result.kanbanOk },
+      }
+    }
+
+    // ── Phase 1: generate the PRD, issue a confirm token ────────────────────
     const typed = ctx.args.join(' ').trim()
 
     let title: string
@@ -79,25 +123,21 @@ export const assignTaskCommand: Command = {
       summary = fromChat.summary
     }
 
-    const { taskId, taskSpecError, kanbanOk, kanbanError } = await createTaskSpecAndMirror(title, summary)
-
-    if (!taskId) {
-      return {
-        ok: false,
-        message: `Task creation failed: ${taskSpecError}`,
-        effect: { kind: 'none' },
-        detail: { ran: true, ok: false, reason: taskSpecError },
-      }
+    let generated
+    try {
+      generated = await generatePrd(title, summary)
+    } catch (e) {
+      return { ok: false, message: `PRD generation failed: ${errMsg(e)}`, effect: { kind: 'none' } }
     }
+
+    const pendingId = await writePendingPrd(title, summary, generated)
+    const issued = await issueToken(ctx.supabase, { userId: ctx.userId, roomId: ctx.roomId, command: 'assigntask', args: [pendingId] })
 
     return {
       ok: true,
-      message:
-        `✓ **${taskId}** created (draft)${typed ? '' : ' — from this room\'s recent chat'}. ` +
-        `${kanbanOk ? 'On the task board too.' : `Task board mirror failed (${kanbanError}) — TASK-SPEC is still real.`} ` +
-        `Next: \`cli/task.sh discover\` (fill \`classification.lead\` first).`,
+      message: `${generated.markdown}\n\n---\n\n${issued.message}`,
       effect: { kind: 'none' },
-      detail: { ran: true, ok: true, taskId, kanbanOk },
+      detail: { pending: true, pendingId, riceScore: generated.riceScore, lead: generated.meta.lead },
     }
   },
 }

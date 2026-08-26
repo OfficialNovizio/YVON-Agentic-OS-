@@ -1,11 +1,14 @@
-// LiveStrip — compact frosted strip above the composer (TS-020).
-// Real data only: the active agent (from focus), the current phase (from the
-// pipeline state derived from SSE/events), the live thinking text (from the
-// most recent thinking/notice chip). Idle → quiet "idle" state. Expand chevron
-// toggles the full pipeline HUD.
+// LiveStrip — the floating status pill above the composer (Adora).
+//
+// Real data only: the focused agent, the CAOS phase derived from SSE/events,
+// and the live thinking text from the most recent thinking/notice chip. When
+// nothing is in flight the pill disappears entirely rather than sitting there
+// saying "idle" — a quiet surface is the idle state.
+//
+// The stroke on the left is the same painted sweep the streaming message card
+// uses, so "generating" reads as one continuous idea across the page.
 'use client'
 
-import { Loader2 } from 'lucide-react'
 import { FLEET } from '@/lib/fleet'
 import { AgentAvatar } from './AgentAvatar'
 
@@ -17,48 +20,62 @@ interface LiveStripProps {
 }
 
 export function LiveStrip({ agentId, active, phase, thinking }: LiveStripProps) {
-  const agent = agentId ? FLEET.find((a) => a.id === agentId) : undefined
+  if (!active) return null
 
-  if (!active) {
-    return (
-      <div className="mx-6 mb-2 flex h-8 items-center gap-2 px-3">
-        <span className="text-[11px] text-[var(--chat-text-faint)]">
-          {agent ? `${agent.name} · idle` : 'Workforce · all agents idle'}
-        </span>
-      </div>
-    )
-  }
+  const agent = agentId ? FLEET.find((a) => a.id === agentId) : undefined
+  const tint = agent?.color ?? '#592eff'
 
   return (
-    <div className="chat-glass-soft mx-6 mb-2 flex h-9 items-center gap-2.5 px-3">
-      {agent ? (
-        <span className="relative flex h-6 w-6 shrink-0 items-center justify-center">
-          <span
-            className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-40"
-            style={{ background: agent.color }}
-          />
-          <AgentAvatar id={agent.id} name={agent.name} size={24} />
-        </span>
-      ) : (
-        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-[var(--chat-text-dim)]" />
-      )}
-      <span className="shrink-0 text-[11.5px] font-semibold text-[var(--chat-text)]">
-        {agent?.name ?? 'agents'}
-      </span>
-      <span className="min-w-0 flex-1 truncate text-[11px] italic text-[var(--chat-text-dim)]">
-        {thinking ? (
-          thinking
+    <div className="relative z-10 px-4 pb-2 sm:px-8">
+      <div className="adora-rise mx-auto flex w-full max-w-[780px] items-center gap-3 overflow-hidden rounded-[200px] border border-[var(--chat-hairline)] bg-white py-1.5 pl-1.5 pr-4">
+        {agent ? (
+          <span className="relative flex h-8 w-8 shrink-0 items-center justify-center">
+            <span
+              className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-30"
+              style={{ background: tint }}
+            />
+            <AgentAvatar id={agent.id} name={agent.name} size={32} />
+          </span>
         ) : (
-          <>
-            thinking<span className="chat-ellipsis" />
-          </>
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center">
+            <span className="flex items-center gap-[3px]">
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{
+                    background: ['#2ed6ff', '#592eff', '#f843c2'][i],
+                    animation: `chat-breathe 1.2s ease-in-out ${i * 0.16}s infinite`,
+                  }}
+                />
+              ))}
+            </span>
+          </span>
         )}
-      </span>
-      {phase && (
-        <span className="chat-breathe shrink-0 rounded-full border border-[var(--chat-accent)]/40 bg-[var(--chat-accent)]/10 px-2 py-0.5 font-mono text-[9.5px] font-semibold uppercase tracking-widest text-[var(--chat-accent)]">
-          {phase}
+
+        <span className="shrink-0 text-[13px] font-semibold text-[var(--chat-text)]">
+          {agent?.name ?? 'Workforce'}
         </span>
-      )}
+
+        <span className="min-w-0 flex-1 truncate text-[12.5px] italic text-[var(--chat-text-dim)]">
+          {thinking ? (
+            thinking
+          ) : (
+            <>
+              thinking<span className="chat-ellipsis" />
+            </>
+          )}
+        </span>
+
+        {phase && (
+          <span
+            className="adora-tag chat-breathe shrink-0"
+            style={{ color: 'var(--chat-accent)' }}
+          >
+            {phase}
+          </span>
+        )}
+      </div>
     </div>
   )
 }

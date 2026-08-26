@@ -1,6 +1,10 @@
 import type { Config } from 'tailwindcss'
 
 // Design tokens ported from the YVON dashboard (Material Design 3 dark theme).
+// 2026-08-17: the Adora design system (see app/adora.css) layers on top as
+// CSS custom properties rather than config colors, so a route can flip to the
+// light gallery surface without every other page changing. Only the type
+// scale and the two Adora faces are registered here.
 const config: Config = {
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}'],
   darkMode: 'class',
@@ -57,15 +61,44 @@ const config: Config = {
         // workspace accent (driven by CSS var so it can re-theme per workspace)
         accent: 'var(--ws-accent)',
         'accent-soft': 'var(--ws-accent-soft)',
+        // ── Adora (light gallery) — see app/adora.css ────────────────────
+        adora: {
+          violet: '#592eff',
+          'violet-deep': '#4520cc',
+          plum: '#21164c',
+          charcoal: '#353241',
+          smoke: '#5f5f69',
+          pearl: '#e0e0db',
+          concrete: '#eeeeee',
+          paper: '#f4f4f1',
+          sky: '#bcf2ff',
+          lime: '#dfff9d',
+          candy: '#ffaae6',
+          cyan: '#2ed6ff',
+          'lime-pop': '#a2ea13',
+          magenta: '#f843c2',
+        },
       },
       borderRadius: {
         DEFAULT: '0.75rem',
         lg: '1.25rem',
         xl: '2rem',
         full: '9999px',
+        // Adora containers: 28px cards, 40px frames, 200px stadium pills.
+        card: '28px',
+        frame: '40px',
+        stadium: '200px',
       },
       fontFamily: {
         sans: ['SF Pro Display', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        // Adora pair: General Sans (PolySans fallback) for display, Plus
+        // Jakarta Sans for body and UI. Both loaded in app/adora.css.
+        display: ['General Sans', 'PolySans', 'Plus Jakarta Sans', 'sans-serif'],
+        ui: ['Plus Jakarta Sans', 'Inter', '-apple-system', 'sans-serif'],
+      },
+      letterSpacing: {
+        // Adora applies −0.02em universally to unify the typeface pair.
+        adora: '-0.02em',
       },
     },
   },

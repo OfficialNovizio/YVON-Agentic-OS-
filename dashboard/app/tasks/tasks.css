@@ -1,0 +1,370 @@
+/* Task Lineage — scoped to .lg-shell (2026-08-24).
+   Adora surface (data-theme=adora is set by Shell for /tasks), light + dark
+   via the adora vars with hard fallbacks where the page needs its own tones. */
+
+.lg-shell {
+  --lg-ink: #21164c;
+  --lg-soft: #5f5f69;
+  --lg-faint: #6b6b74;
+  --lg-rule: #e0e0db;
+  --lg-soft-rule: #f0f0ec;
+  --lg-card: #ffffff;
+  --lg-paper: #f4f4f1;
+  --lg-acc: #592eff;
+  color: var(--lg-ink);
+  background: transparent;
+}
+
+.lg-head {
+  border-bottom: 1px solid var(--lg-rule);
+  flex-wrap: wrap;
+}
+
+.lg-title {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+
+.lg-sub {
+  font-size: 12px;
+  color: var(--lg-soft);
+  margin: 2px 0 0;
+}
+
+.lg-sub b {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: var(--lg-ink);
+}
+
+.lg-toggle {
+  display: flex;
+  gap: 4px;
+  border: 1px solid var(--lg-rule);
+  border-radius: 200px;
+  background: var(--lg-card);
+  padding: 3px;
+}
+
+.lg-toggle button {
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 5px 13px;
+  border-radius: 200px;
+  border: 0;
+  cursor: pointer;
+  background: transparent;
+  color: var(--lg-soft);
+}
+
+.lg-toggle button.on {
+  background: var(--lg-acc);
+  color: #fff;
+}
+
+.lg-scroll {
+  scrollbar-width: thin;
+}
+
+.lg-empty {
+  padding: 60px 0;
+  text-align: center;
+  color: var(--lg-faint);
+  font-size: 13px;
+}
+
+.lg-err {
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(185, 28, 28, 0.3);
+  background: rgba(185, 28, 28, 0.05);
+  color: #b91c1c;
+  font-size: 12.5px;
+}
+
+/* ── flat view ─────────────────────────────────────────────── */
+.lg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 11px;
+}
+
+.lg-card {
+  border: 1px solid var(--lg-rule);
+  border-radius: 13px;
+  background: var(--lg-card);
+  padding: 10px 11px;
+}
+
+.lg-card.sup {
+  opacity: 0.6;
+  border-style: dashed;
+}
+
+.lg-tid {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+
+.lg-pill {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 200px;
+  white-space: nowrap;
+  background: #f2f2ee;
+  color: #6b6b74;
+}
+
+.lg-tt {
+  font-size: 12px;
+  font-weight: 700;
+  margin: 6px 0 4px;
+  line-height: 1.32;
+  letter-spacing: -0.015em;
+}
+
+.lg-tm {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
+  color: var(--lg-faint);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.lg-lnk {
+  color: var(--lg-acc);
+}
+
+.lg-sup2 {
+  color: #b91c1c;
+}
+
+.lg-note {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  color: var(--lg-soft);
+  margin: 12px 0 0;
+  padding: 8px 11px;
+  background: var(--lg-paper);
+  border: 1px solid var(--lg-rule);
+  border-radius: 10px;
+  line-height: 1.6;
+}
+
+.lg-note b {
+  color: var(--lg-ink);
+}
+
+.lg-note code {
+  font-size: 0.92em;
+}
+
+/* ── grouped view ──────────────────────────────────────────── */
+.lg-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 980px;
+}
+
+.lg-rootcard {
+  border: 1px solid var(--lg-rule);
+  border-radius: 16px;
+  background: var(--lg-card);
+  overflow: hidden;
+}
+
+.lg-rh {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 13px 15px 11px;
+}
+
+.lg-rhm {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.lg-rt2 {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0 0 3px;
+  color: var(--lg-ink);
+}
+
+.lg-ra {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  color: var(--lg-soft);
+  margin: 0;
+  font-style: italic;
+}
+
+.lg-rst {
+  text-align: right;
+  flex: 0 0 auto;
+}
+
+.lg-rid {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  color: var(--lg-soft);
+  margin: 5px 0 0;
+}
+
+.lg-rbar {
+  height: 5px;
+  background: #eeeeea;
+  margin: 0 15px;
+  border-radius: 200px;
+  overflow: hidden;
+}
+
+.lg-rbf {
+  height: 100%;
+  background: #587000;
+  border-radius: 200px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.lg-rmeta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 9px 15px 12px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  color: var(--lg-soft);
+}
+
+.lg-rmeta b {
+  color: var(--lg-ink);
+}
+
+.lg-rmeta .att b {
+  color: var(--lg-acc);
+}
+
+.lg-kids {
+  border-top: 1px solid #e8e8e3;
+  background: #fbfbf9;
+}
+
+.lg-kid {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 15px;
+}
+
+.lg-kid + .lg-kid {
+  border-top: 1px solid #f0f0ec;
+}
+
+.lg-kid.now {
+  background: #f6f3ff;
+}
+
+.lg-kdot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #d6d6d0;
+  flex: 0 0 auto;
+}
+
+.lg-kdot.ok {
+  background: #587000;
+}
+
+.lg-kdot.run {
+  background: #592eff;
+}
+
+.lg-km {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.lg-kr {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #353241;
+  display: block;
+  letter-spacing: -0.015em;
+}
+
+.lg-kn {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9.5px;
+  color: var(--lg-soft);
+  display: block;
+  margin-top: 2px;
+}
+
+.lg-klk {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 8.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 200px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.lg-klk.revision {
+  background: #f6ece9;
+  color: #a83b23;
+}
+
+.lg-klk.derived {
+  background: #e9eef6;
+  color: #1d4e89;
+}
+
+.lg-kac {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9.5px;
+  color: var(--lg-soft);
+  white-space: nowrap;
+  flex: 0 0 auto;
+  min-width: 74px;
+  text-align: right;
+}
+
+@media (max-width: 700px) {
+  .lg-kid {
+    flex-wrap: wrap;
+  }
+  .lg-kac {
+    min-width: 0;
+  }
+}
+
+.lg-legend {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9.5px;
+  color: var(--lg-faint);
+}
+
+.lg-legend b {
+  color: var(--lg-soft);
+}

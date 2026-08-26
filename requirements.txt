@@ -12,11 +12,40 @@ sqlite-vec>=0.1.0
 pypdf>=3.0.0
 pdfplumber>=0.7.0
 
+# Document -> Markdown conversion for book ingestion (rag/scripts/add_book.py).
+# Handles docx/pptx/xlsx/odt/ods/odp/rtf/epub/csv/pdf in one call, benchmarked
+# above pypdf/pdfplumber/pandoc/markitdown for quality — github.com/firecrawl/anydoc
+firecrawl-anydoc>=0.1.9
+
 # CLI tools
 numpy>=1.24.0
+
+# cli/design.py's live generate_code() call to a self-hosted screenshot-to-code
+# instance — the real endpoint is a WebSocket (docs/PRD-design-first-workflow.md,
+# cli/lib/screenshot_to_code_client.py's header). Only needed for live generation;
+# capture and stub mode don't require it.
+websockets>=14.0
 
 # Sandbox-first quarantine (Part 7.7 Tier-2) — SDK confirmed installable +
 # unit-tested 2026-08-10 (pip install opensandbox opensandbox-cli); live
 # container provisioning still needs a Docker/K8s runtime, absent here.
 opensandbox==0.1.14
 opensandbox-cli==0.1.1
+
+# LLM-driven scraper for target_companies bulk enrichment (public directory
+# pages only — never LinkedIn, never search-engine results; see
+# job-hunt/companies scope decision, 2026-08-15). DO NOT `pip install
+# scrapegraphai` from PyPI: the published 1.76.0 release imports ChatOllama
+# from langchain_community.chat_models, a symbol removed in the
+# langchain-community>=0.4.0 that same release requires — confirmed broken,
+# not an environment issue. Fixed on GitHub main (uses langchain_ollama's
+# ChatOllama) but not yet cut as a PyPI release, so install from source:
+#   pip install --break-system-packages --ignore-requires-python \
+#     "git+https://github.com/ScrapeGraphAI/Scrapegraph-ai.git"
+# --ignore-requires-python is needed because main's pyproject.toml now
+# declares python>=3.12; the actual code runs fine on 3.10 (verified).
+# Also needs `playwright install chromium` + real OS-level browser deps
+# (root) — confirmed missing exactly one library, libXdamage.so.1, in this
+# repo's sandbox; that sandbox has no root and its proxy blocks
+# ports.ubuntu.com, so this only runs somewhere with normal root (a VPS,
+# Docker, or a real dev machine), not inside this Claude session's sandbox.

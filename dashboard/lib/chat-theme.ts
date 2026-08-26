@@ -12,6 +12,17 @@ export const DEPT_TINT: Record<FleetDepartment, string> = {
   Product: '#10B981',
   Governance: '#8B5CF6',
   'AI & Agents': '#06B6D4',
+  // 2026-08-15 — 6 new departments merged in from origin. No fleet-assigned
+  // color existed anywhere for these yet, so these are new coherent picks
+  // (distinct hexes, same Tailwind-ish palette as the original 7), not
+  // sourced from any existing config — flagged here rather than silently
+  // invented.
+  'Client Success': '#14B8A6',
+  'Comms & PR': '#F97316',
+  'Global Expansion': '#6366F1',
+  'Growth & Partnerships': '#84CC16',
+  'People & Culture': '#D946EF',
+  'Risk & ESG': '#FACC15',
 }
 
 /** Dept tint is derived from the real fleet, never hardcoded independently. */
@@ -37,6 +48,12 @@ export function deptIcon(dept: FleetDepartment): string {
     case 'Product': return 'Package'
     case 'Governance': return 'Scale'
     case 'AI & Agents': return 'Bot'
+    case 'Client Success': return 'HeartHandshake'
+    case 'Comms & PR': return 'Megaphone'
+    case 'Global Expansion': return 'Globe2'
+    case 'Growth & Partnerships': return 'TrendingUp'
+    case 'People & Culture': return 'Users'
+    case 'Risk & ESG': return 'ShieldAlert'
     default: return 'Circle'
   }
 }

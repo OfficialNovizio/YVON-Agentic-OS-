@@ -10,6 +10,10 @@
  *   npm run db:migrate          — run from local terminal
  *   Vercel build command:       — runs automatically before every deploy
  *     node scripts/migrate.mjs && next build
+ *
+ * If migrations were applied outside this runner (Supabase MCP path) and the
+ * tracker is empty, mark them first:
+ *   node scripts/mark-migrations.mjs
  */
 
 import pg from 'pg'

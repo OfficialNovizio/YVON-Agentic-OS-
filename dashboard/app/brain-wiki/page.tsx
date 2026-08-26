@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { PageHeader, StatusBadge, Card } from '@/components/ui'
 import { useLiveData } from '@/lib/use-live-data'
+import { useWorkspace } from '@/lib/WorkspaceContext'
 import YvonGraph from '@/components/YvonGraph'
 import type { GraphNode, GraphEdge, LibraryDoc } from '@/app/api/knowledge-graph/route'
 
@@ -32,6 +33,24 @@ export default function BrainWikiPage() {
   const animRef = useRef<number | null>(null)
   const positionsRef = useRef<NodePosition[]>([])
 
+  // 2026-08-14 — venture data source. 'fleet' = the original generic
+  // agent_memory-backed view (unchanged default). Any other value is a real
+  // venture slug: /api/knowledge-graph?venture=<slug> swaps in that
+  // venture's actual graphify graph + mempalace mined knowledge (migration
+  // 120) — see the route's ventureKnowledgeGraph() for the mapping. Sourced
+  // from the same useWorkspace() ventures list YvonGraph.tsx's satellites
+  // use, filtered to real (non-core) brands — yvon-os's own graph doesn't
+  // come through this pipeline (it uses graphify-cron.sh instead, see the
+  // operator discussion this session).
+  const { ventures } = useWorkspace()
+  const [ventureFilter, setVentureFilter] = useState<string>('fleet')
+  const ventureOptions = ventures.filter((v) => v.kind !== 'core')
+
+  const knowledgeGraphUrl =
+    ventureFilter === 'fleet'
+      ? '/api/knowledge-graph'
+      : `/api/knowledge-graph?venture=${encodeURIComponent(ventureFilter)}`
+
   const { data } = useLiveData<{
     nodes: GraphNode[]
     edges: GraphEdge[]
@@ -39,7 +58,7 @@ export default function BrainWikiPage() {
     topicsCount: number
     documentsCount: number
   }>({
-    url: '/api/knowledge-graph',
+    url: knowledgeGraphUrl,
     pollIntervalMs: 60000,
   })
 
@@ -191,13 +210,45 @@ export default function BrainWikiPage() {
         subtitle="3D knowledge graph + document library. Vectorized in Supabase with semantic search for all agents."
       />
 
+      {/* Venture source (2026-08-14) — 'Fleet Memory' is the original generic
+          agent_memory view; each real venture below is that brand's actual
+          graphify graph + mempalace knowledge (migration 120), not a mock. */}
+      {ventureOptions.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] text-on-surface-variant/50 uppercase tracking-wider mr-1">Source</span>
+          <button
+            onClick={() => setVentureFilter('fleet')}
+            className={`rounded-full border px-3 py-1 text-[11px] font-medium transition ${
+              ventureFilter === 'fleet'
+                ? 'border-white/20 bg-white/10 text-on-surface'
+                : 'border-white/5 bg-transparent text-on-surface-variant hover:border-white/10 hover:bg-white/5'
+            }`}
+          >
+            Fleet Memory
+          </button>
+          {ventureOptions.map((v) => (
+            <button
+              key={v.slug}
+              onClick={() => setVentureFilter(v.slug)}
+              className={`rounded-full border px-3 py-1 text-[11px] font-medium transition ${
+                ventureFilter === v.slug
+                  ? 'border-white/20 bg-white/10 text-on-surface'
+                  : 'border-white/5 bg-transparent text-on-surface-variant hover:border-white/10 hover:bg-white/5'
+              }`}
+            >
+              {v.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Stats + filters */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <StatusBadge tone="muted">
-          {data?.topicsCount ?? 0} topics
+          {data?.topicsCount ?? 0} {ventureFilter === 'fleet' ? 'topics' : 'code nodes'}
         </StatusBadge>
         <StatusBadge tone="muted">
-          {data?.documentsCount ?? 0} docs
+          {data?.documentsCount ?? 0} {ventureFilter === 'fleet' ? 'docs' : 'knowledge entries'}
         </StatusBadge>
         <div className="flex-1" />
         <button

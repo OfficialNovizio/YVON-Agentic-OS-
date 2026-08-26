@@ -27,6 +27,13 @@ const DEPT_LEADER: Record<FleetDepartment, string> = {
   'Governance': 'board',
   'Product': 'spec',
   'AI & Agents': 'meta',
+  // 2026-08-15 — 6 new departments, leaders per root CLAUDE.md's routing table.
+  'Client Success': 'ally',
+  'Comms & PR': 'herald',
+  'Global Expansion': 'compass',
+  'Growth & Partnerships': 'quest',
+  'People & Culture': 'hire',
+  'Risk & ESG': 'pilot',
 }
 const DEPT_SUB: Record<FleetDepartment, string> = {
   'Executive Office': 'Strategy, vision, investor comms — serves you directly',
@@ -36,6 +43,12 @@ const DEPT_SUB: Record<FleetDepartment, string> = {
   'Governance': 'Fiduciary oversight, precedent, audit',
   'Product': 'PRD, analytics, research, validation, pricing',
   'AI & Agents': 'Fleet governance, integrations, quality, benchmarks',
+  'Client Success': 'Health scoring, lifecycle value, onboarding, retention, support ops',
+  'Comms & PR': 'Media relations, press kits, internal comms, investor comms, crisis comms',
+  'Global Expansion': 'Market selection, entry mode, localization, cross-border operations',
+  'Growth & Partnerships': 'Sales, demand-gen, partnerships, pricing, GTM strategy',
+  'People & Culture': 'Hiring, L&D, performance management, wellbeing, HR strategy',
+  'Risk & ESG': 'Enterprise risk, ESG reporting, operational resilience, risk appetite',
 }
 
 function toAgent(a: FleetAgent, reportsTo: string, level: number): OrgChartAgent {

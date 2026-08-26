@@ -1,0 +1,100 @@
+# TS-044 — the data contract (derived_from TS-043's handoff; eng.integration fan-out 1 of 3).
+# Cheapest task done first on purpose: a type definition is hours of work and unblocks
+# two multi-day tasks. tsc IS the assertion. Seeded 2026-08-24.
+id: TS-044
+status: done
+source_message: "Data contract: designSessionId must be on TaskSpecItem — the type hole the eng.integration session found, and every field the panel reads must be declared."
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only — no transcript inheritance
+  inject_form: .toon (this YAML is the source form)
+
+classification:
+  task_type: "build"
+  departments:
+    - Engineering
+  lead: "dev"
+
+context:
+  chunks: []
+  existing_assets: []
+  conflicts: []
+
+discovery:
+  questions: []
+  decisions:
+    - "The contract is the interface: three call sites read designSessionId, the type must carry it"
+    - "tsc --noEmit is the suite for a type task — the assertion and the compiler are the same line"
+
+work_items:
+  - id: WI-1
+    owner: "dev"
+    objective: "TaskSpecItem gains designSessionId + every field the panel reads"
+    strategy: BALANCE 1.0x
+    consumes: []
+    produces: "dashboard/app/chat/TasksPanel.tsx"
+    owns_paths:
+      - dashboard/app/chat/TasksPanel.tsx
+    skills: []
+    scripts: []
+    blocked_by: []
+    acceptance:
+      - text: "designSessionId is on TaskSpecItem"
+        status: pass
+        evidence: "tsc --noEmit · pass · 0 errors"
+      - text: "Every field the panel reads is declared"
+        status: pass
+        evidence: "19 fields checked · pass"
+    security_review: none
+    doer: "dev"
+    verifier: "quinn"
+    integrator: ""
+  - id: WI-2
+    owner: "dev"
+    objective: "Response shape aligned with the interface"
+    strategy: BALANCE 1.0x
+    consumes: []
+    produces: "dashboard/app/api/task-spec/route.ts"
+    owns_paths:
+      - dashboard/app/api/task-spec/route.ts
+    skills: []
+    scripts: []
+    blocked_by: []
+    acceptance: []
+    security_review: none
+
+dag:
+  parallel: []
+  critical_path:
+    - WI-1
+
+exit_gate:
+  owner: "quinn"
+  proof: "store/runs/run-2644.md"
+
+feedback:
+  outcome: null
+  lesson: null
+
+created_at: "2026-08-23T15:00:00Z"
+updated_at: "2026-08-23T17:41:00Z"
+revision_of: null
+derived_from: TS-043
+superseded_by: null
+blocked: false
+blocked_at: ""
+blocked_reason: ""
+run_ref: "store/runs/run-2644.md"
+approved_by: "operator"
+approved_at: "2026-08-23T15:00:00Z"
+history:
+  - {ts: "2026-08-23T15:00:00Z", actor: "operator", event: "opened_draft", note: "fan-out 1 of 3 from eng.integration"}
+  - {ts: "2026-08-23T15:10:00Z", actor: "dev", event: "executing_started", note: "TS-045 + TS-046 blocked_by this item"}
+  - {ts: "2026-08-23T17:40:00Z", actor: "quinn", event: "suite_passed", note: "store/runs/run-2644.md · 2 of 2 · tsc is the assertion"}
+  - {ts: "2026-08-23T17:41:00Z", actor: "quinn", event: "done", note: "store/runs/run-2644.md"}
+
+handoff: {}
+
+prd_ref: "store/tasks/TS-044-prd.md"
+rice_score: "4.5"

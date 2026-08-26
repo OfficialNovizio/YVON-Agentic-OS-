@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YVON Job Hunt — Whole System Flow</title>
+<style>
+  :root { color-scheme: light; --bg:#f7f7f5; --card:#ffffff; --ink:#1c1c1e; --mut:#6b6b74; --line:#e3e3de;
+    --green:#587000; --green-bg:#eef4e2; --amber:#8a6114; --amber-bg:#fdf8ec; --blue:#0a7ea6; --blue-bg:#e6f4f9; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--ink); padding:32px 20px 60px; max-width:1180px; margin:0 auto; }
+  h1 { font-size:24px; font-weight:700; letter-spacing:-0.02em; }
+  .sub { color:var(--mut); font-size:14px; margin-top:4px; line-height:1.5; }
+  .meta { margin-top:14px; font-size:12.5px; color:var(--mut); display:flex; flex-wrap:wrap; gap:14px; align-items:center; }
+  .legend { display:flex; gap:16px; flex-wrap:wrap; }
+  .legend span { display:inline-flex; align-items:center; gap:6px; }
+  .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+  .dot.built { background:var(--green); } .dot.new { background:var(--amber); } .dot.hybrid { background:var(--blue); }
+  nav.tabs { display:flex; gap:8px; margin:22px 0 16px; flex-wrap:wrap; }
+  .tab-btn { border:1px solid var(--line); background:var(--card); color:var(--ink); padding:8px 14px; border-radius:999px; font-size:13.5px; font-weight:600; cursor:pointer; transition:all .15s; }
+  .tab-btn.active { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .panel { display:none; } .panel.active { display:block; }
+  .flow-wrap { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:22px; }
+  .flow { display:flex; flex-wrap:wrap; align-items:stretch; gap:6px; }
+  .node { flex:1 1 150px; min-width:132px; border-radius:10px; padding:10px; border:1.5px solid var(--line); background:#f2f2ee; font-size:12px; line-height:1.35; position:relative; transition:all .25s; opacity:.45; }
+  .node .n-title { font-weight:700; font-size:12.5px; display:block; }
+  .node .n-sub { color:var(--mut); font-size:11px; display:block; margin-top:2px; }
+  .node .chip { position:absolute; top:-7px; right:8px; font-size:9.5px; font-weight:800; padding:2px 7px; border-radius:999px; }
+  .chip.built { background:var(--green-bg); color:var(--green); } .chip.new { background:var(--amber-bg); color:var(--amber); } .chip.hybrid { background:var(--blue-bg); color:var(--blue); }
+  .node.st-on { opacity:1; border-color:var(--mut); box-shadow:0 0 0 3px rgba(0,0,0,.05); }
+  .arrow { align-self:center; color:var(--mut); font-size:15px; flex:0 0 auto; }
+  .steps-card { margin-top:16px; }
+  .step-title { font-size:16px; font-weight:700; }
+  .step-desc { margin-top:6px; font-size:13.5px; line-height:1.6; color:#3a3a40; }
+  .step-desc code { background:var(--bg); padding:1px 6px; border-radius:5px; font-size:12px; }
+  .step-meta { margin-top:8px; font-size:11.5px; color:var(--mut); }
+  .controls { display:flex; align-items:center; gap:10px; margin-top:18px; flex-wrap:wrap; }
+  .ctrl-btn { border:1px solid var(--line); background:var(--card); color:var(--ink); padding:7px 16px; border-radius:9px; font-size:13px; font-weight:600; cursor:pointer; }
+  .ctrl-btn.primary { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .dots { display:flex; gap:6px; }
+  .dot-i { width:9px; height:9px; border-radius:50%; background:var(--line); cursor:pointer; }
+  .dot-i.on { background:var(--ink); transform:scale(1.25); }
+  .counter { font-size:12px; color:var(--mut); }
+  .grid3 { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px; margin-top:16px; }
+  .card { border:1px solid var(--line); border-radius:12px; padding:14px; background:#fbfbf9; }
+  .card h4 { font-size:13px; font-weight:700; display:flex; align-items:center; gap:7px; }
+  .card .list { margin-top:8px; font-size:12px; line-height:1.55; color:#3a3a40; }
+  .card .item { padding:4px 0; border-bottom:1px dashed var(--line); }
+  .card .item:last-child { border-bottom:none; }
+  .card .k { font-weight:600; }
+  .note { margin-top:16px; font-size:12px; color:var(--mut); background:var(--bg); border-radius:10px; padding:10px 14px; line-height:1.55; }
+  .note b { color:var(--ink); }
+  .mermaid-wrap { background:#fbfbf9; border:1px solid var(--line); border-radius:12px; padding:18px; overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; font-size:12.5px; margin-top:10px; }
+  th, td { border:1px solid var(--line); padding:7px 10px; text-align:left; }
+  th { background:var(--bg); font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; }
+  .status-pill { display:inline-block; border-radius:999px; padding:2px 9px; font-size:10.5px; font-weight:700; }
+  .s-built { background:var(--green-bg); color:var(--green); } .s-new { background:var(--amber-bg); color:var(--amber); } .s-partial { background:var(--blue-bg); color:var(--blue); }
+</style>
+</head>
+<body>
+
+<h1>YVON Job Hunt — Whole System Flow</h1>
+<div class="sub">The complete pipeline: profile → multiple resumes → finding companies → applying → tracking — with the logic flow, the fallbacks, and what's built vs planned. Grounded in the codebase as of 2026-08-25.</div>
+
+<div class="meta">
+  <span>Design · grounded in migrations 121–131, lib/job-hunt/*, vps-scripts/fetch-*.py</span>
+  <span class="legend">
+    <span><i class="dot built"></i> BUILT today</span>
+    <span><i class="dot new"></i> NEW / planned</span>
+    <span><i class="dot hybrid"></i> PARTIAL (analysis exists, pipeline doesn't)</span>
+  </span>
+</div>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="t1">1 · The Pipeline</button>
+  <button class="tab-btn" data-tab="t2">2 · Logic Flow + Fallbacks</button>
+  <button class="tab-btn" data-tab="t3">3 · Data &amp; Lifecycle</button>
+</nav>
+
+<!-- ══════════ TAB 1: PIPELINE ══════════ -->
+<div class="panel active" id="t1">
+  <div class="flow-wrap">
+    <div class="flow" id="flow1"></div>
+    <div class="steps-card">
+      <div class="step-title" id="s1-title"></div>
+      <div class="step-desc" id="s1-desc"></div>
+      <div class="step-meta" id="s1-meta"></div>
+    </div>
+    <div class="controls">
+      <button class="ctrl-btn" id="prev1">← Prev</button>
+      <button class="ctrl-btn primary" id="play1">▶ Play</button>
+      <button class="ctrl-btn" id="next1">Next →</button>
+      <span class="counter" id="cnt1"></span>
+      <div class="dots" id="dots1"></div>
+    </div>
+    <div class="note"><b>One funnel:</b> everything flows one direction — profile feeds scoring and materials, sync feeds postings, postings feed Companies, Companies feeds applications, applications feed the tracker, and the kanban owns the 3×-daily sync as a recurring card. Nothing is a side pipeline.</div>
+  </div>
+</div>
+
+<!-- ══════════ TAB 2: LOGIC FLOW ══════════ -->
+<div class="panel" id="t2">
+  <div class="flow-wrap">
+    <h3 style="font-size:15px;margin-bottom:4px;">Logic flow with fallbacks</h3>
+    <div class="sub" style="margin-top:0;margin-bottom:12px;">Every decision node has a fallback branch — a failed source, a missing key, a block, a duplicate, a closure, an empty profile. Nothing dead-ends.</div>
+    <div class="mermaid-wrap">
+<pre class="mermaid">
+flowchart TD
+  START([Start]) --> PROF{Profile setup?}
+  PROF -- "no / incomplete" --> IMP["Import-first: resume upload / LinkedIn export"]
+  IMP --> PROF
+  PROF -- "yes" --> SCORING["Fit weights: Technical 30 / Exp 25 / Beh 15 / Career 30"]
+  SCORING --> SYNC["3x daily sync (kanban TS-REC-003)"]
+  SYNC --> SRC["Sources: Adzuna + Indeed + LinkedIn + RemoteOK + Remotive"]
+  SRC --> KEY{"Adzuna key set?"}
+  KEY -- "no" --> BOARDS["Boards still run; log says why"]
+  BOARDS --> FETCH
+  KEY -- "yes" --> FETCH["Fetch newest page only (delta window)"]
+  FETCH --> BLOCK{"CAPTCHA / rate limit?"}
+  BLOCK -- "yes" --> SKIP["Skip + log, other queries continue"]
+  SKIP --> FETCH
+  BLOCK -- "no" --> DEDUP["Dedup: UNIQUE(source, external_id) — insert-only"]
+  DEDUP --> NEWP{"New postings?"}
+  NEWP -- "no" --> STALE["Closed sweep: missing N runs / URL 404 → status=closed"]
+  NEWP -- "yes" --> UPSERT["Upsert into job_postings (status=discovered)"]
+  UPSERT --> STALE
+  STALE --> SCORE2["Fit score each posting (profile weights)"]
+  SCORE2 --> VETO{"Deal-breaker hit?"}
+  VETO -- "yes" --> VETOED["Marked 'vetoed' with reason — visible, not hidden"]
+  VETOED --> COMP
+  VETO -- "no" --> COMP["Companies page: Hiring now (from postings) + watchlist + BC directory"]
+  COMP --> QUEUE["Queue postings worth applying to"]
+  QUEUE --> MAT["Tailor: cover letter + resume variant from profile"]
+  MAT --> HUMAN{"Human review & approval"}
+  HUMAN -- "no" --> QUEUE
+  HUMAN -- "yes" --> APPLY["Apply on the real site (never auto-submitted)"]
+  APPLY --> TRACK["Tracker: applied → interview → offer / rejected"]
+  TRACK --> FOLLOW["Follow-up drafts after 10 days of silence (drafts only)"]
+  FOLLOW --> START
+</pre>
+    </div>
+    <div class="note"><b>Read it as a circuit:</b> the loop at the bottom (track → follow-up → profile) is the "keep the search alive" cycle; every dashed decision is a fallback. The whole thing is human-in-the-loop — nothing sends, applies, or submits by itself.</div>
+  </div>
+</div>
+
+<!-- ══════════ TAB 3: DATA & LIFECYCLE ══════════ -->
+<div class="panel" id="t3">
+  <div class="flow-wrap">
+    <h3 style="font-size:15px;margin-bottom:4px;">Data &amp; lifecycle</h3>
+    <div class="sub" style="margin-top:0;">The tables, the posting status lifecycle, the sync cadence, and the kanban wiring.</div>
+
+    <h4 style="margin-top:18px;">The posting status lifecycle</h4>
+    <div class="mermaid-wrap" style="margin-top:8px;">
+<pre class="mermaid">
+flowchart LR
+  D[discovered] --> Q[queued]
+  Q --> A[applied]
+  A --> I[interview]
+  I --> O[offer]
+  I --> R[rejected]
+  D -.-> C[closed]
+  Q -.-> C
+  A -.-> C
+  D -.-> ARC[archived]
+  Q -.-> ARC
+  C -.-> ARC
+</pre>
+    </div>
+    <p style="font-size:12px;color:var(--mut);margin-top:8px;"><b>closed</b> = the posting no longer exists (disappeared from source results for N consecutive syncs, or its URL 404s in the nightly sweep). <b>archived</b> = you dismissed it. Both leave "Hiring now" immediately. <code>closed</code> is a planned schema addition (current CHECK constraint lacks it).</p>
+
+    <h4 style="margin-top:20px;">The tables</h4>
+    <table>
+      <tr><th>Table</th><th>Holds</th><th>Written by</th><th>Status</th></tr>
+      <tr><td>job_hunt_profile</td><td>The master profile (singleton, sectioned JSONB)</td><td>Profile page + resume/LinkedIn import</td><td><span class="status-pill s-built">BUILT</span></td></tr>
+      <tr><td>job_hunt_resume</td><td>One current resume + analysis</td><td>Resume page</td><td><span class="status-pill s-partial">PARTIAL — multi-variant generation planned</span></td></tr>
+      <tr><td>job_postings</td><td>Discovered postings from all sources, with fit_score</td><td>Discover, sync fetchers (VPS cron + UI)</td><td><span class="status-pill s-built">BUILT</span></td></tr>
+      <tr><td>target_companies</td><td>Curated watchlist (promoted from leads/hiring)</td><td>Companies page</td><td><span class="status-pill s-built">BUILT</span></td></tr>
+      <tr><td>company_leads</td><td>Full BC registry (OrgBook, hiring or not)</td><td>Nightly registry puller</td><td><span class="status-pill s-built">BUILT</span></td></tr>
+      <tr><td>job_hunt_source_keys</td><td>Adzuna / LinkedIn API credentials</td><td>Discover page form</td><td><span class="status-pill s-built">BUILT</span></td></tr>
+      <tr><td>network_contacts + interactions</td><td>Network CRM + message drafts</td><td>Network page</td><td><span class="status-pill s-built">BUILT</span></td></tr>
+      <tr><td>linkedin_posts + post_ideas</td><td>Content lab drafts (OAuth publish not built)</td><td>LinkedIn page</td><td><span class="status-pill s-partial">PARTIAL</span></td></tr>
+    </table>
+
+    <h4 style="margin-top:20px;">The 3× daily sync (kanban TS-REC-003)</h4>
+    <div class="grid3">
+      <div class="card"><h4>🌅 Morning · 8am PT (15:00 UTC)</h4><div class="list"><div class="item">Delta fetch: newest page per query per source</div><div class="item">Insert-only upserts — duplicates impossible</div><div class="item">Closed sweep: mark vanished postings</div></div></div>
+      <div class="card"><h4>🌆 Evening · 6pm PT (01:00 UTC)</h4><div class="list"><div class="item">Same incremental pass — new postings since morning</div><div class="item">Fit scores recomputed for new rows</div><div class="item">"Hiring now" on Companies refreshes</div></div></div>
+      <div class="card"><h4>🌙 Night · 11pm PT (06:00 UTC)</h4><div class="list"><div class="item">Delta fetch + full closed sweep (URL verification)</div><div class="item">Sync card closes on the kanban with counts</div><div class="item">New day's search starts clean</div></div></div>
+    </div>
+
+    <h4 style="margin-top:20px;">Fallbacks, per stage</h4>
+    <table>
+      <tr><th>Stage</th><th>Failure</th><th>Fallback</th></tr>
+      <tr><td>Profile</td><td>Empty / incomplete</td><td>Import-first (resume / LinkedIn export); scoring runs neutral (50s), no vetoes</td></tr>
+      <tr><td>Sources</td><td>Adzuna key missing</td><td>Boards + remote sources still run; log prints exactly why BC API data is absent</td></tr>
+      <tr><td>Boards</td><td>CAPTCHA / rate limit / block</td><td>Skip + log that query, continue the rest — no retries, no account risk</td></tr>
+      <tr><td>API down</td><td>One source 500s</td><td>Best-effort per source — an outage degrades one source, not the sync</td></tr>
+      <tr><td>Duplicate</td><td>Same posting re-fetched</td><td>UNIQUE(source, external_id) + insert-only — never duplicated</td></tr>
+      <tr><td>Nothing new</td><td>Sync finds 0 new</td><td>Clean no-op, logged with counts; closed sweep still runs</td></tr>
+      <tr><td>Posting closed</td><td>Gone from source / URL 404</td><td>Marked <code>closed</code> after N missing runs (or nightly sweep) — excluded from Hiring now</td></tr>
+      <tr><td>Veto</td><td>Deal-breaker in JD</td><td>Scored 0, shown "vetoed" with the reason — you see why, nothing is silently dropped</td></tr>
+      <tr><td>Apply</td><td>Form blocked / CAPTCHA on the real site</td><td>Human applies manually — the system never submits; it tailors, drafts, and tracks</td></tr>
+      <tr><td>No postings in a province</td><td>Empty Hiring-now</td><td>Empty state says what to do (run a search / check the Adzuna key); watchlist + directory still visible</td></tr>
+      <tr><td>Verification</td><td>tsc / browser fail</td><td>Nothing ships green — the verification gate is the release gate (owed for this whole section)</td></tr>
+    </table>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.min.js" integrity="sha384-yQ4mmBBT+vhTAwjFH0toJXNYJ6O4usWnt6EPIdWwrRvx2V/n5lXuDZQwQFeSFydF" crossorigin="anonymous"></script>
+<script>
+  mermaid.initialize({ startOnLoad: true, securityLevel: 'strict' })
+
+  const flow1 = [
+    { id:'p1', t:'Profile', s:'master profile + imports', state:'built' },
+    { id:'p2', t:'Resumes', s:'analysis built · variants planned', state:'hybrid' },
+    { id:'p3', t:'Discover + Sync', s:'search, 3× daily, fit scores', state:'built' },
+    { id:'p4', t:'Companies', s:'hiring now + watchlist + BC', state:'built' },
+    { id:'p5', t:'Apply', s:'tailor → human → real site', state:'new' },
+    { id:'p6', t:'Track', s:'statuses + follow-ups', state:'new' },
+    { id:'p7', t:'Kanban', s:'TS-REC-003 recurring sync', state:'hybrid' },
+  ]
+  const steps1 = [
+    { hl:['p1'], t:'Profile — the source of truth', d:'Identity, target roles, narrative, compensation, location, experience, education, skills, behavioral, evaluation preferences, and fit weights (Technical 30 / Experience 25 / Behavioral 15 / Career 30 — seeded verbatim from ai-job-search). The tabbed redesign includes a completeness meter and import-first paths (resume upload, LinkedIn export).', m:'BUILT — /job-hunt (tabbed, Adora)' },
+    { hl:['p2'], t:'Resumes — analysis built, generation planned', d:'Upload → AI extracts skills/education/experience + ATS score + strengths/gaps → pick what to keep. What does NOT exist yet: per-sector or per-job resume variants and cover letters (career-ops/ai-job-search’s core feature). That’s the planned materials generation — human-reviewed before anything downloads.', m:'PARTIAL — analysis built; multi-resume + cover letters NEW' },
+    { hl:['p3'], t:'Discover + Sync — the ingest engine', d:'Searches real sources (Adzuna, Indeed, LinkedIn, RemoteOK, Remotive, Arbeitnow, freehire, Greenhouse), dedupes into job_postings, fit-scores every posting. The 3× daily sync (morning/evening/night) is the kanban recurring card TS-REC-003 — incremental (newest page only, insert-only writes) with a closed-posting sweep.', m:'BUILT — fetchers + scoring live; UI “Sync now” panel is Phase 1 NEW' },
+    { hl:['p4'], t:'Companies — hiring now + watchlist + BC', d:'“Hiring now” derives from live postings (the fix for the empty-BC complaint), the watchlist is the curated target_companies (promoted from hiring or leads), and the full BC registry (OrgBook, hiring or not) is the directory behind Raw Leads. Promote flows into the watchlist with the modal.', m:'BUILT — hiring-first page, BC default, directory bridge' },
+    { hl:['p5'], t:'Apply — the human-in-the-loop step', d:'Planned: pick a posting → the system generates a tailored cover letter + resume variant from the profile → you review → you apply on the real site. The system never submits anything — applying stays yours, because auto-apply violates platform terms and the zero-risk boundary is the design.', m:'NEW — materials generation planned (recommendation #2)' },
+    { hl:['p6'], t:'Track — the lifecycle', d:'discovered → queued → applied → interview → offer / rejected, plus closed and archived. Planned: follow-up drafts after 10 days of silence (drafts only, never sent). The status column already exists in job_postings — the tracker UI is the new piece.', m:'NEW — statuses exist in schema; tracker + follow-ups planned' },
+    { hl:['p7'], t:'Kanban — the system owns the sync', d:'TS-REC-003 is the recurring card for the 3× daily sync. Until the recurring executor ships, the VPS cron drives it; once it ships, each morning/evening/night sync is a visible card with its counts on the board’s Recurring lane.', m:'PARTIAL — template created; executor is Phase A of the kanban design' },
+  ]
+
+  function nodeEl(n){ const c=n.state==='new'?'<span class="chip new">NEW</span>':n.state==='built'?'<span class="chip built">BUILT</span>':'<span class="chip hybrid">PARTIAL</span>'; return `<div class="node" data-id="${n.id}">${c}<span class="n-title">${n.t}</span><span class="n-sub">${n.s||''}</span></div>`; }
+  function buildDots(el,n,cur){ el.innerHTML=Array.from({length:n},(_,i)=>`<span class="dot-i ${i===cur?'on':''}" data-i="${i}"></span>`).join(''); }
+
+  const flow=document.getElementById('flow1');
+  flow.innerHTML=flow1.map((n,i)=>nodeEl(n)+(i<flow1.length-1?'<span class="arrow">→</span>':'')).join('');
+  const dotsEl=document.getElementById('dots1'), cntEl=document.getElementById('cnt1');
+  const titleEl=document.getElementById('s1-title'), descEl=document.getElementById('s1-desc'), metaEl=document.getElementById('s1-meta');
+  let cur=0, timer=null;
+  function paint(){
+    const s=steps1[cur];
+    document.querySelectorAll('#flow1 .node').forEach(n=>n.classList.remove('st-on'));
+    s.hl.forEach(id=>{const n=flow.querySelector(`[data-id="${id}"]`); if(n)n.classList.add('st-on');});
+    titleEl.textContent=s.t; descEl.innerHTML=s.d; metaEl.textContent=s.m;
+    cntEl.textContent=`${cur+1} / ${steps1.length}`; buildDots(dotsEl,steps1.length,cur);
+  }
+  function go(i){ cur=(i+steps1.length)%steps1.length; paint(); }
+  document.getElementById('prev1').onclick=()=>go(cur-1);
+  document.getElementById('next1').onclick=()=>go(cur+1);
+  document.getElementById('play1').onclick=()=>{
+    if(timer){clearInterval(timer);timer=null;document.getElementById('play1').textContent='▶ Play';return;}
+    timer=setInterval(()=>{go(cur+1);if(cur===0){clearInterval(timer);timer=null;document.getElementById('play1').textContent='▶ Play';}},2600);
+    document.getElementById('play1').textContent='❚❚ Pause';
+  };
+  dotsEl.addEventListener('click',e=>{const i=e.target.dataset.i;if(i!==undefined)go(+i);});
+  paint();
+
+  document.querySelectorAll('.tab-btn').forEach(b=>{
+    b.onclick=()=>{
+      document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+      b.classList.add('active');
+      document.getElementById(b.dataset.tab).classList.add('active');
+      if(b.dataset.tab==='t2'){ setTimeout(()=>mermaid.run(), 60); }
+    };
+  });
+</script>
+</body>
+</html>

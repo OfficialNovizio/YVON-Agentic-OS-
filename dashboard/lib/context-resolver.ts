@@ -98,6 +98,27 @@ function agentSkills(dept: string, agentId: string): SkillDescriptor[] {
   return out
 }
 
+/** FIX (2026-08-22, cost teardown Cause 06): a matched skill was injected as
+ * its ENTIRE SKILL.md, uncapped, up to 5 of them per turn. Mia's five total
+ * 51KB (~12.7k tokens) and one marketplace skill alone is 24KB — and every
+ * tool-loop iteration re-sends all of it. Live disclosure events show only
+ * 0-1 skills matching per turn today, so this is a landmine rather than
+ * today's main cost, but it is one line of defence for one constant.
+ *
+ * The cap is per skill and generous enough that a normal 6-8KB skill is
+ * untouched; only outliers are trimmed, and the trim is announced in-band so
+ * the agent knows the text is partial rather than silently truncated. */
+const SKILL_CHAR_CAP = Number(process.env.YVON_SKILL_CHAR_CAP ?? 8000)
+
+function capSkillBody(name: string, content: string): string {
+  if (content.length <= SKILL_CHAR_CAP) return content
+  return (
+    content.slice(0, SKILL_CHAR_CAP) +
+    `\n\n[...${name} truncated at ${SKILL_CHAR_CAP} of ${content.length} characters. ` +
+    `Ask the user if you need a section that is not shown above.]`
+  )
+}
+
 export interface SkillMatch {
   name: string
   summary: string
@@ -186,7 +207,7 @@ export async function skillDisclosureFor(
   const lines = [header]
   lines.push(
     result.activeFull.length > 0
-      ? `ACTIVE SKILLS (full):\n${result.activeFull.map((a) => `### ${a.name}\n${a.content}`).join('\n\n')}`
+      ? `ACTIVE SKILLS (full):\n${result.activeFull.map((a) => `### ${a.name}\n${capSkillBody(a.name, a.content)}`).join('\n\n')}`
       : 'ACTIVE SKILLS: (none matched this turn)',
   )
   lines.push(

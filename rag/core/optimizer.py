@@ -147,14 +147,29 @@ AGENT_PROFILES = {
 
 DEPARTMENT_ADJACENCY = {
     'Executive Office': ['Governance', 'Product', 'AI & Agents'],
-    'Governance': ['Executive Office', 'Cybersecurity'],
+    'Governance': ['Executive Office', 'Cybersecurity', 'Risk & ESG', 'Global Expansion'],
     'Engineering': ['Cybersecurity', 'Product', 'AI & Agents'],
     'Cybersecurity': ['Engineering', 'Governance'],
     'Product': ['Executive Office', 'Engineering', 'Brand Studio'],
     'AI & Agents': ['Product', 'Engineering', 'Executive Office'],
     'Brand Studio': ['Product', 'Executive Office'],
+    # 2026-08-15 — 6 new departments merged in from origin. Adjacency picked
+    # from real functional overlap per root CLAUDE.md's routing table
+    # (e.g. Client Success ↔ Growth & Partnerships share renewal/expansion;
+    # Comms & PR ↔ Risk & ESG share crisis comms; Global Expansion ↔
+    # Governance/Cybersecurity share regulatory + data-residency scoping) —
+    # new coherent picks, not sourced from any prior config, flagged here
+    # rather than silently invented.
+    'Client Success': ['Product', 'Growth & Partnerships', 'Executive Office'],
+    'Comms & PR': ['Executive Office', 'Risk & ESG', 'Governance'],
+    'Global Expansion': ['Governance', 'Cybersecurity', 'Risk & ESG'],
+    'Growth & Partnerships': ['Product', 'Brand Studio', 'Client Success'],
+    'People & Culture': ['Executive Office', 'Governance'],
+    'Risk & ESG': ['Governance', 'Cybersecurity', 'Global Expansion'],
     'Shared OS': ['Executive Office', 'Governance', 'Engineering', 'Cybersecurity',
-                  'Product', 'AI & Agents', 'Brand Studio'],
+                  'Product', 'AI & Agents', 'Brand Studio',
+                  'Client Success', 'Comms & PR', 'Global Expansion',
+                  'Growth & Partnerships', 'People & Culture', 'Risk & ESG'],
 }
 
 

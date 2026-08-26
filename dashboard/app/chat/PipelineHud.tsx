@@ -127,8 +127,8 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
   function Chip({ children, tone }: { children: React.ReactNode; tone: 'accent' | 'neutral' }) {
     const cls =
       tone === 'accent'
-        ? 'border-[var(--chat-accent)]/40 bg-[var(--chat-accent)]/10 text-[var(--chat-accent)]'
-        : 'border-[var(--chat-hairline)] bg-white/[0.03] text-[var(--chat-text-dim)]'
+        ? 'border-[var(--chat-accent)]/45 bg-[var(--chat-accent)]/[0.07] text-[var(--chat-accent)]'
+        : 'border-[var(--chat-hairline)] bg-[var(--chat-surface-strong)] text-[var(--chat-text-dim)]'
     return (
       <span className={`shrink-0 rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest ${cls}`}>
         {children}
@@ -142,7 +142,7 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
     return (
       <div>
         <div className="flex items-center gap-2 text-[11.5px]">
-          <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400/80" />
+          <span className="h-2 w-2 shrink-0 rounded-full bg-[#a2ea13]" />
           <span className="font-mono text-[10px] text-[var(--chat-text-faint)]">{n}</span>
           <span className="text-[var(--chat-text-dim)]">{label}</span>
           {chip && <span className="ml-auto">{chip}</span>}
@@ -225,7 +225,7 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
         }`}
       >
         <button onClick={() => toggle(id)} className="flex w-full items-center gap-2 px-3.5 py-2 text-left">
-          <span className={`h-2 w-2 shrink-0 rounded-full ${isLive ? 'bg-emerald-400/80' : 'bg-white/20'}`} />
+          <span className={`h-2 w-2 shrink-0 rounded-full ${isLive ? 'bg-[#a2ea13]' : 'bg-[var(--chat-hairline)]'}`} />
           <span className="font-mono text-[10px] text-[var(--chat-text-faint)]">{n}</span>
           <span className="truncate text-[12.5px] font-semibold text-[var(--chat-text-dim)]">{title}</span>
           <span className="ml-auto flex shrink-0 items-center gap-2">
@@ -426,7 +426,7 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
                 <FlowRow n="e" label="success checklist">
                   {analysis!.analysis!.mustHaves!.map((mh, i) => (
                     <div key={i} className="flex items-start gap-1.5 text-[11.5px]">
-                      <Check className="mt-px h-3 w-3 shrink-0 text-emerald-400" />
+                      <Check className="mt-px h-3 w-3 shrink-0 text-[#587000]" />
                       <span className="text-[var(--chat-text-dim)]">{mh}</span>
                     </div>
                   ))}
@@ -451,7 +451,7 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
                 <div key={i} className="flex items-start gap-1.5 text-[11.5px]">
                   <span
                     className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${
-                      s.status === 'error' ? 'bg-red-400/90' : s.status === 'active' ? 'animate-pulse bg-[var(--chat-accent)]' : 'bg-emerald-400/80'
+                      s.status === 'error' ? 'bg-[#dc2626]' : s.status === 'active' ? 'animate-pulse bg-[var(--chat-accent)]' : 'bg-[#a2ea13]'
                     }`}
                   />
                   <span className="text-[var(--chat-text-dim)]">{s.label}</span>
@@ -462,7 +462,7 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
                 <div className="mt-1.5 flex items-center gap-2">
                   <div className="flex -space-x-1.5">
                     {agentRows.map((a) => (
-                      <span key={a!.id} className="rounded-full border border-[#0a0a0f]" title={a!.name}>
+                      <span key={a!.id} className="rounded-full ring-2 ring-white" title={a!.name}>
                         <AgentAvatar id={a!.id} name={a!.name} size={20} />
                       </span>
                     ))}
@@ -509,7 +509,7 @@ export function PipelineHud({ stages, source, agents, thinking }: PipelineHudPro
   }
 
   return (
-    <div className={`flex h-full w-full flex-col overflow-hidden border-l border-[var(--chat-hairline-soft)] bg-white/[0.015] ${disabled ? 'opacity-60' : ''}`}>
+    <div className={`flex h-full w-full flex-col overflow-hidden rounded-[28px] border border-[var(--chat-hairline)] bg-white ${disabled ? 'opacity-60' : ''}`}>
       {/* Header — CAOS + full form. Only CAOS exists in this panel. */}
       <div className="border-b border-[var(--chat-hairline-soft)] px-4 pb-3 pt-4">
         <div className="flex items-center gap-2">

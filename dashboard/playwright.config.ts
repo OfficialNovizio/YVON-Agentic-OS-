@@ -21,7 +21,16 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // Auth setup (2026-08-24): the dashboard is SessionGate-protected; a fresh
+    // browser bounces to /login. This project signs in once (E2E_USERNAME /
+    // E2E_PASSWORD env) or reuses tests/e2e/.auth/user.json, and the chromium
+    // project depends on it. See tests/e2e/auth.setup.ts.
+    { name: 'setup', testMatch: /auth\.setup\.ts/ },
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], storageState: 'tests/e2e/.auth/user.json' },
+      dependencies: ['setup'],
+    },
     // Cross-browser — re-enable + `npx playwright install firefox webkit` when a public surface ships:
     // { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
     // { name: 'webkit', use: { ...devices['Desktop Safari'] } },

@@ -22,7 +22,7 @@ const ALL_PAGES: PageEntry[] = [
   // Command Center
   { label: 'Dashboard Home', href: '/dashboard', section: 'Command Center' },
   { label: 'Decision Queue', href: '/decision-queue', section: 'Command Center' },
-  { label: 'Task Board', href: '/task-board', section: 'Command Center' },
+  { label: 'Kanban', href: '/task-board', section: 'Command Center' },
   { label: 'Advisory Council', href: '/advisory-council', section: 'Command Center' },
   { label: 'Agents', href: '/agents', section: 'Command Center' },
   { label: 'Org Chart', href: '/org-chart', section: 'Command Center' },
@@ -48,6 +48,8 @@ const ALL_PAGES: PageEntry[] = [
   // Build
   { label: 'Idea Feed', href: '/idea-feed', section: 'Build' },
   { label: 'Software Pipeline', href: '/software-pipeline', section: 'Build' },
+  { label: 'Generations', href: '/generations', section: 'Build' },
+  { label: 'Task Lineage', href: '/tasks', section: 'Build' },
   // Revenue
   { label: 'Consulting CRM', href: '/consulting-crm', section: 'Revenue' },
   { label: 'Cinematic Sites', href: '/cinematic-sites', section: 'Revenue' },
@@ -200,11 +202,11 @@ export function TopBar({ sidebarMode: _, onToggleSidebar: _t, onMobileMenu }: To
   }
 
   return (
-    <header className="h-14 shrink-0 flex items-center gap-3 px-3 sm:px-4 border-b border-white/[0.06] bg-background/80 backdrop-blur-md sticky top-0 z-40">
+    <header className="h-14 shrink-0 flex items-center gap-3 px-3 sm:px-4 border-b border-[var(--app-line-soft)] bg-[var(--app-bar)] backdrop-blur-md sticky top-0 z-40">
       {/* Mobile hamburger */}
       <button
         onClick={onMobileMenu}
-        className="md:hidden p-1.5 rounded-lg hover:bg-white/[0.06] transition text-on-surface-variant"
+        className="md:hidden p-1.5 rounded-lg hover:bg-[var(--app-hover)] transition text-[var(--app-text-dim)]"
         aria-label="Open menu"
       >
         <span className="material-symbols-outlined text-[22px]">menu</span>
@@ -216,8 +218,8 @@ export function TopBar({ sidebarMode: _, onToggleSidebar: _t, onMobileMenu }: To
       </div>
 
       {/* Breadcrumb */}
-      <span className="text-white/[0.2] text-xs hidden sm:inline">/</span>
-      <span className="text-on-surface font-medium truncate hidden sm:inline text-sm">{breadcrumb}</span>
+      <span className="text-[var(--app-text-faint)] text-xs hidden sm:inline">/</span>
+      <span className="text-[var(--app-text)] font-medium truncate hidden sm:inline text-sm">{breadcrumb}</span>
 
       {/* Global search / command palette */}
       <div className="hidden sm:flex items-center flex-1 justify-center mx-2" ref={paletteRef}>
@@ -226,12 +228,12 @@ export function TopBar({ sidebarMode: _, onToggleSidebar: _t, onMobileMenu }: To
           <div
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors cursor-text ${
               paletteOpen
-                ? 'border-accent/40 bg-white/[0.04] ring-1 ring-accent/20'
-                : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12]'
+                ? 'border-[var(--app-accent-line)] bg-[var(--app-hover)] ring-1 ring-[var(--app-accent-ring)]'
+                : 'border-[var(--app-line-soft)] bg-[var(--app-hover)] hover:border-[var(--app-line)]'
             }`}
             onClick={() => !paletteOpen && openPalette()}
           >
-            <span className="material-symbols-outlined text-[16px] text-on-surface-variant shrink-0">
+            <span className="material-symbols-outlined text-[16px] text-[var(--app-text-dim)] shrink-0">
               search
             </span>
             <input
@@ -245,20 +247,20 @@ export function TopBar({ sidebarMode: _, onToggleSidebar: _t, onMobileMenu }: To
               }}
               onFocus={() => setPaletteOpen(true)}
               onKeyDown={handleKeyDown}
-              className="bg-transparent border-none outline-none text-xs text-on-surface placeholder:text-on-surface-variant w-full"
+              className="bg-transparent border-none outline-none text-xs text-[var(--app-text)] placeholder:text-[var(--app-text-dim)] w-full"
             />
-            <kbd className="hidden lg:inline text-[10px] text-on-surface-variant border border-white/[0.1] rounded px-1.5 py-0.5 leading-none shrink-0">
+            <kbd className="hidden lg:inline text-[10px] text-[var(--app-text-dim)] border border-[var(--app-line)] rounded px-1.5 py-0.5 leading-none shrink-0">
               ⌘K
             </kbd>
           </div>
 
           {/* Command palette dropdown */}
           {paletteOpen && (
-            <div className="absolute top-full mt-1.5 left-0 right-0 bg-[#0a1628]/95 backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-2xl shadow-black/40 overflow-hidden z-50">
+            <div className="absolute top-full mt-1.5 left-0 right-0 bg-[var(--app-popover)] backdrop-blur-xl border border-[var(--app-line)] rounded-xl shadow-2xl shadow-black/40 overflow-hidden z-50">
               {/* Results list */}
               <div className="max-h-[320px] overflow-y-auto no-scrollbar py-1">
                 {filteredPages.length === 0 && query.trim() && (
-                  <div className="px-4 py-3 text-xs text-on-surface-variant text-center">
+                  <div className="px-4 py-3 text-xs text-[var(--app-text-dim)] text-center">
                     No pages found for &ldquo;{query}&rdquo;
                   </div>
                 )}
@@ -270,16 +272,16 @@ export function TopBar({ sidebarMode: _, onToggleSidebar: _t, onMobileMenu }: To
                     className={`w-full flex items-center gap-3 px-4 py-2 text-left transition-colors ${
                       activeIndex === i
                         ? 'bg-accent/10 text-accent'
-                        : 'text-on-surface hover:bg-white/[0.04]'
+                        : 'text-[var(--app-text)] hover:bg-[var(--app-hover)]'
                     }`}
                   >
-                    <span className="material-symbols-outlined text-[16px] shrink-0 text-on-surface-variant">
+                    <span className="material-symbols-outlined text-[16px] shrink-0 text-[var(--app-text-dim)]">
                       arrow_forward
                     </span>
                     <div className="flex-1 min-w-0">
                       <span className="text-xs font-medium block truncate">{page.label}</span>
                     </div>
-                    <span className="text-[10px] text-on-surface-variant/60 shrink-0">
+                    <span className="text-[10px] text-[var(--app-text-faint)] shrink-0">
                       {page.section}
                     </span>
                   </button>
@@ -287,13 +289,13 @@ export function TopBar({ sidebarMode: _, onToggleSidebar: _t, onMobileMenu }: To
               </div>
 
               {/* Ask Henry footer */}
-              <div className="border-t border-white/[0.06]">
+              <div className="border-t border-[var(--app-line-soft)]">
                 <button
                   onClick={handleAskHenry}
                   className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
                     activeIndex === -1
                       ? 'bg-accent/10 text-accent'
-                      : 'text-on-surface-variant hover:bg-white/[0.04]'
+                      : 'text-[var(--app-text-dim)] hover:bg-[var(--app-hover)]'
                   }`}
                 >
                   <span className="material-symbols-outlined text-[18px] shrink-0">
@@ -303,17 +305,17 @@ export function TopBar({ sidebarMode: _, onToggleSidebar: _t, onMobileMenu }: To
                     <span className="text-xs font-medium block">
                       {query.trim() ? (
                         <>
-                          Ask Henry: &ldquo;<span className="text-on-surface">{query.trim()}</span>&rdquo;
+                          Ask Henry: &ldquo;<span className="text-[var(--app-text)]">{query.trim()}</span>&rdquo;
                         </>
                       ) : (
                         'Ask Henry a question…'
                       )}
                     </span>
-                    <span className="text-[10px] text-on-surface-variant/60">
+                    <span className="text-[10px] text-[var(--app-text-faint)]">
                       Opens Advisory Council
                     </span>
                   </div>
-                  <span className="material-symbols-outlined text-[14px] shrink-0 text-on-surface-variant/40">
+                  <span className="material-symbols-outlined text-[14px] shrink-0 text-[var(--app-text-faint)]">
                     open_in_new
                   </span>
                 </button>
@@ -324,17 +326,17 @@ export function TopBar({ sidebarMode: _, onToggleSidebar: _t, onMobileMenu }: To
       </div>
 
       {/* System status — real live count from /api/agent-status (TS-030) */}
-      <div className="hidden lg:flex items-center gap-3 text-xs text-on-surface-variant shrink-0">
+      <div className="hidden lg:flex items-center gap-3 text-xs text-[var(--app-text-dim)] shrink-0">
         <div className="flex items-center gap-1.5">
           <span className={liveAgents > 0 ? 'live-dot' : 'live-dot opacity-40'} />
           <span>System {liveAgents > 0 ? 'healthy' : 'idle'}</span>
         </div>
-        <span className="text-white/[0.15]">·</span>
+        <span className="text-[var(--app-text-faint)]">·</span>
         <span>{liveAgents} {liveAgents === 1 ? 'agent' : 'agents'} live</span>
       </div>
 
       {/* Avatar */}
-      <div className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/[0.08] shrink-0 flex items-center justify-center text-xs font-medium text-on-surface-variant">
+      <div className="w-8 h-8 rounded-full bg-[var(--app-hover)] border border-[var(--app-line)] shrink-0 flex items-center justify-center text-xs font-medium text-[var(--app-text-dim)]">
         N
       </div>
     </header>

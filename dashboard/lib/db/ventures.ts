@@ -52,17 +52,29 @@ function mapVentureRow(r: Record<string, unknown>): VentureConfig {
 
 // ─── Ventures ─────────────────────────────────────────────────────────────────
 
-// TS-030: select ONLY base columns that exist in every deployment — `select('*')`
-// breaks the schema cache when optional columns (description, tagline, etc.)
-// are missing from the DB. The map tolerates absent optionals.
+// TS-030 originally selected ONLY a minimal "safe" column set here, out of
+// caution that `select('*')` would break the schema cache if optional
+// columns (description, tagline, repo_url, etc.) were missing from some
+// deployment's DB. That caution had a real cost, undiscovered until now
+// (2026-08-11): repo_url, local_repo_path, description, tagline, website_url,
+// notion_url, and every other "optional" Settings field were NEVER fetched
+// by getAllVentures() — mapVentureRow() reads r.repo_url etc., but the SELECT
+// never asked Postgrest for those columns, so they were always undefined
+// regardless of what was actually saved in the DB. The Settings page (and
+// /chat's RepoModeToggle, which reads venture.repoUrl from this same
+// endpoint) would show a field as empty even immediately after a successful
+// save — not a caching or save bug, a read bug. Confirmed via
+// information_schema.columns (2026-08-11): every column mapVentureRow()
+// references genuinely exists on the live `ventures` table (migration
+// 108_ventures_schema_repair.sql already reconciled the drift TS-030 was
+// guarding against) — so it's now safe to select everything mapVentureRow
+// actually uses. Still an explicit list, not `select('*')`, so a genuinely
+// missing column in some other deployment fails loudly at the query rather
+// than silently returning partial data again.
 //
-// kind/status/tier/context_path/parent_id/sort_order (migrations 109/014/111/112) are safe to
-// include unconditionally: they're NOT NULL DEFAULT columns added additively and confirmed live
-// on every row (system-harness/graph-brain/YVON-GRAPH.md §1.2, §5) — not optional-profile fields like description/tagline
-// that TS-030's original comment was guarding against.
 // A `+`-concatenated string widens to `string` and breaks Supabase's generated-types select()
 // overload (it needs a literal type to parse the column list) — kept as one literal instead.
-const SAFE_SELECT = 'id, name, slug, color, ig_handle, yt_channel_id, li_profile_url, ga4_property_id, kind, status, tier, context_path, parent_id, sort_order'
+const SAFE_SELECT = 'id, name, slug, color, ig_handle, yt_channel_id, li_profile_url, ga4_property_id, description, tagline, brand_type, market_subcategories, status, website_url, logo_url, founded_year, repo_url, local_repo_path, notion_url, updated_at, operating_countries, target_audience, brand_tier, avg_price_point, operating_cities, ios_app_url, android_app_url, hosting_platform, product_categories, deployment_platforms, deployment_config, kind, tier, context_path, parent_id, sort_order'
 
 export async function getAllVentures(): Promise<VentureConfig[]> {
   const { data } = await supabase
@@ -139,7 +151,22 @@ export async function updateVenture(
   if (data.productCategories    !== undefined) update.product_categories   = data.productCategories
   if (data.deploymentPlatforms  !== undefined) update.deployment_platforms = data.deploymentPlatforms
   if (data.deploymentConfig     !== undefined) update.deployment_config    = data.deploymentConfig
-  await supabase.from('ventures').update(update).eq('id', id)
+  // Fixed 2026-08-20 (bug report: "local path doesn't save, refresh removes
+  // it"): this used to discard the Supabase response entirely — `{ error }`
+  // was never checked, so if the UPDATE failed for ANY reason (one bad field
+  // in the same batched save, a constraint violation, a transient DB error),
+  // the whole request looked identical to success from here up: the PATCH
+  // route (app/api/ventures/[id]/route.ts) caught nothing, returned
+  // { updated: true }, and Settings showed "Saved ✓" for a write that never
+  // actually happened. Verified the column and an isolated write both work
+  // fine directly against the live DB — so this silent-failure path, not a
+  // missing/broken column, is the confirmed bug. Throwing here surfaces the
+  // real Postgres error through the PATCH route's existing try/catch instead
+  // of lying about success.
+  const { error } = await supabase.from('ventures').update(update).eq('id', id)
+  if (error) {
+    throw new Error(`ventures update failed: ${error.message}`)
+  }
 }
 
 export async function deleteVenture(id: string): Promise<void> {

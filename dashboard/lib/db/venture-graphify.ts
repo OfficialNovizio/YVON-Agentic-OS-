@@ -39,6 +39,29 @@ export async function getVentureRepoAndPat(
   }
 }
 
+/**
+ * Slug-keyed sibling to getVentureRepoAndPat, added 2026-08-19 so
+ * app/api/chat/stream/route.ts (which only has the active venture's slug
+ * from the yvon_active_venture cookie, not its id) can forward the same
+ * write-scoped PAT to chat's GitHub repo-mode clone/pull step — the fix for
+ * chat's toggle failing to authenticate against private repos even though
+ * a PAT was already saved in Settings → Venture → Technical (it was saved,
+ * just never read by anything except graphify/MemPalace until now).
+ *
+ * Kept in this service-role-only module rather than the general ventures
+ * query in stream/route.ts, same reasoning as getVentureRepoAndPat's header
+ * comment: never let github_pat flow through a query a browser-facing
+ * response could echo back.
+ */
+export async function getVentureGithubPatBySlug(slug: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('ventures')
+    .select('github_pat')
+    .eq('slug', slug)
+    .single()
+  return (data?.github_pat as string) ?? null
+}
+
 async function postToHermes(
   path: string,
   info: { slug: string; repoUrl: string; githubPat: string }
@@ -109,17 +132,50 @@ export async function triggerVentureMempalace(id: string): Promise<{ ok: boolean
 }
 
 /**
- * Fires BOTH the graphify and MemPalace builds for a venture — the combined
- * "graph + memory" step per the original request (structural graph +
- * semantic knowledge, together, whenever a venture's repo is (re)configured).
- * Returns both results independently; one failing doesn't block the other.
+ * Fires the VPS's persistent per-venture CHAT workspace clone right away
+ * (2026-08-21) — sibling to triggerVentureGraphify/triggerVentureMempalace
+ * above, but for REPO_WORKSPACES_DIR (main.py's _ensure_repo_clone), the
+ * checkout chat's Hermes turns actually `cd` into (see
+ * app/api/chat/stream/route.ts). This used to only happen lazily, on
+ * whichever chat turn came in first after a repo was linked — so the first
+ * message paid the clone latency, and a venture with a bad URL/PAT gave no
+ * signal until someone tried chatting. Firing it here means the clone (or
+ * its failure) happens the moment the repo is saved in Settings instead.
+ *
+ * Unlike graphify/mempalace, a PAT is NOT required — public repos clone
+ * fine without one (same as the lazy chat-time clone), so this only gates
+ * on repoUrl being set. Fire-and-forget, same contract as its siblings —
+ * the real outcome also surfaces later via main.py's [WORKING REPO] notice
+ * on the first chat turn either way, so a failure here is never silent.
+ */
+export async function triggerRepoEnsure(id: string): Promise<{ ok: boolean; reason?: string }> {
+  const info = await getVentureRepoAndPat(id)
+  if (!info) return { ok: false, reason: 'venture not found' }
+  if (!info.repoUrl) return { ok: false, reason: 'no repoUrl set' }
+  return postToHermes('/v1/repo/ensure', {
+    slug: info.slug,
+    repoUrl: info.repoUrl,
+    githubPat: info.githubPat ?? '',
+  })
+}
+
+/**
+ * Fires the graphify build, the MemPalace build, AND the chat-workspace
+ * repo clone for a venture — the combined onboarding step whenever a
+ * venture's repo is (re)configured. Returns all three results
+ * independently; one failing doesn't block the others.
  */
 export async function triggerVentureOnboarding(
   id: string
-): Promise<{ graphify: { ok: boolean; reason?: string }; mempalace: { ok: boolean; reason?: string } }> {
-  const [graphify, mempalace] = await Promise.all([
+): Promise<{
+  graphify: { ok: boolean; reason?: string }
+  mempalace: { ok: boolean; reason?: string }
+  repoEnsure: { ok: boolean; reason?: string }
+}> {
+  const [graphify, mempalace, repoEnsure] = await Promise.all([
     triggerVentureGraphify(id),
     triggerVentureMempalace(id),
+    triggerRepoEnsure(id),
   ])
-  return { graphify, mempalace }
+  return { graphify, mempalace, repoEnsure }
 }

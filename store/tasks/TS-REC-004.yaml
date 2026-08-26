@@ -1,0 +1,92 @@
+# TS-REC-004 — PR Intelligence: weekly IRCC rules fetch (2026-08-25).
+# Operator's core motive: PR ASAP. Agent-Reach reads official IRCC / BC PNP
+# pages into ircc_rules (migration 133); the Job Hunt PR Insights section and
+# PR-aware job ranking read it. Informational — every row carries source URL
+# + fetched date; never legal advice.
+id: TS-REC-004
+status: draft
+task_type: recurring
+recurrence:
+  cadence: weekly
+  interval: 1
+  at: "04:30"
+  next_due: "2026-08-31T04:30:00Z"
+  template: ircc-rules-fetch
+source_message: "Use agent reach to scrap new and IRCC website for rules and i need section on job hunt that provide useful insights. This is pure motive to get PR ASAP"
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only — no transcript inheritance
+  inject_form: .toon (this YAML is the source form)
+
+classification:
+  task_type: "data"
+  departments:
+    - Engineering
+  lead: dev
+
+context:
+  chunks: []
+  existing_assets:
+    - vps-scripts/fetch-ircc-rules.py
+    - dashboard/supabase/migrations/133_job_hunt_ircc_pr.sql
+  conflicts: []
+
+discovery:
+  questions: []
+  decisions:
+    - "Official sources only: canada.ca (IRCC) + welcomebc.ca (BC PNP) — never scraped third-party summaries"
+    - "Agent-Reach (v1.5.0, installed 2026-08-25) is the fetch engine — zero-config for web pages"
+    - "Every rule row carries source_url + fetched_at; the UI shows 'as of <date>' — rules change, dates make that visible"
+
+work_items:
+  - id: WI-1
+    owner: dev
+    objective: "Fetch official IRCC/BC-PNP pages via Agent-Reach weekly, upsert into ircc_rules, and keep the PR Insights section current"
+    strategy: BALANCE 1.0x
+    consumes: []
+    produces: "ircc_rules rows with fresh fetched_at; PR Insights section current"
+    owns_paths: []
+    skills: []
+    scripts:
+      - vps-scripts/fetch-ircc-rules.py
+    blocked_by: []
+    acceptance:
+      - text: "ircc_rules has ≥ 6 topics with fetched_at within the last 7 days"
+        status: pending
+        evidence: ""
+      - text: "Each row has a non-empty body ≥ 200 chars and a source_url"
+        status: pending
+        evidence: ""
+      - text: "PR Insights section renders the rules with 'as of' dates and source links"
+        status: pending
+        evidence: ""
+    security_review: none
+    doer: dev
+    verifier: operator
+    integrator: ""
+
+dag:
+  parallel: []
+  critical_path:
+    - WI-1
+
+exit_gate:
+  owner: operator
+  proof: ""
+
+feedback:
+  outcome: null
+  lesson: null
+
+created_at: "2026-08-25T22:30:00Z"
+updated_at: "2026-08-25T22:30:00Z"
+revision_of: null
+derived_from: null
+superseded_by: null
+blocked: false
+blocked_at: ""
+blocked_reason: ""
+run_ref: ""
+history:
+  - {ts: "2026-08-25T22:30:00Z", actor: "dev", event: "opened_draft", note: "PR Intelligence recurring card — weekly IRCC rules fetch via Agent-Reach"}

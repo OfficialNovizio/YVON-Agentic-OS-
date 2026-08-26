@@ -122,5 +122,5 @@ export function Markdown({ text }: { text: string }) {
   })
   flushList('end')
 
-  return <div className="chat-md text-[13px] leading-relaxed text-[var(--chat-text)]">{blocks}</div>
+  return <div className="chat-md text-[14.5px]">{blocks}</div>
 }

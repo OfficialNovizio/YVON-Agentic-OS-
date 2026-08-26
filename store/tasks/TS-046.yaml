@@ -1,0 +1,113 @@
+# TS-046 — the wiring (derived_from TS-043's handoff; fan-out 3 of 3).
+# The end-to-end run: the last task's suite does not test the panel or the endpoint —
+# it tests THE THING THE PERSON ASKED FOR in beat one. Every criterion passes; the
+# deferral shows up as an explicit "not measured" cell, never a $0. Seeded 2026-08-24.
+id: TS-046
+status: done
+source_message: "Wiring: the panel shows live data end-to-end from a cold chat room — no stubs remain, the cost cell reads 'not measured' until the ledger link exists."
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only — no transcript inheritance
+  inject_form: .toon (this YAML is the source form)
+
+classification:
+  task_type: "build"
+  departments:
+    - Engineering
+  lead: "mia"
+
+context:
+  chunks: []
+  existing_assets: []
+  conflicts: []
+
+discovery:
+  questions: []
+  decisions:
+    - "The e2e suite tests the original sentence, not the components — chat → task → panel from a cold room"
+    - "The deferral stays visible: the cost cell reads 'not measured', never $0"
+
+work_items:
+  - id: WI-1
+    owner: "mia"
+    objective: "Front half — the panel renders live data, not fixtures"
+    strategy: BALANCE 1.0x
+    consumes: []
+    produces: "dashboard/app/chat/page.tsx"
+    owns_paths:
+      - dashboard/app/chat/page.tsx
+    skills: []
+    scripts: []
+    blocked_by:
+      - TS-045
+    acceptance:
+      - text: "Panel renders live data, not fixtures"
+        status: pass
+        evidence: "e2e · real room · pass"
+      - text: "Cost cell reads 'not measured', never $0"
+        status: pass
+        evidence: "the deferral, made visible · pass"
+      - text: "An open task refreshes without a reload"
+        status: pass
+        evidence: "polling added · pass"
+      - text: "changes_requested writes history"
+        status: pass
+        evidence: "the orphaned event now has a caller · pass"
+      - text: "Whole flow works from a cold chat room"
+        status: pass
+        evidence: "chat → session → task → panel · pass"
+    security_review: none
+    doer: "mia"
+    verifier: "quinn"
+    integrator: ""
+  - id: WI-2
+    owner: "quinn"
+    objective: "Back half — the e2e spec against the real dev server"
+    strategy: BALANCE 1.0x
+    consumes: []
+    produces: "dashboard/tests/e2e/e2e-panel.spec.ts"
+    owns_paths:
+      - dashboard/tests/e2e-panel.spec.ts
+    skills: []
+    scripts: []
+    blocked_by:
+      - TS-045
+    acceptance: []
+    security_review: none
+
+dag:
+  parallel: []
+  critical_path:
+    - WI-1
+
+exit_gate:
+  owner: "quinn"
+  proof: "store/runs/run-2646.md"
+
+feedback:
+  outcome: null
+  lesson: null
+
+created_at: "2026-08-24T08:55:00Z"
+updated_at: "2026-08-24T11:41:00Z"
+revision_of: null
+derived_from: TS-043
+superseded_by: null
+blocked: false
+blocked_at: ""
+blocked_reason: ""
+run_ref: "store/runs/run-2646.md"
+approved_by: "operator"
+approved_at: "2026-08-24T08:55:00Z"
+history:
+  - {ts: "2026-08-24T08:55:00Z", actor: "operator", event: "opened_draft", note: "fan-out 3 of 3 from eng.integration"}
+  - {ts: "2026-08-24T09:00:00Z", actor: "mia", event: "executing_started", note: "blocked_by TS-045"}
+  - {ts: "2026-08-24T11:20:00Z", actor: "quinn", event: "gated", note: ""}
+  - {ts: "2026-08-24T11:40:00Z", actor: "quinn", event: "suite_passed", note: "store/runs/run-2646.md · 5 of 5"}
+  - {ts: "2026-08-24T11:41:00Z", actor: "quinn", event: "done", note: "store/runs/run-2646.md"}
+
+handoff: {}
+
+prd_ref: "store/tasks/TS-046-prd.md"
+rice_score: "6.1"

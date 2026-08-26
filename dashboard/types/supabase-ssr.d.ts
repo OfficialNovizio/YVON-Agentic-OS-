@@ -35,6 +35,9 @@ declare module '@supabase/ssr' {
       signInWithPassword(opts: { email: string; password: string }): Promise<{ error: { message: string } | null }>
       exchangeCodeForSession(code: string): Promise<{ error: { message: string } | null }>
       signOut(): Promise<{ error: { message: string } | null }>
+      // Added 2026-08-24 (session recovery in app/chat/page.tsx) — the shim
+      // was missing it, so tsc rejected the one quiet session-refresh path.
+      refreshSession(): Promise<{ data: { session: { access_token: string; refresh_token: string } | null }; error: { message: string } | null }>
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     from(table: string): any

@@ -9,6 +9,12 @@ export type FleetDepartment =
   | 'Product'
   | 'Governance'
   | 'AI & Agents'
+  | 'Client Success'
+  | 'People & Culture'
+  | 'Risk & ESG'
+  | 'Growth & Partnerships'
+  | 'Global Expansion'
+  | 'Comms & PR'
 
 export interface FleetAgent {
   id: string
@@ -49,34 +55,63 @@ export const FLEET: FleetAgent[] = [
   { id: 'tempo', name: 'Tempo', role: 'Audio Branding', department: 'Brand Studio', color: '#EC4899', icon: '🎨' },
   { id: 'weave', name: 'Weave', role: 'Storytelling', department: 'Brand Studio', color: '#EC4899', icon: '🎨' },
   // ── Cybersecurity ──
-  { id: 'bastion', name: 'Bastion', role: 'Infrastructure & Cloud Security', department: 'Cybersecurity', color: '#EF4444', icon: '🛡️' },
-  { id: 'cortex', name: 'Cortex', role: 'Security Operations / Detection & Response', department: 'Cybersecurity', color: '#EF4444', icon: '🛡️' },
-  { id: 'keyring', name: 'Keyring', role: 'Identity & Access Management', department: 'Cybersecurity', color: '#EF4444', icon: '🛡️' },
-  { id: 'veil', name: 'Veil', role: 'Data Privacy & Protection', department: 'Cybersecurity', color: '#EF4444', icon: '🛡️' },
-  { id: 'warden', name: 'Warden', role: 'CISO / Security Governance — department leader', department: 'Cybersecurity', color: '#EF4444', icon: '🛡️' },
+  { id: 'bastion', name: 'Bastion', role: '', department: 'Cybersecurity', color: '#EF4444', icon: '🛡️' },
+  { id: 'cortex', name: 'Cortex', role: '', department: 'Cybersecurity', color: '#EF4444', icon: '🛡️' },
+  { id: 'keyring', name: 'Keyring', role: '', department: 'Cybersecurity', color: '#EF4444', icon: '🛡️' },
+  { id: 'veil', name: 'Veil', role: '', department: 'Cybersecurity', color: '#EF4444', icon: '🛡️' },
+  { id: 'warden', name: 'Warden', role: '', department: 'Cybersecurity', color: '#EF4444', icon: '🛡️' },
   // ── Product ──
-  { id: 'loom', name: 'Loom', role: 'PMF & Experimentation', department: 'Product', color: '#10B981', icon: '📦' },
-  { id: 'metric', name: 'Metric', role: 'Product Analytics', department: 'Product', color: '#10B981', icon: '📦' },
-  { id: 'price', name: 'Price', role: 'Pricing & Packaging', department: 'Product', color: '#10B981', icon: '📦' },
-  { id: 'spec', name: 'Spec', role: 'Product Manager — department leader', department: 'Product', color: '#10B981', icon: '📦' },
-  { id: 'ux', name: 'Ux', role: 'UX Research', department: 'Product', color: '#10B981', icon: '📦' },
+  { id: 'loom', name: 'Loom', role: '', department: 'Product', color: '#10B981', icon: '📦' },
+  { id: 'metric', name: 'Metric', role: '', department: 'Product', color: '#10B981', icon: '📦' },
+  { id: 'price', name: 'Price', role: '', department: 'Product', color: '#10B981', icon: '📦' },
+  { id: 'spec', name: 'Spec', role: '', department: 'Product', color: '#10B981', icon: '📦' },
+  { id: 'ux', name: 'Ux', role: '', department: 'Product', color: '#10B981', icon: '📦' },
   // ── Governance ──
   { id: 'board', name: 'Board', role: 'Governance Gate', department: 'Governance', color: '#8B5CF6', icon: '⚖️' },
   { id: 'precedent', name: 'Precedent', role: 'Institutional Memory', department: 'Governance', color: '#8B5CF6', icon: '⚖️' },
   { id: 'sentinel', name: 'Sentinel', role: 'Compliance Monitor', department: 'Governance', color: '#8B5CF6', icon: '⚖️' },
   // ── AI & Agents ──
-  { id: 'anneal', name: 'Anneal', role: 'Skill Lifecycle & Annealing', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
-  { id: 'edge', name: 'Edge', role: 'Emerging Tech Gate', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
-  { id: 'forge', name: 'Forge', role: 'AI Methods & Benchmarking', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
-  { id: 'gauge', name: 'Gauge', role: 'Fleet Monitor', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
-  { id: 'meta', name: 'Meta', role: 'Fleet Architect — department leader', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
-  { id: 'proto', name: 'Proto', role: 'Prototyping', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
-  { id: 'relay', name: 'Relay', role: 'AI Integration & Tool Registry', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
-  { id: 'scout', name: 'Scout', role: 'Tool & Ecosystem Scanner', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
+  { id: 'anneal', name: 'Anneal', role: '', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
+  { id: 'edge', name: 'Edge', role: '', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
+  { id: 'forge', name: 'Forge', role: '', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
+  { id: 'gauge', name: 'Gauge', role: '', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
+  { id: 'meta', name: 'Meta', role: '', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
+  { id: 'proto', name: 'Proto', role: '', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
+  { id: 'relay', name: 'Relay', role: '', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
+  { id: 'scout', name: 'Scout', role: '', department: 'AI & Agents', color: '#06B6D4', icon: '🤖' },
+  // ── Client Success ──
+  { id: 'ally', name: 'Ally', role: '', department: 'Client Success', color: '#64748B', icon: '🔹' },
+  { id: 'keel', name: 'Keel', role: '', department: 'Client Success', color: '#64748B', icon: '🔹' },
+  { id: 'kickoff', name: 'Kickoff', role: '', department: 'Client Success', color: '#64748B', icon: '🔹' },
+  { id: 'retain', name: 'Retain', role: '', department: 'Client Success', color: '#64748B', icon: '🔹' },
+  // ── People & Culture ──
+  { id: 'grove', name: 'Grove', role: 'Learning & Development (non-leader)', department: 'People & Culture', color: '#64748B', icon: '🔹' },
+  { id: 'hire', name: 'Hire', role: 'Lead — Talent Acquisition', department: 'People & Culture', color: '#64748B', icon: '🔹' },
+  { id: 'maslow', name: 'Maslow', role: 'Motivation (non-leader)', department: 'People & Culture', color: '#64748B', icon: '🔹' },
+  { id: 'merit', name: 'Merit', role: 'Performance Management (non-leader)', department: 'People & Culture', color: '#64748B', icon: '🔹' },
+  // ── Risk & ESG ──
+  { id: 'hazard', name: 'Hazard', role: '', department: 'Risk & ESG', color: '#64748B', icon: '🔹' },
+  { id: 'pilot', name: 'Pilot', role: '', department: 'Risk & ESG', color: '#64748B', icon: '🔹' },
+  { id: 'prism', name: 'Prism', role: '', department: 'Risk & ESG', color: '#64748B', icon: '🔹' },
+  { id: 'shield', name: 'Shield', role: '', department: 'Risk & ESG', color: '#64748B', icon: '🔹' },
+  // ── Growth & Partnerships ──
+  { id: 'bond', name: 'Bond', role: '', department: 'Growth & Partnerships', color: '#64748B', icon: '🔹' },
+  { id: 'closer', name: 'Closer', role: '', department: 'Growth & Partnerships', color: '#64748B', icon: '🔹' },
+  { id: 'lure', name: 'Lure', role: '', department: 'Growth & Partnerships', color: '#64748B', icon: '🔹' },
+  { id: 'quest', name: 'Quest', role: '', department: 'Growth & Partnerships', color: '#64748B', icon: '🔹' },
+  // ── Global Expansion ──
+  { id: 'canopy', name: 'Canopy', role: '', department: 'Global Expansion', color: '#64748B', icon: '🔹' },
+  { id: 'compass', name: 'Compass', role: '', department: 'Global Expansion', color: '#64748B', icon: '🔹' },
+  { id: 'frontier', name: 'Frontier', role: '', department: 'Global Expansion', color: '#64748B', icon: '🔹' },
+  { id: 'lingua', name: 'Lingua', role: '', department: 'Global Expansion', color: '#64748B', icon: '🔹' },
+  // ── Comms & PR ──
+  { id: 'beacon', name: 'Beacon', role: '', department: 'Comms & PR', color: '#64748B', icon: '🔹' },
+  { id: 'herald', name: 'Herald', role: 'Lead — PR & Media', department: 'Comms & PR', color: '#64748B', icon: '🔹' },
+  { id: 'signal', name: 'Signal', role: 'Internal Communications (non-leader)', department: 'Comms & PR', color: '#64748B', icon: '🔹' },
 ]
 
 export const FLEET_DEPARTMENTS: FleetDepartment[] = [
-  'Executive Office', 'Engineering', 'Brand Studio', 'Cybersecurity', 'Product', 'Governance', 'AI & Agents'
+  'Executive Office', 'Engineering', 'Brand Studio', 'Cybersecurity', 'Product', 'Governance', 'AI & Agents', 'Client Success', 'People & Culture', 'Risk & ESG', 'Growth & Partnerships', 'Global Expansion', 'Comms & PR'
 ]
 
 export function fleetByDepartment(dept: FleetDepartment): FleetAgent[] {

@@ -2,14 +2,29 @@
  * lib/agent-tools.ts — Claude Code-compatible tool palette for War Room agents.
  *
  * Implements the same tool names/shapes the model was trained on so it uses
- * learned patterns. All tools are read-only and bounded. No Write/Edit by design —
- * War Room is browser-triggered, so any write capability is a remote write primitive.
+ * learned patterns.
+ *
+ * Write/Edit added 2026-08-20 (explicit user request: "local means local
+ * nothing else", comparing this to how a Cowork/Claude session already
+ * reads AND writes real local files). Originally this module was read-only
+ * by design specifically because it's browser-triggered — any write
+ * capability is a remote write primitive if it's reachable the same way a
+ * read is. The scoping that makes this an acceptable tradeoff instead of an
+ * open door: Write/Edit only function when repoMode==='local' AND a Local
+ * Repo Path is actually configured for the venture (requireLocalRepo,
+ * below) — same gate Read/Glob/Grep/Bash already use — and every path goes
+ * through safeResolve()'s containment check, so a write can never land
+ * outside that one configured repo. GitHub mode is untouched: Github(action
+ * =write_file) remains the only write path there, unaffected by this.
  *
  * Tools implemented:
  *   - Read           : read a file (offset/limit, cat -n format)
  *   - Glob           : find files by pattern
  *   - Grep           : ripgrep-backed code search
- *   - Bash           : strict allowlist of read-only shell commands
+ *   - Bash           : strict allowlist of shell commands (read-only, plus
+ *                      git add/commit — see BASH_ALLOWED_PREFIXES)
+ *   - Write          : create/overwrite a file — LOCAL MODE ONLY
+ *   - Edit           : exact-string-replace in a file — LOCAL MODE ONLY
  *   - WebFetch       : fetch a URL, convert HTML→markdown
  *   - TodoWrite      : in-memory todo list for the current run (planning surface)
  */
@@ -60,9 +75,9 @@ const IS_WIN32  = process.platform === 'win32'
 
 // ─── Tool schemas (sent to the model) ─────────────────────────────────────────
 
-export type ToolName = 'Read' | 'Glob' | 'Grep' | 'Bash' | 'WebFetch' | 'WebSearch' | 'TodoWrite' | 'Github' | 'GraphQuery'
+export type ToolName = 'Read' | 'Glob' | 'Grep' | 'Bash' | 'Write' | 'Edit' | 'WebFetch' | 'WebSearch' | 'TodoWrite' | 'Github' | 'GraphQuery'
 
-export const ALL_TOOLS: ToolName[] = ['Read', 'Glob', 'Grep', 'Bash', 'WebFetch', 'WebSearch', 'TodoWrite', 'Github', 'GraphQuery']
+export const ALL_TOOLS: ToolName[] = ['Read', 'Glob', 'Grep', 'Bash', 'Write', 'Edit', 'WebFetch', 'WebSearch', 'TodoWrite', 'Github', 'GraphQuery']
 
 /** Per-call context for tools that need session-scope info (e.g. which venture's repo). */
 export interface ToolContext {
@@ -141,6 +156,31 @@ export const TOOL_SCHEMAS: Record<ToolName, AnthropicTool> = {
         timeout:     { type: 'number', description: 'Timeout in ms. Default 10000, max 30000.' },
       },
       required: ['command', 'description'],
+    },
+  },
+  Write: {
+    name: 'Write',
+    description: 'Create a new file, or overwrite an existing one, with the given full content. LOCAL MODE ONLY — requires repoMode=local with a Local Repo Path configured (Settings → Venture → Technical); writes are sandboxed to that repo and rejected outside it. In GitHub mode, use Github(action=write_file) instead.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        file_path: { type: 'string', description: 'Absolute or repo-relative path to the file to create/overwrite.' },
+        content:   { type: 'string', description: 'The complete file content — this REPLACES the whole file, it is not appended.' },
+      },
+      required: ['file_path', 'content'],
+    },
+  },
+  Edit: {
+    name: 'Edit',
+    description: 'Replace one exact string match inside an existing file. LOCAL MODE ONLY — same gate as Write. old_string must match EXACTLY ONE location in the file (Read it first and include enough surrounding context to make the match unique) or the edit is rejected rather than guessing which occurrence you meant.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        file_path:  { type: 'string', description: 'Absolute or repo-relative path to the file.' },
+        old_string: { type: 'string', description: 'Exact text to replace — must occur exactly once in the file.' },
+        new_string: { type: 'string', description: 'Replacement text.' },
+      },
+      required: ['file_path', 'old_string', 'new_string'],
     },
   },
   WebFetch: {
@@ -247,6 +287,13 @@ const BASH_ALLOWED_PREFIXES = [
   //    On Linux it may also be missing from minimal installs.
   //    Agents must use: find . -type f, ls -R, or Glob/Grep instead.
   'git status', 'git log', 'git diff', 'git show', 'git branch', 'git remote',
+  // 2026-08-20: 'git add'/'git commit' added alongside Write/Edit — staging
+  // and committing your own local changes is a normal, contained part of
+  // "did real local work," and both are inherently reversible (git history,
+  // `git reset`). Still no push/checkout/reset/rebase/force-anything here —
+  // those stay out deliberately, this is additive for the local-write use
+  // case, not a general "give bash more power" change.
+  'git add', 'git commit',
   'git -C',  // allows: git -C /local/repo/path log/status/diff/branch
   'npm ls', 'npm view', 'npm outdated',
   'node --version', 'node -v',
@@ -518,6 +565,65 @@ async function execBash(input: { command: string; description: string; timeout?:
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return err(`Bash command failed: ${msg}\n\n⚠️ DO NOT retry this Bash command — it will fail again. Use Read, Glob, and Grep instead. They are pure Node.js implementations that do NOT depend on any shell utilities being installed. They always work on macOS, Linux, and Windows.\n- Use Read(file_path) to read file contents\n- Use Glob(pattern) to find files\n- Use Grep(pattern) to search file contents`)
+  }
+}
+
+// ─── Write / Edit — LOCAL MODE ONLY (2026-08-20) ───────────────────────────
+// See the module header for why this exists and how it's scoped: only when
+// repoMode='local' AND a Local Repo Path is actually configured, and every
+// path still goes through safeResolve()'s containment check below.
+
+const MAX_WRITE_BYTES = 2_000_000
+
+/** Returns the local repo root string, or a ToolResult error if Write/Edit
+ * aren't usable in this context (no local mode / no configured path). */
+function requireLocalRepo(ctx?: ToolContext): string | ToolResult {
+  const localRepoPath = ctx?.repoMode === 'local' ? ctx?.localRepoPath : undefined
+  if (!localRepoPath) {
+    return err(
+      'Write/Edit require Local mode with a Local Repo Path saved for this venture ' +
+        '(Settings → Venture → Technical). In GitHub mode, use Github(action=write_file) instead.',
+    )
+  }
+  return localRepoPath
+}
+
+async function execWrite(input: { file_path: string; content: string }, ctx?: ToolContext): Promise<ToolResult> {
+  const gate = requireLocalRepo(ctx)
+  if (typeof gate !== 'string') return gate
+  try {
+    if (Buffer.byteLength(input.content, 'utf8') > MAX_WRITE_BYTES) {
+      return err(`Content too large (cap ${MAX_WRITE_BYTES} bytes) — write it in smaller pieces or use Bash for binary-safe operations.`)
+    }
+    const abs = safeResolve(input.file_path, gate)
+    await fs.mkdir(dirname(abs), { recursive: true })
+    const existed = await fs.stat(abs).then(() => true).catch(() => false)
+    await fs.writeFile(abs, input.content, 'utf8')
+    sessionCacheInvalidate(abs) // stale Read cache for this path would otherwise outlive the write
+    return ok(
+      `${existed ? 'Overwrote' : 'Created'} ${input.file_path} (${Buffer.byteLength(input.content, 'utf8')} bytes)`,
+      `${existed ? 'overwrote' : 'created'} ${input.file_path}`,
+    )
+  } catch (e) {
+    return err(e instanceof Error ? e.message : String(e))
+  }
+}
+
+async function execEdit(input: { file_path: string; old_string: string; new_string: string }, ctx?: ToolContext): Promise<ToolResult> {
+  const gate = requireLocalRepo(ctx)
+  if (typeof gate !== 'string') return gate
+  try {
+    const abs = safeResolve(input.file_path, gate)
+    const raw = await fs.readFile(abs, 'utf8')
+    const count = raw.split(input.old_string).length - 1
+    if (count === 0) return err(`old_string not found in ${input.file_path}. Read the file first and copy the exact text — do not guess.`)
+    if (count > 1) return err(`old_string matches ${count} locations in ${input.file_path} — include more surrounding context so it matches exactly one place.`)
+    const next = raw.replace(input.old_string, input.new_string)
+    await fs.writeFile(abs, next, 'utf8')
+    sessionCacheInvalidate(abs)
+    return ok(`Edited ${input.file_path}`, `edited ${input.file_path}`)
+  } catch (e) {
+    return err(e instanceof Error ? e.message : String(e))
   }
 }
 
@@ -818,7 +924,7 @@ function execTodoWrite(input: { todos: TodoItem[] }): ToolResult {
 
 // ─── Dispatcher ───────────────────────────────────────────────────────────────
 
-const LOCAL_FS_TOOLS = new Set(['Read', 'Glob', 'Grep', 'Bash', 'GraphQuery'])
+const LOCAL_FS_TOOLS = new Set(['Read', 'Glob', 'Grep', 'Bash', 'Write', 'Edit', 'GraphQuery'])
 
 export async function executeTool(name: string, input: unknown, ctx: ToolContext = {}): Promise<ToolResult> {
   const inp = (input ?? {}) as Record<string, unknown>
@@ -847,6 +953,8 @@ export async function executeTool(name: string, input: unknown, ctx: ToolContext
       case 'Glob':      return await execGlob(inp as Parameters<typeof execGlob>[0], ctx)
       case 'Grep':      return await execGrep(inp as Parameters<typeof execGrep>[0], ctx)
       case 'Bash':      return await execBash(inp as Parameters<typeof execBash>[0], ctx)
+      case 'Write':     return await execWrite(inp as Parameters<typeof execWrite>[0], ctx)
+      case 'Edit':      return await execEdit(inp as Parameters<typeof execEdit>[0], ctx)
       case 'WebFetch':  return await execWebFetch(inp as Parameters<typeof execWebFetch>[0])
       case 'WebSearch': return await execWebSearch(inp as Parameters<typeof execWebSearch>[0])
       case 'TodoWrite': return execTodoWrite(inp as Parameters<typeof execTodoWrite>[0])
@@ -867,14 +975,16 @@ export async function executeTool(name: string, input: unknown, ctx: ToolContext
  * Tier 3 — project-read: content/marketing/psychology
  */
 export const AGENT_TOOLS: Record<string, ToolName[]> = {
-  // Tier 1 — full
-  'marcus-ceo':    ['Read', 'Glob', 'Grep', 'Bash', 'WebFetch', 'WebSearch', 'TodoWrite', 'Github'],
-  'diana-coo':     ['Read', 'Glob', 'Grep', 'Bash', 'WebFetch', 'WebSearch', 'TodoWrite', 'Github'],
-  'dev-lead':      ['Read', 'Glob', 'Grep', 'Bash', 'WebFetch', 'WebSearch', 'TodoWrite', 'Github'],
-  'raj-backend':   ['Read', 'Glob', 'Grep', 'Bash', 'WebFetch', 'WebSearch', 'TodoWrite', 'Github'],
-  'quinn-qa':      ['Read', 'Glob', 'Grep', 'Bash', 'WebFetch', 'WebSearch', 'TodoWrite', 'Github'],
+  // Tier 1 — full. Write/Edit added 2026-08-20 alongside every agent that
+  // already had Bash — local-write capability follows the same tiering
+  // that already existed for shell access, not a separate decision per agent.
+  'marcus-ceo':    ['Read', 'Glob', 'Grep', 'Bash', 'Write', 'Edit', 'WebFetch', 'WebSearch', 'TodoWrite', 'Github'],
+  'diana-coo':     ['Read', 'Glob', 'Grep', 'Bash', 'Write', 'Edit', 'WebFetch', 'WebSearch', 'TodoWrite', 'Github'],
+  'dev-lead':      ['Read', 'Glob', 'Grep', 'Bash', 'Write', 'Edit', 'WebFetch', 'WebSearch', 'TodoWrite', 'Github'],
+  'raj-backend':   ['Read', 'Glob', 'Grep', 'Bash', 'Write', 'Edit', 'WebFetch', 'WebSearch', 'TodoWrite', 'Github'],
+  'quinn-qa':      ['Read', 'Glob', 'Grep', 'Bash', 'Write', 'Edit', 'WebFetch', 'WebSearch', 'TodoWrite', 'Github'],
   // Tier 2 — code-read
-  'mia-frontend':  ['Read', 'Glob', 'Grep', 'Bash', 'WebFetch', 'WebSearch', 'TodoWrite', 'Github'],
+  'mia-frontend':  ['Read', 'Glob', 'Grep', 'Bash', 'Write', 'Edit', 'WebFetch', 'WebSearch', 'TodoWrite', 'Github'],
   'kai-analyst':   ['Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch', 'TodoWrite', 'Github'],
   'felix-finance': ['Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch', 'TodoWrite', 'Github'],
   // Tier 3 — project-read
@@ -887,6 +997,14 @@ export const AGENT_TOOLS: Record<string, ToolName[]> = {
 }
 
 export function toolsForAgent(agentId: string): AnthropicTool[] {
-  const names = AGENT_TOOLS[agentId] ?? ['Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch', 'TodoWrite', 'Github']
+  // Fallback (2026-08-20): `/chat`'s simple room uses fleet.ts agent ids
+  // ('raj', 'mia', 'meta', ...) — a DIFFERENT namespace than this map's keys
+  // ('raj-backend', 'mia-frontend', ...), so a /chat-originated local-mode
+  // turn always lands here rather than in a per-agent row above. Give it the
+  // full local-capable set (including Bash/Write/Edit, missing from the old
+  // default) rather than the old read-only fallback — otherwise every /chat
+  // agent would silently lose local write access no matter what's granted
+  // above.
+  const names = AGENT_TOOLS[agentId] ?? ['Read', 'Glob', 'Grep', 'Bash', 'Write', 'Edit', 'WebFetch', 'WebSearch', 'TodoWrite', 'Github']
   return names.map(n => TOOL_SCHEMAS[n])
 }

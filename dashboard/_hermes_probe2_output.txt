@@ -1,0 +1,224 @@
+1
+AGENTS.md
+CONTRIBUTING.es.md
+CONTRIBUTING.md
+CONTRIBUTING.ur-pk.md
+CONTRIBUTING.md
+Dockerfile
+LICENSE
+README.es.md
+README.md
+README.ur-pk.md
+SOUL.md
+__pycache__
+acp_adapter
+agent
+apps
+assets
+audio_cache
+auth.json
+auth.lock
+batch_runner.py
+cache
+cli-config.yaml.example
+cli.py
+constraints-termux.txt
+contributors
+cron
+datagen-config-examples
+docker
+docker-compose.windows.yml
+docker-compose.yml
+docs
+eslint.config.shared.mjs
+flake.lock
+flake.nix
+gateway
+hermes
+hermes-already-has-routines.md
+hermes_agent.egg-info
+hermes_bootstrap.py
+hermes_cli
+hermes_constants.py
+hermes_logging.py
+hermes_state.py
+hermes_state_common.py
+hermes_state_portability.py
+hermes_state_schema.py
+hermes_state_search.py
+hermes_time.py
+hooks
+image_cache
+locales
+logs
+lsp
+mcp-research-data
+mcp_serve.py
+memories
+mini_swe_runner.py
+model_tools.py
+models_dev_cache.json
+node_modules
+optional-mcps
+optional-skills
+package-lock.json
+package.json
+pairing
+plugins
+processes.json
+providers
+projects.db
+pyproject.toml
+relatorio-issue-69678-sqlite-fd-leaks.md
+run_agent.py
+scripts
+sessions
+setup-hermes.sh
+setup.py
+skills
+state.db
+tests
+tests-js
+tools
+toolset_distributions.py
+toolsets.py
+trajectory_compressor.py
+tui_gateway
+ui-tui
+utils.py
+uv.lock
+venv
+verification_evidence.db
+web
+website
+3.12.3 (main, Jun 19 2026, 12:46:00) [GCC 13.3.0]
+
+2
+/usr/local/lib/hermes-agent/run_agent.py:409:class AIAgent:
+
+3
+module: <module 'agent' from '/usr/local/lib/hermes-agent/agent/__init__.py'>
+signature: (self, /, *args, **kwargs)
+
+4
+/usr/local/lib/hermes-agent/tests/cli/test_cli_interrupt_subagent.py:62:        parent.tool_progress_callback = None
+/usr/local/lib/hermes-agent/tests/cli/test_cli_secret_capture.py:10:from tools.skills_tool import set_secret_capture_callback
+/usr/local/lib/hermes-agent/tests/cli/test_cli_secret_capture.py:145:        assert skills_tool_module._secret_capture_callback == cli_obj._secret_capture_callback
+/usr/local/lib/hermes-agent/tests/cli/test_resume_quiet_stderr.py:34:    # must return True (False returns early at line 4743). _install_tool_callbacks,
+/usr/local/lib/hermes-agent/tests/cli/test_resume_quiet_stderr.py:38:    cli._install_tool_callbacks = lambda: None
+/usr/local/lib/hermes-agent/tests/cli/test_single_query_session_finalize.py:162:                tool_gen_callback=object(),
+/usr/local/lib/hermes-agent/tests/tui_gateway/test_codex_app_server_live_events.py:4:callbacks and asserts stable tool ids flow into tool.start/tool.complete
+/usr/local/lib/hermes-agent/tests/tui_gateway/test_codex_app_server_live_events.py:37:        tool_progress_callback=callbacks["tool_progress_callback"],
+/usr/local/lib/hermes-agent/tests/tui_gateway/test_codex_app_server_live_events.py:38:        tool_start_callback=callbacks["tool_start_callback"],
+/usr/local/lib/hermes-agent/tests/tui_gateway/test_codex_app_server_live_events.py:39:        tool_complete_callback=callbacks["tool_complete_callback"],
+/usr/local/lib/hermes-agent/tests/tui_gateway/test_moa_reference_emit.py:3:When a MoA preset is the active model, the agent's tool_progress_callback emits
+/usr/local/lib/hermes-agent/tests/hermes_cli/test_tui_resume_flow.py:163:            self.tool_gen_callback = object()
+/usr/local/lib/hermes-agent/tests/hermes_cli/test_codex_runtime_switch.py:70:        ~/.codex/config.toml never gets the hermes-tools MCP callback
+/usr/local/lib/hermes-agent/hermes_cli/cli_agent_setup_mixin.py:243:        self._install_tool_callbacks
+/usr/local/lib/hermes-agent/tests/hermes_cli/test_plugins.py:618:    def test_register_tool_override_blocked_via_delayed_callback(self, tmp_path, monkeypatch):
+/usr/local/lib/hermes-agent/tests/hermes_cli/test_plugins.py:1087:    tools from a hook callback even when running in the gateway or a
+/usr/local/lib/hermes-agent/tests/run_agent/test_concurrent_interrupt.py:35:        tool_progress_callback = None
+/usr/local/lib/hermes-agent/tests/run_agent/test_concurrent_interrupt.py:36:        tool_start_callback = None
+/usr/local/lib/hermes-agent/tests/run_agent/test_concurrent_interrupt.py:37:        tool_complete_callback = None
+/usr/local/lib/hermes-agent/tests/run_agent/test_moa_loop_mode.py:151:    factory rewires the relay to ``agent.tool_progress_callback`` on restore.
+ /usr/local/lib/hermes-agent/tests/run_agent/test_moa_loop_mode.py:194:    # The relay reads tool_progress_callback at emit time — attach a recorder
+/usr/local/lib/hermes-agent/tests/run_agent/test_moa_loop_mode.py:201:    agent.tool_progress_callback = record_progress
+/usr/local/lib/hermes-agent/tests/run_agent/test_compression_feasibility.py:51:    agent.tool_progress_callback = None
+/usr/local/lib/hermes-agent/tests/run_agent/test_interactive_interrupt.py:76:    parent.tool_progress_callback = None
+/usr/local/lib/hermes-agent/tests/run_agent/test_tool_call_incremental_persistence.py:144:        # swallows exceptions, so an in-callback assertion would never surface.
+/usr/local/lib/hermes-agent/tests/run_agent/test_tool_call_incremental_persistence.py:179:        # swallows exceptions, so an in-callback assertion would never surface.
+/usr/local/lib/hermes-agent/tests/run_agent/test_tool_call_incremental_persistence.py:198:        # swallows exceptions, so an in-callback assertion would never surface.
+/usr/local/lib/hermes-agent/tests/run_agent/test_tool_call_incremental_persistence.py:232:        agent.interim_assistant_callback = _ui_projection
+/usr/local/lib/hermes-agent/tests/run_agent/test_tool_call_incremental_persistence.py:237:        agent.interim_assistant_callback.assert_not_called()
+
+5
+/usr/local/lib/hermes-agent/tests/cli/test_cli_interrupt_subagent.py:62:self.tool_progress_callback
+/usr/local/lib/hermes-agent/tests/run_agent/test_concurrent_interrupt.py:35:self.tool_progress_callback
+/usr/local/lib/hermes-agent/tests/run_agent/test_concurrent_interrupt.py:36:self.tool_start_callback
+/usr/local/lib/hermes-agent/tests/run_agent/test_concurrent_interrupt.py:37:self.tool_complete_callback
+/usr/local/lib/hermes-agent/tests/run_agent/test_moa_loop_mode.py:151:self.tool_progress_callback
+/usr/local/lib/hermes-agent/tests/run_agent/test_moa_loop_mode.py:194:self.tool_progress_callback
+/usr/local/lib/hermes-agent/tests/run_agent/test_moa_loop_mode.py:201:self.tool_progress_callback
+/usr/local/lib/hermes-agent/tests/run_agent/test_compression_feasibility.py:51:self.tool_progress_callback
+/usr/local/lib/hermes-agent/tests/run_agent/test_interactive_interrupt.py:76:self.tool_progress_callback
+/usr/local/lib/hermes-agent/tests/run_agent/test_tool_call_incremental_persistence.py:144:self.tool_progress_callback
+/usr/local/lib/hermes-agent/tests/run_agent/test_tool_call_incremental_persistence.py:179:self.tool_progress_callback
+/usr/local/lib/hermes-agent/tests/run_agent/test_tool_call_incremental_persistence.py:198:self.tool_progress_callback
+/usr/local/lib/hermes-agent/tests/run_agent/test_tool_call_incremental_persistence.py:232:self.interim_assistant_callback
+
+6
+/usr/local/lib/hermes-agent/tests/cli/test_cli_interrupt_ack_race.py:89:        self.max_iterations = 90
+/usr/local/lib/hermes-agent/tests/cli/test_cli_interrupt_ack_race.py:295:        agent.max_iterations = 1
+/usr/local/lib/hermes-agent/tests/integration/test_checkpoint_resumption.py:157:            max_iterations=3,  # Keep it short
+/usr/local/lib/hermes-agent/tests/integration/test_checkpoint_resumption.py:250:            max_iterations=3,
+/usr/local/lib/hermes-agent/tests/integration/test_checkpoint_resumption.py:277:            max_iterations=3,
+/usr/local/lib/hermes-agent/tests/test_mini_swe_runner.py:24:            max_iterations=1,
+/usr/local/lib/hermes-agent/tests/test_mini_swe_runner.py:52:            max_iterations=1,
+/usr/local/lib/hermes-agent/tests/test_copilot_initiator.py:46:        max_iterations=4,
+/usr/local/lib/hermes-agent/tests/hermes_cli/test_setup_agent_settings.py:6:def test_setup_agent_settings_uses_displayed_max_iterations_value(tmp_path, monkeypatch, capsys):
+/usr/local/lib/hermes-agent/tests/hermes_cli/test_config.py:519:    def test_max_iterations_not_offered_as_env_var(self):
+/usr/local/lib/hermes-agent/tests/run_agent/test_proactive_prune_loop_wiring.py:106:            max_iterations=10,
+/usr/local/lib/hermes-agent/tests/run_agent/test_dict_tool_call_args.py:65:        max_iterations=3,
+/usr/local/lib/hermes-agent/tests/run_agent/test_dict_tool_call_args.py:73:    # The conversation hits max_iterations=3 (3 tool turns then forced summary).
+/usr/local/lib/hermes-agent/tests/run_agent/test_moa_loop_mode.py:53:        max_iterations=1,
+/usr/local/lib/hermes-agent/tests/run_agent/test_moa_loop_mode.py:120:        max_iterations=1,
+/usr/local/lib/hermes-agent/tests/run_agent/test_moa_loop_mode.py:181:        max_iterations=1,
+/usr/local/lib/hermes-agent/tests/run_agent/test_verification_continuation_budget.py:34:            max_iterations=1,
+/usr/local/lib/hermes-agent/tests/run_agent/test_verification_continuation_budget.py:51:        assert result["turn_exit_reason"] == "max_iterations_reached(1/1)"
+/usr/local/lib/hermes-agent/tests/run_agent/test_verification_continuation_budget.py:53:        assert agent._handle_max_iterations.call_count == 0
+/usr/local/lib/hermes-agent/tests/run_agent/test_verification_continuation_budget.py:69:        agent._handle_max_iterations = MagicMock(return_value="replacement summary")
+
+7
+/usr/local/lib/hermes-agent/utils.py:569:def model_forces_max_completion_tokens(model: str) -> bool:
+/usr/local/lib/hermes-agent/utils.py:570:    """Return True for model families that require ``max_completion_tokens``.
+/usr/local/lib/hermes-agent/utils.py:574:    ``max_completion_tokens`` instead. This covers:
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:26:    prompt_tokens: int,
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:27:    completion_tokens: int,
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:28:    total_tokens: int,
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:38:        session_input_tokens=input_tokens if input_tokens is not None else prompt_tokens,
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:39:        session_output_tokens=output_tokens if output_tokens is not None else completion_tokens,
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:42:        session_prompt_tokens=prompt_tokens,
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:43:        session_completion_tokens=completion_tokens,
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:44:        session_total_tokens=total_tokens,
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:48:        last_prompt_tokens=context_tokens,
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:69:        prompt_tokens=10_230,
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:70:        completion_tokens=2_220,
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:71:        total_tokens=12_450,
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:103:        prompt_tokens=10_230,
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:104:        completion_tokens=2_220,
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:105:        total_tokens=12_450,
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:202:        prompt_tokens=10_230,
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:203:        completion_tokens=2_220,
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:204:        total_tokens=12_450,
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:236:        prompt_tokens=100_000,
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:237:        completion_tokens=5_000,
+/usr/local/lib/hermes-agent/tests/cli/test_cli_status_bar.py:238:        total_tokens=105_000,
+/usr/local/lib/hermes-agent/tests/cli/test_surrogate_sanitization.py:211:        mock_response.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+
+8
+/usr/local/lib/hermes-agent/tests/test_run_tests_parallel.py:269:        cwd=repo_root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+/usr/local/lib/hermes-agent/tests/test_run_tests_parallel.py:356:        cwd=repo_root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+/usr/local/lib/hermes-agent/tests/test_run_tests_parallel.py:375:        cwd=repo_root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+/usr/local/lib/hermes-agent/tests/test_install_sh_bootstrap_marker.py:48:        subprocess.run(["git", "init", "-q"], cwd=install_dir, check=True)
+/usr/local/lib/hermes-agent/tests/cli/test_worktree.py:19:        subprocess.run(["git", "init"], cwd=repo, capture_output=True)
+/usr/local/lib/hermes-agent/tests/cli/test_worktree.py:30:        subprocess.run(["git", "add", "."], cwd=repo, capture_output=True)
+/usr/local/lib/hermes-agent/tests/cli/test_worktree.py:53:        subprocess.run(["git", "init"], cwd=repo, capture_output=True)
+/usr/local/lib/hermes-agent/tests/cli/test_worktree.py:63:        subprocess.run(["git", "add", "."], cwd=repo, capture_output=True)
+/usr/local/lib/hermes-agent/tests/cli/test_worktree.py:76:        subprocess.run(["git", "init"], cwd=repo, capture_output=True)
+/usr/local/lib/hermes-agent/tests/cli/test_worktree.py:86:        subprocess.run(["git", "add", "."], cwd=repo, capture_output=True)
+/usr/local/lib/hermes-agent/tests/cli/test_worktree.py:557:        subprocess.run(["git", "add", "work.txt"], cwd=info["path"], capture_output=True)
+/usr/local/lib/hermes-agent/tests/cli/test_worktree.py:599:        subprocess.run(["git", "init"], cwd=str(repo), capture_output=True)
+/usr/local/lib/hermes-agent/tests/cli/test_worktree.py:644:    def test_terminal_cwd_set(self, git_repo):
+/usr/local/lib/hermes-agent/tests/cli/test_worktree.py:831:        subprocess.run(["git", "add", "work.txt"], cwd=p, capture_output=True)
+/usr/local/lib/hermes-agent/tests/cli/test_worktree.py:832:        subprocess.run(["git", "commit", "-m", "wip"], cwd=p, capture_output=True)
+/usr/local/lib/hermes-agent/tests/cli/test_worktree.py:945:        subprocess.run(["git", "add", "work.txt"], cwd=p, capture_output=True)
+/usr/local/lib/hermes-agent/tests/cli/test_worktree.py:946:        subprocess.run(["git", "commit", "-m", "wip"], cwd=p, capture_output=True)
+/usr/local/lib/hermes-agent/tests/cli/test_worktree.py:1078:        subprocess.run(["git", "add", "more.txt"], cwd=wt, capture_output=True)
+/usr/local/lib/hermes-agent/tests/cli/test_worktree.py:1079:        subprocess.run(["git", "commit", "-m", "wip"], cwd=wt, capture_output=True)
+
+ANSWERS
+callback_tool_start: tool_start_callback
+callback_tool_end: tool_complete_callback
+max_iterations_attr: NONE
+usage_available: NONE
+terminal_cwd_control: NONE

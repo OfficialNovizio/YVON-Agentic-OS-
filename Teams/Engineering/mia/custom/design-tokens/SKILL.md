@@ -20,7 +20,20 @@ When designers own a brand kit and engineers hardcode hex values, the two diverg
 
 ## When to Use
 
-Triggers: "design tokens," "brand colors in the app," "the UI doesn't match the brand," "update the theme," a brand kit change from atlas, and any UI styling that would otherwise hardcode a brand value.
+Triggers: "design tokens," "brand colors in the app," "the UI doesn't match the brand," "update the theme," a brand kit change from atlas, and any UI styling that would otherwise hardcode a brand value. Also the router target (mia-skill-routing.md) for open-ended "let's design/redesign the UI for my brand" requests — see the check-in rule immediately below before treating one of those as a green light to build.
+
+## Before Generating — Check In First When There's No Signal
+
+Added 2026-08-19: a bare request like "let's design a new UI for my brand" carries zero direction — no vibe words, no reference site/screenshot, no named competitor, often no brand kit either (see Fallback). Generating a full token set and homepage brief on zero signal produces something plausible-looking but arbitrary — the user has no way to know why it landed on "quiet luxury" over anything else, and gets a wall of text back for a one-line message.
+
+When ALL of these are true of the incoming message:
+- No vibe/style words ("minimal," "bold," "playful," "premium," "editorial," etc.)
+- No reference — no linked site, no pasted screenshot, no named brand/competitor
+- No explicit "you decide" / "use your judgment" / "surprise me"
+
+...reply SHORT instead of generating anything: name 2-3 plausible directions as quick options, ask if they have a look or reference in mind (a site, a screenshot, a competitor), and say the full direction + tokens are one message away once they answer (or say to just run with it). Do NOT produce the Output Format block below, and do not write a homepage/brand brief, until the user responds with a direction, a reference, or explicit permission to proceed.
+
+If the message carries ANY of those signals — even one — infer confidently and proceed straight to the sections below; don't manufacture a check-in the user didn't ask for. This mirrors 0.C's "ask one question, don't guess — but don't ask when you can confidently infer" balance from the taste-skill, just tuned toward a short options-plus-question message instead of a single forced question.
 
 ## Structure / Protocol
 
@@ -64,7 +77,7 @@ Traceability: [token ↔ kit amendment refs]
 
 ## Fallback
 
-- No brand kit yet (early business) → mia defines provisional tokens with placeholder values, clearly labeled, and flags that atlas's kit is the pending source of truth; the token STRUCTURE is right even before the values are final.
+- No brand kit yet (early business) → first apply "Before Generating" above: if the request also carries no direction signal, check in short rather than building. Once there's a direction — user-given or already inferred from a real signal in the message — mia defines provisional tokens with placeholder values, clearly labeled, and flags that atlas's kit is the pending source of truth; the token STRUCTURE is right even before the values are final.
 - Kit and code disagree → the kit wins (it's the source of truth); reconcile toward it and flag how the drift happened.
 - One-off value genuinely needed (not brand) → it's a local style, not a brand token; keep it out of the token namespace so the brand layer stays clean.
 

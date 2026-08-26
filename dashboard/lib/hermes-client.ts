@@ -17,24 +17,109 @@ export interface HermesChatInput {
   roomId: string
   workspace?: WorkspaceKey
   mentions?: string[]
+  /** FIX (2026-08-21, concern #1): the room's department (chat_rooms.department,
+   * one of fleet.ts's FleetDepartment strings — "Engineering", "Brand Studio",
+   * etc). Forwarded so real CAOS retrieval/gates on the Hermes side (main.py's
+   * _run_rag_pipeline_sync) can pass a recognized department to rag/core/
+   * plan_lock.py's Rail-1 identity check instead of always tripping its
+   * "unknown department" block. Undefined for department-less rooms
+   * (Workforce/whole_team, a thread) — genuinely no fixed identity there. */
+  department?: string
   /** TS-025: injected real agent identity + skills (yvon-os) or venture memory (other ventures) */
   agentContext?: string
   ventureContext?: string
   /** TS-027: the 5-field input analysis (what/why/how/end/desired) for build-tier turns */
   inputAnalysis?: string
-  /** Repo-mode toggle (2026-08-11): 'github' + repoUrl tells the VPS agent to
-   * clone/pull that repo and steer its terminal/code_execution tools there
-   * for this turn, instead of its default local working directory. Only
-   * ever the active venture's own configured repoUrl — never an arbitrary
-   * client-supplied URL (see RepoModeToggle.tsx / stream/route.ts). */
-  repoMode?: 'local' | 'github'
+  /** Reworked 2026-08-21: dropped the Local/GitHub mode toggle — one system
+   * now. Whenever the active venture has a repoUrl saved, it's always
+   * forwarded, and Hermes always ensures a persistent per-venture checkout
+   * is cloned/pulled and steers terminal/code_execution tools there for this
+   * turn. Only ever the active venture's own configured repoUrl — never an
+   * arbitrary client-supplied URL (see stream/route.ts). */
   repoUrl?: string
+  /** Added 2026-08-19: the active venture's own write-scoped GitHub PAT
+   * (Settings → Venture → Technical, `ventures.github_pat` in Supabase) —
+   * the same credential graphify/MemPalace already use (lib/db/
+   * venture-graphify.ts). Forwarded so the VPS's repo-mode clone/pull can
+   * read private repos without a separate VPS-side GITHUB_PAT env var.
+   * Only ever the active venture's own saved PAT — never client-supplied. */
+  repoGithubPat?: string
   /** TS-018 WI-2 fix (2026-08-11): the dashboard's turn correlation, forwarded
    * so Hermes reuses it for run.started/phase.classify/phase.resolve/
    * run.completed instead of minting its own (main.py previously always
    * generated a fresh uuid4(), disconnected from every other event the turn
    * emitted — see app/api/chat/send/route.ts's header comment). */
   correlation?: string
+  /** FIX (2026-08-22, cost teardown Cause 01): the CAOS v2 tier already
+   * computed dashboard-side ("build"/"research"/…), forwarded so Hermes can
+   * cap its tool loop per tier instead of giving every turn a 30-iteration
+   * budget. Declared here 2026-08-24 — the call site shipped without it. */
+  tier?: string
+}
+
+/**
+ * Added 2026-08-20 (usage/context indicator, Task #18): best-effort per-turn
+ * usage/context metadata attached to the final `done` event — mirrors the
+ * `usage` dict built in yvon-hermes-http/main.py's chat_stream.
+ *
+ * provider/model/toolCalls/latencyMs/turnId are server-resolved facts and
+ * always populated. Token counts are NOT — hermes-agent's real AIAgent.chat()
+ * return shape was never confirmed against source (run_agent.py lives only
+ * on the VPS filesystem, outside this repo), so the wrapper only reports
+ * them when an actual usage object was found on the agent after the turn.
+ * `tokensReported: false` means "not available", not "zero" — never render
+ * inputTokens/outputTokens/totalTokens as real numbers when it's false.
+ *
+ * contextWindow is a static best-effort lookup by model id (see
+ * _CONTEXT_WINDOW_BY_MODEL in main.py) — may be stale or simply missing
+ * (null) for a model not in that table; treat null the same way, as
+ * "not available", not zero.
+ */
+export interface TurnUsage {
+  provider: string | null
+  model: string | null
+  toolCalls: number
+  latencyMs: number
+  turnId: string
+  tokensReported: boolean
+  inputTokens: number | null
+  outputTokens: number | null
+  totalTokens: number | null
+  contextWindow: number | null
+  // ── measured per-turn figures (2026-08-22) ────────────────────────────────
+  // Distinct from the provider fields above, and named est*/llm* so the two
+  // can never be confused: `tokensReported` still means "the provider told
+  // us", and stays false. These come from main.py's own httpx meter, which
+  // counts what this process actually put on the wire.
+  //
+  // Declaring them here is load-bearing, not cosmetic: main.py has been
+  // sending them since the meter landed, but with the interface silent the
+  // CAOS panel reads `undefined` and renders "not measured" forever — real
+  // data, invisible, with nothing failing loudly to say so.
+  /** EXACT count of model round-trips this turn cost — the loop multiplier. */
+  llmCalls?: number
+  /** ~4 bytes/token estimate of input actually sent. Never the provider's. */
+  estInputTokens?: number
+  /** seconds this turn spent asleep in the rate-limit governor */
+  governorWaitS?: number
+  /** false when another turn overlapped, so the per-turn split is approximate */
+  llmCallsExact?: boolean
+  /** true whenever est* fields are present — they are measurements, not reports */
+  estimated?: boolean
+  /** composition of the first request: what the fixed payload is made of */
+  firstCallShape?: {
+    totalChars?: number
+    toolCount?: number
+    toolSchemaChars?: number
+    messageCount?: number
+    systemChars?: number
+    messageChars?: number
+    toolSchemaPct?: number
+  }
+  /** pooled-agent position in this room — drives the recycle countdown */
+  poolTurns?: number
+  poolChars?: number
+  poolRecycleTurns?: number
 }
 
 /** SSE event shapes from the wrapper — mirrors yvon-hermes-http/main.py.
@@ -48,7 +133,12 @@ export interface HermesChatInput {
  */
 export type HermesEvent = (
   | { kind: 'token'; text: string }
-  | { kind: 'done'; response: string }
+  // repoChanged (2026-08-21): true when this turn's [WORKING REPO] checkout
+  // actually changed (new local commit and/or uncommitted edits), computed
+  // server-side in main.py from real git state before/after the turn —
+  // never a self-reported model marker. stream/route.ts uses this to
+  // surface the repo-files/live-preview links, once per room.
+  | { kind: 'done'; response: string; usage?: TurnUsage; repoChanged?: boolean }
   | { kind: 'error'; message: string }
   | { kind: 'ping' }
   // ── TS-017: live status feed ──────────────────────────────────────────────
@@ -139,11 +229,12 @@ export async function* streamHermesChat(
       room_id: input.roomId,
       workspace: input.workspace ?? undefined,
       mentions: input.mentions ?? [],
+      department: input.department ?? undefined,
       agent_context: input.agentContext ?? undefined,
       venture_context: input.ventureContext ?? undefined,
       input_analysis: input.inputAnalysis ?? undefined,
-      repo_mode: input.repoMode ?? undefined,
       repo_url: input.repoUrl ?? undefined,
+      github_pat: input.repoGithubPat ?? undefined,
       correlation: input.correlation ?? undefined,
     }),
   })
@@ -196,5 +287,90 @@ export async function* streamHermesChat(
     } catch {
       // best-effort cleanup
     }
+  }
+}
+
+/**
+ * Fires POST /v1/repo/preview on the VPS wrapper — starts (or confirms
+ * already running) the venture's dev server and returns the host to build
+ * a live-preview URL from (2026-08-21, "give me 2 URLs — repo files and a
+ * localhost preview" feature). Called from stream/route.ts's 'done'
+ * handling, once per room, only on a turn that actually changed the repo.
+ *
+ * `previewHost` (e.g. "acme.preview.yvon.in") needs one one-time human
+ * step outside this app before it actually resolves anywhere — a wildcard
+ * DNS record + nginx vhost on the VPS. See main.py's module docstring for
+ * the full explanation; this function still returns ok:true with the host
+ * even before that step is done, since the dev server itself did start.
+ */
+export async function ensureRepoPreview(
+  ventureSlug: string,
+  cfg?: HermesConfig,
+): Promise<{ ok: boolean; previewHost?: string; error?: string }> {
+  const c = cfg ?? hermesConfig()
+  if (!c.configured || !c.url || !c.token) {
+    return { ok: false, error: c.reason ?? 'not configured' }
+  }
+  try {
+    const res = await fetch(`${c.url}/v1/repo/preview`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${c.token}`,
+      },
+      body: JSON.stringify({ venture_slug: ventureSlug }),
+      // Dev servers can take a few seconds to boot — main.py's own
+      // DEV_SERVER_START_TIMEOUT_S is 30s, so give it a bit more room here.
+      signal: AbortSignal.timeout(35_000),
+    })
+    const body = (await res.json().catch(() => ({}))) as { ok?: boolean; previewHost?: string; error?: string }
+    if (!res.ok || !body.ok) {
+      return { ok: false, error: body.error ?? `hermes ${res.status}` }
+    }
+    return { ok: true, previewHost: body.previewHost }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/**
+ * Fires POST /v1/pool/drop on the VPS wrapper — evicts the pooled AIAgent
+ * for (userId, roomId), so the NEXT turn in that room starts with a clean,
+ * cheap history instead of the ever-growing one main.py's _pool otherwise
+ * keeps reusing indefinitely (only evicted after 30min idle — see
+ * POOL_IDLE_TTL_S). Added 2026-08-21 after confirming via real
+ * agent.conversation_loop logs that a pooled agent's per-call input tokens
+ * climb turn over turn within an active room (18k → 72k in one session)
+ * until it trips the account's TPM rate limit — prompt caching makes that
+ * growth cheap/fast per call but does NOT exempt it from the TPM count.
+ * Used both for the automatic threshold-based reset (stream/route.ts) and
+ * the manual "reset conversation" action (api/chat/reset-context/route.ts).
+ */
+export async function dropPool(
+  userId: string,
+  roomId: string,
+  cfg?: HermesConfig,
+): Promise<{ ok: boolean; dropped?: boolean; error?: string }> {
+  const c = cfg ?? hermesConfig()
+  if (!c.configured || !c.url || !c.token) {
+    return { ok: false, error: c.reason ?? 'not configured' }
+  }
+  try {
+    const res = await fetch(`${c.url}/v1/pool/drop`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${c.token}`,
+      },
+      body: JSON.stringify({ user_id: userId, room_id: roomId }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    const body = (await res.json().catch(() => ({}))) as { dropped?: boolean }
+    if (!res.ok) {
+      return { ok: false, error: `hermes ${res.status}` }
+    }
+    return { ok: true, dropped: !!body.dropped }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
 }

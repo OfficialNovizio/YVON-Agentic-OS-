@@ -21,6 +21,9 @@ from typing import Any, Optional
 KNOWN_DEPARTMENTS = {
     "Executive Office", "Governance", "Engineering", "Product",
     "Brand Studio", "Cybersecurity", "AI & Agents", "Books", "Shared OS",
+    # 2026-08-15 — 6 new departments merged in from origin.
+    "Client Success", "Comms & PR", "Global Expansion",
+    "Growth & Partnerships", "People & Culture", "Risk & ESG",
 }
 
 

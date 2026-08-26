@@ -61,7 +61,7 @@ export function VentureSelector() {
       <button
         onClick={() => setOpen((v) => !v)}
         disabled={busy}
-        className="flex items-center gap-1.5 rounded-lg border border-[var(--chat-hairline-soft)] bg-white/[0.03] px-2.5 py-1 text-[11px] font-medium text-[var(--chat-text)] transition hover:bg-white/[0.06] disabled:opacity-50"
+        className="flex items-center gap-1.5 rounded-[200px] border border-[var(--chat-hairline)] bg-white px-3 py-1.5 text-[12px] font-medium text-[var(--chat-text)] transition hover:border-[rgba(89,46,255,0.35)] hover:text-[var(--chat-accent)] disabled:opacity-50"
         aria-label="Switch venture"
       >
         <span
@@ -81,7 +81,7 @@ export function VentureSelector() {
             <button
               key={v.slug}
               onClick={() => select(v.slug)}
-              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-white/[0.06]"
+              className="flex w-full items-center gap-2 rounded-[14px] px-2.5 py-2 text-left transition hover:bg-[var(--chat-surface-strong)]"
             >
               <span
                 className="h-1.5 w-1.5 shrink-0 rounded-full"

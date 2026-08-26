@@ -1,0 +1,121 @@
+1.
+```text
+384:    def __init__(
+432:    def __init__(
+```
+
+2.
+```text
+class AIAgent:
+    """
+    AI Agent with tool calling capabilities.
+
+    This class manages the conversation flow, tool execution, and response handling
+    for AI models that support function calling.
+    """
+
+    _TOOL_CALL_ARGUMENTS_CORRUPTION_MARKER = (
+        "[hermes-agent: tool call arguments were corrupted in this session and "
+```
+
+3.
+```text
+(no output)
+```
+
+4.
+```text
+449:        quiet_mode: bool = False,
+533:            quiet_mode=quiet_mode,
+932:            self.quiet_mode
+3037:        if not self.quiet_mode:
+4113:            if not self.quiet_mode:
+```
+
+5.
+```text
+/usr/local/lib/hermes-agent/tui_gateway/server.py:5335:        "tool_start_callback": lambda tc_id, name, args: _on_tool_start(
+/usr/local/lib/hermes-agent/tui_gateway/server.py:5815:        "tool_start_callback": tool_start,
+/usr/local/lib/hermes-agent/hermes_cli/cli_agent_setup_mixin.py:405:                tool_start_callback=self._on_tool_start if self._inline_diffs_enabled else None,
+/usr/local/lib/hermes-agent/run_agent.py:463:        tool_start_callback: callable = None,
+/usr/local/lib/hermes-agent/run_agent.py:547:            tool_start_callback=tool_start_callback,
+/usr/local/lib/hermes-agent/agent/tool_executor.py:592:    if agent.tool_start_callback:
+/usr/local/lib/hermes-agent/agent/tool_executor.py:598:            agent.tool_start_callback(
+/usr/local/lib/hermes-agent/agent/codex_runtime.py:502:        start_cb = getattr(agent, "tool_start_callback", None)
+/usr/local/lib/hermes-agent/agent/codex_runtime.py:508:                    "tool_start_callback raised for %s", name, exc_info=True,
+/usr/local/lib/hermes-agent/agent/agent_init.py:477:    tool_start_callback: callable = None,
+/usr/local/lib/hermes-agent/agent/agent_init.py:741:    agent.tool_start_callback = tool_start_callback
+/usr/local/lib/hermes-agent/gateway/run.py:3974:        """tool_start_callback: speak a one-time ack in the voice channel."""
+/usr/local/lib/hermes-agent/gateway/run.py:4521:        agent.tool_start_callback = (
+/usr/local/lib/hermes-agent/gateway/run.py:23373:        # the turn.  Fires from tool_start_callback (independent of the
+/usr/local/lib/hermes-agent/gateway/platforms/api_server.py:2354:        tool_start_callback=None,
+/usr/local/lib/hermes-agent/gateway/platforms/api_server.py:2655:            "tool_start_callback": tool_start_callback,
+/usr/local/lib/hermes-agent/gateway/platforms/api_server.py:3924:            # side-by-side with ``tool_start_callback``/``tool_complete_callback``.
+/usr/local/lib/hermes-agent/gateway/platforms/api_server.py:3934:                tool_start_callback=_on_tool_start,
+/usr/local/lib/hermes-agent/gateway/platforms/api_server.py:5011:                The structured Responses stream uses ``tool_start_callback``
+```
+
+6.
+```text
+443:        max_iterations: int = 90,  # Default tool-calling iterations (shared with subagents)
+528:            max_iterations=max_iterations,
+3493:        if reason.startswith("max_iterations_reached"):
+3498:                "`max_iterations`."
+3500:        if reason.startswith("error_near_max_iterations"):
+3781:            "max_iterations": self.max_iterations,
+5662:        suppress a *different* final summary (e.g. from ``_handle_max_iterations``)
+6922:            max_iterations=function_args.get("max_iterations"),
+6984:    def _handle_max_iterations(self, messages: list, api_call_count: int) -> str:
+6985:        """Forwarder — see ``agent.chat_completion_helpers.handle_max_iterations``."""
+6986:        from agent.chat_completion_helpers import handle_max_iterations
+6987:        return handle_max_iterations(self, messages, api_call_count)
+7345:            max_iterations=max_turns,
+```
+
+7.
+```text
+/usr/local/lib/hermes-agent/hermes_cli/cli_agent_setup_mixin.py:243:        self._install_tool_callbacks()
+/usr/local/lib/hermes-agent/cli.py:6990:    def _install_tool_callbacks(self) -> None:
+/usr/local/lib/hermes-agent/cli.py:14835:            self._install_tool_callbacks()
+```
+
+8.
+```text
+(no output)
+```
+
+9.
+```text
+341:    if config.get("host_cwd") and config.get("docker_mount_cwd_to_workspace"):
+1041:Working directory: Use 'workdir' for per-command cwd.
+1138:# ── Per-session cwd records (cwd rearchitecture, step 1) ────────────────────
+1142:# the terminal env is shared across sessions, so any cwd state stored on the
+1144:# wrong-worktree bug class (env.cwd_owner stamping, _last_known_cwd, and the
+1148:# live cwd (post-command tracking, cwd-override registration) also records it
+1149:# here. Readers still use the legacy env.cwd ladder. Later steps flip
+1150:# file_tools and _resolve_command_cwd to read this store, then delete
+1152:_session_cwd: Dict[str, str] = {}
+1153:_session_cwd_lock = threading.Lock()
+1156:def record_session_cwd(session_key: Optional[str], cwd: Optional[str]) -> None:
+1157:    """Record *cwd* as the working directory of *session_key*.
+1159:    Called wherever a session's live cwd becomes known: after a terminal
+1161:    resulting cwd) and when a surface registers a workspace cwd override.
+1163:    Non-string / empty cwds are ignored.
+1165:    if not isinstance(cwd, str) or not cwd.strip():
+1168:    with _session_cwd_lock:
+1169:        if _session_cwd.get(key) != cwd:
+1170:            _session_cwd[key] = cwd
+1173:def get_session_cwd(session_key: Optional[str]) -> Optional[str]:
+```
+
+10.
+```text
+(no output)
+```
+
+ANSWERS
+tool_callbacks_suppressed_by_quiet_mode: UNCLEAR — #4 shows quiet_mode checks but does not show whether tool callbacks or their install step is gated.
+tool_callback_invoked_at: /usr/local/lib/hermes-agent/agent/tool_executor.py:598
+max_iterations_attr: max_iterations
+usage_attr: NOT_IN_SOURCE
+terminal_cwd_control: Use `workdir` for per-command cwd (/usr/local/lib/hermes-agent/tools/terminal.py:1041)

@@ -127,7 +127,10 @@ export function retrieveContext(profile: TaskProfile): ContextItem[] {
     if (config.toonEnabled) {
       const teamsDir = config.teamsPath || join(config.projectRoot, 'Teams')
       const depts = ['Executive Office', 'Governance', 'Engineering', 'Cybersecurity',
-        'Product', 'AI & Agents', 'Brand Studio']
+        'Product', 'AI & Agents', 'Brand Studio',
+        // 2026-08-15 — 6 new departments merged in from origin.
+        'Client Success', 'Comms & PR', 'Global Expansion',
+        'Growth & Partnerships', 'People & Culture', 'Risk & ESG']
       for (const dept of depts) {
         const agentDir = join(teamsDir, dept, profile.agentId)
         if (!existsSync(agentDir)) continue

@@ -19,7 +19,7 @@ export const NAV: NavSection[] = [
     items: [
       { label: 'Dashboard', href: '/dashboard', icon: 'LayoutDashboard' },
       { label: 'Decision Queue', href: '/decision-queue', icon: 'Inbox', badge: 7, full: true },
-      { label: 'Task Board', href: '/task-board', icon: 'KanbanSquare', full: true },
+      { label: 'Kanban', href: '/task-board', icon: 'KanbanSquare', full: true },
       { label: 'Advisory Council', href: '/advisory-council', icon: 'Users', full: true },
       { label: 'Agents', href: '/agents', icon: 'Bot', full: true },
       { label: 'Org Chart', href: '/org-chart', icon: 'Network' },

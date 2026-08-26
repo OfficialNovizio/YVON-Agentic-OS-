@@ -43,6 +43,7 @@ work_items:
 
 dag: { critical_path: [WI-1, WI-2, WI-3] }
 exit_gate: { owner: quinn, proof: "YVON-OS design rendered in the dashboard" }
+approved_by: operator   # E2 backfill 2026-08-24 — pre-history record, operator-directed; approved_at not recorded
 feedback:
   outcome: gated
   proof: >

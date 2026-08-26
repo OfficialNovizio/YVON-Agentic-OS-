@@ -1,0 +1,66 @@
+# TS-047 — the deferral, made into a record rather than a memory (derived_from TS-045).
+# The one criterion deferred at the eng.integration scope gate becomes its own task.
+# A deferral that leaves no record is just something everyone forgot. Draft — nothing
+# has been done with it yet. Seeded 2026-08-24.
+id: TS-047
+status: draft
+source_message: "Cost per task in the panel — the ledger link deferred at the eng.integration scope gate (see TS-045's deferred criterion). Build it, then the cost cell stops reading 'not measured'."
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only — no transcript inheritance
+  inject_form: .toon (this YAML is the source form)
+
+classification:
+  task_type: "build"
+  departments:
+    - Engineering
+  lead: ""
+
+context:
+  chunks: []
+  existing_assets: []
+  conflicts: []
+
+discovery:
+  questions: []
+  decisions: []
+
+work_items:
+  - id: WI-1
+    owner: ""
+    objective: "Ledger link from task records to generation rows; the cost cell renders 'not measured' until then"
+    strategy: BALANCE 1.0x
+    consumes: []
+    produces: ""
+    owns_paths: []
+    skills: []
+    scripts: []
+    blocked_by: []
+    acceptance: []
+    security_review: none
+
+dag:
+  parallel: []
+  critical_path:
+    - WI-1
+
+exit_gate:
+  owner: ""
+  proof: ""
+
+feedback:
+  outcome: null
+  lesson: null
+
+created_at: "2026-08-24T11:50:00Z"
+updated_at: "2026-08-24T11:50:00Z"
+revision_of: null
+derived_from: TS-045
+superseded_by: null
+blocked: false
+blocked_at: ""
+blocked_reason: ""
+run_ref: ""
+history:
+  - {ts: "2026-08-24T11:50:00Z", actor: "system", event: "opened_draft", note: "from TS-045's deferred criterion — hangs off the root, not off TS-045"}

@@ -39,10 +39,20 @@ SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:?SUPABASE_SERVICE_ROLE_KE
 MEMPALACE_PGVECTOR_DSN="${MEMPALACE_PGVECTOR_DSN:?MEMPALACE_PGVECTOR_DSN must be set — Postgres connection string, see vps-scripts/install-mempalace.md}"
 MEMPALACE_BIN="${MEMPALACE_BIN:-/opt/yvon-tools/venvs/mempalace/bin/mempalace}"
 
-# Same workspace as graphify-venture.sh — reuses the clone if that script
-# already ran for this venture in this cycle instead of cloning twice.
+# 2026-08-14 fix: this used to share graphify-venture.sh's exact workspace
+# dir ($WORKSPACES_DIR/$VENTURE_SLUG) to reuse its clone instead of cloning
+# twice. In practice the dashboard fires both scripts together
+# (triggerVentureOnboarding) as two independent background processes on the
+# VPS — main.py's endpoints return 202 immediately, so there is no point at
+# which one script is guaranteed to have finished cloning before the other
+# starts. First live test (2026-08-14, Novizio-Web) hit exactly this: both
+# scripts raced to `git clone` into the same directory, the loser failed
+# with "could not create work tree dir ... File exists". Own suffix removes
+# the shared path entirely — costs one extra clone per venture (seconds, on
+# an infrequent onboarding-triggered operation), not worth a locking scheme
+# for that.
 WORKSPACES_DIR="${VENTURE_GRAPH_WORKSPACES_DIR:-/opt/yvon-venture-graphs}"
-WORKDIR="$WORKSPACES_DIR/$VENTURE_SLUG"
+WORKDIR="$WORKSPACES_DIR/$VENTURE_SLUG-mempalace"
 BRANCH="yvon-graph"
 
 # Pgvector backend selection + isolation — one namespace per venture, mirrors
@@ -52,6 +62,17 @@ export MEMPALACE_BACKEND=pgvector
 export MEMPALACE_PGVECTOR_DSN
 export MEMPALACE_PGVECTOR_NAMESPACE="venture-$VENTURE_SLUG"
 
+# 2026-08-25: per-venture palace HOME. mempalace resolves the palace as
+# ~/.mempalace/palace (config.py DEFAULT_PALACE_PATH via expanduser, which
+# honors $HOME) and the marker there records ONE namespace/table_prefix.
+# With a shared HOME, the second venture's mine always dies with
+# BackendMismatchError (hit live: novizio after yvon-os). Isolating HOME
+# per venture isolates palace + entity registry + locks to match the
+# per-venture namespace — the fix the error message itself sanctions
+# ("use a fresh palace directory"), made permanent.
+export HOME="/root/.yvon-mempalace/$VENTURE_SLUG"
+mkdir -p "$HOME"
+
 AUTH_URL="$REPO_URL"
 if [[ "$REPO_URL" == https://* ]]; then
   AUTH_URL="${REPO_URL/https:\/\//https:\/\/x-access-token:$PAT@}"
@@ -60,11 +81,13 @@ fi
 # ── Supabase status upsert into venture_repo_knowledge (same pattern as
 # graphify-venture.sh's upsert_status — python for correct JSON escaping). ──
 upsert_status() {
-  local status="$1" error="${2:-}" commit_sha="${3:-}" entry_count="${4:-}"
+  local status="$1" error="${2:-}" commit_sha="${3:-}" entry_count="${4:-}" \
+        entries_file="${5:-}" entities_file="${6:-}"
   python3 - "$SUPABASE_URL" "$SUPABASE_SERVICE_ROLE_KEY" "$VENTURE_SLUG" \
-    "$REPO_URL" "$BRANCH" "$status" "$error" "$commit_sha" "$entry_count" <<'PYEOF'
+    "$REPO_URL" "$BRANCH" "$status" "$error" "$commit_sha" "$entry_count" \
+    "$entries_file" "$entities_file" <<'PYEOF'
 import sys, json, datetime, urllib.request
-url, key, slug, repo_url, branch, status, error, sha, entries = sys.argv[1:10]
+url, key, slug, repo_url, branch, status, error, sha, entry_count, entries_file, entities_file = sys.argv[1:12]
 payload = {
     "venture_slug": slug,
     "repo_url": repo_url,
@@ -72,8 +95,19 @@ payload = {
     "status": status,
     "error": error or None,
     "commit_sha": sha or None,
-    "entry_count": int(entries) if entries else None,
+    "entry_count": int(entry_count) if entry_count else None,
 }
+# 2026-08-14: migration 120 added entries/entities (jsonb) — same read-from-
+# Postgres-not-GitHub rationale as graphify-venture.sh's graph_data. File
+# paths, not inline argv, same reasoning (size). Non-fatal on read failure.
+for field, path in (("entries", entries_file), ("entities", entities_file)):
+    if not path:
+        continue
+    try:
+        with open(path) as f:
+            payload[field] = json.load(f)
+    except Exception as e:  # noqa: BLE001
+        print(f"  ! {field} read failed, upserting status without it: {e}", file=sys.stderr)
 if status == "ready":
     payload["built_at"] = datetime.datetime.utcnow().isoformat() + "Z"
 req = urllib.request.Request(
@@ -109,7 +143,13 @@ echo "[2/6] clone or pull $REPO_URL"
 if [ -d "$WORKDIR/.git" ]; then
   DEFAULT_BRANCH=$(git -C "$WORKDIR" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@') \
     || DEFAULT_BRANCH="main"
-  git -C "$WORKDIR" checkout "$DEFAULT_BRANCH" 2>&1 || fail "checkout $DEFAULT_BRANCH failed"
+  # 2026-08-25: -f — step [3/6]'s `mempalace init` edits tracked files (e.g.
+  # .gitignore) in this disposable clone; a plain checkout refuses to switch
+  # away from them and the next pull fails with "local changes would be
+  # overwritten" (hit live: yvon-os second run). Nothing in this working tree
+  # needs to survive — same philosophy as [5/6]'s own -f checkout.
+  DEFAULT_CHECKOUT_OUT=$(git -C "$WORKDIR" checkout -f "$DEFAULT_BRANCH" 2>&1) \
+    || fail "checkout $DEFAULT_BRANCH failed: $DEFAULT_CHECKOUT_OUT"
   PULL_OUT=$(git -C "$WORKDIR" pull --ff-only 2>&1) || fail "git pull failed: $PULL_OUT"
 else
   CLONE_OUT=$(git clone "$AUTH_URL" "$WORKDIR" 2>&1) || fail "git clone failed: $CLONE_OUT"
@@ -120,9 +160,21 @@ cd "$WORKDIR"
 "$MEMPALACE_BIN" init . --backend pgvector --no-llm --yes 2>&1 || \
   echo "  (init non-fatal warning — continuing to mine; some repos are already initialized)"
 
-echo "[4/6] mempalace mine . --wing $VENTURE_SLUG"
-MINE_OUT=$("$MEMPALACE_BIN" mine . --backend pgvector --wing "$VENTURE_SLUG" --agent yvon-mempalace 2>&1) \
-  || fail "mempalace mine failed: $MINE_OUT"
+echo "[4/6] mempalace mine . --wing $VENTURE_SLUG (90m timeout)"
+# 2026-08-25: `mine` prompts "Mine this directory now? [Y/n]" on first run of
+# a directory. Under the nightly runner (graphify-ventures-nightly.sh) the
+# script's stdin is the ventures list — the prompt swallowed the NEXT
+# venture's line as its answer, the mine died, and the loop skipped that
+# venture. The printf pipe answers the prompt AND provides the child's stdin
+# (so caller stdin is never inherited) — the earlier `< /dev/null` here
+# actually OVERRODE that pipe, so the answer never arrived (latent bug).
+# 2026-08-26: `timeout 5400` — mine embeds every chunk through an LLM/
+# embedding host; when that host stalls (hit live: stuck at [4/6] for over a
+# day, nightly lock held, every following night skipped), the mine used to
+# hang forever. Now it fails within 90m with the output tail visible, and
+# the nightly lock always releases.
+MINE_OUT=$(printf 'y\n' | timeout 5400 "$MEMPALACE_BIN" mine . --backend pgvector --wing "$VENTURE_SLUG" --agent yvon-mempalace 2>&1) \
+  || fail "mempalace mine failed (90m timeout or error — embedding host unreachable?): $MINE_OUT"
 echo "$MINE_OUT"
 
 # Best-effort entry-count extraction from mine's own summary line. Format is
@@ -136,17 +188,106 @@ echo "  entries≈${ENTRY_COUNT:-unknown}"
 echo "[5/6] write knowledge/ manifest to $BRANCH (reuses graphify-venture.sh's branch if present)"
 git config user.name "yvon-mempalace"
 git config user.email "mempalace@yvon.bot"
-if git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
-  git checkout -B "$BRANCH" "origin/$BRANCH" 2>&1 || fail "checkout existing $BRANCH failed"
-else
-  git checkout --orphan "$BRANCH" 2>&1 || fail "orphan checkout failed"
-  git rm -rf . >/dev/null 2>&1 || true
-fi
-mkdir -p knowledge
-# Only ever writes inside knowledge/ — deliberately never touches the
-# top-level README.md, which graphify-venture.sh owns, so the two scripts
-# can run in either order without clobbering each other.
-cat > knowledge/manifest.json <<EOF
+# Third live run (Novizio-Web, 2026-08-14) got past the checkout fix but
+# then hit a rejected push: "fetch first" — remote had moved on. Cause:
+# step [2/6] only pulls $DEFAULT_BRANCH on a reused workspace; it never
+# refreshes refs/remotes/origin/$BRANCH. Since graphify-venture.sh's own
+# run pushes to this same $BRANCH (both scripts share it by design — see
+# header comment) and both fire together on every "Rebuild Now", mempalace's
+# local knowledge of $BRANCH's tip is stale the moment graphify pushes
+# first. Explicit fetch here — right before basing the manifest commit on
+# it — makes the base always current, whichever script happens to push
+# second.
+# Steps 5-6 retry as a unit (max 2 attempts): fetch-then-checkout closes
+# most of the race with graphify-venture.sh pushing the same $BRANCH, but
+# a small window remains between this fetch and the push below — if
+# graphify lands a push in that exact gap, the push still gets rejected.
+# One retry (re-fetch, re-base onto the new tip, re-push) covers that
+# remaining sliver without a full locking scheme; two ships racing this
+# closely twice in a row is not worth engineering further for.
+PUSH_OK=0
+for ATTEMPT in 1 2; do
+  FETCH_OUT=$(git fetch origin "$BRANCH" 2>&1) || echo "  (fetch $BRANCH warning — may not exist yet: $FETCH_OUT)"
+  if git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
+    # -f: step [3/6]/[4/6] (mempalace init/mine) can leave uncommitted changes
+    # to already-tracked files in the main-branch working tree (e.g. init
+    # touching .gitignore) — plain `checkout -B` refuses to switch away from
+    # those ("local changes would be overwritten"), even with -B. Nothing in
+    # that working tree needs to survive the switch: mine's real output is
+    # already in the external pgvector store, and knowledge/ gets rewritten
+    # fresh below regardless. Found live (2026-08-14, Novizio-Web, second
+    # onboarding run) — real git error was masked (see output-capture fix
+    # below), only "checkout existing yvon-graph failed" reached the DB.
+    CHECKOUT_OUT=$(git checkout -f -B "$BRANCH" "origin/$BRANCH" 2>&1) \
+      || fail "checkout existing $BRANCH failed: $CHECKOUT_OUT"
+  else
+    CHECKOUT_OUT=$(git checkout --orphan "$BRANCH" -f 2>&1) || fail "orphan checkout failed: $CHECKOUT_OUT"
+    git rm -rf . >/dev/null 2>&1 || true
+  fi
+  mkdir -p knowledge
+  # Only ever writes inside knowledge/ — deliberately never touches the
+  # top-level README.md, which graphify-venture.sh owns, so the two scripts
+  # can run in either order without clobbering each other.
+
+  # entities.json (2026-08-14): the one file `mempalace init` writes inside
+  # the repo itself ($WORKDIR/entities.json, from step [3/6]) — detected
+  # people/projects/rooms. Per-repo, same isolation guarantee as
+  # graphify-out/, safe to push. NOT the same as ~/.mempalace/ (global
+  # config shared across every venture on the VPS — deliberately never
+  # pushed anywhere; would leak other clients' wing data into this repo).
+  cp "$WORKDIR/entities.json" knowledge/entities.json 2>/dev/null \
+    || echo "  (no entities.json to copy — non-fatal, some repos produce none)"
+
+  # entries.json (2026-08-14): the actual mined content, not just a count.
+  # `mine` (step [4/6]) writes into a per-venture pgvector table — mempalace
+  # itself has no CLI flag to dump it, so this queries the table directly.
+  # Reuses the mempalace venv's own python (guaranteed to have whichever pg
+  # driver `mempalace[pgvector]` installed, psycopg or psycopg2 — this
+  # sandbox can't confirm which without VPS shell access, so the export
+  # tries both). Table name carries a hash suffix mempalace generates
+  # internally (confirmed live: mempalace_venture_novizio_<hash>_mempalace_drawers)
+  # — discovered by LIKE match on venture_slug rather than assumed literal.
+  # Embedding vectors are deliberately excluded (large, not human-readable
+  # in a diff); id/document/metadata/updated_at only. Best-effort/non-fatal
+  # — a missing driver or table shouldn't fail the whole build, same
+  # philosophy as ENTRY_COUNT parsing above.
+  MEMPALACE_PYTHON="$(dirname "$MEMPALACE_BIN")/python3"
+  if [ -x "$MEMPALACE_PYTHON" ]; then
+    EXPORT_OUT=$("$MEMPALACE_PYTHON" - "$MEMPALACE_PGVECTOR_DSN" "$VENTURE_SLUG" <<'PYEOF' 2>&1
+import sys, json
+dsn, slug = sys.argv[1], sys.argv[2]
+try:
+    import psycopg
+except ImportError:
+    import psycopg2 as psycopg
+conn = psycopg.connect(dsn)
+cur = conn.cursor()
+cur.execute(
+    "select table_name from information_schema.tables where table_name like %s and table_name like %s",
+    (f"mempalace_venture_{slug}_%", "%_mempalace_drawers"),
+)
+row = cur.fetchone()
+if not row:
+    with open("knowledge/entries.json", "w") as f:
+        json.dump([], f)
+    print("no drawers table found for this venture yet")
+else:
+    table = row[0]
+    cur.execute(f'select id, document, metadata, updated_at from "{table}" order by updated_at')
+    cols = [c.name for c in cur.description]
+    entries = [dict(zip(cols, r)) for r in cur.fetchall()]
+    with open("knowledge/entries.json", "w") as f:
+        json.dump(entries, f, indent=2, default=str)
+    print(f"exported {len(entries)} entries from {table}")
+conn.close()
+PYEOF
+) || echo "  (entries.json export warning, non-fatal: $EXPORT_OUT)"
+    echo "  $EXPORT_OUT"
+  else
+    echo "  (mempalace venv python not found at $MEMPALACE_PYTHON — skipping entries.json export, non-fatal)"
+  fi
+
+  cat > knowledge/manifest.json <<EOF
 {
   "venture_slug": "$VENTURE_SLUG",
   "wing": "$VENTURE_SLUG",
@@ -156,31 +297,42 @@ cat > knowledge/manifest.json <<EOF
   "mined_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 EOF
-cat > knowledge/README.md <<EOF
+  cat > knowledge/README.md <<EOF
 # MemPalace repo knowledge — $VENTURE_SLUG
 
-Semantic knowledge mined from this repo by YVON's onboarding pipeline. The
-actual content lives in a shared pgvector palace on Supabase Postgres
-(namespace \`venture-$VENTURE_SLUG\`), not in this git branch — this file is
-just a pointer. Search it with:
+Semantic knowledge mined from this repo by YVON's onboarding pipeline.
+Searchable live via the shared pgvector palace on Supabase Postgres
+(namespace \`venture-$VENTURE_SLUG\`):
 
     mempalace search "<query>" --wing $VENTURE_SLUG --backend pgvector
+
+A point-in-time copy of the same data is also checked in here, for anyone
+without VPS/pgvector access:
+
+- \`entities.json\` — people/projects/rooms mempalace detected in this repo
+- \`entries.json\` — every mined drawer (id, document, metadata, updated_at — no embedding vectors)
+- \`manifest.json\` — build metadata (entry count, mined-at timestamp)
 
 Do not edit by hand — rebuilt on every mempalace-venture.sh run.
 
 Last mined: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
-git add knowledge/manifest.json knowledge/README.md
-if git diff --cached --quiet; then
-  echo "  no changes since last mine — skipping commit"
-else
-  git commit -m "yvon: refresh repo knowledge — entries≈${ENTRY_COUNT:-unknown}" >&2 \
-    || fail "commit failed"
-fi
-COMMIT_SHA=$(git rev-parse HEAD)
+  git add -A knowledge
+  if git diff --cached --quiet; then
+    echo "  no changes since last mine — skipping commit"
+  else
+    git commit -m "yvon: refresh repo knowledge — entries≈${ENTRY_COUNT:-unknown}" >&2 \
+      || fail "commit failed"
+  fi
+  COMMIT_SHA=$(git rev-parse HEAD)
 
-echo "[6/6] push $BRANCH"
-PUSH_OUT=$(git push "$AUTH_URL" "$BRANCH:$BRANCH" 2>&1) || fail "git push failed: $PUSH_OUT"
+  echo "[6/6] push $BRANCH (attempt $ATTEMPT/2)"
+  PUSH_OUT=$(git push "$AUTH_URL" "$BRANCH:$BRANCH" 2>&1) && { PUSH_OK=1; break; }
+  if [ "$ATTEMPT" -eq 2 ]; then
+    fail "git push failed after retry: $PUSH_OUT"
+  fi
+  echo "  push rejected (likely graphify-venture.sh pushed $BRANCH concurrently) — retrying: $PUSH_OUT"
+done
 
-upsert_status "ready" "" "$COMMIT_SHA" "${ENTRY_COUNT:-}"
+upsert_status "ready" "" "$COMMIT_SHA" "${ENTRY_COUNT:-}" "knowledge/entries.json" "knowledge/entities.json"
 echo "Done. $VENTURE_SLUG's repo knowledge is live in the pgvector palace @ $COMMIT_SHA."

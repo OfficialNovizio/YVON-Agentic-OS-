@@ -61,8 +61,18 @@ export interface InputAnalysisStage {
   desiredOutput?: string
   /** The MUST-HAVE checklist — defines "done"; rendered as a checklist. */
   mustHaves?: string[]
-  /** The agent routing plan — primary agent + team, rendered as chips. */
-  targetAgents?: { primary: string; team: string[]; reason: string }
+  /** The agent routing plan — primary agent + team, rendered as chips.
+   *  `scores` added 2026-08-22: routing.ts already computed per-bucket scores
+   *  to pick the winner and then discarded them, so a misroute could only be
+   *  inferred from the outcome. CAOS v2's Route step renders them, which is
+   *  what makes a wrong answer legible rather than mysterious. Optional —
+   *  absent on rows written before this build. */
+  targetAgents?: {
+    primary: string
+    team: string[]
+    reason: string
+    scores?: { agent: string; score: number; hits: string[] }[]
+  }
 }
 
 // ── Live source: SSE events (token/thinking/tool_call.*/notice) ────────────

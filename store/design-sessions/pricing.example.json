@@ -1,0 +1,5 @@
+{
+  "_comment": "Copy to pricing.json (gitignored, per-deployment) and fill in real per-call costs from your screenshot-to-code deployment's actual LLM provider billing. cli/design.py's `estimate` command defaults every figure to $0.0 and warns loudly if pricing.json doesn't exist — see docs/PRD-design-first-workflow.md's honest-degradation discipline.",
+  "screenshot_capture_usd": 0.0,
+  "code_gen_usd": 0.0
+}

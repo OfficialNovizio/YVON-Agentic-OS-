@@ -1,0 +1,95 @@
+# TS-REC-003 — live hiring fetch, 3x daily (morning / evening / night),
+# operator-ordered 2026-08-25: "implement live fetching hiring brands,
+# companies, small and big business ... runs 3 times in a day".
+# Template parent — never executes itself. Each cycle derives a child card
+# (derived_from: TS-REC-003) once the recurring executor ships (TASK-KANBAN-
+# DESIGN Phase A). Until then the cron drives it: the VPS crontab runs
+# vps-scripts/fetch-hiring-bc.py at 15:00 / 01:00 / 06:00 UTC.
+id: TS-REC-003
+status: draft
+source_message: "implement live fetching hiring brands, companies, small and big business in hermes kanban that runs 3 times in a day morning, evening and night"
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only — no transcript inheritance
+  inject_form: .toon (this YAML is the source form)
+
+classification:
+  task_type: recurring
+  departments:
+    - Engineering
+  lead: dev
+
+recurrence:
+  cadence: daily
+  times:
+    - "08:00"
+    - "18:00"
+    - "23:00"
+  template: hiring-fetch-bc
+
+context:
+  chunks: []
+  existing_assets:
+    - vps-scripts/fetch-hiring-bc.py
+    - vps-scripts/fetch-hiring-boards.py
+  conflicts: []
+
+discovery:
+  questions: []
+  decisions:
+    - "Adzuna is the only Canada-province API source; it silently no-ops without its API key (adzuna.ts) — the root cause of the empty BC hiring list"
+    - "2026-08-25 OPERATOR OVERRIDE: zero-ban-risk rule rescinded for Indeed + LinkedIn — both now pulled via vps-scripts/fetch-hiring-boards.py (python-jobspy, public/guest data only, NO login automation, CAPTCHA → skip, rate-limited). Recorded per operator instruction."
+    - "Indeed/LinkedIn legal risk remains real (ToS, bans) — guardrails are code, not promises"
+
+work_items:
+  - id: WI-1
+    owner: dev
+    objective: "Run the live hiring fetch 3x daily — Adzuna (all 5 industries × British Columbia) + RemoteOK + Remotive — upserting postings into job_postings with dedup so the Companies page's Hiring-now section always reflects who is hiring right now"
+    strategy: BALANCE 1.0x
+    consumes: []
+    produces: "fresh job_postings rows (status=discovered); populated Hiring-now section on /job-hunt/companies"
+    owns_paths: []
+    skills: []
+    scripts:
+      - vps-scripts/fetch-hiring-bc.py
+    blocked_by: []
+    acceptance:
+      - text: "Adzuna key configured in job_hunt_source_keys (BC postings appear)"
+        status: pending
+        evidence: ""
+      - text: "Three cron entries installed (15:00 / 01:00 / 06:00 UTC)"
+        status: pending
+        evidence: ""
+      - text: "Hiring-now section on Companies shows BC companies with live postings"
+        status: pending
+        evidence: ""
+    security_review: none
+    doer: dev
+    verifier: operator
+    integrator: ""
+
+dag:
+  parallel: []
+  critical_path:
+    - WI-1
+
+exit_gate:
+  owner: operator
+  proof: ""
+
+feedback:
+  outcome: null
+  lesson: null
+
+created_at: "2026-08-25T22:00:00Z"
+updated_at: "2026-08-25T22:00:00Z"
+revision_of: null
+derived_from: null
+superseded_by: null
+blocked: false
+blocked_at: ""
+blocked_reason: ""
+run_ref: ""
+history:
+  - {ts: "2026-08-25T22:00:00Z", actor: "dev", event: "opened_draft", note: "recurring template — hiring fetch 3x daily; cron drives until the executor ships"}

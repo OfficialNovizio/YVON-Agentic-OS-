@@ -377,7 +377,10 @@ def test_knowledge_sync():
 
     # Verify all departments have WORKFLOW files
     depts = ['Executive Office', 'Governance', 'Engineering', 'Cybersecurity',
-             'Product', 'AI & Agents', 'Brand Studio']
+             'Product', 'AI & Agents', 'Brand Studio',
+             # 2026-08-15 — 6 new departments merged in from origin.
+             'Client Success', 'Comms & PR', 'Global Expansion',
+             'Growth & Partnerships', 'People & Culture', 'Risk & ESG']
     workflows_found = 0
     for d in depts:
         if os.path.exists(os.path.join(TEAMS, d, 'DEPARTMENT-WORKFLOW.md')):

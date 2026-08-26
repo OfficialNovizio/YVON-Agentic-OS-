@@ -1,79 +1,155 @@
-/* chat.css — command-deck design system (TS-020).
- * Atlas-bridged tokens for the chat surface. Scoped under .chat-shell so
- * nothing leaks into other pages. Tints are the REAL fleet colors.
- * Imported from app/chat/page.tsx (App Router allows component-level global CSS).
+/* chat.css — the Atelier. /chat rendered in the Adora design system.
+ *
+ * Redesigned 2026-08-17. The token NAMES are unchanged from the old
+ * command-deck build (--chat-text, --chat-hairline, .chat-glass, …) so every
+ * component that reads them — PipelineHud, AttachmentCard, AudioRecorder,
+ * VentureSelector, RepoModeToggle — moves to the light gallery for free. Only
+ * the VALUES flipped. Scoped under .chat-shell so nothing leaks.
+ *
+ * Reference: Adora — "impressionist museum behind frosted glass".
  */
+
 .chat-shell {
-  --chat-bg: #0a0a0f;
-  --chat-surface: rgba(255, 255, 255, 0.03);
-  --chat-surface-strong: rgba(255, 255, 255, 0.06);
-  --chat-hairline: rgba(255, 255, 255, 0.10);
-  --chat-hairline-soft: rgba(255, 255, 255, 0.06);
-  --chat-text: rgba(255, 255, 255, 0.92);
-  --chat-text-dim: rgba(255, 255, 255, 0.55);
-  --chat-text-faint: rgba(255, 255, 255, 0.38);
-  --chat-accent: #6366f1; /* indigo — active states only */
-  --chat-glow: rgba(99, 102, 241, 0.35);
+  /* ── Surfaces ─────────────────────────────────────────────────────── */
+  --chat-bg: #f4f4f1;
+  --chat-paper: #ffffff;
+  --chat-surface: #ffffff;
+  --chat-surface-strong: #f2f2ee; /* soft concrete — recessed / hover */
+  --chat-hairline: #e0e0db;       /* pearl mist */
+  --chat-hairline-soft: #ebebe6;
 
-  /* Real fleet tints (per-department identity) */
-  --dept-engineering: #3B82F6;
-  --dept-brand: #EC4899;
-  --dept-security: #EF4444;
-  --dept-product: #10B981;
-  --dept-governance: #8B5CF6;
-  --dept-ai: #06B6D4;
-  --dept-exec: #F59E0B;
+  /* ── Ink ──────────────────────────────────────────────────────────── */
+  --chat-text: #21164c;       /* midnight plum — headings, names */
+  --chat-body: #353241;       /* obsidian charcoal — body copy */
+  --chat-text-dim: #5f5f69;   /* slate smoke */
+  --chat-text-faint: #6b6b74;
+
+  /* ── The single chromatic ─────────────────────────────────────────── */
+  --chat-accent: #592eff;
+  --chat-accent-deep: #4520cc;
+  --chat-glow: rgba(89, 46, 255, 0.22);
+  --chat-accent-wash: rgba(89, 46, 255, 0.06);
+
+  /* ── Decorative pastels — washes + squiggles only ─────────────────── */
+  --chat-sky: #bcf2ff;
+  --chat-lime: #dfff9d;
+  --chat-candy: #ffaae6;
+  --chat-cyan: #2ed6ff;
+  --chat-lime-pop: #a2ea13;
+  --chat-magenta: #f843c2;
+
+  /* ── Real fleet tints (per-department identity) ───────────────────── */
+  --dept-engineering: #3b82f6;
+  --dept-brand: #ec4899;
+  --dept-security: #ef4444;
+  --dept-product: #10b981;
+  --dept-governance: #8b5cf6;
+  --dept-ai: #06b6d4;
+  --dept-exec: #f59e0b;
+
+  position: relative;
+  background: var(--chat-bg);
+  color: var(--chat-body);
+  font-family: var(--adora-ui);
+  letter-spacing: -0.02em;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* ── Frosted glass surfaces ─────────────────────────────────────── */
-.chat-glass {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+/* ── Surfaces ───────────────────────────────────────────────────────── */
+/* .chat-glass keeps its name for components not touched by the redesign;
+ * in the gallery it is a white card with a hairline, not frosted obsidian. */
+.chat-shell .chat-glass {
+  background: #ffffff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border: 1px solid var(--chat-hairline);
-  border-radius: 1rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border-radius: var(--r-card, 28px);
+  box-shadow: 0 18px 44px -32px rgba(33, 22, 76, 0.4);
 }
-.chat-glass-soft {
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+.chat-shell .chat-glass-soft {
+  background: #ffffff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border: 1px solid var(--chat-hairline-soft);
-  border-radius: 0.75rem;
+  border-radius: 20px;
+  box-shadow: 0 1px 2px rgba(33, 22, 76, 0.03), 0 8px 20px -16px rgba(33, 22, 76, 0.14);
 }
 
-/* ── Live glow (active phases, active agents) ───────────────────── */
-.chat-active-ring {
-  box-shadow: 0 0 0 1px var(--chat-accent), 0 0 18px var(--chat-glow);
+/* Frame — the oversized-radius container the whole conversation sits in. */
+.chat-frame {
+  border-radius: var(--r-frame, 40px);
+  border: 1px solid var(--chat-hairline);
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(33, 22, 76, 0.03), 0 12px 32px -22px rgba(33, 22, 76, 0.16);
 }
-.chat-breathe {
-  animation: chat-breathe 2.4s ease-in-out infinite;
+
+/* ── Active / live states ───────────────────────────────────────────── */
+.chat-shell .chat-active-ring {
+  box-shadow: 0 0 0 1px var(--chat-accent), 0 6px 20px -8px var(--chat-glow);
 }
+.chat-shell .chat-breathe { animation: chat-breathe 2.6s ease-in-out infinite; }
 @keyframes chat-breathe {
-  0%, 100% { opacity: 1; box-shadow: 0 0 10px var(--chat-glow); }
-  50% { opacity: 0.82; box-shadow: 0 0 22px var(--chat-glow); }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.62; }
 }
 
-/* ── Streaming cursor + shimmer ─────────────────────────────────── */
-.chat-cursor {
+/* Painterly backdrop washes — slow impressionist drift behind the thread. */
+.chat-canvas {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.chat-canvas > i {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  filter: blur(72px);
+  opacity: 0.42;
+  animation: adora-drift 26s ease-in-out infinite;
+  will-change: transform;
+}
+.chat-shell[data-live='true'] .chat-canvas > i {
+  opacity: 0.62;
+  animation-duration: 11s;
+}
+
+/* ── Streaming ──────────────────────────────────────────────────────── */
+.chat-shell .chat-cursor {
   display: inline-block;
   width: 2px;
   height: 1em;
-  margin-left: 2px;
-  vertical-align: -0.15em;
+  margin-left: 3px;
+  vertical-align: -0.14em;
+  border-radius: 2px;
   background: var(--chat-accent);
   animation: chat-blink 1s step-end infinite;
 }
 @keyframes chat-blink { 50% { opacity: 0; } }
-.chat-shimmer {
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
-  background-size: 200% 100%;
-  animation: chat-shimmer 1.6s linear infinite;
-}
-@keyframes chat-shimmer { to { background-position: -200% 0; } }
 
-/* ── Thinking ellipsis ──────────────────────────────────────────── */
-.chat-ellipsis::after {
+/* A paint-stroke sweeping the top edge of the card that's generating. */
+.chat-shell .chat-shimmer { position: relative; }
+.chat-stroke {
+  position: absolute;
+  top: -1px;
+  left: 22px;
+  right: 22px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--chat-cyan),
+    var(--chat-accent),
+    var(--chat-magenta),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: adora-sweep 2.2s linear infinite;
+}
+
+.chat-shell .chat-ellipsis::after {
   content: '';
   animation: chat-dots 1.4s steps(4, end) infinite;
 }
@@ -84,43 +160,143 @@
   75% { content: '...'; }
 }
 
-/* ── Thin scrollbars for the deck ───────────────────────────────── */
-.chat-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-.chat-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 3px; }
+/* ── Scrollbars — hairline, never chrome ────────────────────────────── */
+.chat-scroll::-webkit-scrollbar { width: 7px; height: 7px; }
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: rgba(33, 22, 76, 0.13);
+  border-radius: var(--r-stadium, 200px);
+}
+.chat-scroll::-webkit-scrollbar-thumb:hover { background: rgba(33, 22, 76, 0.24); }
 .chat-scroll::-webkit-scrollbar-track { background: transparent; }
+.chat-scroll { scrollbar-width: thin; scrollbar-color: rgba(33, 22, 76, 0.16) transparent; }
 
-/* ── Markdown code block ────────────────────────────────────────── */
-.chat-md pre {
-  margin: 0.5rem 0;
-  padding: 0.6rem 0.75rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--chat-hairline-soft);
-  background: rgba(0, 0, 0, 0.35);
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 12px;
-  line-height: 1.5;
-  overflow-x: auto;
-  color: rgba(255, 255, 255, 0.85);
+/* ── Composer ───────────────────────────────────────────────────────── */
+.chat-composer {
+  background: #ffffff;
+  border: 1px solid var(--chat-hairline);
+  border-radius: 30px;
+  box-shadow: 0 1px 2px rgba(33, 22, 76, 0.04), 0 10px 26px -20px rgba(33, 22, 76, 0.2);
+  transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
 }
-.chat-md code {
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 0.92em;
-  background: rgba(255, 255, 255, 0.07);
-  border-radius: 4px;
-  padding: 0.1em 0.35em;
+.chat-composer:focus-within {
+  border-color: rgba(89, 46, 255, 0.45);
+  box-shadow: 0 0 0 4px rgba(89, 46, 255, 0.08), 0 20px 44px -34px rgba(33, 22, 76, 0.5);
 }
-.chat-md pre code { background: none; padding: 0; }
-.chat-md h1, .chat-md h2, .chat-md h3 {
-  margin: 0.5rem 0 0.25rem;
-  font-weight: 650;
+.chat-composer textarea {
+  font-family: var(--adora-ui);
+  letter-spacing: -0.02em;
+}
+.chat-composer textarea::placeholder { color: var(--chat-text-faint); }
+
+/* Ghost control — attach, mic, scroll-to-bottom. 8px radius on controls. */
+.chat-ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-control, 8px);
+  color: var(--chat-text-dim);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+.chat-ghost-btn:hover:not(:disabled) {
+  background: var(--chat-surface-strong);
   color: var(--chat-text);
 }
-.chat-md ul { margin: 0.35rem 0; padding-left: 1.1rem; list-style: disc; }
-.chat-md ol { margin: 0.35rem 0; padding-left: 1.1rem; list-style: decimal; }
-.chat-md a { color: var(--chat-accent); text-decoration: underline; text-underline-offset: 2px; }
-.chat-md strong { font-weight: 650; }
+.chat-ghost-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ── Message surfaces ───────────────────────────────────────────────── */
+.chat-user-bubble {
+  background: var(--chat-accent);
+  color: #ffffff;
+  border-radius: 24px 24px 8px 24px;
+  transition: transform 180ms ease, filter 180ms ease;
+}
+.chat-user-bubble:hover { transform: translateY(-1px); filter: brightness(1.05); }
+
+.chat-agent-card {
+  background: #ffffff;
+  border: 1px solid var(--chat-hairline);
+  border-radius: var(--r-card, 28px);
+  box-shadow: 0 1px 2px rgba(33, 22, 76, 0.03), 0 8px 22px -18px rgba(33, 22, 76, 0.16);
+  transition: border-color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
+}
+.chat-agent-card:hover {
+  border-color: #c3c3b8;
+  box-shadow: 0 22px 48px -34px rgba(33, 22, 76, 0.4);
+}
+.chat-agent-card .chat-row-actions { opacity: 0; transition: opacity 160ms ease; }
+.chat-agent-card:hover .chat-row-actions,
+.chat-agent-card:focus-within .chat-row-actions { opacity: 1; }
+
+/* ── Markdown — Plus Jakarta body, charcoal, 1.6 leading ────────────── */
+.chat-md {
+  font-family: var(--adora-ui);
+  color: var(--chat-body);
+  letter-spacing: -0.02em;
+}
+.chat-md > *:first-child { margin-top: 0; }
+.chat-md > *:last-child { margin-bottom: 0; }
+.chat-md p { margin: 0.45rem 0; line-height: 1.6; }
+.chat-md pre {
+  margin: 0.7rem 0;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--chat-hairline);
+  background: #fafaf8;
+  font-family: var(--adora-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  overflow-x: auto;
+  color: #2b2837;
+}
+.chat-md code {
+  font-family: var(--adora-mono);
+  font-size: 0.9em;
+  background: rgba(89, 46, 255, 0.06);
+  color: var(--chat-accent-deep);
+  border-radius: 5px;
+  padding: 0.12em 0.38em;
+}
+.chat-md pre code { background: none; padding: 0; color: inherit; }
+.chat-md h1, .chat-md h2, .chat-md h3 {
+  margin: 1rem 0 0.4rem;
+  font-family: var(--adora-display);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--chat-text);
+}
+.chat-md h1 { font-size: 19px; }
+.chat-md h2 { font-size: 17px; }
+.chat-md h3 { font-size: 15px; }
+.chat-md ul { margin: 0.45rem 0; padding-left: 1.15rem; list-style: disc; }
+.chat-md ol { margin: 0.45rem 0; padding-left: 1.15rem; list-style: decimal; }
+.chat-md li { margin: 0.18rem 0; line-height: 1.6; }
+.chat-md a {
+  color: var(--chat-accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.chat-md strong { font-weight: 600; color: var(--chat-text); }
 .chat-md blockquote {
-  margin: 0.4rem 0; padding-left: 0.75rem;
-  border-left: 2px solid var(--chat-hairline);
+  margin: 0.6rem 0;
+  padding: 0.1rem 0 0.1rem 0.85rem;
+  border-left: 2px solid var(--chat-lime-pop);
   color: var(--chat-text-dim);
 }
+
+/* Inside a violet user bubble the markdown inverts. */
+.chat-user-bubble .chat-md,
+.chat-user-bubble .chat-md strong { color: #ffffff; }
+.chat-user-bubble .chat-md code { background: rgba(255, 255, 255, 0.18); color: #ffffff; }
+.chat-user-bubble .chat-md a { color: #ffffff; }
+
+/* ── Utility ────────────────────────────────────────────────────────── */
+.chat-mono {
+  font-family: var(--adora-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }

@@ -1,0 +1,37 @@
+{
+  "_comment": "Stage 2's curated tier (docs/PRD-design-first-workflow.md, master tree F2b/F2c) — always shown, live tier (open-design daemon) layers on top when reachable. Tracked in git (not gitignored, unlike *.json session records) because this is shared reference-catalog content, not per-deployment secrets or ephemeral state. `added_at` drives F2b's >90-day staleness flag; `license` missing/null drives F2c's 'not usable without manual review' tag — both fields are required per entry, not inferred.",
+  "entries": [
+    {
+      "id": "apple",
+      "name": "Apple",
+      "category": "Media & Consumer",
+      "license": "Apache-2.0",
+      "source": "nexu-io/open-design design-systems/apple (bundled catalog)",
+      "added_at": "2026-08-19"
+    },
+    {
+      "id": "airbnb",
+      "name": "Airbnb",
+      "category": "E-Commerce & Retail",
+      "license": "Apache-2.0",
+      "source": "nexu-io/open-design design-systems/airbnb (bundled catalog)",
+      "added_at": "2026-08-19"
+    },
+    {
+      "id": "bmw",
+      "name": "BMW",
+      "category": "Automotive",
+      "license": "Apache-2.0",
+      "source": "nexu-io/open-design design-systems/bmw (bundled catalog)",
+      "added_at": "2026-03-01"
+    },
+    {
+      "id": "community-proxy-theme",
+      "name": "Community proxy theme (unverified)",
+      "category": "Themed & Unique",
+      "license": null,
+      "source": "operator-submitted, license not yet confirmed",
+      "added_at": "2026-08-10"
+    }
+  ]
+}

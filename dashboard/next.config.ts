@@ -27,6 +27,17 @@ const csp = [
 ].join('; ')
 
 const nextConfig: NextConfig = {
+  // 2026-08-15: mammoth (DOCX text extraction, Job Hunt resume analysis)
+  // crashed with "TypeError: Object.defineProperty called on non-object" —
+  // webpack's CJS/ESM interop shim for Server Components chokes on its
+  // module internals when bundled. Not in Next's default
+  // serverExternalPackages allowlist. Opting out of bundling so Node's
+  // native require() loads it at runtime instead (documented fix for this
+  // error class). The PDF side of resume extraction went through several
+  // libraries before landing on `unpdf` (see lib/job-hunt/resume-text.ts) —
+  // unpdf ships its own serverless-safe pdf.js build with no native deps,
+  // so it doesn't need this treatment.
+  serverExternalPackages: ['mammoth'],
   // 2026-08-12 (same day, follow-up to the DefinePlugin below): `output:
   // 'standalone'` (+ its `outputFileTracingRoot`) removed — Vercel advises
   // against standalone output on their own platform (they produce their own

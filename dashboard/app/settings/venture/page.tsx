@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useWorkspace } from '@/lib/WorkspaceContext'
+import { activeWorkspace } from '@/lib/workspaces'
 import { StatusBadge } from '@/components/ui'
 import { Loader2, ArrowLeft } from 'lucide-react'
 
@@ -10,6 +11,7 @@ import GeneralTab from './_general'
 import TechnicalTab from './_technical'
 import SocialTab from './_social'
 import DeploymentTab from './_deployment'
+import AgentsTab from './_agents'
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  TYPES
@@ -19,7 +21,7 @@ interface VentureData {
   description?: string; tagline?: string
   brandType?: string; brandTier?: string; status?: string
   websiteUrl?: string; logoUrl?: string; foundedYear?: number
-  repoUrl?: string; notionUrl?: string
+  repoUrl?: string; localRepoPath?: string; notionUrl?: string
   operatingCountries?: string[]
   targetAudience?: {
     ageGroups?: string[]; socialStatus?: string[]; gender?: string
@@ -94,9 +96,20 @@ export default function VentureSettingsPage() {
   const [foundedYear, setFoundedYear] = useState('')
   const [websiteUrl, setWebsiteUrl] = useState('')
   const [repoUrl, setRepoUrl] = useState('')
+  const [localRepoPath, setLocalRepoPath] = useState('')
   const [notionUrl, setNotionUrl] = useState('')
   const [iosAppUrl, setIosAppUrl] = useState('')
   const [androidAppUrl, setAndroidAppUrl] = useState('')
+
+  // GitHub PAT for the per-venture graphify + MemPalace onboarding pipeline
+  // (2026-08-14). Deliberately NOT part of VentureConfig/saveAll — the PAT
+  // is write-only (never returned by GET /api/ventures, see
+  // lib/db/venture-graphify.ts), so it has its own state + its own save
+  // path (POST /api/ventures/[id]/graphify) instead of riding the general
+  // PATCH body.
+  const [githubPat, setGithubPat] = useState('')
+  const [triggering, setTriggering] = useState(false)
+  const [triggerMsg, setTriggerMsg] = useState('')
 
   const [audAgeGroups, setAudAgeGroups] = useState<string[]>([])
   const [audSocialStatus, setAudSocialStatus] = useState<string[]>([])
@@ -106,15 +119,25 @@ export default function VentureSettingsPage() {
   const [deploymentPlatforms, setDeploymentPlatforms] = useState<string[]>([])
 
   // ── Load data ──────────────────────────────────────────────────────────
-  // Support ?slug=<slug> so Settings can open a SPECIFIC venture; fall back
-  // to the active workspace venture (TS-030).
+  // Support ?slug=<slug> so Settings can open a SPECIFIC venture; otherwise
+  // resolve from the SAME yvon_active_venture cookie /chat's VentureSelector
+  // and RepoModeToggle read (activeWorkspace(), lib/workspaces.ts) — not
+  // `workspace.key` (WorkspaceContext's separate localStorage-tracked
+  // system). Bug fix (2026-08-11): those two could disagree, so Settings
+  // could silently load/save a DIFFERENT venture than the one active in
+  // /chat — a save "worked" but the next visit here (or /chat) looked like
+  // it hadn't, because they were never looking at the same venture.
+  // `workspace.key` stays as a last-resort fallback only.
   useEffect(() => {
     const p = new URLSearchParams(window.location.search).get('slug')
-    const targetSlug = p ?? workspace.key
     Promise.all([
       fetch('/api/ventures').then(r => r.json()),
       fetch('/api/dashboard').then(r => r.json()),
     ]).then(([ventures, dash]) => {
+      const validSlugs = (ventures as VentureData[]).map((v) => v.slug)
+      const cookieMatch = document.cookie.match(/(?:^|;\s*)yvon_active_venture=([^;]+)/)
+      const cookieSlug = cookieMatch ? decodeURIComponent(cookieMatch[1]) : undefined
+      const targetSlug = p ?? (cookieSlug ? activeWorkspace(cookieSlug, validSlugs) : workspace.key)
       const v = (ventures as VentureData[]).find(v => v.slug === targetSlug)
       if (v) {
         setVenture(v)
@@ -124,7 +147,7 @@ export default function VentureSettingsPage() {
         setName(v.name); setSlug(v.slug); setColor(v.color)
         setStatus(v.status ?? 'active'); setTagline(v.tagline ?? '')
         setDescription(v.description ?? ''); setFoundedYear(v.foundedYear?.toString() ?? '')
-        setWebsiteUrl(v.websiteUrl ?? ''); setRepoUrl(v.repoUrl ?? '')
+        setWebsiteUrl(v.websiteUrl ?? ''); setRepoUrl(v.repoUrl ?? ''); setLocalRepoPath(v.localRepoPath ?? '')
         setNotionUrl(v.notionUrl ?? '')
         setIosAppUrl(v.iosAppUrl ?? ''); setAndroidAppUrl(v.androidAppUrl ?? '')
         setAudAgeGroups(v.targetAudience?.ageGroups ?? [])
@@ -151,6 +174,7 @@ export default function VentureSettingsPage() {
       brandTier: brandTier || undefined,
       websiteUrl: websiteUrl || undefined,
       repoUrl: repoUrl || undefined,
+      localRepoPath: localRepoPath || undefined,
       notionUrl: notionUrl || undefined,
       iosAppUrl: iosAppUrl || undefined,
       androidAppUrl: androidAppUrl || undefined,
@@ -163,11 +187,45 @@ export default function VentureSettingsPage() {
       const res = await fetch(`/api/ventures/${venture.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       })
-      setSaveMsg(res.ok ? 'Saved ✓' : 'Error saving')
+      if (res.ok) {
+        setSaveMsg('Saved ✓')
+      } else {
+        // Fixed 2026-08-20: was just 'Error saving' with no detail — now that
+        // updateVenture() actually surfaces the real Postgres error (see
+        // lib/db/ventures.ts) instead of silently swallowing it, show it
+        // instead of a guess. Falls back to the generic message only if the
+        // error body itself is missing/malformed.
+        const data = await res.json().catch(() => null)
+        setSaveMsg(data?.error ? `Error: ${data.error}` : 'Error saving')
+      }
     } catch { setSaveMsg('Network error') }
     setSaving(false)
-    setTimeout(() => setSaveMsg(''), 3000)
-  }, [venture, name, slug, color, status, tagline, description, brandType, brandTier, websiteUrl, repoUrl, notionUrl, iosAppUrl, androidAppUrl, audAgeGroups, audSocialStatus, audGender, productCats, deploymentPlatforms, foundedYear])
+    setTimeout(() => setSaveMsg(''), 6000)
+  }, [venture, name, slug, color, status, tagline, description, brandType, brandTier, websiteUrl, repoUrl, localRepoPath, notionUrl, iosAppUrl, androidAppUrl, audAgeGroups, audSocialStatus, audGender, productCats, deploymentPlatforms, foundedYear])
+
+  // ── GitHub connect + trigger (graphify + MemPalace, 2026-08-14) ────────
+  // Requires repoUrl to already be saved (saveAll() first, or already set).
+  // Empty PAT re-triggers using whichever PAT is already stored server-side.
+  const triggerGraphify = useCallback(async () => {
+    if (!venture) return
+    setTriggering(true); setTriggerMsg('')
+    try {
+      const res = await fetch(`/api/ventures/${venture.id}/graphify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(githubPat ? { githubPat } : {}),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (res.ok && json.started) {
+        setTriggerMsg('Build started ✓')
+        setGithubPat('') // write-only — never keep the secret in state after a successful send
+      } else {
+        setTriggerMsg(json.reason || json.error || 'Failed to start build')
+      }
+    } catch { setTriggerMsg('Network error') }
+    setTriggering(false)
+    setTimeout(() => setTriggerMsg(''), 5000)
+  }, [venture, githubPat])
 
   // ── Social CRUD ───────────────────────────────────────────────────────
   const addSocial = async (platform: string) => {
@@ -235,6 +293,7 @@ export default function VentureSettingsPage() {
         tabs={[
           { id: 'general', label: 'General' },
           { id: 'technical', label: 'Technical' },
+          { id: 'agents', label: 'Team' },
           { id: 'social', label: 'Social' },
           { id: 'deployment', label: 'Deployment' },
         ]}
@@ -263,11 +322,19 @@ export default function VentureSettingsPage() {
       {tab === 'technical' && (
         <TechnicalTab
           repoUrl={repoUrl} setRepoUrl={setRepoUrl}
+          localRepoPath={localRepoPath} setLocalRepoPath={setLocalRepoPath}
           notionUrl={notionUrl} setNotionUrl={setNotionUrl}
           websiteUrl={websiteUrl}
           iosAppUrl={iosAppUrl} androidAppUrl={androidAppUrl}
           sysHealth={sysHealth}
+          saveAll={saveAll} saving={saving} saveMsg={saveMsg}
+          githubPat={githubPat} setGithubPat={setGithubPat}
+          triggerGraphify={triggerGraphify} triggering={triggering} triggerMsg={triggerMsg}
         />
+      )}
+
+      {tab === 'agents' && (
+        <AgentsTab ventureId={venture.id} ventureName={venture.name} />
       )}
 
       {tab === 'social' && (

@@ -417,6 +417,16 @@ Full rebuilds are reserved for schema migrations only.
 
 ### 6.2 Canonical CAOS pipeline (consolidated reference — see also Layer 1-11, §7.0)
 
+> **⚠ SUPERSEDED 2026-08-22.** The twelve-phase pipeline below is **CAOS v1**.
+> Measured against the live `events` table, nine of its twelve phases had never
+> emitted a single event, and `tool.call` had never been recorded once — a
+> swallowed `TypeError` from a callback-arity mismatch, not a design fault.
+> The live design is **[docs/CAOS-V2.md](./CAOS-V2.md)**: seven steps in three
+> stages, all of which run. The post-mortem and the v1→v2 mapping are in
+> **[docs/CAOS-V1-DEPRECATED.md](./CAOS-V1-DEPRECATED.md)**. This section is
+> retained because §7.0 and the Layer 1-11 material still reference it; treat
+> it as history, not as a description of the running system.
+
 ```
 INPUT
   │

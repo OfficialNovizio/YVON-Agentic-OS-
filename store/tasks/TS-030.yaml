@@ -48,3 +48,7 @@ exit_gate:
 feedback:                # filled post-execution — anneal consumes
   outcome: null          # accepted | revised | rejected
   lesson: null
+design_session_id: "cfb3bf63-3e4a-4d80-89b7-60335f966213"
+design_tool: "open-design"
+history:
+  - {ts: "2026-08-19T16:23:05+00:00", actor: "operator", event: "design_origin_set", note: "session=cfb3bf63-3e4a-4d80-89b7-60335f966213 tool=open-design"}

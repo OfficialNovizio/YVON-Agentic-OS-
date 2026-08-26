@@ -1,0 +1,91 @@
+# TS-048 — push the engine, sync the VPS, and rebuild the venture graph +
+# mempalace end to end (operator-ordered, 2026-08-25). Created directly as a
+# record per operator instruction ("do a kanban for this now") — this work is
+# the first card on the relocated /task-board, executed in this session.
+# Acceptance is the DB truth: rows ready, counts real, branch pushed.
+id: TS-048
+status: executing
+source_message: "great first give command to push repo in git then update local repo from there and then build graph in your repo graphify and mempalace after you build both locally then push to DB. Do a kanban for this now"
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only — no transcript inheritance
+  inject_form: .toon (this YAML is the source form)
+
+classification:
+  task_type: "infra"
+  departments:
+    - Engineering
+  lead: dev
+
+context:
+  chunks: []
+  existing_assets:
+    - vps-scripts/graphify-ventures-nightly.sh
+    - system-harness/graph-brain/ci/graphify-venture.sh
+    - system-harness/graph-brain/ci/mempalace-venture.sh
+  conflicts: []
+
+discovery:
+  questions: []
+  decisions:
+    - "Operator decided: nightly rebuild runs via graphify-ventures-nightly.sh on the VPS — no Rebuild Now button, no manual steps"
+    - "Env sourced from /root/.yvon-supabase.env (clean source of truth — the wrapper's systemd env carried a corrupted DSN)"
+
+work_items:
+  - id: WI-1
+    owner: dev
+    objective: "Push the engine repo to origin, sync the VPS engine checkout, and run the nightly rebuild once — graphify + mempalace for every ready venture, pushing yvon-graph to GitHub and upserting venture_graphs / venture_repo_knowledge to ready"
+    strategy: BALANCE 1.0x
+    consumes: []
+    produces: "ready rows in venture_graphs + venture_repo_knowledge; yvon-graph branch with fresh commit"
+    owns_paths: []
+    skills: []
+    scripts:
+      - vps-scripts/graphify-ventures-nightly.sh
+    blocked_by: []
+    acceptance:
+      - text: "Repo pushed to origin (git push origin main succeeds)"
+        status: pending
+        evidence: ""
+      - text: "VPS engine checkout synced (git -C /root/YVON-Agentic-OS- pull --ff-only → HEAD matches origin/main)"
+        status: pending
+        evidence: ""
+      - text: "venture_graphs.status = ready with node_count > 0 and fresh built_at"
+        status: pending
+        evidence: ""
+      - text: "venture_repo_knowledge.status = ready with entry_count > 0"
+        status: pending
+        evidence: ""
+      - text: "yvon-graph branch pushed to GitHub (new commit, graph/ + knowledge/ present)"
+        status: pending
+        evidence: ""
+    security_review: none
+    doer: dev
+    verifier: operator
+    integrator: ""
+
+dag:
+  parallel: []
+  critical_path:
+    - WI-1
+
+exit_gate:
+  owner: operator
+  proof: ""
+
+feedback:
+  outcome: null
+  lesson: null
+
+created_at: "2026-08-25T18:20:00Z"
+updated_at: "2026-08-25T18:20:00Z"
+revision_of: null
+derived_from: null
+superseded_by: null
+blocked: false
+blocked_at: ""
+blocked_reason: ""
+run_ref: ""
+history:
+  - {ts: "2026-08-25T18:20:00Z", actor: "dev", event: "opened_executing", note: "operator-ordered kanban card — push → sync VPS → rebuild graph + palace → verify DB"}

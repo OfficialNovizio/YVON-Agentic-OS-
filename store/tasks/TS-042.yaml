@@ -1,0 +1,129 @@
+# TS-042 — the scroll animation request (demo chain root, "One Request, End to End").
+# The full arc is on this one record: opened → PRD attached → approved → executing →
+# BLOCKED sidecar (credential gap, then resolved) → gated → review → suite FAILED
+# (1 of 4) → superseded by TS-043 (forward-only rotation). Seeded 2026-08-24.
+id: TS-042
+status: review
+source_message: "I need a scroll animation for the landing page. Something that dives through, like the Apple product pages."
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only — no transcript inheritance
+  inject_form: .toon (this YAML is the source form)
+
+classification:
+  task_type: "build"
+  departments:
+    - Engineering
+  lead: "mia"
+
+context:
+  chunks: []
+  existing_assets: []
+  conflicts: []
+
+discovery:
+  questions: []
+  decisions:
+    - "One section first — section 3 (the dive) is the unit everything else scales from"
+    - "Budget is a hard input: $0.50 strict, set before any generation"
+    - "The PRD's acceptance criteria ARE the suite's assertions — one list, three renderings"
+
+work_items:
+  - id: WI-1
+    owner: "mia"
+    objective: "CAOS panel dive animation, keyboard-reachable, inside the 312px rail"
+    strategy: BALANCE 1.0x
+    consumes: []
+    produces: "dashboard/app/chat/CaosPanel.tsx"
+    owns_paths:
+      - dashboard/app/chat/CaosPanel.tsx
+    skills: []
+    scripts: []
+    blocked_by: []
+    acceptance:
+      - text: "Renders inside the 312px rail"
+        status: pass
+        evidence: "chromium 1300×1000 · pass"
+      - text: "Every step row expands to its decision"
+        status: pass
+        evidence: "8 rows checked · pass"
+      - text: "No measurement rendered that was not taken"
+        status: pass
+        evidence: "47 assertions · pass"
+      - text: "Keyboard reachable at every control"
+        status: fail
+        evidence: "FAIL — Enter on .caos2-head did not expand · run-2617"
+    security_review: none
+    doer: "mia"
+    verifier: "quinn"
+    integrator: ""
+  - id: WI-2
+    owner: "mia"
+    objective: "caos-panel.css scoped styles"
+    strategy: BALANCE 1.0x
+    consumes: []
+    produces: "dashboard/app/chat/caos-panel.css"
+    owns_paths:
+      - dashboard/app/chat/caos-panel.css
+    skills: []
+    scripts: []
+    blocked_by: []
+    acceptance: []
+    security_review: none
+  - id: WI-3
+    owner: "mia"
+    objective: "caos-v2.ts state module"
+    strategy: BALANCE 1.0x
+    consumes: []
+    produces: "dashboard/lib/caos-v2.ts"
+    owns_paths:
+      - dashboard/lib/caos-v2.ts
+    skills: []
+    scripts: []
+    blocked_by: []
+    acceptance: []
+    security_review: none
+
+dag:
+  parallel:
+    - WI-2
+    - WI-3
+  critical_path:
+    - WI-1
+
+exit_gate:
+  owner: "quinn"
+  proof: "store/runs/run-2617.md"
+
+feedback:
+  outcome: null
+  lesson: null
+
+created_at: "2026-08-19T11:02:00Z"
+updated_at: "2026-08-22T10:15:00Z"
+revision_of: null
+derived_from: null
+superseded_by: TS-043
+blocked: false
+blocked_at: ""
+blocked_reason: ""
+run_ref: "store/runs/run-2617.md"
+approved_by: "operator"
+approved_at: "2026-08-19T11:02:00Z"
+history:
+  - {ts: "2026-08-19T11:02:00Z", actor: "operator", event: "opened_draft", note: "requested from chat"}
+  - {ts: "2026-08-19T11:02:00Z", actor: "spec", event: "prd_attached", note: "ref=store/tasks/TS-042-prd.md rice=0"}
+  - {ts: "2026-08-19T11:02:00Z", actor: "operator", event: "approved", note: ""}
+  - {ts: "2026-08-19T11:03:00Z", actor: "mia", event: "executing_started", note: "3 work item(s) dispatched"}
+  - {ts: "2026-08-20T13:30:00Z", actor: "mia", event: "blocked", note: "OPENAI_API_KEY unset — screenshot-to-code has no key"}
+  - {ts: "2026-08-22T09:10:00Z", actor: "operator", event: "unblocked", note: "credential provided"}
+  - {ts: "2026-08-22T09:40:00Z", actor: "mia", event: "gated", note: ""}
+  - {ts: "2026-08-22T10:03:00Z", actor: "quinn", event: "review_opened", note: "suite queued"}
+  - {ts: "2026-08-22T10:14:00Z", actor: "quinn", event: "suite_failed", note: "store/runs/run-2617.md · 1 of 4 assertions"}
+  - {ts: "2026-08-22T10:15:00Z", actor: "system", event: "superseded", note: "superseded by TS-043"}
+
+handoff: {}
+
+prd_ref: "store/tasks/TS-042-prd.md"
+rice_score: "0"

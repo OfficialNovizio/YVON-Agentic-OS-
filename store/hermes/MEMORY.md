@@ -41,6 +41,7 @@ Connected 2026-07-23 (TS-002).
 - [2026-07-23#seed] Hermes memory lives in-repo at store/hermes/ (versioned, portable), configured via yvon.config.json.
 
 ## spark
+- [2026-08-18#loop] Creative passed all Ogilvy tests
 - [2026-08-10#loop] Good creative review
 - [2026-08-10#loop] Good review
 - [2026-08-09#loop] Good creative review
@@ -71,3 +72,6 @@ Connected 2026-07-23 (TS-002).
 - [2026-08-04#loop] Good review
 - [2026-08-04#loop] Good creative review
 - [2026-08-04#loop] Good review
+
+## board
+- [2026-08-18#loop] Board review passed all gates

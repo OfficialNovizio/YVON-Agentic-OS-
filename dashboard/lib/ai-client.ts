@@ -13,7 +13,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { PROVIDER_MODELS } from '@/lib/providers'
-import { runToolLoop, type ToolLoopEvent } from '@/lib/tool-loop'
+import { runToolLoop, runToolLoopOpenAI, type ToolLoopEvent } from '@/lib/tool-loop'
 import { toolsForAgent } from '@/lib/agent-tools'
 import { runAgentSdk, isAgentSdkEnabled } from '@/lib/agent-sdk-runner'
 
@@ -55,13 +55,25 @@ export async function loadConfig(): Promise<ProviderConfig> {
 
     if (sbUrl && sbKey) {
       const sb = createClient(sbUrl, sbKey)
-      const { data } = await sb
+      const { data, error } = await sb
         .from('ai_provider_keys')
         .select('provider, api_key, fast_model, synthesis_model, tier1_model, base_url, tertiary_model')
         .eq('is_active', true)
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle()
+
+      // 2026-08-15: this query used to silently discard `error` (only `data`
+      // was destructured). When the schema drifted — tier1_model existed in
+      // code but not yet on the live table — the query failed, `data` stayed
+      // null, and this fell all the way through to the Anthropic-only env
+      // fallback below with NO indication why, even for operators running a
+      // different active provider. Logging it now so a schema/query problem
+      // shows up in server logs instead of surfacing as a confusing
+      // "Could not resolve authentication method" error two layers away.
+      if (error) {
+        console.error('[ai-client loadConfig] ai_provider_keys query failed, falling back to env config:', error.message)
+      }
 
       if (data) {
         const providerKey = data.provider as string
@@ -131,25 +143,59 @@ function oaiMessages(system: string | undefined, messages: AIMessage[]) {
   ]
 }
 
+// 2026-08-15: OpenAI's newer chat-completions models (o1/o3-family, and now
+// gpt-5.x — confirmed live via a real 400 from api.openai.com: "Unsupported
+// parameter: 'max_tokens' is not supported with this model. Use
+// 'max_completion_tokens' instead.") reject the classic `max_tokens` param.
+// Scoped to api.openai.com specifically — third-party OpenAI-compatible
+// servers (DeepSeek, OpenRouter, local vLLM/llama.cpp, etc.) generally only
+// understand `max_tokens` and would break the other way if this applied
+// globally.
+function maxTokensParamName(baseUrl: string): 'max_completion_tokens' | 'max_tokens' {
+  return baseUrl.toLowerCase().includes('api.openai.com') ? 'max_completion_tokens' : 'max_tokens'
+}
+
 async function oaiCall(
   baseUrl: string,
   apiKey:  string,
   model:   string,
   msgs:    { role: string; content: string }[],
   maxTokens: number,
+  jsonMode?: boolean,
 ): Promise<string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`
 
+  // jsonMode is opt-in per call (routes that need strict JSON back, e.g. Job
+  // Hunt's resume analyzer) — only applied against api.openai.com, since
+  // third-party OpenAI-compatible servers don't reliably support
+  // response_format and callers that don't pass it (LinkedIn drafts, cover
+  // letters, etc.) still get plain text as before.
+  const useJsonMode = jsonMode && baseUrl.toLowerCase().includes('api.openai.com')
+
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method:  'POST',
     headers,
-    body:    JSON.stringify({ model, max_tokens: maxTokens, messages: msgs }),
+    body:    JSON.stringify({
+      model,
+      [maxTokensParamName(baseUrl)]: maxTokens,
+      messages: msgs,
+      ...(useJsonMode ? { response_format: { type: 'json_object' } } : {}),
+    }),
   })
   if (!res.ok) throw new Error(`${baseUrl} ${res.status}: ${await res.text()}`)
-  const data = await res.json() as { choices: Array<{ message: { content?: string; reasoning_content?: string } }> }
+  const data = await res.json() as { choices: Array<{ message: { content?: string; reasoning_content?: string }; finish_reason?: string }> }
   // Prefer content; fall back to reasoning_content for Qwen3/local models that blend thinking+reply
-  return data.choices[0]?.message?.content || data.choices[0]?.message?.reasoning_content || ''
+  const text = data.choices[0]?.message?.content || data.choices[0]?.message?.reasoning_content || ''
+  if (!text && data.choices[0]?.finish_reason === 'length') {
+    // Reasoning-tier models (o1/o3/gpt-5.x-class) count hidden reasoning
+    // tokens against the same budget as maxTokens — if the budget runs out
+    // mid-thought, content comes back empty with finish_reason "length"
+    // instead of an error. Surface that distinctly so callers know to raise
+    // maxTokens rather than debugging a phantom "no JSON" parse failure.
+    throw new Error(`Model ran out of tokens before producing output (finish_reason: length). Try a higher maxTokens — reasoning models spend part of the budget on hidden reasoning tokens.`)
+  }
+  return text
 }
 
 async function* oaiStream(
@@ -165,7 +211,7 @@ async function* oaiStream(
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method:  'POST',
     headers,
-    body:    JSON.stringify({ model, max_tokens: maxTokens, messages: msgs, stream: true }),
+    body:    JSON.stringify({ model, [maxTokensParamName(baseUrl)]: maxTokens, messages: msgs, stream: true }),
   })
   if (!res.ok || !res.body) throw new Error(`${baseUrl} ${res.status}`)
 
@@ -219,6 +265,8 @@ export async function callFast(params: {
   system?:   string
   messages:  AIMessage[]
   maxTokens: number
+  /** Opt-in strict JSON response (OpenAI's response_format=json_object). No-op on non-OpenAI backends. */
+  jsonMode?: boolean
 }): Promise<string> {
   const cfg = await loadConfig()
 
@@ -246,6 +294,7 @@ export async function callFast(params: {
     cfg.fastModel,
     oaiMessages(params.system, params.messages),
     params.maxTokens,
+    params.jsonMode,
   )
 }
 
@@ -255,6 +304,8 @@ export async function callSynthesis(params: {
   system?:   string
   messages:  AIMessage[]
   maxTokens: number
+  /** Opt-in strict JSON response (OpenAI's response_format=json_object). No-op on non-OpenAI backends. */
+  jsonMode?: boolean
 }): Promise<string> {
   const cfg = await loadConfig()
 
@@ -281,6 +332,7 @@ export async function callSynthesis(params: {
     cfg.synthesisModel,
     oaiMessages(params.system, params.messages),
     params.maxTokens,
+    params.jsonMode,
   )
 }
 
@@ -406,25 +458,14 @@ export async function* streamWithTools(params: {
     ? (cfg.tier1Model || cfg.synthesisModel)
     : cfg.fastModel
 
-  if (cfg.protocol !== 'anthropic') {
-    // OpenAI-compatible endpoints: Anthropic tool_use schema not compatible — tools stripped.
-    // Agents respond from context only (no file reads, GitHub, or Bash available).
-    yield { kind: 'error', message: `Tool use unavailable: provider "${cfg.provider}" uses OpenAI-compatible protocol. Agents respond from context only — no file reads, no GitHub access. Switch to an Anthropic provider in Settings to enable tools.` }
-    yield { kind: 'iteration', n: 1 }
-    let buf = ''
-    for await (const chunk of streamSynthesis({ system: params.system, messages: params.messages, maxTokens: params.maxTokens })) {
-      buf += chunk
-      yield { kind: 'text', text: chunk }
-    }
-    void buf
-    yield { kind: 'done', reason: 'end_turn' }
-    return
-  }
-
-  const client = new Anthropic({ apiKey: cfg.apiKey, ...(cfg.baseUrl ? { baseURL: cfg.baseUrl } : {}) })
+  // Tool-list computation moved above the protocol branch (2026-08-20) — it
+  // used to live only in the Anthropic path below, because the
+  // openai-compat path used to just strip every tool and bail. Now both
+  // protocols run a real tool loop (runToolLoop vs runToolLoopOpenAI, picked
+  // below), so both need the same filtered tool list.
   const isProductVenture = params.ventureSlug && params.ventureSlug !== 'yvon-dashboard'
   const isLocalMode      = params.repoMode === 'local'
-  const LOCAL_FS_TOOL_NAMES = ['Read', 'Glob', 'Grep', 'Bash']
+  const LOCAL_FS_TOOL_NAMES = ['Read', 'Glob', 'Grep', 'Bash', 'Write', 'Edit']
   // In GitHub mode: strip FS tools from schema so the model doesn't try to call them.
   // In local mode: include them — user has explicitly enabled local filesystem access.
   let tools = toolsForAgent(params.agentId).filter(t =>
@@ -451,6 +492,30 @@ export async function* streamWithTools(params: {
     })
   }
 
+  const toolContext = { ventureSlug: params.ventureSlug, repoMode: params.repoMode, localRepoPath: params.localRepoPath }
+
+  if (cfg.protocol !== 'anthropic') {
+    // Fixed 2026-08-20: this used to strip every tool for any non-Anthropic
+    // provider and fall back to a text-only reply — a real implementation
+    // gap, not a fact about the model. OpenAI's own chat.completions API
+    // (and anything mirroring it — DeepSeek, OpenRouter, local servers) has
+    // real native function/tool calling; runToolLoopOpenAI (lib/tool-loop.ts)
+    // speaks that wire format directly instead of assuming Anthropic's.
+    yield* runToolLoopOpenAI({
+      baseUrl:         cfg.baseUrl,
+      apiKey:          cfg.apiKey,
+      model,
+      maxTokens:       params.maxTokens,
+      system:          params.system,
+      tools,
+      initialMessages: params.messages.map(m => ({ role: m.role, content: m.content })),
+      maxIterations:   params.maxIterations,
+      toolContext,
+    })
+    return
+  }
+
+  const client = new Anthropic({ apiKey: cfg.apiKey, ...(cfg.baseUrl ? { baseURL: cfg.baseUrl } : {}) })
   const thinkingConfig = getThinkingConfig(model, params.modelTier)
 
   yield* runToolLoop({
@@ -462,7 +527,7 @@ export async function* streamWithTools(params: {
     tools,
     initialMessages: params.messages.map(m => ({ role: m.role, content: m.content })),
     maxIterations:   params.maxIterations,
-    toolContext:     { ventureSlug: params.ventureSlug, repoMode: params.repoMode, localRepoPath: params.localRepoPath },
+    toolContext,
   })
 }
 

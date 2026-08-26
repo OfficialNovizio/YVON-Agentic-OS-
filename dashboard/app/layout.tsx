@@ -32,13 +32,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="dark">
       <body className="bg-background text-on-surface bg-yvon-image min-h-screen">
-        <SessionGate>
-          <WorkspaceProvider>
-            <ErrorBoundary>
-              <Shell>{children}</Shell>
-            </ErrorBoundary>
-          </WorkspaceProvider>
-        </SessionGate>
+        {/* Fixed 2026-08-20: was `.bg-yvon-image > *` in globals.css, a
+            blanket rule forcing position:relative on every direct child of
+            <body> — that included anything portaled straight to
+            document.body (LocalRepoPathPicker's "Browse…" popover, and any
+            future toast/modal/palette that does the same), silently
+            breaking their position:fixed. Scoped to just this wrapper —
+            the actual visible app content — so document.body portals are
+            no longer caught by it. See globals.css's `.bg-yvon-image-content`. */}
+        <div className="bg-yvon-image-content">
+          <SessionGate>
+            <WorkspaceProvider>
+              <ErrorBoundary>
+                <Shell>{children}</Shell>
+              </ErrorBoundary>
+            </WorkspaceProvider>
+          </SessionGate>
+        </div>
         <RegisterServiceWorker />
         <AgentationToolbar />
         <Analytics />

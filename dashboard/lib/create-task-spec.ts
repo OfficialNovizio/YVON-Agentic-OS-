@@ -28,9 +28,11 @@
 
 import { execFile } from 'child_process'
 import { promisify } from 'util'
+import fs from 'fs'
 import path from 'path'
 import { hermesConfig } from '@/lib/hermes-client'
 import { errMsg } from '@/lib/errors'
+import type { GeneratedPrd } from '@/lib/prd-generator'
 
 const execFileAsync = promisify(execFile)
 
@@ -42,6 +44,23 @@ export interface CreateTaskResult {
   taskSpecError: string | null
   kanbanOk: boolean
   kanbanError: string | null
+}
+
+async function mirrorToKanban(taskId: string | null, title: string): Promise<{ kanbanOk: boolean; kanbanError: string | null }> {
+  const cfg = hermesConfig()
+  if (!cfg.configured || !cfg.url || !cfg.token) {
+    return { kanbanOk: false, kanbanError: cfg.reason ?? 'Hermes not configured' }
+  }
+  try {
+    const res = await fetch(`${cfg.url}/api/hermes/plugins/kanban/tasks`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${cfg.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: taskId ? `${taskId} · ${title.trim()}` : title.trim() }),
+    })
+    return res.ok ? { kanbanOk: true, kanbanError: null } : { kanbanOk: false, kanbanError: `Hermes Kanban responded ${res.status}` }
+  } catch (e) {
+    return { kanbanOk: false, kanbanError: errMsg(e) }
+  }
 }
 
 export async function createTaskSpecAndMirror(title: string, summary: string): Promise<CreateTaskResult> {
@@ -65,24 +84,95 @@ export async function createTaskSpecAndMirror(title: string, summary: string): P
   // Best-effort — the TASK-SPEC draft above is the real, governed artifact;
   // the Kanban card is a visibility mirror, not the source of truth, so its
   // failure doesn't fail the whole operation.
-  let kanbanOk = false
-  let kanbanError: string | null = null
-  const cfg = hermesConfig()
-  if (cfg.configured && cfg.url && cfg.token) {
-    try {
-      const res = await fetch(`${cfg.url}/api/hermes/plugins/kanban/tasks`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${cfg.token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: taskId ? `${taskId} · ${title.trim()}` : title.trim() }),
-      })
-      kanbanOk = res.ok
-      if (!res.ok) kanbanError = `Hermes Kanban responded ${res.status}`
-    } catch (e) {
-      kanbanError = errMsg(e)
-    }
-  } else {
-    kanbanError = cfg.reason ?? 'Hermes not configured'
-  }
+  const { kanbanOk, kanbanError } = await mirrorToKanban(taskId, title)
 
   return { taskId, taskSpecError, kanbanOk, kanbanError }
+}
+
+// ─── createTaskFromPrd — the PRD-gated path ─────────────────────────────────
+// docs/PRD-prd-gated-task-conversion.md. Unlike createTaskSpecAndMirror above
+// (draft only, everything else manual), this runs the record all the way to
+// `executing`: the generated PRD already IS discovery's answer, so there is
+// nothing left for a human to fill in before work can start. Chain:
+//   new → write {id}-prd.md → set-prd → fill-discovery → discover → approve → start
+// Any step failing stops the chain and reports exactly which step and why —
+// never silently partial, per the same "fail loud" rule task-spec/route.ts
+// already documents for reads.
+
+export interface CreateTaskFromPrdResult {
+  taskId: string | null
+  status: string | null
+  error: string | null
+  /** which step failed, for an honest error message — null if taskId is set */
+  failedStep: string | null
+  kanbanOk: boolean
+  kanbanError: string | null
+}
+
+async function runTask(...args: string[]): Promise<{ ok: boolean; stdout: string; stderr: string }> {
+  try {
+    const { stdout } = await execFileAsync('python3', [TASK_PY, ...args], { cwd: REPO_ROOT, timeout: 15_000 })
+    return { ok: true, stdout, stderr: '' }
+  } catch (e) {
+    const err = e as { stdout?: string; stderr?: string; message?: string }
+    return { ok: false, stdout: err.stdout ?? '', stderr: err.stderr || err.message || errMsg(e) }
+  }
+}
+
+export async function createTaskFromPrd(
+  title: string,
+  summary: string,
+  generated: GeneratedPrd,
+  approvedBy: string,
+): Promise<CreateTaskFromPrdResult> {
+  const sourceMessage = `${title.trim()}\n\n${summary.trim()}`
+
+  const created = await runTask('new', sourceMessage, '--actor', approvedBy)
+  const idMatch = created.stdout.match(/TS-\d+/)
+  if (!created.ok || !idMatch) {
+    return { taskId: null, status: null, error: created.stderr || 'task.py new produced no TS id', failedStep: 'new', kanbanOk: false, kanbanError: null }
+  }
+  const taskId = idMatch[0]
+
+  // Write the real PRD file BEFORE set-prd — set-prd requires it to exist on disk.
+  const prdRelPath = path.join('store', 'tasks', `${taskId}-prd.md`)
+  try {
+    await fs.promises.writeFile(path.join(REPO_ROOT, prdRelPath), generated.markdown)
+  } catch (e) {
+    return { taskId, status: 'draft', error: `wrote ${taskId} but failed to write its PRD file: ${errMsg(e)}`, failedStep: 'write-prd', kanbanOk: false, kanbanError: null }
+  }
+
+  const setPrd = await runTask('set-prd', taskId, '--ref', prdRelPath, '--rice', String(generated.riceScore), '--actor', 'spec')
+  if (!setPrd.ok) {
+    return { taskId, status: 'draft', error: setPrd.stderr, failedStep: 'set-prd', kanbanOk: false, kanbanError: null }
+  }
+
+  const fillDiscovery = await runTask(
+    'fill-discovery', taskId,
+    '--lead', generated.meta.lead,
+    '--decisions', JSON.stringify(generated.meta.decisions),
+    '--objective', generated.meta.objective,
+    '--actor', 'spec',
+  )
+  if (!fillDiscovery.ok) {
+    return { taskId, status: 'draft', error: fillDiscovery.stderr, failedStep: 'fill-discovery', kanbanOk: false, kanbanError: null }
+  }
+
+  const discover = await runTask('discover', taskId, '--actor', 'spec')
+  if (!discover.ok) {
+    return { taskId, status: 'draft', error: discover.stderr, failedStep: 'discover', kanbanOk: false, kanbanError: null }
+  }
+
+  const approve = await runTask('approve', taskId, '--by', approvedBy)
+  if (!approve.ok) {
+    return { taskId, status: 'discovery', error: approve.stderr, failedStep: 'approve', kanbanOk: false, kanbanError: null }
+  }
+
+  const start = await runTask('start', taskId, '--actor', approvedBy)
+  if (!start.ok) {
+    return { taskId, status: 'approved', error: start.stderr, failedStep: 'start', kanbanOk: false, kanbanError: null }
+  }
+
+  const { kanbanOk, kanbanError } = await mirrorToKanban(taskId, title)
+  return { taskId, status: 'executing', error: null, failedStep: null, kanbanOk, kanbanError }
 }

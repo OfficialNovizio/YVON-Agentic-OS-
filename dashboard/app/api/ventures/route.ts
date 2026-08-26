@@ -2,6 +2,14 @@ import { getAllVentures, createVenture } from '@/lib/db'
 import type { VentureConfig } from '@/lib/types'
 import { errMsg } from '@/lib/errors'
 
+// 2026-08-14 fix: no dynamic directive meant Next.js could serve this GET
+// from its default Route Handler / fetch cache — a snapshot from whenever it
+// was first cached, not what's actually in the DB now. Symptom reported:
+// save a venture's repoUrl in Settings, refresh, field shows blank again
+// (the cached response predated the save). force-dynamic makes every
+// request hit getAllVentures() fresh.
+export const dynamic = 'force-dynamic'
+
 export async function GET(): Promise<Response> {
   try {
     // yvon-os is now a real `ventures` row (kind='core'), inserted by
