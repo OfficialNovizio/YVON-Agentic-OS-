@@ -1,0 +1,1 @@
+{"nodes": [], "edges": [], "hyperedges": [{"id": "client_success_coordination_network", "label": "Client Success Coordination Network", "nodes": ["ally", "kickoff", "retain", "keel"], "relation": "participate_in", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "Teams/Client Success/ally/operational/skill/ally-skill-routing.md"}]}

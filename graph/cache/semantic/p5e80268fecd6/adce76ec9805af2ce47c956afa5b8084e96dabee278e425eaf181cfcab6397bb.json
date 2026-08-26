@@ -1,0 +1,1 @@
+{"nodes": [{"id": "claude_agents_relay_relay", "label": "Relay", "file_type": "document", "source_file": ".claude/agents/relay.md", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null, "rationale": "Relay exists to prevent unregistered capabilities, over-broad grants, and unmanaged integrations."}], "edges": [], "hyperedges": []}

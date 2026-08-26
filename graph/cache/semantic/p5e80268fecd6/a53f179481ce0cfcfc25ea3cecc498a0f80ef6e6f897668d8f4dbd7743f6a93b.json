@@ -1,0 +1,1 @@
+{"nodes": [{"id": "claude_agents_anneal", "label": "Anneal Agent", "file_type": "document", "source_file": ".claude/agents/anneal.md", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null, "rationale": "Maintains plain-text operational knowledge and closes the lesson-to-text learning loop."}], "edges": [], "hyperedges": []}
