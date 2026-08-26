@@ -62,6 +62,23 @@ export MEMPALACE_BACKEND=pgvector
 export MEMPALACE_PGVECTOR_DSN
 export MEMPALACE_PGVECTOR_NAMESPACE="venture-$VENTURE_SLUG"
 
+# 2026-08-26: Supabase's pgBouncer POOLER (transaction mode) discards prepared
+# statements between transactions — mempalace dies intermittently with
+# `psycopg.errors.InvalidSqlStatementName: prepared statement "_pg3_0" does
+# not exist` (hit live: novizio failed 17s in one run after succeeding the
+# previous night — pool-dependent flakiness). Route mempalace to the DIRECT
+# Postgres connection instead: same credentials, host db.<project-ref>
+# .supabase.co:5432, no pooler. Derived from the DSN itself (user is
+# postgres.<ref>), so no new config needed.
+if [[ "$MEMPALACE_PGVECTOR_DSN" == *pooler.supabase.com* ]]; then
+  REF=$(echo "$MEMPALACE_PGVECTOR_DSN" | sed -E 's@.*://postgres\.([^.]+)\.@\1@')
+  FIXED=$(echo "$MEMPALACE_PGVECTOR_DSN" | sed -E "s@aws-0-[a-z0-9-]+\.pooler\.supabase\.com:6543@db.$REF.supabase.co:5432@")
+  if [ -n "$REF" ] && [ "$FIXED" != "$MEMPALACE_PGVECTOR_DSN" ]; then
+    export MEMPALACE_PGVECTOR_DSN="$FIXED"
+    echo "  (mempalace DSN: pooler → direct db.$REF.supabase.co:5432 — fixes prepared-statement errors)"
+  fi
+fi
+
 # 2026-08-25: per-venture palace HOME. mempalace resolves the palace as
 # ~/.mempalace/palace (config.py DEFAULT_PALACE_PATH via expanduser, which
 # honors $HOME) and the marker there records ONE namespace/table_prefix.
@@ -173,9 +190,32 @@ echo "[4/6] mempalace mine . --wing $VENTURE_SLUG (90m timeout)"
 # day, nightly lock held, every following night skipped), the mine used to
 # hang forever. Now it fails within 90m with the output tail visible, and
 # the nightly lock always releases.
-MINE_OUT=$(printf 'y\n' | timeout 5400 "$MEMPALACE_BIN" mine . --backend pgvector --wing "$VENTURE_SLUG" --agent yvon-mempalace 2>&1) \
-  || fail "mempalace mine failed (90m timeout or error — embedding host unreachable?): $MINE_OUT"
-echo "$MINE_OUT"
+# 2026-08-26 v2: output STREAMS live into the venture log via tee — a
+# $(...) capture only printed after completion, which made hour-long mines
+# on big repos (yvon-os: 2420 files) look frozen. The tee'd copy feeds the
+# entry-count parse and the palace-marker retry below.
+MINE_TEE="$WORKDIR/.mine-output.txt"
+MINE_RUN() {
+  printf 'y\n' | timeout 5400 "$MEMPALACE_BIN" mine . --backend pgvector --wing "$VENTURE_SLUG" --agent yvon-mempalace 2>&1 | tee "$MINE_TEE"
+}
+if ! MINE_RUN; then
+  MINE_OUT="$(cat "$MINE_TEE" 2>/dev/null || true)"
+  # 2026-08-26: the palace marker records host/port of the DSN at init time —
+  # changing the DSN (pooler → direct, the prepared-statement fix) makes the
+  # marker mismatch and the mine dies instantly with BackendMismatchError.
+  # The error itself sanctions this fix: "use a fresh palace directory".
+  if echo "$MINE_OUT" | grep -q "BackendMismatchError"; then
+    echo "  (palace marker mismatch — clearing palace dir, retrying once)"
+    rm -rf "$HOME/.mempalace"
+    if ! MINE_RUN; then
+      MINE_OUT="$(cat "$MINE_TEE" 2>/dev/null || true)"
+      fail "mempalace mine failed (retry after palace reset): $MINE_OUT"
+    fi
+  else
+    fail "mempalace mine failed (90m timeout or error — embedding host unreachable?): $(tail -c 300 "$MINE_TEE" 2>/dev/null || true)"
+  fi
+fi
+MINE_OUT="$(cat "$MINE_TEE" 2>/dev/null || true)"
 
 # Best-effort entry-count extraction from mine's own summary line. Format is
 # not yet confirmed against a live run (sandboxed dev environment couldn't

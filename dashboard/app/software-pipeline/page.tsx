@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { Card, PageHeader, StatusBadge, Avatar } from '@/components/ui'
 import KaisRead from '@/components/KaisRead'
 import { PipelineCards } from '@/components/PipelineCards'
+import InputAnalysisTree from '@/components/InputAnalysisTree'
+import CaosSwimlane from '@/components/CaosSwimlane'
 import { useWorkspace } from '@/lib/WorkspaceContext'
 import { Github, ExternalLink, GitPullRequest, ShieldCheck, Plus, FileText } from 'lucide-react'
 
@@ -166,6 +168,19 @@ export default function SoftwarePipelinePage() {
       {/* Pipeline views — real CAOS / Context / RAG / Input Analysis / Master
           (replaces the fake venture cards) */}
       <PipelineCards />
+
+      {/* Input Analysis — live node-tree flow (2026-08-26): message → classify
+          → extract → must-haves → route. Real data: events table + Realtime. */}
+      <div className="mb-5">
+        <InputAnalysisTree workspaceKey={workspace.key} />
+      </div>
+
+      {/* CAOS v2 — swimlane orchestration flow (2026-08-26): PREPARE →
+          EXECUTE → SETTLE lanes + telemetry strip. Real data: buildCaosView
+          over the events table. */}
+      <div className="mb-5">
+        <CaosSwimlane workspaceKey={workspace.key} />
+      </div>
 
       {/* QA gate explainer — updated to show BACKLOG step */}
       <Card className="mb-4 flex flex-wrap items-center gap-3 p-3 text-[12px] text-on-surface-variant">

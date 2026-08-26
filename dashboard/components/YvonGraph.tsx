@@ -317,22 +317,14 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
   const [open, setOpen] = useState<Placed | null>(null);
   const [status, setStatus] = useState<Record<string, Status>>({});
   const [q, setQ] = useState("");
-  // Real activity comes from the events table (below). `demo` is an explicitly
-  // labelled simulator for screenshots — never on by default.
-  const [demo, setDemo] = useState(false);
   // Scope = context_path (doc §6.1: "context_id = ventures.context_path" — the bare slug is
   // NOT the join key once nesting exists). TS-026/030: real ventures from the SHARED store —
-  // yvon-os + DB rows only; new ventures appear without refresh.
+  // yvon-os + DB rows only; new ventures appear without refresh. 2026-08-26:
+  // the scope HUD tabs were removed per operator — venture switching happens
+  // by clicking satellite orbs; `scope` remains internal for the events feed.
   const [scope, setScope] = useState("yvon-os");
-  const [scopes, setScopes] = useState<Array<[string, string]>>([["yvon-os", "YVON"]]);
   const { ventures } = useWorkspace();
   const contexts = ventures as Context[];
-
-  useEffect(() => {
-    if (ventures.length > 0) {
-      setScopes(ventures.map((v) => [v.contextPath ?? v.slug, (v.name ?? v.slug).toUpperCase()]));
-    }
-  }, [ventures]);
 
   // L3 — one satellite the operator has zoomed into (doc §2.3). null = universe view
   // (core ring + all satellite orbs at once).
@@ -623,24 +615,6 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
   // Departments inherit the strongest state of their agents (doc §16.2).
   const rolled = useMemo(() => bubbleUp(status, DEPARTMENTS), [status, DEPARTMENTS]);
 
-  useEffect(() => {
-    if (!demo || !DEPARTMENTS.length) return;
-    const all = [
-      ...DEPARTMENTS.map((x) => x.id),
-      ...DEPARTMENTS.flatMap((x) => x.agents.map((a) => a.id)),
-    ];
-    const t = setInterval(() => {
-      const id = all[Math.floor(Math.random() * all.length)];
-      const err = Math.random() < 0.08;
-      setStatus((p) => ({ ...p, [id]: err ? "error" : "active" }));
-      setTimeout(
-        () => setStatus((p) => ({ ...p, [id]: "idle" })),
-        err ? 3200 : 1600 + Math.random() * 2600
-      );
-    }, 700);
-    return () => clearInterval(t);
-  }, [demo, DEPARTMENTS]);
-
   const onWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     setView((v) => {
@@ -668,11 +642,20 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
     };
   }, []);
 
-  const activeCount = Object.values(status).filter((s) => s === "active").length;
   const dim = (name: string) => !!q && !name.toLowerCase().includes(q.toLowerCase());
 
   return (
-    <div style={embedded ? S.rootEmbedded : S.root}>
+    <div style={embedded ? S.rootEmbedded : S.root}
+      onMouseDown={(e) => {
+        // 2026-08-26: drag also binds to the ROOT container (not just the
+        // stage) so panning works from anywhere in the canvas — overlays can
+        // no longer swallow the gesture. Interactive elements (search input,
+        // links) keep their own behavior — never start a pan on them.
+        if ((e.target as HTMLElement).closest("input, button, a, textarea, select")) return;
+        drag.current = { on: true, px: e.clientX, py: e.clientY };
+        dragStart.current = { x: e.clientX, y: e.clientY };
+        dragMoved.current = false;
+      }}>
       <style>{CSS}</style>
 
       <div style={{
@@ -690,31 +673,12 @@ export default function YvonGraph({ embedded = false }: { embedded?: boolean }) 
                 ? codeGraphMode
                   ? `${openSatellite.name.toUpperCase()} · CODE GRAPH · ${satelliteRing.placed.length} CLUSTERS · ${satelliteRing.placed.reduce((n, x) => n + x.agents.length, 0)} NODES`
                   : `${openSatellite.name.toUpperCase()} · ${satelliteRing.placed.length} ACTIVE DEPTS · ${satelliteRing.placed.reduce((n, x) => n + x.agents.length, 0)} GRANTED AGENTS`
-                : `${DEPARTMENTS.length} DEPARTMENTS · ${DEPARTMENTS.reduce((n, x) => n + x.agents.length, 0)} AGENTS${demo ? ` · ${activeCount} ACTIVE` : ""}`}
+                : `${DEPARTMENTS.length} DEPARTMENTS · ${DEPARTMENTS.reduce((n, x) => n + x.agents.length, 0)} AGENTS`}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 5, pointerEvents: "auto" }}>
-          {/* doc §16.1 — one app, N scopes (TS-026: real ventures only). Tab id is
-              context_path (doc §6.1), and doubles as the L3 satellite entry point:
-              picking a non-core venture opens its scoped ring; YVON returns to the
-              universe view. */}
-          {scopes.map(([id, label]) => (
-            <button key={id} style={{ ...S.tab, ...(scope === id ? S.tabOn : {}) }}
-              onClick={() => {
-                punchZoom();
-                setScope(id);
-                setStatus({});
-                setOpen(null);
-                const ctx = contexts.find((c) => (c.contextPath ?? c.slug) === id);
-                setOpenSatellite(ctx && ctx.kind !== "core" ? ctx : null);
-              }}>{label}</button>
-          ))}
-          <button style={{ ...S.tab, ...(demo ? S.tabOn : {}), opacity: 0.7 }}
-            onClick={() => { setDemo((v) => !v); if (demo) setStatus({}); }}
-            title="Simulated pulse — for screenshots only, not real activity">
-            {demo ? "demo ON" : "demo"}
-          </button>
-        </div>
+        {/* 2026-08-26: scope tabs (YVON/HOURBOUR/NOVIZIO) + demo toggle removed
+            per operator — venture switching happens by clicking satellite orbs;
+            the demo pulse was screenshots-only and never on by default. */}
       </div>
 
       {!open && !openSatellite && (
@@ -1647,7 +1611,7 @@ const S: Record<string, React.CSSProperties> = {
     padding: "10px 12px", marginBottom: 10, overflowX: "auto", whiteSpace: "pre",
   },
 
-  legend: { position: "fixed", bottom: 20, left: 28, zIndex: 20, display: "flex", gap: 16 },
+  legend: { position: "fixed", bottom: 20, left: 28, zIndex: 20, display: "flex", gap: 16, pointerEvents: "none" },
   lg: { display: "flex", alignItems: "center", gap: 6, fontSize: 9.5, color: "#7b7f87", letterSpacing: "0.06em" },
-  hint: { position: "fixed", bottom: 20, right: 28, zIndex: 20, fontSize: 9.5, color: "#7b7f87", letterSpacing: "0.06em" },
+  hint: { position: "fixed", bottom: 20, right: 28, zIndex: 20, fontSize: 9.5, color: "#7b7f87", letterSpacing: "0.06em", pointerEvents: "none" },
 };

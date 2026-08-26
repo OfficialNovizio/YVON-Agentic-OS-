@@ -27,6 +27,16 @@ harness that now gates this work. **Read §13.6 (open gaps) and §13.7 (verifica
 before touching the generation surface** — §13.7 records the second occurrence of shipping a
 design as a product, and the traps that only a real browser catches.*
 
+*Addendum 2026-08-26: §15 added — WHERE TO BEGIN + moving to a fresh machine (Windows
+laptop). The 08-25/26 sessions: Job Hunt (sector explorer v4, profile form v2, companies =
+single jobs+companies hub with PR/TEER/fit on every card, CRS estimator fixed to IRCC's
+official 613 example), pull engine v5 (boards-first, self-provisioning VPS leg, progress
+persistence, timeouts), brain-wiki simplified to graph memory only, software-pipeline now
+renders REAL pipelines (Input Analysis node-tree + CAOS v2 swimlane, both live via Realtime),
+and the venture-graph nightly hardened (per-venture timeouts, direct-DSN fix for mempalace,
+streaming mine output). **Read §15 first if resuming from any new machine.** Push status:
+large uncommitted surface as of this writing — see §15.2 for the exact push command.*
+
 > **This file is the durable memory of the project.** In-session task lists are ephemeral and
 > die with the session — anything that must survive lives here. It is written to be
 > **self-contained and exportable**: a fresh session, a different AI, or a human should be
@@ -56,6 +66,7 @@ design as a product, and the traps that only a real browser catches.*
 | 12 | Job Hunt module (2026-08-15) |
 | 13 | **Chat → Task → Generation (2026-08-22/25) — Generations tab + OGAI port** |
 | 14 | **Task surface v4 + demo chain (2026-08-24) — the artifact, built** |
+| 15 | **Where to begin + moving machines (2026-08-26) — fresh-machine onboarding, Windows laptop** |
 
 ---
 
@@ -1215,3 +1226,81 @@ name (`.gate`, `.gen`) used for a *layout block* also matched a *modifier* on sm
 3. Wire `estimate-cost` for the **generic** composer the way Marketing does (#5).
 4. Run `npx tsc --noEmit` in `dashboard/` — it has genuinely never been run against these files.
 5. Run both browser specs against `npm run dev` with `MUAPI_KEY` set.
+
+---
+
+## 15. Where to begin — fresh machine, fresh session (2026-08-26)
+
+**Read this section FIRST on any new machine or session.** It is the fast path: what to
+install, what to copy, what runs where, and the exact commands. The rest of this handout is
+history + deep context; this is the operating manual.
+
+### 15.1 What runs where (the topology — know this before anything)
+
+| Piece | Where it runs | How it starts |
+|---|---|---|
+| Dashboard (Next.js app in `dashboard/`) | Your dev machine (Mac today, Windows laptop soon) | `npm run dev` in `dashboard/` |
+| Supabase (Postgres + auth + realtime) | Cloud (project `cjjllgexiecesgwenpph`) | — |
+| Vercel (production build of `dashboard/`) | Vercel, branch **main** | auto-deploy on push to main |
+| Venture graph + MemPalace nightly (`vps-scripts/graphify-ventures-nightly.sh`) | VPS `169.58.107.148`, cron 03:15 UTC | cron; timeouts + direct-DSN fixes in place |
+| Indeed/LinkedIn boards pull (`fetch-hiring-boards.py`) | VPS via SSH from the dashboard's Pull button | self-provisioning; needs the SSH key |
+| GitHub (`OfficialNovizio/YVON-Agentic-OS-`) | remote | push from your machine |
+
+### 15.2 Push before moving machines (do this FIRST — large uncommitted surface)
+
+```bash
+cd /Users/novysingh/StudioProjects/Agents && git add -A && git commit -m "jobhunt v4 + pull engine v5 + brain-wiki simplify + software-pipeline live trees + handout §15" && git push origin HEAD && git push origin design-first-workflow-mvp:main
+```
+
+Then confirm `git status` is clean and `origin/main` shows the new commit. Vercel deploys
+main automatically; the VPS self-syncs scripts on next use.
+
+### 15.3 Fresh machine setup (any OS)
+
+1. **Install**: Node.js LTS (≥20), Git, VS Code. (Windows: Git for Windows + Git Bash;
+   Python 3.11+ only if you'll touch `vps-scripts/`/`system-harness/` — those are bash, use WSL2.)
+2. **Clone**:
+   ```bash
+   git clone https://github.com/OfficialNovizio/YVON-Agentic-OS-.git
+   cd YVON-Agentic-OS-
+   ```
+3. **Secrets** (`dashboard/.env.local`) — NOT in git, copy it manually from the old machine
+   (secure transfer — vault/USB; never paste into chat). It holds `SUPABASE_URL`,
+   `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_*` — same values on every machine.
+4. **Dashboard**:
+   ```bash
+   cd dashboard && npm install && node scripts/migrate.mjs && npm run dev
+   ```
+   Migrations are idempotent — running them on a fresh machine is safe (they report "already applied").
+5. **Line endings (important on Windows)**: keep shell scripts LF.
+   ```bash
+   git config --global core.autocrlf input
+   ```
+6. **Read order**: `CLAUDE.md` (the rail) → this handout §15 → §1/§2 → `docs/MASTER.md` PART 0.
+
+### 15.4 Windows laptop specifics
+
+- **VPS SSH key**: the boards pull (Pull 60 days button) SSHes from the dashboard host to
+  the VPS. Windows generates its OWN key — install it once:
+  ```powershell
+  ssh-keygen -t ed25519 -N ""
+  type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh root@169.58.107.148 "cat >> ~/.ssh/authorized_keys"
+  ```
+- **Bash scripts** (`vps-scripts/`, `system-harness/`) are Unix — run them via Git Bash or
+  WSL2, or just run them on the VPS where they already live (preferred).
+- **VPS duties stay on the VPS**: the nightly graph build and the 3× daily boards cron don't
+  move to the laptop — only the dashboard does.
+- **Long dev server sessions**: same as Mac — pull jobs live in server memory; don't edit
+  files mid-pull (progress now persists to `job_hunt_pull_jobs`, migration 138, so a restart
+  shows where the pull got to instead of losing it).
+
+### 15.5 Known-good quick checks after setup
+
+- `npm run dev` → open `http://localhost:3000` → sidebar renders, `/job-hunt/companies`
+  loads jobs, `/software-pipeline` shows Input Analysis + CAOS sections, `/brain-wiki` shows
+  the graph with working nav.
+- `node scripts/migrate.mjs` → "0 applied, N skipped" (all migrations already in the DB).
+- Pull 60 days → boards cards show counts (Adzuna/Remotive stream; Indeed/LinkedIn need the
+  VPS SSH key above).
+- Nightly graph: `tail -f /var/log/yvon-venture-nightly/main.log` on the VPS — per-venture
+  ✓ lines, never hangs (timeouts bound every step).
