@@ -36,6 +36,25 @@ import time
 import urllib.parse
 import urllib.request
 
+
+class _SafeEncoder(json.JSONEncoder):
+    """jobspy returns datetime.date / datetime and numpy numbers — JSON can't
+    serialize those. Convert dates to ISO strings and numpy scalars to
+    python natives before writing to Supabase (2026-08-25 fix #2)."""
+    def default(self, o):
+        if hasattr(o, "isoformat"):
+            return o.isoformat()
+        try:
+            import numpy as np
+        except Exception:
+            np = None
+        if np is not None:
+            if isinstance(o, np.integer):
+                return int(o)
+            if isinstance(o, np.floating):
+                return float(o)
+        return str(o)
+
 ENV_FILE = os.environ.get("YVON_SUPABASE_ENV", "/root/.yvon-supabase.env")
 BC_LOCATION = "British Columbia, Canada"
 # 2026-08-25 breadth fix: MULTIPLE short queries per industry (the 125-vs-500
@@ -139,7 +158,7 @@ def rest(path: str, query: dict | None = None, payload: list | None = None, pref
     }
     if prefer:
         headers["Prefer"] = prefer
-    req = urllib.request.Request(url, data=json.dumps(payload).encode() if payload else None, headers=headers,
+    req = urllib.request.Request(url, data=json.dumps(payload, cls=_SafeEncoder).encode() if payload else None, headers=headers,
                                  method="POST" if payload else "GET")
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
