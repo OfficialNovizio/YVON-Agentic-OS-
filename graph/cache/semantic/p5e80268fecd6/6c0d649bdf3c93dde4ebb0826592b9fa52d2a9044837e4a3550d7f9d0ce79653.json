@@ -1,0 +1,1 @@
+{"nodes": [{"id": "claude_agents_marcus_marcus", "label": "Marcus Agent", "file_type": "code", "source_file": ".claude/agents/marcus.md", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null, "rationale": "Cascades strategy into objectives and resource decisions, then pressure-tests commitments."}], "edges": [], "hyperedges": []}

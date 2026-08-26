@@ -1,0 +1,1 @@
+{"nodes": [{"id": "claude_agents_metric_metric", "label": "Metric Agent", "file_type": "code", "source_file": ".claude/agents/metric.md", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null, "rationale": "Ensures every number has a versioned definition and every shipped item is measured."}], "edges": [], "hyperedges": []}

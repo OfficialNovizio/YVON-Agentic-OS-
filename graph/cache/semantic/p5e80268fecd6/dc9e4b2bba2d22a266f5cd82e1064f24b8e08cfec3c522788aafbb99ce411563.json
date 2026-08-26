@@ -1,0 +1,1 @@
+{"nodes": [{"id": "claude_agents_loom_loom", "label": "Loom Agent", "file_type": "code", "source_file": ".claude/agents/loom.md", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null, "rationale": "Tests beliefs cheapest-first with pre-committed verdicts and evidence-based PMF assessment."}], "edges": [], "hyperedges": []}
