@@ -70,6 +70,7 @@ const PLATFORMS = [
   { value: 'remotive', label: 'Remotive' },
   { value: 'indeed', label: 'Indeed' },
   { value: 'linkedin', label: 'LinkedIn' },
+  { value: 'glassdoor', label: 'Glassdoor' },
 ]
 // Every source gets a card in the pull panel — including Indeed/LinkedIn,
 // which always show their status (count, skipped, or the classified error).

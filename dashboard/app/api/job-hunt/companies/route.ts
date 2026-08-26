@@ -17,6 +17,23 @@ import { PROVINCE_BY_CODE } from '@/lib/job-hunt/canada-geo'
 import { isBcRelevant } from '@/lib/job-hunt/bc-filter'
 import { scorePosting, type FitProfile } from '@/lib/job-hunt/fit-score'
 import { inferPrTags, prValue } from '@/lib/job-hunt/pr-tags'
+import boardSnapshot from '@/data/boards-snapshot.json'
+
+// Snapshot rows are fetched on the operator's side (web search of the
+// boards' syndication network) and committed here so boards data shows on
+// screen without the VPS leg. Skipped when the URL already exists in the DB.
+interface SnapshotRow {
+  source?: string
+  title: string
+  company: string
+  location?: string | null
+  url?: string | null
+  salary_min?: number | null
+  salary_max?: number | null
+  salary_currency?: string | null
+  posted_at?: string | null
+  description?: string | null
+}
 
 // PostgREST caps every request at 1000 rows — chunked fetch to see the WHOLE
 // table (sorting by fit needs every posting, not a 1000-row sample).
@@ -223,9 +240,44 @@ export async function GET(req: NextRequest) {
             fitVetoed: fit.vetoed,
           }
         })
-        .sort((a, b) => sort === 'newest'
-          ? String(b.postedAt ?? '').localeCompare(String(a.postedAt ?? ''))
-          : Number(b.fitVetoed) - Number(a.fitVetoed) || b.fitScore - a.fitScore)
+
+      // Boards snapshot — fetched on the operator's side (web search of the
+      // boards' syndication network) so boards data shows WITHOUT the VPS
+      // leg. URLs already in the DB are skipped; rows go through the same
+      // fit/PR pipeline, so cards get full badges.
+      const existingUrls = new Set((postings ?? []).map((p) => String((p as Record<string, unknown>).url ?? '').toLowerCase()).filter(Boolean))
+      for (const r of boardSnapshot as SnapshotRow[]) {
+        const url = String(r.url ?? '').toLowerCase()
+        if (!url || existingUrls.has(url)) continue
+        const fit = scorePosting(profile, {
+          title: r.title, company: r.company, description: r.description ?? '',
+          location: r.location ?? '', remote: null,
+          salary_min: r.salary_min ?? null, salary_max: r.salary_max ?? null,
+        })
+        const pr = inferPrTags(r.title, r.description ?? '')
+        jobs.push({
+          id: `snap-${jobs.length}`,
+          title: r.title,
+          company: r.company,
+          location: r.location ?? null,
+          source: r.source ?? 'glassdoor',
+          teer: pr.teerCategory ?? null,
+          bcPnp: pr.bcPnpInDemand === true,
+          canExp: pr.canadianExp === true,
+          salaryMin: r.salary_min ?? null,
+          salaryMax: r.salary_max ?? null,
+          salaryCurrency: r.salary_currency ?? 'CAD',
+          url: r.url ?? null,
+          postedAt: r.posted_at ?? null,
+          prScore: prValue(pr),
+          fitScore: fit.score,
+          fitVetoed: fit.vetoed,
+        })
+      }
+
+      jobs.sort((a, b) => sort === 'newest'
+        ? String(b.postedAt ?? '').localeCompare(String(a.postedAt ?? ''))
+        : Number(b.fitVetoed) - Number(a.fitVetoed) || b.fitScore - a.fitScore)
       const totalJobs = jobs.length
       const jobPage = jobs.slice(offset, offset + limit)
       return Response.json({ companies: data ?? [], hiring: [], jobs: jobPage, total: totalJobs, recentCount: recentCount ?? 0 })
