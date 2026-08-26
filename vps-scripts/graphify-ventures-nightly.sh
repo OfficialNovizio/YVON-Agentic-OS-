@@ -75,17 +75,22 @@ log "  $COUNT venture(s) ready for rebuild"
 while IFS=$'\t' read -r SLUG REPO_URL PAT; do
   [ -n "${SLUG:-}" ] || continue
   [ -n "${REPO_URL:-}" ] || continue
-  log "  $SLUG — graphify-venture.sh"
+  log "  $SLUG — graphify-venture.sh (60m cap)"
+  # 2026-08-26: timeout caps — a stalled step (embedding host, model call,
+  # giant repo) can no longer hang the nightly forever and hold the lock so
+  # every following night is skipped (hit live 2026-08-25→26: mempalace mine
+  # stuck at [4/6] for over a day). Each venture is time-boxed; a timeout
+  # fails that venture cleanly and the run moves on.
   # < /dev/null on every child: the while loop's stdin IS the ventures list
   # file, and an interactive child (see mempalace-venture.sh [4/6]) will
   # otherwise swallow the NEXT line as its input — skipping a venture and
   # ending the loop early (hit live 2026-08-25 on novizio → yvon-os).
-  nohup bash "$CI_DIR/graphify-venture.sh" "$SLUG" "$REPO_URL" "$PAT" < /dev/null >> "$LOG_DIR/$SLUG.$TS.log" 2>&1 &
-  if wait $!; then log "    ✓ graphify ok"; else log "    ✗ graphify failed — see $LOG_DIR/$SLUG.$TS.log"; fi
+  nohup timeout 3600 bash "$CI_DIR/graphify-venture.sh" "$SLUG" "$REPO_URL" "$PAT" < /dev/null >> "$LOG_DIR/$SLUG.$TS.log" 2>&1 &
+  if wait $!; then log "    ✓ graphify ok"; else log "    ✗ graphify failed or timed out (60m) — see $LOG_DIR/$SLUG.$TS.log"; fi
 
-  log "  $SLUG — mempalace-venture.sh"
-  nohup bash "$CI_DIR/mempalace-venture.sh" "$SLUG" "$REPO_URL" "$PAT" < /dev/null >> "$LOG_DIR/$SLUG.$TS.log" 2>&1 &
-  if wait $!; then log "    ✓ mempalace ok"; else log "    ✗ mempalace failed — see $LOG_DIR/$SLUG.$TS.log"; fi
+  log "  $SLUG — mempalace-venture.sh (120m cap)"
+  nohup timeout 7200 bash "$CI_DIR/mempalace-venture.sh" "$SLUG" "$REPO_URL" "$PAT" < /dev/null >> "$LOG_DIR/$SLUG.$TS.log" 2>&1 &
+  if wait $!; then log "    ✓ mempalace ok"; else log "    ✗ mempalace failed or timed out (120m) — see $LOG_DIR/$SLUG.$TS.log"; fi
 done < "$LIST"
 
 log "nightly run done (run $TS)"

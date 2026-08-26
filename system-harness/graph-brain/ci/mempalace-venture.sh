@@ -160,14 +160,21 @@ cd "$WORKDIR"
 "$MEMPALACE_BIN" init . --backend pgvector --no-llm --yes 2>&1 || \
   echo "  (init non-fatal warning — continuing to mine; some repos are already initialized)"
 
-echo "[4/6] mempalace mine . --wing $VENTURE_SLUG"
+echo "[4/6] mempalace mine . --wing $VENTURE_SLUG (90m timeout)"
 # 2026-08-25: `mine` prompts "Mine this directory now? [Y/n]" on first run of
 # a directory. Under the nightly runner (graphify-ventures-nightly.sh) the
 # script's stdin is the ventures list — the prompt swallowed the NEXT
 # venture's line as its answer, the mine died, and the loop skipped that
-# venture. Answer the prompt ourselves, and never inherit caller stdin.
-MINE_OUT=$(printf 'y\n' | "$MEMPALACE_BIN" mine . --backend pgvector --wing "$VENTURE_SLUG" --agent yvon-mempalace < /dev/null 2>&1) \
-  || fail "mempalace mine failed: $MINE_OUT"
+# venture. The printf pipe answers the prompt AND provides the child's stdin
+# (so caller stdin is never inherited) — the earlier `< /dev/null` here
+# actually OVERRODE that pipe, so the answer never arrived (latent bug).
+# 2026-08-26: `timeout 5400` — mine embeds every chunk through an LLM/
+# embedding host; when that host stalls (hit live: stuck at [4/6] for over a
+# day, nightly lock held, every following night skipped), the mine used to
+# hang forever. Now it fails within 90m with the output tail visible, and
+# the nightly lock always releases.
+MINE_OUT=$(printf 'y\n' | timeout 5400 "$MEMPALACE_BIN" mine . --backend pgvector --wing "$VENTURE_SLUG" --agent yvon-mempalace 2>&1) \
+  || fail "mempalace mine failed (90m timeout or error — embedding host unreachable?): $MINE_OUT"
 echo "$MINE_OUT"
 
 # Best-effort entry-count extraction from mine's own summary line. Format is
