@@ -29,7 +29,7 @@ async function fetchAllPostings(sb: SupabaseClient, cols: string, cap = 8000): P
       .order('discovered_at', { ascending: false })
       .range(offset, offset + 999)
     if (!data || data.length === 0) break
-    out.push(...data)
+    out.push(...(data as Record<string, unknown>[]))
   }
   return out
 }
