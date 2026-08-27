@@ -177,7 +177,7 @@ cd "$WORKDIR"
 "$MEMPALACE_BIN" init . --backend pgvector --no-llm --yes 2>&1 || \
   echo "  (init non-fatal warning — continuing to mine; some repos are already initialized)"
 
-echo "[4/6] mempalace mine . --wing $VENTURE_SLUG (90m timeout)"
+echo "[4/6] mempalace mine . --wing $VENTURE_SLUG (mine cap $((MINE_TIMEOUT / 60))m)"
 # 2026-08-25: `mine` prompts "Mine this directory now? [Y/n]" on first run of
 # a directory. Under the nightly runner (graphify-ventures-nightly.sh) the
 # script's stdin is the ventures list — the prompt swallowed the NEXT
@@ -185,18 +185,25 @@ echo "[4/6] mempalace mine . --wing $VENTURE_SLUG (90m timeout)"
 # venture. The printf pipe answers the prompt AND provides the child's stdin
 # (so caller stdin is never inherited) — the earlier `< /dev/null` here
 # actually OVERRODE that pipe, so the answer never arrived (latent bug).
-# 2026-08-26: `timeout 5400` — mine embeds every chunk through an LLM/
-# embedding host; when that host stalls (hit live: stuck at [4/6] for over a
-# day, nightly lock held, every following night skipped), the mine used to
-# hang forever. Now it fails within 90m with the output tail visible, and
-# the nightly lock always releases.
+# 2026-08-26: `timeout` — mine embeds every chunk through an embedding host;
+# when that host stalls (hit live: stuck at [4/6] for over a day, nightly
+# lock held, every following night skipped), the mine used to hang forever.
+# Now it fails within a bounded window with the output tail visible, and the
+# nightly lock always releases.
+# 2026-08-27: cap raised 90m → 6h. The 90m cap was sized for stalls but
+# killed a HEALTHY mine on the biggest repo (yvon-os: 2420 files → ~52k
+# drawers, CPU-embedded at ~167 rows/min ≈ 5h+; hit live 2026-08-26, mine
+# wrote 13.7k rows in 85m then died at the 90m timeout). The cap still
+# bounds a stalled host — 6h is a stall, not a slow mine, for anything
+# smaller than yvon-os. Env-overridable for repos bigger than that.
 # 2026-08-26 v2: output STREAMS live into the venture log via tee — a
 # $(...) capture only printed after completion, which made hour-long mines
 # on big repos (yvon-os: 2420 files) look frozen. The tee'd copy feeds the
 # entry-count parse and the palace-marker retry below.
 MINE_TEE="$WORKDIR/.mine-output.txt"
+MINE_TIMEOUT="${MEMPALACE_MINE_TIMEOUT:-21600}"
 MINE_RUN() {
-  printf 'y\n' | timeout 5400 "$MEMPALACE_BIN" mine . --backend pgvector --wing "$VENTURE_SLUG" --agent yvon-mempalace 2>&1 | tee "$MINE_TEE"
+  printf 'y\n' | timeout "$MINE_TIMEOUT" "$MEMPALACE_BIN" mine . --backend pgvector --wing "$VENTURE_SLUG" --agent yvon-mempalace 2>&1 | tee "$MINE_TEE"
 }
 if ! MINE_RUN; then
   MINE_OUT="$(cat "$MINE_TEE" 2>/dev/null || true)"
@@ -212,7 +219,7 @@ if ! MINE_RUN; then
       fail "mempalace mine failed (retry after palace reset): $MINE_OUT"
     fi
   else
-    fail "mempalace mine failed (90m timeout or error — embedding host unreachable?): $(tail -c 300 "$MINE_TEE" 2>/dev/null || true)"
+    fail "mempalace mine failed ($((MINE_TIMEOUT / 60))m timeout or error — embedding host unreachable?): $(tail -c 300 "$MINE_TEE" 2>/dev/null || true)"
   fi
 fi
 MINE_OUT="$(cat "$MINE_TEE" 2>/dev/null || true)"

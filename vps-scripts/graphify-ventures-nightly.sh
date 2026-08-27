@@ -88,9 +88,14 @@ while IFS=$'\t' read -r SLUG REPO_URL PAT; do
   nohup timeout 3600 bash "$CI_DIR/graphify-venture.sh" "$SLUG" "$REPO_URL" "$PAT" < /dev/null >> "$LOG_DIR/$SLUG.$TS.log" 2>&1 &
   if wait $!; then log "    ✓ graphify ok"; else log "    ✗ graphify failed or timed out (60m) — see $LOG_DIR/$SLUG.$TS.log"; fi
 
-  log "  $SLUG — mempalace-venture.sh (120m cap)"
-  nohup timeout 7200 bash "$CI_DIR/mempalace-venture.sh" "$SLUG" "$REPO_URL" "$PAT" < /dev/null >> "$LOG_DIR/$SLUG.$TS.log" 2>&1 &
-  if wait $!; then log "    ✓ mempalace ok"; else log "    ✗ mempalace failed or timed out (120m) — see $LOG_DIR/$SLUG.$TS.log"; fi
+  log "  $SLUG — mempalace-venture.sh (${MEMPALACE_VENTURE_CAP_MIN}m cap)"
+  # 2026-08-27: cap raised 120m → 7h — the old 120m cap killed yvon-os's
+  # healthy 5h+ mine (see mempalace-venture.sh's mine-timeout note). Must
+  # exceed the mine timeout (6h default) plus init/export/push overhead.
+  MEMPALACE_VENTURE_CAP="${MEMPALACE_VENTURE_CAP:-25200}"
+  MEMPALACE_VENTURE_CAP_MIN=$((MEMPALACE_VENTURE_CAP / 60))
+  nohup timeout "$MEMPALACE_VENTURE_CAP" bash "$CI_DIR/mempalace-venture.sh" "$SLUG" "$REPO_URL" "$PAT" < /dev/null >> "$LOG_DIR/$SLUG.$TS.log" 2>&1 &
+  if wait $!; then log "    ✓ mempalace ok"; else log "    ✗ mempalace failed or timed out (${MEMPALACE_VENTURE_CAP_MIN}m) — see $LOG_DIR/$SLUG.$TS.log"; fi
 done < "$LIST"
 
 log "nightly run done (run $TS)"
