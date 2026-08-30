@@ -151,6 +151,29 @@ fail() {
   exit 1
 }
 
+# ── Never leave a venture pinned at 'building' (2026-08-30) ───────────────
+# Every failure the script ANTICIPATES routes through fail(), which records
+# status='error'. But this script runs under `set -euo pipefail`, so an
+# UNanticipated fault — an unbound variable, a command failing where no check
+# was written — aborts immediately, after [1/6] has already written
+# status='building' and before fail() can run. The venture then sits at
+# 'building' forever with no error text anywhere: exactly how the MINE_TIMEOUT
+# unbound-variable crash (fixed above) could have stayed invisible.
+#
+# This EXIT trap closes that hole: on any non-zero exit that did not go
+# through the normal 'ready' path, it records an error with the failing line,
+# so an operator sees a real failure instead of a permanent 'building'.
+# DONE is set just before the final ready-upsert, so a successful run is not
+# overwritten. The trap must never itself abort the exit path, hence `|| true`.
+DONE=0
+on_exit() {
+  local rc=$?
+  if [ "$rc" -ne 0 ] && [ "$DONE" -eq 0 ]; then
+    upsert_status "error" "aborted unexpectedly (exit $rc) near line ${BASH_LINENO[0]:-?} — see the venture log for this run" || true
+  fi
+}
+trap on_exit EXIT
+
 echo "[1/6] mark building · $VENTURE_SLUG"
 upsert_status "building"
 
@@ -177,6 +200,17 @@ cd "$WORKDIR"
 "$MEMPALACE_BIN" init . --backend pgvector --no-llm --yes 2>&1 || \
   echo "  (init non-fatal warning — continuing to mine; some repos are already initialized)"
 
+# 2026-08-30: MINE_TIMEOUT is defined HERE, before the [4/6] banner that
+# reports it. It used to be assigned ~24 lines below, next to MINE_RUN — but
+# the banner interpolates $((MINE_TIMEOUT / 60)), and this script runs under
+# `set -euo pipefail`, so that unbound reference killed the script the instant
+# it reached [4/6]. Worse than a plain crash: [1/6] has already upserted
+# status='building', and the abort happens before fail()/upsert_status can
+# record an error — so a venture was left pinned at 'building' forever with no
+# error text anywhere. Same mistake, same commit (0592b6c) as the nightly
+# runner's MEMPALACE_VENTURE_CAP_MIN; both are now define-before-use.
+MINE_TIMEOUT="${MEMPALACE_MINE_TIMEOUT:-21600}"
+
 echo "[4/6] mempalace mine . --wing $VENTURE_SLUG (mine cap $((MINE_TIMEOUT / 60))m)"
 # 2026-08-25: `mine` prompts "Mine this directory now? [Y/n]" on first run of
 # a directory. Under the nightly runner (graphify-ventures-nightly.sh) the
@@ -201,7 +235,7 @@ echo "[4/6] mempalace mine . --wing $VENTURE_SLUG (mine cap $((MINE_TIMEOUT / 60
 # on big repos (yvon-os: 2420 files) look frozen. The tee'd copy feeds the
 # entry-count parse and the palace-marker retry below.
 MINE_TEE="$WORKDIR/.mine-output.txt"
-MINE_TIMEOUT="${MEMPALACE_MINE_TIMEOUT:-21600}"
+# (MINE_TIMEOUT is set above, before the [4/6] banner that reports it.)
 MINE_RUN() {
   printf 'y\n' | timeout "$MINE_TIMEOUT" "$MEMPALACE_BIN" mine . --backend pgvector --wing "$VENTURE_SLUG" --agent yvon-mempalace 2>&1 | tee "$MINE_TEE"
 }
@@ -381,5 +415,6 @@ EOF
   echo "  push rejected (likely graphify-venture.sh pushed $BRANCH concurrently) — retrying: $PUSH_OUT"
 done
 
+DONE=1  # reached the success path — the EXIT trap must not overwrite 'ready'
 upsert_status "ready" "" "$COMMIT_SHA" "${ENTRY_COUNT:-}" "knowledge/entries.json" "knowledge/entities.json"
 echo "Done. $VENTURE_SLUG's repo knowledge is live in the pgvector palace @ $COMMIT_SHA."
