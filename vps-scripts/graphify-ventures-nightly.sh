@@ -40,6 +40,22 @@ mkdir -p "$LOG_DIR"
 MAIN="$LOG_DIR/main.log"
 log() { echo "$(date -u +%FT%TZ) $1" >> "$MAIN"; }
 
+# ── mempalace time-box ────────────────────────────────────────────────────
+# 2026-08-27: cap raised 120m → 7h — the old 120m cap killed yvon-os's healthy
+# 5h+ mine (see mempalace-venture.sh's mine-timeout note). Must exceed the mine
+# timeout (6h default) plus init/export/push overhead.
+#
+# 2026-08-30: hoisted OUT of the venture loop. These two lines used to sit
+# BELOW the log line that interpolates ${MEMPALACE_VENTURE_CAP_MIN}; under
+# `set -u` that unbound reference is fatal, so every run died on the first
+# venture immediately after its graphify finished — mempalace never ran again
+# for any venture, and no venture after the first was processed at all.
+# Confirmed against the DB: graphify kept updating nightly while every
+# mempalace row went stale from the night this was introduced (0592b6c).
+# They are loop-invariant anyway, so the loop is no place to define them.
+MEMPALACE_VENTURE_CAP="${MEMPALACE_VENTURE_CAP:-25200}"
+MEMPALACE_VENTURE_CAP_MIN=$((MEMPALACE_VENTURE_CAP / 60))
+
 # ── single-run lock ──────────────────────────────────────────────────────
 if [ -f "$LOCK" ] && kill -0 "$(cat "$LOCK" 2>/dev/null)" 2>/dev/null; then
   log "skip — previous nightly run still alive (pid $(cat "$LOCK"))"
@@ -71,10 +87,23 @@ COUNT=$(grep -c . "$LIST" || true)
 log "  $COUNT venture(s) ready for rebuild"
 [ "$COUNT" = "0" ] && { log "  nothing to do — done"; exit 0; }
 
-# ── one venture at a time; each build detached but awaited ────────────────
-while IFS=$'\t' read -r SLUG REPO_URL PAT; do
-  [ -n "${SLUG:-}" ] || continue
-  [ -n "${REPO_URL:-}" ] || continue
+# ── one venture's full rebuild ────────────────────────────────────────────
+# A function called in a SUBSHELL below, so a fatal error inside it (an
+# unbound variable under `set -u`, a bad path, anything) can only kill that
+# one venture's iteration — never the whole run.
+#
+# 2026-08-30, why this exists: the header above has always promised
+# "failures are visible, never swallowed", but the loop body ran inline. When
+# the mempalace log line referenced ${MEMPALACE_VENTURE_CAP_MIN} before it was
+# assigned, `set -u` aborted the ENTIRE script on the first venture, straight
+# after its graphify succeeded. Result: mempalace never ran for anybody and no
+# venture past the first was touched — silently, for three consecutive nights,
+# because the abort happened before any failure could be logged. The ordering
+# bug is fixed (the caps are hoisted above the loop), but the fragility that
+# turned one bad line into a total outage is fixed here.
+run_venture() {
+  local SLUG="$1" REPO_URL="$2" PAT="$3"
+
   log "  $SLUG — graphify-venture.sh (60m cap)"
   # 2026-08-26: timeout caps — a stalled step (embedding host, model call,
   # giant repo) can no longer hang the nightly forever and hold the lock so
@@ -88,14 +117,28 @@ while IFS=$'\t' read -r SLUG REPO_URL PAT; do
   nohup timeout 3600 bash "$CI_DIR/graphify-venture.sh" "$SLUG" "$REPO_URL" "$PAT" < /dev/null >> "$LOG_DIR/$SLUG.$TS.log" 2>&1 &
   if wait $!; then log "    ✓ graphify ok"; else log "    ✗ graphify failed or timed out (60m) — see $LOG_DIR/$SLUG.$TS.log"; fi
 
+  # mempalace runs even if graphify failed — they mine different things, and a
+  # graphify failure is not a reason to skip the semantic pass.
   log "  $SLUG — mempalace-venture.sh (${MEMPALACE_VENTURE_CAP_MIN}m cap)"
-  # 2026-08-27: cap raised 120m → 7h — the old 120m cap killed yvon-os's
-  # healthy 5h+ mine (see mempalace-venture.sh's mine-timeout note). Must
-  # exceed the mine timeout (6h default) plus init/export/push overhead.
-  MEMPALACE_VENTURE_CAP="${MEMPALACE_VENTURE_CAP:-25200}"
-  MEMPALACE_VENTURE_CAP_MIN=$((MEMPALACE_VENTURE_CAP / 60))
   nohup timeout "$MEMPALACE_VENTURE_CAP" bash "$CI_DIR/mempalace-venture.sh" "$SLUG" "$REPO_URL" "$PAT" < /dev/null >> "$LOG_DIR/$SLUG.$TS.log" 2>&1 &
   if wait $!; then log "    ✓ mempalace ok"; else log "    ✗ mempalace failed or timed out (${MEMPALACE_VENTURE_CAP_MIN}m) — see $LOG_DIR/$SLUG.$TS.log"; fi
+}
+
+# ── one venture at a time; each build detached but awaited ────────────────
+FAILED=0
+while IFS=$'\t' read -r SLUG REPO_URL PAT; do
+  [ -n "${SLUG:-}" ] || continue
+  [ -n "${REPO_URL:-}" ] || continue
+  # Subshell + `|| ...`: an abort inside run_venture is contained here and
+  # reported, instead of taking the rest of the fleet down with it.
+  if ! ( run_venture "$SLUG" "$REPO_URL" "$PAT" ); then
+    FAILED=$((FAILED + 1))
+    log "    ✗✗ $SLUG aborted unexpectedly (not a build failure — the venture step itself crashed); continuing with the next venture"
+  fi
 done < "$LIST"
 
-log "nightly run done (run $TS)"
+if [ "$FAILED" -gt 0 ]; then
+  log "nightly run done WITH $FAILED aborted venture(s) (run $TS)"
+else
+  log "nightly run done (run $TS)"
+fi
