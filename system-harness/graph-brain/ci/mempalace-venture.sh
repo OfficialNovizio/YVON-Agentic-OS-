@@ -148,6 +148,10 @@ PYEOF
 fail() {
   echo "  ✗ $1" >&2
   upsert_status "error" "$1"
+  # Mark the status FINALISED so the EXIT trap below does not overwrite this
+  # specific message with its generic "aborted unexpectedly" text — that would
+  # replace a real diagnosis ("git clone failed: ...") with noise.
+  DONE=1
   exit 1
 }
 
@@ -163,8 +167,10 @@ fail() {
 # This EXIT trap closes that hole: on any non-zero exit that did not go
 # through the normal 'ready' path, it records an error with the failing line,
 # so an operator sees a real failure instead of a permanent 'building'.
-# DONE is set just before the final ready-upsert, so a successful run is not
-# overwritten. The trap must never itself abort the exit path, hence `|| true`.
+# DONE marks the status as already FINALISED — set by fail() (which has
+# recorded its own specific error) and just before the final ready-upsert — so
+# the trap never overwrites either a real diagnosis or a success. The trap must
+# never itself abort the exit path, hence `|| true`.
 DONE=0
 on_exit() {
   local rc=$?

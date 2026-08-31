@@ -105,8 +105,36 @@ PYEOF
 fail() {
   echo "  ✗ $1" >&2
   upsert_status "error" "$1"
+  # Mark the status FINALISED so the EXIT trap below does not overwrite this
+  # specific message with its generic "aborted unexpectedly" text — that would
+  # replace a real diagnosis ("git clone failed: ...") with noise.
+  DONE=1
   exit 1
 }
+
+# ── Never leave a venture pinned at 'building' (2026-08-30) ───────────────
+# Mirrors the same guard in mempalace-venture.sh. Every failure this script
+# ANTICIPATES routes through fail(), which records status='error'. But it runs
+# under `set -euo pipefail`, so an UNanticipated fault — an unbound variable,
+# a command failing where no check was written — aborts immediately, after
+# [1/6] has already written status='building' and before fail() can run. The
+# venture then sits at 'building' forever with no error text anywhere.
+#
+# No such bug exists here today (unlike mempalace-venture.sh's MINE_TIMEOUT
+# crash, which this guard would have surfaced on night one instead of leaving
+# it silent). This is here so the NEXT one is visible, not to fix a known
+# fault. DONE marks the status as already FINALISED — set by fail() (which has
+# recorded its own specific error) and just before the final ready-upsert — so
+# the trap never overwrites either a real diagnosis or a success. The trap must
+# not itself abort the exit path, hence `|| true`.
+DONE=0
+on_exit() {
+  local rc=$?
+  if [ "$rc" -ne 0 ] && [ "$DONE" -eq 0 ]; then
+    upsert_status "error" "aborted unexpectedly (exit $rc) near line ${BASH_LINENO[0]:-?} — see the venture log for this run" || true
+  fi
+}
+trap on_exit EXIT
 
 echo "[1/6] mark building · $VENTURE_SLUG"
 upsert_status "building"
@@ -196,5 +224,6 @@ COMMIT_SHA=$(git rev-parse HEAD)
 echo "[6/6] push $BRANCH"
 PUSH_OUT=$(git push "$AUTH_URL" "$BRANCH:$BRANCH" 2>&1) || fail "git push failed: $PUSH_OUT"
 
+DONE=1  # reached the success path — the EXIT trap must not overwrite 'ready'
 upsert_status "ready" "" "$COMMIT_SHA" "$NODE_COUNT" "$EDGE_COUNT" "$COMMUNITY_COUNT" "graphify-out/graph.json"
 echo "Done. $VENTURE_SLUG's graph is live on $BRANCH @ $COMMIT_SHA."
