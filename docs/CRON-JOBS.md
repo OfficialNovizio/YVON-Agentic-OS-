@@ -51,13 +51,13 @@ be rewritten.
 | Job | Route | Old schedule | What it does |
 |---|---|---|---|
 | Morning brief | `/api/briefing` | `0 7 * * *` (07:00 UTC) | Wakes Marcus (CEO), Kai (analyst) and Nate (growth), has them write analytics + strategy for the active venture, saves the result as a brief. This is what makes a summary be *waiting* for you in the morning instead of you asking for one. `maxDuration = 60`. |
-| Trend scrape | `/api/trending` | `0 9 * * *` (09:00 UTC) | Scrapes Google Trends ("small business marketing") and r/smallbusiness top-of-day via Apify, runs results past a fast model, upserts trending items. `maxDuration = 30`. |
 | OrgBook lead pull | `/api/job-hunt/companies/leads/cron` | `0 8 * * *` (08:00 UTC) | Pulls company leads from OrgBook BC. One keyword's pagination per run, cursor persisted in `company_lead_pull_state` (migration 131), cycling all 29 keywords and wrapping forever. `maxDuration = 60`. |
 
-**Note on trend scrape:** it returns `500 APIFY_TOKEN must be set` and exits
-immediately if Apify was never configured. If that was the case, this job had
-been failing every morning at 09:00 without anyone noticing — worth
-confirming before un-freezing it rather than restoring a job that never ran.
+> **Trend scrape RETIRED 2026-09-07:** `/api/trending` (09:00 UTC) was removed
+> along with Apify itself — its only content source was the Apify web scraper
+> and it had been failing on a missing token anyway. If a trends job is wanted
+> again, wire it to a free source (e.g. the VPS agent-reach/Jina read) instead
+> of restoring the paid path.
 
 ### 3.2 Proposed — never scheduled
 
@@ -126,7 +126,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" \
      "https://<your-vercel-domain>/api/briefing?venture=yvon-os"
 ```
 
-Same shape for `/api/trending` and `/api/job-hunt/companies/leads/cron`. The
+Same shape for `/api/job-hunt/companies/leads/cron`. The
 OrgBook one is resumable, so calling it repeatedly walks through the keyword
 list one step at a time — it is safe to run more than once.
 

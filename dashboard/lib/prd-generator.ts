@@ -152,12 +152,22 @@ async function computeRice(inputs: RiceInputs): Promise<{ score: number; capped:
   }
 }
 
-export async function generatePrd(title: string, summary: string): Promise<GeneratedPrd> {
+export async function generatePrd(title: string, summary: string, designContext?: string): Promise<GeneratedPrd> {
   const warnings: string[] = []
+
+  // Re-engineer Phase 5 (2026-09-05): when the room has a reference-build
+  // design session with both gates answered, its design.md facts ride into
+  // the PRD generation — the design.py handoff→generatePrd bridge, finally
+  // automatic. These are DECISIONS THE OPERATOR ALREADY MADE (clone vs adapt,
+  // motion technique, recipe), so the rules for the model differ from the
+  // free-form discussion: never contradict, cite instead of re-derive.
+  const designBlock = designContext?.trim()
+    ? `\n\nDesign session facts (reference-build pipeline — store/design-sessions/):\n${designContext.trim()}\n\nRules for the design session facts above: they record decisions the operator already made through the design gates (intent, motion technique, build recipe). Do not contradict them and do not re-ask them. Cite them in Evidence ("operator decision via design gate — identical/adapt, motion: …"), reference the design.md + recipe in Context Refs, and make Acceptance Criteria honor the recorded intent and motion decision.`
+    : ''
 
   const raw = await callSynthesis({
     system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: `Title: ${title}\n\nDiscussion:\n${summary}` }],
+    messages: [{ role: 'user', content: `Title: ${title}\n\nDiscussion:\n${summary}${designBlock}` }],
     maxTokens: 3000,
   })
 

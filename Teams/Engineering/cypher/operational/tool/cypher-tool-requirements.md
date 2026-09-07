@@ -41,7 +41,6 @@ What cypher needs, and what happens without each. cypher's needs are unusual: th
 | Tool | Purpose | When to use |
 |------|---------|-------------|
 | **Agent-Reach** — see `Shared OS/tools/shared-tool-registry.md` | Web access to Twitter/X, Reddit, YouTube, GitHub, RSS — zero API fees | During OSINT/reconnaissance for gathering public information from social media and development platforms |
-| **ScrapeGraphAI** — see `Shared OS/tools/shared-tool-registry.md` | AI-powered web scraping | When extracting structured data from target web pages during recon phase |
 
 ## MCP Marketplace Tools (added 2026-07-14)
 

@@ -4,7 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
  * Playwright config — quinn's release gate.
  * "Agents say done; browsers tell the truth."
  * Chromium-only scope (2026-08-01): the dashboard is internal/BOD-gated and the
- * scraping stack (Crawl4AI/browser-use/ScrapeGraphAI) also drives Chromium, so
+ * scraping stack (Crawl4AI) also drives Chromium, so
  * one engine does double duty. Re-enable firefox/webkit below if a public,
  * cross-browser surface ships. Install: `npx playwright install chromium`.
  * Boots the Next.js dev server, runs critical-flow E2E in tests/e2e/.

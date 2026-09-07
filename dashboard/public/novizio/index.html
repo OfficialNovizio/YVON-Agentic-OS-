@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Novizio — The Editorial Dashboard</title>
+<meta name="description" content="Novizio editorial dashboard — an original quiet-luxury reinterpretation using the verified COS study as structural and visual reference. Brunello Cucinelli: blocked at site level, directional context only.">
+<style>
+  /* ============ NOVIZIO — original design system ============
+     Reference (structural/visual principles only): verified COS study.
+     Identity: Novizio's own quiet-luxury system — warm ivory, charcoal,
+     stone, one muted clay accent; high-contrast editorial serif display;
+     neutral sans for controls; generous spacing, calm vertical rhythm.
+     Brunello Cucinelli: BLOCKED at site level — directional context only
+     (quiet luxury, editorial pacing, image-led discovery). No BC content,
+     assets, or identity reproduced here. */
+
+  :root{
+    --ivory:#f6f3ee;
+    --paper:#fbfaf7;
+    --charcoal:#22201d;
+    --ink:#39362f;
+    --stone:#a9a294;
+    --stone-light:#d8d2c6;
+    --clay:#9c6b4f;          /* single muted accent */
+    --sage:#7a7d6e;
+    --line:#e4dfd5;
+    --serif:"Cormorant Garamond","Palatino Linotype",Palatino,Georgia,serif;
+    --sans:"Avenir Next","Segoe UI",Helvetica,Arial,sans-serif;
+    --max:1280px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:var(--sans);background:var(--ivory);color:var(--ink);
+    font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;
+  }
+  img,svg{display:block;max-width:100%}
+  a{color:inherit;text-decoration:none}
+  ul{list-style:none}
+  button{font:inherit;cursor:pointer;background:none;border:none;color:inherit}
+  .wrap{max-width:var(--max);margin:0 auto;padding:0 clamp(20px,4vw,48px)}
+  .kicker{
+    font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--clay);margin-bottom:14px;
+  }
+  .display{font-family:var(--serif);font-weight:500;color:var(--charcoal);line-height:1.05}
+
+  /* ---------- announcement ---------- */
+  .announce{background:var(--charcoal);color:var(--ivory);text-align:center;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;padding:9px 16px}
+  .announce em{font-style:normal;color:#d9c9b8}
+
+  /* ---------- header ---------- */
+  header.site{
+    position:sticky;top:0;z-index:50;background:rgba(246,243,238,.94);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+  }
+  .site-bar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+    height:64px;gap:16px}
+  nav.primary{display:flex;gap:clamp(14px,2vw,28px)}
+  nav.primary a{font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink);padding:6px 0;border-bottom:1px solid transparent;transition:border-color .2s}
+  nav.primary a:hover{border-color:var(--clay)}
+  .menu-btn{display:none}
+  /* the nav checkbox is a control, not layout — out of flow at every width
+     (was scoped to mobile once and it stole a desktop grid cell) */
+  #navtoggle{position:absolute;opacity:0;pointer-events:none}
+  .brand{font-family:var(--serif);font-size:clamp(24px,3vw,30px);letter-spacing:.34em;
+    text-transform:uppercase;color:var(--charcoal);text-align:center;font-weight:600}
+  .brand span{color:var(--clay)}
+  .utils{display:flex;gap:18px;justify-content:flex-end;align-items:center}
+  .utils a,.utils button{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
+  .utils a:hover{color:var(--clay)}
+  .badge{position:relative}
+  .badge i{position:absolute;top:-7px;right:-10px;font-style:normal;background:var(--clay);
+    color:#fff;border-radius:999px;font-size:9px;min-width:14px;height:14px;
+    display:grid;place-items:center;padding:0 3px}
+
+  /* ---------- hero ---------- */
+  .hero{position:relative;min-height:min(78vh,720px);display:grid;place-items:center;
+    overflow:hidden;color:var(--ivory)}
+  .hero-art{position:absolute;inset:0;
+    background:
+      radial-gradient(120% 90% at 78% 8%, #cbb49a 0%, transparent 52%),
+      radial-gradient(90% 70% at 12% 88%, #56524a 0%, transparent 58%),
+      linear-gradient(158deg,#3d3931 0%,#2a2723 46%,#191713 100%);}
+  .hero-art::after{content:"";position:absolute;inset:0;opacity:.16;
+    background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.05) 0 1px,transparent 1px 9px),
+      repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 1px,transparent 1px 12px);}
+  .hero-inner{position:relative;text-align:center;padding:96px 20px;max-width:760px}
+  .hero .kicker{color:#d9c9b8}
+  .hero h1{font-size:clamp(40px,7vw,84px);color:var(--ivory);margin-bottom:18px}
+  .hero p{max-width:44ch;margin:0 auto 30px;color:#d8d2c4;font-size:15px}
+  .btn{display:inline-block;font-size:12px;letter-spacing:.2em;text-transform:uppercase;
+    padding:14px 34px;border:1px solid currentColor;transition:all .25s}
+  .btn.solid{background:var(--ivory);color:var(--charcoal);border-color:var(--ivory)}
+  .btn.solid:hover{background:var(--clay);border-color:var(--clay);color:#fff}
+  .btn.ghost:hover{background:rgba(255,255,255,.08)}
+
+  /* ---------- sections ---------- */
+  section{padding:clamp(56px,8vw,104px) 0}
+  .sec-head{display:flex;align-items:flex-end;justify-content:space-between;
+    gap:24px;margin-bottom:clamp(28px,4vw,48px)}
+  .sec-head h2{font-size:clamp(28px,3.6vw,44px)}
+  .sec-head .link{font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    border-bottom:1px solid var(--stone);padding-bottom:3px;white-space:nowrap}
+  .sec-head .link:hover{color:var(--clay);border-color:var(--clay)}
+
+  /* arrivals grid */
+  .arrivals{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(16px,2vw,28px)}
+  .card{position:relative}
+  .ph{position:relative;aspect-ratio:4/5;overflow:hidden;background:var(--paper);
+    border:1px solid var(--line)}
+  .ph .art{position:absolute;inset:0;transition:transform .6s ease}
+  .card:hover .art{transform:scale(1.045)}
+  .ph .tag{position:absolute;top:12px;left:12px;font-size:10px;letter-spacing:.16em;
+    text-transform:uppercase;background:var(--ivory);padding:5px 10px;color:var(--ink)}
+  .ph .tag.new{background:var(--sage);color:#fff}
+  .card h3{font-family:var(--serif);font-size:19px;font-weight:600;color:var(--charcoal);
+    margin:14px 0 2px}
+  .card .meta{font-size:12px;color:var(--stone);letter-spacing:.06em;text-transform:uppercase}
+  .card .price{font-size:14px;color:var(--ink);margin-top:6px}
+  /* original placeholder art — Novizio swatches, no source imagery */
+  .a1{background:linear-gradient(165deg,#b7a48c 0%,#8a765d 55%,#5c4f3e 100%)}
+  .a2{background:linear-gradient(200deg,#ddd4c4 0%,#b9ab93 60%,#8f8371 100%)}
+  .a3{background:linear-gradient(150deg,#4c4a42 0%,#35332d 60%,#23221d 100%)}
+  .a4{background:linear-gradient(170deg,#c98f6b 0%,#9c6b4f 55%,#6f4835 100%)}
+  .a5{background:linear-gradient(160deg,#8b8d7c 0%,#6d6f60 55%,#4e5043 100%)}
+  .a6{background:linear-gradient(190deg,#e0d8ca 0%,#c2b8a3 55%,#98907c 100%)}
+  .a1::after,.a2::after,.a3::after,.a4::after,.a5::after,.a6::after{
+    content:"";position:absolute;inset:0;opacity:.22;
+    background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.08) 0 2px,transparent 2px 14px);}
+  .ph .num{position:absolute;bottom:10px;right:14px;font-family:var(--serif);
+    font-size:15px;color:rgba(255,255,255,.75);font-style:italic}
+
+  /* story band */
+  .story{background:var(--charcoal);color:var(--ivory)}
+  .story .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:clamp(32px,5vw,72px);align-items:center}
+  .story .kicker{color:#d9c9b8}
+  .story h2{color:var(--ivory);font-size:clamp(30px,4vw,52px);margin-bottom:20px}
+  .story p{color:#c9c3b5;margin-bottom:16px;max-width:52ch}
+  .story .panel{aspect-ratio:4/3;position:relative;overflow:hidden;border:1px solid #3c3830;
+    background:
+      radial-gradient(80% 60% at 70% 20%,#9c6b4f22 0%,transparent 60%),
+      linear-gradient(140deg,#4a453c 0%,#332f28 60%,#211f1a 100%)}
+  .story .panel::after{content:"";position:absolute;inset:0;opacity:.25;
+    background-image:repeating-linear-gradient(0deg,rgba(255,255,255,.06) 0 1px,transparent 1px 10px)}
+  .story .panel .cap{position:absolute;left:18px;bottom:14px;font-size:11px;
+    letter-spacing:.2em;text-transform:uppercase;color:#b7b0a0}
+  .story blockquote{border-left:2px solid var(--clay);padding-left:18px;margin:26px 0 30px;
+    font-family:var(--serif);font-size:20px;font-style:italic;color:#e6e0d3}
+
+  /* categories row */
+  .cats{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(16px,2vw,28px)}
+  .cat{position:relative;aspect-ratio:3/4;overflow:hidden;display:grid;align-items:end;
+    border:1px solid var(--line)}
+  .cat .art{position:absolute;inset:0;transition:transform .6s ease}
+  .cat:hover .art{transform:scale(1.04)}
+  .c1{background:linear-gradient(160deg,#7d6b53 0%,#57493a 60%,#372f25 100%)}
+  .c2{background:linear-gradient(180deg,#d9d2c2 0%,#b3aa96 55%,#8a8271 100%)}
+  .c3{background:linear-gradient(155deg,#3e3c36 0%,#2b2924 60%,#1b1a16 100%)}
+  .c1::after,.c2::after,.c3::after{content:"";position:absolute;inset:0;opacity:.2;
+    background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.07) 0 1px,transparent 1px 11px)}
+  .cat .label{position:relative;padding:22px;display:flex;justify-content:space-between;
+    align-items:center;color:#fff;background:linear-gradient(transparent,rgba(20,18,15,.55))}
+  .cat .label h3{font-family:var(--serif);font-size:24px;font-weight:600}
+  .cat .label span{font-size:11px;letter-spacing:.18em;text-transform:uppercase}
+
+  /* journal */
+  .journal{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(16px,2vw,28px)}
+  .post{border-top:1px solid var(--charcoal);padding-top:18px}
+  .post time{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--stone)}
+  .post h3{font-family:var(--serif);font-size:22px;font-weight:600;color:var(--charcoal);
+    margin:8px 0 8px;line-height:1.25}
+  .post p{font-size:14px;color:var(--ink)}
+  .post a{display:inline-block;margin-top:12px;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--clay);border-bottom:1px solid var(--clay);padding-bottom:2px}
+
+  /* newsletter */
+  .news{background:var(--paper);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .news .inner{max-width:620px;margin:0 auto;text-align:center}
+  .news h2{font-size:clamp(26px,3vw,38px);margin-bottom:12px}
+  .news p{color:var(--stone);margin-bottom:26px}
+  .news form{display:flex;gap:0;border:1px solid var(--charcoal)}
+  .news input{flex:1;border:none;background:transparent;padding:14px 18px;font:inherit;
+    color:var(--ink);outline:none}
+  .news input::placeholder{color:var(--stone);letter-spacing:.06em}
+  .news button{background:var(--charcoal);color:var(--ivory);padding:0 28px;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase}
+  .news button:hover{background:var(--clay)}
+  .news small{display:block;margin-top:12px;font-size:11px;color:var(--stone)}
+
+  /* footer */
+  footer.site{padding:clamp(44px,6vw,72px) 0 32px;color:var(--ink)}
+  .foot-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:32px;margin-bottom:48px}
+  .foot-brand .brand{font-size:22px;text-align:left;margin-bottom:12px}
+  .foot-brand p{font-size:13px;color:var(--stone);max-width:32ch}
+  footer h4{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--charcoal);
+    margin-bottom:14px}
+  footer li{margin-bottom:8px}
+  footer li a{font-size:13px;color:var(--ink)}
+  footer li a:hover{color:var(--clay)}
+  .foot-base{border-top:1px solid var(--line);padding-top:20px;display:flex;
+    justify-content:space-between;gap:16px;font-size:12px;color:var(--stone);flex-wrap:wrap}
+
+  /* provenance note (blocked-source documentation) */
+  .provenance{background:#efe9de;border-top:1px solid var(--line)}
+  .provenance .inner{max-width:920px;margin:0 auto;font-size:12.5px;color:#5d5748}
+  .provenance strong{color:var(--charcoal)}
+  .provenance code{font-family:Consolas,monospace;font-size:11.5px;background:#e3dccd;
+    padding:1px 6px;border-radius:3px}
+
+  /* ---------- responsive ---------- */
+  @media (max-width:1024px){            /* tablet */
+    .arrivals{grid-template-columns:repeat(3,1fr)}
+    .story .grid{grid-template-columns:1fr}
+    .story .panel{order:-1;max-height:380px}
+    .foot-grid{grid-template-columns:1fr 1fr}
+    nav.primary{gap:14px}
+    .menu-btn{display:none}              /* tablet keeps inline nav */
+  }
+  @media (max-width:768px){             /* mobile */
+    .site-bar{grid-template-columns:auto 1fr auto;height:58px}
+    .brand{font-size:20px;letter-spacing:.26em;text-align:center}
+    .menu-btn{display:inline-block;font-size:11px;letter-spacing:.16em;
+      text-transform:uppercase;padding:8px 0}
+    /* no-JS dropdown nav (checkbox hack) */
+    nav.primary{display:none}
+    #navtoggle:checked ~ nav.primary{
+      display:flex;flex-direction:column;position:absolute;top:58px;left:0;right:0;
+      background:var(--ivory);border-bottom:1px solid var(--line);
+      padding:10px clamp(20px,4vw,48px) 18px;gap:2px;
+    }
+    #navtoggle:checked ~ nav.primary a{padding:10px 0;border-bottom:1px solid var(--line)}
+    .utils{gap:12px}
+    .utils a.hide-m{display:none}
+    .arrivals{grid-template-columns:repeat(2,1fr);gap:14px}
+    .cats{grid-template-columns:1fr}
+    .cat{aspect-ratio:16/10}
+    .journal{grid-template-columns:1fr}
+    .news form{flex-direction:column;border:none;gap:10px}
+    .news input{border:1px solid var(--charcoal)}
+    .news button{padding:14px}
+    .sec-head{flex-direction:column;align-items:flex-start;gap:10px}
+    .hero{min-height:70vh}
+  }
+</style>
+</head>
+<body>
+
+<div class="announce">Volume 04 — The Autumn Edit is live · <em>Complimentary shipping over €250</em></div>
+
+<header class="site">
+  <div class="wrap site-bar">
+    <input type="checkbox" id="navtoggle" aria-label="Toggle navigation menu">
+    <label for="navtoggle" class="menu-btn" aria-hidden="true">Menu</label>
+    <nav class="primary" aria-label="Primary">
+      <a href="#arrivals">New Arrivals</a>
+      <a href="#collections">Collections</a>
+      <a href="#journal">Journal</a>
+      <a href="#about">About</a>
+    </nav>
+    <a class="brand" href="#">Novizio<span>.</span></a>
+    <div class="utils">
+      <a href="#" class="hide-m">Search</a>
+      <a href="#" class="hide-m">Account</a>
+      <a href="#" class="badge">Saved <i>2</i></a>
+      <a href="#">Bag</a>
+    </div>
+  </div>
+</header>
+
+<!-- HERO — campaign -->
+<section class="hero" aria-label="Campaign">
+  <div class="hero-art" role="img" aria-label="Original Novizio campaign artwork: charcoal and ochre textile study in low evening light"></div>
+  <div class="hero-inner">
+    <p class="kicker">Volume 04 · Autumn</p>
+    <h1 class="display">Pieces that stay.</h1>
+    <p>A tight edit of twelve garments and objects, cut in natural fibres and finished by hand. Made slowly, kept longer.</p>
+    <a class="btn solid" href="#arrivals">Explore the edit</a>
+  </div>
+</section>
+
+<!-- ARRIVALS -->
+<section id="arrivals">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="kicker">New this week</p>
+        <h2 class="display">Recent arrivals</h2>
+      </div>
+      <a class="link" href="#">View all twelve</a>
+    </div>
+    <div class="arrivals">
+      <article class="card">
+        <a href="#" aria-label="Merino wrap coat">
+          <div class="ph"><div class="art a1" aria-hidden="true"></div><span class="tag">New</span><span class="num">01</span></div>
+          <h3>Merino Wrap Coat</h3>
+          <p class="meta">Undyed merino · Made in Porto</p>
+          <p class="price">€690</p>
+        </a>
+      </article>
+      <article class="card">
+        <a href="#" aria-label="Silk column dress">
+          <div class="ph"><div class="art a2" aria-hidden="true"></div><span class="num">02</span></div>
+          <h3>Silk Column Dress</h3>
+          <p class="meta">Sandwashed silk · Stone</p>
+          <p class="price">€420</p>
+        </a>
+      </article>
+      <article class="card">
+        <a href="#" aria-label="Wool-blend trouser">
+          <div class="ph"><div class="art a3" aria-hidden="true"></div><span class="num">03</span></div>
+          <h3>Wool-Blend Trouser</h3>
+          <p class="meta">High twist · Charcoal</p>
+          <p class="price">€260</p>
+        </a>
+      </article>
+      <article class="card">
+        <a href="#" aria-label="Ochre cashmere crew">
+          <div class="ph"><div class="art a4" aria-hidden="true"></div><span class="tag">Last pieces</span><span class="num">04</span></div>
+          <h3>Ochre Cashmere Crew</h3>
+          <p class="meta">Grade-A cashmere · Ochre</p>
+          <p class="price">€310</p>
+        </a>
+      </article>
+      <article class="card">
+        <a href="#" aria-label="Sculpted leather tote">
+          <div class="ph"><div class="art a5" aria-hidden="true"></div><span class="num">05</span></div>
+          <h3>Sculpted Leather Tote</h3>
+          <p class="meta">Vegetable-tanned · Sage</p>
+          <p class="price">€480</p>
+        </a>
+      </article>
+      <article class="card">
+        <a href="#" aria-label="Pleated midi skirt">
+          <div class="ph"><div class="art a6" aria-hidden="true"></div><span class="num">06</span></div>
+          <h3>Pleated Midi Skirt</h3>
+          <p class="meta">Chestnut twill · Ivory</p>
+          <p class="price">€240</p>
+        </a>
+      </article>
+      <article class="card">
+        <a href="#" aria-label="Ribbed merino turtleneck">
+          <div class="ph"><div class="art a3" aria-hidden="true"></div><span class="num">07</span></div>
+          <h3>Ribbed Merino Turtleneck</h3>
+          <p class="meta">Extra-fine merino · Ink</p>
+          <p class="price">€180</p>
+        </a>
+      </article>
+      <article class="card">
+        <a href="#" aria-label="Hand-thrown stoneware vase">
+          <div class="ph"><div class="art a1" aria-hidden="true"></div><span class="tag">Object</span><span class="num">08</span></div>
+          <h3>Hand-Thrown Vase</h3>
+          <p class="meta">Stoneware · Clay</p>
+          <p class="price">€95</p>
+        </a>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- STORY -->
+<section class="story" id="about">
+  <div class="wrap grid">
+    <div>
+      <p class="kicker">Atelier notes · Issue 12</p>
+      <h2 class="display">The cutting room in October</h2>
+      <p>Every Volume begins on a single roll of cloth. This season it is a compact merino from a family mill outside Braga — spun undyed, woven loosely, and left to relax for two weeks before the first pattern is laid on top of it.</p>
+      <blockquote>“We would rather make eleven right pieces than thirty that merely photograph well.”</blockquote>
+      <p>The result is a collection that barely raises its voice: twelve pieces, three palettes, one promise about how they age.</p>
+      <a class="btn ghost" href="#journal">Read the full note</a>
+    </div>
+    <div class="panel" role="img" aria-label="Original Novizio atelier artwork: warm charcoal weave with a single clay-toned thread line">
+      <span class="cap">Weave study · Merino nº 3</span>
+    </div>
+  </div>
+</section>
+
+<!-- CATEGORIES -->
+<section id="collections">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="kicker">Shop by intention</p>
+        <h2 class="display">Three quiet categories</h2>
+      </div>
+    </div>
+    <div class="cats">
+      <a class="cat" href="#">
+        <div class="art c1" aria-hidden="true"></div>
+        <div class="label"><h3>Outerwear</h3><span>4 pieces</span></div>
+      </a>
+      <a class="cat" href="#">
+        <div class="art c2" aria-hidden="true"></div>
+        <div class="label"><h3>Knitwear</h3><span>5 pieces</span></div>
+      </a>
+      <a class="cat" href="#">
+        <div class="art c3" aria-hidden="true"></div>
+        <div class="label"><h3>Tailoring</h3><span>3 pieces</span></div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- JOURNAL -->
+<section id="journal">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="kicker">Journal</p>
+        <h2 class="display">Notes from the studio</h2>
+      </div>
+      <a class="link" href="#">All entries</a>
+    </div>
+    <div class="journal">
+      <article class="post">
+        <time datetime="2026-08-28">28 August 2026</time>
+        <h3>On choosing one accent and ignoring the rest</h3>
+        <p>Why Volume 04 carries exactly one colour — clay — and how a restricted palette survives a full season.</p>
+        <a href="#">Read · 4 min</a>
+      </article>
+      <article class="post">
+        <time datetime="2026-08-19">19 August 2026</time>
+        <h3>A mill outside Braga, three generations deep</h3>
+        <p>The family that spins our merino still measures quality by how the cloth feels after its second year, not its first wash.</p>
+        <a href="#">Read · 6 min</a>
+      </article>
+      <article class="post">
+        <time datetime="2026-08-05">05 August 2026</time>
+        <h3>Fit notes: the column dress</h3>
+        <p>Twelve fittings, one seam. What we learned cutting a dress with almost nothing for it to hide behind.</p>
+        <a href="#">Read · 3 min</a>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- NEWSLETTER -->
+<section class="news">
+  <div class="wrap inner">
+    <p class="kicker">Quiet mail</p>
+    <h2 class="display">One letter a month</h2>
+    <p>Collection notes, mill visits, and early access to Volume 05. Nothing else, ever.</p>
+    <form onsubmit="event.preventDefault();this.querySelector('input').value='';this.querySelector('button').textContent='Subscribed';">
+      <input type="email" placeholder="Your email address" aria-label="Email address" required>
+      <button type="submit">Subscribe</button>
+    </form>
+    <small>By subscribing you agree to our privacy notice. Unsubscribe anytime.</small>
+  </div>
+</section>
+
+<!-- PROVENANCE / BLOCKED-SOURCE DOCUMENTATION (acceptance criterion 5) -->
+<section class="provenance" aria-label="Reference provenance">
+  <div class="wrap inner" style="text-align:left">
+    <p class="kicker" style="color:#7c6a52">Reference provenance</p>
+    <p><strong>Original work.</strong> All branding, copy, product names, prices, and imagery on this page are original Novizio material created for this dashboard. Placeholder artwork is generated in-page (CSS gradients) — no third-party photography is embedded.</p>
+    <p style="margin-top:10px"><strong>Structural reference:</strong> the verified COS study (task TS-049 evidence, <code>reference.md</code>) informed only the page rhythm (campaign → arrivals → story → categories → journal → service layer) and the image-led discovery pattern.</p>
+    <p style="margin-top:10px"><strong>Brunello Cucinelli: BLOCKED at site level.</strong> No BC page was accessed and no BC content or asset is used. BC appears only as previously documented directional context (quiet luxury, restrained pacing, warm neutral palette) — per the TS-049 discovery decision and <code>store/tasks/TS-049-prd.md</code> §3/§4.</p>
+  </div>
+</section>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <div class="brand">Novizio<span>.</span></div>
+        <p>Small-volume clothing and objects, made with mills and ateliers we can name.</p>
+      </div>
+      <div>
+        <h4>Shop</h4>
+        <ul>
+          <li><a href="#arrivals">New arrivals</a></li>
+          <li><a href="#collections">Collections</a></li>
+          <li><a href="#">Objects</a></li>
+          <li><a href="#">Archive</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Studio</h4>
+        <ul>
+          <li><a href="#about">About Novizio</a></li>
+          <li><a href="#journal">Journal</a></li>
+          <li><a href="#">Mills &amp; makers</a></li>
+          <li><a href="#">Contact</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Service</h4>
+        <ul>
+          <li><a href="#">Shipping &amp; returns</a></li>
+          <li><a href="#">Care guide</a></li>
+          <li><a href="#">Gift card</a></li>
+          <li><a href="#">FAQ</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-base">
+      <span>© 2026 Novizio. All originals reserved.</span>
+      <span>Privacy · Terms · Cookies</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { PageHeader, StatusBadge } from '@/components/ui'
+import { PageHeader, StatusBadge, Card } from '@/components/ui'
 import { useLiveData } from '@/lib/use-live-data'
 import { useWorkspace } from '@/lib/WorkspaceContext'
 import YvonGraph from '@/components/YvonGraph'
@@ -17,11 +17,16 @@ const FILTER_OPTIONS: { label: string; value: VisibilityFilter }[] = [
   { label: 'Cross-WS', value: 'cross-workspace' },
 ]
 
-// 2026-08-26: Brain & Wiki — Graph Memory viewer only. Library + pipeline
-// tabs removed per operator; Source chips, stats badges, and the visibility
-// filter chips were restored after the operator flagged they'd been removed
-// beyond the highlighted buttons.
+// 2026-08-26: Graph Memory only, Library removed per operator. Restored
+// 2026-08-30 (operator: "bring it back") — the /api/knowledge-graph route's
+// ventureKnowledgeGraph() was never actually touched by that removal; it has
+// been reading real mempalace output (venture_repo_knowledge.entries) into
+// LibraryDoc[] the whole time, just with no UI ever rendering `data.docs`.
+// Confirmed live via SQL before restoring this: Novizio has 118 real mined
+// entries sitting in that table with nothing showing them anywhere.
 export default function BrainWikiPage() {
+  const [tab, setTab] = useState<'graph' | 'library'>('graph')
+  const [selDoc, setSelDoc] = useState<LibraryDoc | null>(null)
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('all')
   const { ventures } = useWorkspace()
   const [ventureFilter, setVentureFilter] = useState<string>('fleet')
@@ -40,6 +45,9 @@ export default function BrainWikiPage() {
     url: knowledgeGraphUrl,
     pollIntervalMs: 60000,
   })
+
+  const docs = data?.docs ?? []
+  const filteredDocs = visibilityFilter === 'all' ? docs : docs.filter((d) => d.visibility === visibilityFilter)
 
   return (
     <div>
@@ -78,7 +86,7 @@ export default function BrainWikiPage() {
         </div>
       )}
 
-      {/* Stats (kept per operator) */}
+      {/* Stats + tabs */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <StatusBadge tone="muted">
           {data?.topicsCount ?? 0} {ventureFilter === 'fleet' ? 'topics' : 'code nodes'}
@@ -86,6 +94,19 @@ export default function BrainWikiPage() {
         <StatusBadge tone="muted">
           {data?.documentsCount ?? 0} {ventureFilter === 'fleet' ? 'docs' : 'knowledge entries'}
         </StatusBadge>
+        <div className="flex-1" />
+        <button
+          onClick={() => setTab('graph')}
+          className={`btn-ghost !py-1.5 !text-xs ${tab === 'graph' ? '!bg-white/10' : ''}`}
+        >
+          Graph Memory
+        </button>
+        <button
+          onClick={() => setTab('library')}
+          className={`btn-ghost !py-1.5 !text-xs ${tab === 'library' ? '!bg-white/10' : ''}`}
+        >
+          Library
+        </button>
       </div>
 
       {/* Visibility filter (kept per operator) */}
@@ -105,18 +126,79 @@ export default function BrainWikiPage() {
         ))}
       </div>
 
-      <div className="relative overflow-hidden rounded-xl border border-white/10 bg-[#0a0a0c]" style={{ height: '70vh' }}>
-        <YvonGraph embedded />
-        <a
-          href="/brain"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="absolute right-3 top-3 z-50 flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-[12px] text-white backdrop-blur transition hover:bg-white/20"
-        >
-          <span className="material-symbols-outlined text-[16px]">open_in_new</span>
-          Expand
-        </a>
-      </div>
+      {tab === 'graph' ? (
+        <div className="relative overflow-hidden rounded-xl border border-white/10 bg-[#0a0a0c]" style={{ height: '70vh' }}>
+          <YvonGraph embedded />
+          <a
+            href="/brain"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute right-3 top-3 z-50 flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-[12px] text-white backdrop-blur transition hover:bg-white/20"
+          >
+            <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+            Expand
+          </a>
+        </div>
+      ) : (
+        /* ── Library — real mempalace entries (venture_repo_knowledge),
+            mapped to LibraryDoc by /api/knowledge-graph's
+            ventureKnowledgeGraph(). Restored 2026-08-30. ── */
+        <div className="space-y-2">
+          {filteredDocs.map((d) => (
+            <div
+              key={d.id}
+              className="glass-card glass-card-hover p-4 cursor-pointer"
+              onClick={() => setSelDoc(d)}
+            >
+              <h4 className="text-sm font-semibold text-on-surface">{d.title}</h4>
+              <div className="mt-1 flex gap-2">
+                <StatusBadge tone="muted">{d.category}</StatusBadge>
+                <StatusBadge tone="muted">{d.visibility}</StatusBadge>
+              </div>
+              <p className="mt-2 text-[12px] text-on-surface-variant">{d.answer}</p>
+            </div>
+          ))}
+
+          {filteredDocs.length === 0 && (
+            <Card className="p-6 text-center">
+              <span className="material-symbols-outlined text-[48px] text-on-surface-variant/30 mb-2 block">
+                description
+              </span>
+              <p className="text-sm text-on-surface-variant">
+                {ventureFilter === 'fleet'
+                  ? 'No documents match the selected filter'
+                  : `No mempalace entries for ${ventureOptions.find((v) => v.slug === ventureFilter)?.name ?? ventureFilter} yet`}
+              </p>
+            </Card>
+          )}
+
+          {selDoc && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+              onClick={() => setSelDoc(null)}
+            >
+              <div
+                className="glass-card p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 className="text-lg font-bold text-on-surface mb-2">{selDoc.title}</h3>
+                <StatusBadge tone="muted">{selDoc.category}</StatusBadge>
+                <p className="mt-3 text-sm text-on-surface-variant">
+                  <strong>Answer:</strong> {selDoc.answer}
+                </p>
+                {selDoc.findings && (
+                  <p className="mt-2 text-sm text-on-surface-variant">
+                    <strong>Findings:</strong> {selDoc.findings}
+                  </p>
+                )}
+                <button className="btn-accent mt-4" onClick={() => setSelDoc(null)}>
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

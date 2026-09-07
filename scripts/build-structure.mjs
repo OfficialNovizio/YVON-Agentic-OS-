@@ -66,13 +66,29 @@ for (const deptName of readdirSync(TEAMS).sort()) {
 mkdirSync(dirname(OUT), { recursive: true })
 writeFileSync(OUT, JSON.stringify({ version: Date.now(), departments }, null, 0))
 
-// Alias map: bare agent name → stable id (mia → engineering-mia). All 46 names are
-// unique, so this is 1:1. The Hermes wrapper loads it to resolve `mentions` into
-// the ids the graph keys on — generated, so the contract can never drift by hand.
-const alias = Object.fromEntries(departments.flatMap(d => d.agents.map(a => [a.name, a.id])))
+// Alias map: bare agent name → stable id (mia → engineering-mia). The Hermes
+// wrapper loads it to resolve `mentions` into the ids the graph keys on —
+// generated, so the contract can never drift by hand.
+//
+// 2026-08-27: two agents share the bare name `shield` (Legal & Compliance:
+// litigation · Risk & ESG: operational resilience — the routing table lists
+// both). A 1:1 bare-name map cannot represent that, so the ambiguous name is
+// OMITTED from the map rather than silently misrouted to whichever entry
+// Object.fromEntries kept last. Hermes' resolve_actor() logs a warning for
+// the unknown mention, and the dept-qualified ids (legal-compliance-shield /
+// risk-esg-shield) always resolve. Any other duplicate still throws — the
+// invariant is "every name either resolves or is a known ambiguity", never a
+// silent last-wins.
+const all = departments.flatMap(d => d.agents.map(a => [a.name, a.id]))
+const ambiguous = new Set(
+  all.filter(([n], i) => all.findIndex(([m]) => m === n) !== i).map(([n]) => n))
+if (ambiguous.size)
+  console.warn(`⚠ ambiguous bare agent name(s) — omitted from alias map (use dept-qualified ids): ${[...ambiguous].join(', ')}`)
+const alias = Object.fromEntries(all.filter(([n]) => !ambiguous.has(n)))
 const ALIAS_OUT = join(ROOT, 'vps-scripts', 'yvon-hermes-http', 'agent-alias.json')
 writeFileSync(ALIAS_OUT, JSON.stringify(alias, null, 0))
-if (Object.keys(alias).length !== departments.reduce((n, d) => n + d.agents.length, 0))
+const dropped = all.filter(([n]) => ambiguous.has(n)).length
+if (Object.keys(alias).length !== all.length - dropped)
   throw new Error('agent name collision — bare-name → id mapping is not 1:1')
 
 const total = departments.reduce((n, d) => n + d.agents.length, 0)

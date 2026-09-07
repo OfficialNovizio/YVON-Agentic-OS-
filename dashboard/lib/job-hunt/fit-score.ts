@@ -12,7 +12,11 @@
 export interface FitProfile {
   skills?: { programming?: string[]; domain?: string[]; tools?: string[] }
   target_roles?: { primary?: string[]; archetypes?: { name?: string }[] }
-  behavioral?: { fit_keywords?: string[]; friction_keywords?: string[] }
+  behavioral?: {
+    fit_keywords?: string[]
+    friction_keywords?: string[]
+    culture_screen_require?: string[]
+  }
   evaluation_prefs?: {
     deal_breakers?: string[]
     career_goals?: string[]

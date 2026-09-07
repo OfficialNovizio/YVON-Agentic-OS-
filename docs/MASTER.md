@@ -5052,8 +5052,7 @@ Each tool binds to a gate here, or it does not enter the repo.
 | Playwright | Browser render | UI work → `gated` | yes (after §8.9) |
 | `reticle` | Browser render | with Playwright | **bound 2026-08-09** — `quinn-config.reticle_mcp`; still gated behind §8.8 step 6 (flip to blocking) |
 | `agentation` | Feedback (input) | during `executing` | no |
-| `browser-use` | Exploratory QA | during `executing` | no (non-deterministic — never a gate) |
-| Crawl4AI · ScrapeGraphAI · Agent-Reach | Research | during `discovery` | no |
+| Crawl4AI · Agent-Reach | Research | during `discovery` | no |
 | *(new, unvetted)* taste-skill · strix · page-agent | — | — | must pass `quarantine.sh` before binding |
 
 **Rule:** adding a row to the registry without a gate binding is incomplete. Unbound tools

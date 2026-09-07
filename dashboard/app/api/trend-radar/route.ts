@@ -2,7 +2,8 @@ import { getTrendingItems } from '@/lib/db'
 import type { TrendItem } from '@/lib/types'
 
 // Public read endpoint for the Trend Radar page.
-// /api/trending requires CRON_SECRET; this one only reads cached data.
+// Reads cached rows only — no live source since the Apify trend scrape was
+// retired 2026-09-07 (/api/trending removed with it).
 export async function GET(): Promise<Response> {
   try {
     const items = await getTrendingItems('yvon-os')

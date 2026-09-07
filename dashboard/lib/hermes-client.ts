@@ -37,6 +37,15 @@ export interface HermesChatInput {
    * turn. Only ever the active venture's own configured repoUrl — never an
    * arbitrary client-supplied URL (see stream/route.ts). */
   repoUrl?: string
+  /** 2026-09-04 (repo-link false-negative fix): set ONLY when the venture has
+   *  a repo linked but this room's execution gate is closed (chat not yet
+   *  converted into an approved task), so repoUrl itself is withheld. Without
+   *  this, Hermes sees repo_url empty and injects its "No repo is linked"
+   *  prompt block — which the agent then relays verbatim ("I can't access the
+   *  repo / no repo is linked"), contradicting what the user can see saved in
+   *  Settings. This field lets Hermes say the true thing instead: the repo
+   *  exists, access is gated until task approval. */
+  repoGatedUrl?: string
   /** Added 2026-08-19: the active venture's own write-scoped GitHub PAT
    * (Settings → Venture → Technical, `ventures.github_pat` in Supabase) —
    * the same credential graphify/MemPalace already use (lib/db/
@@ -51,10 +60,73 @@ export interface HermesChatInput {
    * emitted — see app/api/chat/send/route.ts's header comment). */
   correlation?: string
   /** FIX (2026-08-22, cost teardown Cause 01): the CAOS v2 tier already
-   * computed dashboard-side ("build"/"research"/…), forwarded so Hermes can
+   * computed dashboard-side ("build"/"reference"/…), forwarded so Hermes can
    * cap its tool loop per tier instead of giving every turn a 30-iteration
    * budget. Declared here 2026-08-24 — the call site shipped without it. */
   tier?: string
+  /** Evidence rail fix ③ (2026-09-04): text the dashboard scraped
+   * dashboard-side from an external https URL in the user's message, when
+   * there was one. main.py injects it as a [REFERENCE — DASHBOARD-SCRAPED
+   * CONTENT] block right before the user's message so the agent grounds in
+   * the real reference; absent on turns without a URL. */
+  referenceContext?: string
+  /** Re-engineer Phase 2 (2026-09-05): id of the reference-build design
+   * session (store/design-sessions/) the stream route opened for this
+   * turn's reference URL. main.py injects the [DESIGN GATE] contract when
+   * set — the agent ends the turn with a machine-parseable
+   * ```design-gate fence instead of a free-text clone-or-adapt question.
+   * Undefined on turns without a reference URL (or for turns the dashboard
+   * hasn't opened a session for). */
+  designSessionId?: string
+  /** Re-engineer Phase 6 (2026-09-05): the room's executing TASK-SPEC,
+   * injected on every turn in an execution-unlocked room whose
+   * chat_rooms.execution_task_id is set. main.py renders it as an
+   * [ACTIVE TASK] block — the builder must load the recipe's named
+   * skills/libraries BEFORE writing code (the token-burn fix) and report
+   * against each acceptance criterion. Undefined on ordinary turns. */
+  activeTask?: ActiveTaskPayload
+  /** Re-engineer Phase 7 (2026-09-06): the alignment loop's turn contract,
+   * injected on verify turns (message marker [TASK VERIFY] TS-…). main.py
+   * renders it as a [TASK VERIFY] block — verify, don't build — and the
+   * agent ends with a ```design-gate {"stage":"verify"} fence the stream
+   * route parses into the design.verify frame. Undefined on ordinary turns. */
+  verifyTask?: VerifyTaskPayload
+}
+
+/** The [ACTIVE TASK] payload — facts read from the real TASK-SPEC record
+ * (cli/task.py list) plus the room's design session. No client input ever
+ * shapes this: the dashboard derives it from disk, so the builder cannot be
+ * steered by a crafted payload. */
+export interface ActiveTaskPayload {
+  taskId: string
+  title: string
+  /** The user's verbatim source message the task was created from. */
+  sourceMessage: string
+  /** Flattened per-work-item acceptance criteria (testable, verbatim). */
+  acceptanceCriteria: string[]
+  /** Flattened per-work-item objectives (what "done" is building). */
+  workItems: string[]
+  /** The task's design.md (copied next to the PRD at convert time), when
+   * the room's design session was linked. */
+  designMd?: string
+  /** The routed build recipe (lib/build-recipe.ts) from the design session. */
+  recipe?: Record<string, unknown>
+}
+
+/** The [TASK VERIFY] payload — Phase 7's alignment loop. Facts come from the
+ * same disk sources as ActiveTaskPayload (task.py list + the room's verbatim
+ * user messages); criteria carry WI refs so the verify fence's verdicts map
+ * back to set-acceptance calls. No client input ever shapes this. */
+export interface VerifyTaskPayload {
+  taskId: string
+  /** Each criterion with its ref ("WI-1:2") — the fence verdicts cite these. */
+  criteria: { ref: string; text: string }[]
+  /** The user's verbatim messages in the room — what the output is judged against. */
+  originalAsks: string[]
+  /** Paths the task's work items declare they produce. */
+  produces: string[]
+  /** Evidence artifact URLs (screenshots/scrapes) from the build turns. */
+  evidenceUrls?: string[]
 }
 
 /**
@@ -146,6 +218,11 @@ export type HermesEvent = (
   | { kind: 'tool_call.start'; toolName: string; argsPreview: string }
   | { kind: 'tool_call.end'; toolName: string; ok: boolean; summary: string }
   | { kind: 'notice'; level: string; message: string }
+  // Evidence rail fix ② (2026-09-04): a file the agent saved into the turn's
+  // artifacts dir (screenshot, scraped data). Emitted before `done` — the
+  // browser reader loop breaks on `done`. URL is absolute
+  // (https://hermes.yvon.in/artifacts/...) and CSP-clean for <img>.
+  | { kind: 'artifact'; url: string; label?: string; artifactKind?: string }
 ) & { correlation?: string }
 
 export interface HermesConfig {
@@ -234,8 +311,31 @@ export async function* streamHermesChat(
       venture_context: input.ventureContext ?? undefined,
       input_analysis: input.inputAnalysis ?? undefined,
       repo_url: input.repoUrl ?? undefined,
+      repo_gated_url: input.repoGatedUrl ?? undefined,
       github_pat: input.repoGithubPat ?? undefined,
       correlation: input.correlation ?? undefined,
+      reference_context: input.referenceContext ?? undefined,
+      design_session_id: input.designSessionId ?? undefined,
+      active_task: input.activeTask
+        ? {
+            task_id: input.activeTask.taskId,
+            title: input.activeTask.title,
+            source_message: input.activeTask.sourceMessage,
+            acceptance_criteria: input.activeTask.acceptanceCriteria,
+            work_items: input.activeTask.workItems,
+            design_md: input.activeTask.designMd ?? undefined,
+            recipe: input.activeTask.recipe ?? undefined,
+          }
+        : undefined,
+      verify_task: input.verifyTask
+        ? {
+            task_id: input.verifyTask.taskId,
+            criteria: input.verifyTask.criteria,
+            original_asks: input.verifyTask.originalAsks,
+            produces: input.verifyTask.produces,
+            evidence_urls: input.verifyTask.evidenceUrls ?? undefined,
+          }
+        : undefined,
     }),
   })
 

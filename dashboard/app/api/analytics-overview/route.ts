@@ -1,7 +1,7 @@
 /**
  * /api/analytics-overview
  * Returns overview dashboard data from connected social accounts.
- * Reads from cached social_snapshots + social_posts — no live Apify calls.
+ * Reads from cached social_snapshots + social_posts — cache reads only, no live calls.
  * Empty arrays only when no data exists.
  *
  * GET ?venture=<slug>&period=30d

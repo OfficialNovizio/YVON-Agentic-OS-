@@ -43,6 +43,11 @@ SSH_OPTS="${SSH_OPTS:--o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_FILE="${LOCAL_FILE:-$HERE/yvon-hermes-http/main.py}"
 [ -f "$LOCAL_FILE" ] || LOCAL_FILE="$HERE/main.py"
+# Re-engineer Phase 1 (2026-09-05): main.py imports motion_probe (the
+# server-side motion probe) as a same-dir module — it MUST ship together or
+# the wrapper dies on ImportError at startup.
+LOCAL_PROBE="${LOCAL_PROBE:-$HERE/yvon-hermes-http/motion_probe.py}"
+REMOTE_PROBE="$REMOTE_DIR/motion_probe.py"
 
 DRY_RUN=0; ROLLBACK=0
 for a in "$@"; do
@@ -79,7 +84,12 @@ if [ "$ROLLBACK" = "1" ]; then
   LATEST="$(run_remote "ls -1t $REMOTE_DIR/main.py.bak.* 2>/dev/null | head -1")"
   [ -n "$LATEST" ] || { bad "no backup found in $REMOTE_DIR"; exit 1; }
   info "restoring $LATEST"
-  run_remote "cp '$LATEST' '$REMOTE_FILE' && systemctl restart $SERVICE" || { bad "rollback failed"; exit 1; }
+  # Restore the matching probe backup too if one exists (backups are stamped
+  # per deploy, so latest+latest is the best available pairing; if the probe
+  # has never been deployed there is no backup and the current one stays —
+  # an old main.py that doesn't import it still runs).
+  PROBE_BAK="$(run_remote "ls -1t $REMOTE_PROBE.bak.* 2>/dev/null | head -1")"
+  run_remote "cp '$LATEST' '$REMOTE_FILE' && { [ -n '$PROBE_BAK' ] && cp '$PROBE_BAK' '$REMOTE_PROBE' || true; } && systemctl restart $SERVICE" || { bad "rollback failed"; exit 1; }
   sleep 4
   if health; then ok "rolled back and healthy"; else bad "rolled back but /healthz is not 200 — check: journalctl -u $SERVICE -n 50"; exit 1; fi
   exit 0
@@ -88,20 +98,29 @@ fi
 # ── 1. local preflight ───────────────────────────────────────────────────
 say "1 · Local preflight"
 [ -f "$LOCAL_FILE" ] || { bad "local main.py not found at $LOCAL_FILE"; exit 1; }
+[ -f "$LOCAL_PROBE" ] || { bad "local motion_probe.py not found at $LOCAL_PROBE — main.py imports it, refusing to deploy"; exit 1; }
 if command -v python3 >/dev/null 2>&1; then
   python3 -m py_compile "$LOCAL_FILE" 2>/dev/null \
     && ok "compiles locally" \
     || { bad "local main.py does NOT compile — refusing to deploy"; python3 -m py_compile "$LOCAL_FILE"; exit 1; }
+  python3 -m py_compile "$LOCAL_PROBE" 2>/dev/null \
+    && ok "motion_probe.py compiles locally" \
+    || { bad "motion_probe.py does NOT compile — refusing to deploy"; python3 -m py_compile "$LOCAL_PROBE"; exit 1; }
 else
   info "python3 not on this machine; skipping local compile (remote check still runs)"
 fi
 LOCAL_SHA="$(shasum -a 256 "$LOCAL_FILE" | cut -c1-12)"
 ok "sha256 $LOCAL_SHA  ($(wc -l < "$LOCAL_FILE" | tr -d ' ') lines)"
+LOCAL_PROBE_SHA="$(shasum -a 256 "$LOCAL_PROBE" | cut -c1-12)"
+ok "sha256 $LOCAL_PROBE_SHA  (motion_probe.py)"
 
 # quick sanity: are the fixes actually in this file?
 grep -q 'def on_tool_start(\*cb_args' "$LOCAL_FILE" && ok "contains the tool-callback arity fix" || bad "arity fix NOT present — wrong file?"
 grep -q '_meter_snapshot'                "$LOCAL_FILE" && ok "contains the per-turn token meter"   || bad "token meter NOT present"
 grep -q 'MAX_ITER_BY_TIER'            "$LOCAL_FILE" && ok "contains per-tier iteration caps"    || bad "tier caps NOT present"
+grep -q 'from motion_probe import'     "$LOCAL_FILE" && ok "motion probe wired"                 || bad "motion probe NOT wired"
+grep -q 'if req.design_session_id:'    "$LOCAL_FILE" && ok "design gate wired"                  || bad "design gate NOT wired"
+grep -q 'if req.active_task:'          "$LOCAL_FILE" && ok "active task wired"                  || bad "active task NOT wired"
 
 # ── 2. connectivity ──────────────────────────────────────────────────────
 say "2 · Connectivity"
@@ -112,8 +131,10 @@ run_remote "true" 2>/dev/null && ok "ssh to $SSH_TARGET" || {
 }
 run_remote "test -f '$REMOTE_FILE'" && ok "found $REMOTE_FILE" || { bad "$REMOTE_FILE does not exist — check REMOTE_DIR"; exit 1; }
 REMOTE_SHA="$(run_remote "sha256sum '$REMOTE_FILE' | cut -c1-12")"
+REMOTE_PROBE_SHA="$(run_remote "sha256sum '$REMOTE_PROBE' 2>/dev/null | cut -c1-12" || true)"
 info "remote sha $REMOTE_SHA  →  local sha $LOCAL_SHA"
-[ "$REMOTE_SHA" = "$LOCAL_SHA" ] && { ok "already identical — nothing to deploy"; exit 0; }
+info "remote probe sha ${REMOTE_PROBE_SHA:-absent}  →  local probe sha $LOCAL_PROBE_SHA"
+[ "$REMOTE_SHA" = "$LOCAL_SHA" ] && [ "$REMOTE_PROBE_SHA" = "$LOCAL_PROBE_SHA" ] && { ok "already identical — nothing to deploy"; exit 0; }
 
 if health; then ok "service healthy before deploy"; else info "warning: /healthz not 200 before deploy"; fi
 
@@ -131,15 +152,18 @@ BACKUP="$REMOTE_FILE.bak.$STAMP"
 run_remote "cp '$REMOTE_FILE' '$BACKUP'" && ok "backed up → $BACKUP" || { bad "backup failed — aborting"; exit 1; }
 
 TMP="/tmp/main.py.incoming.$STAMP"
+PROBE_TMP="/tmp/motion_probe.py.incoming.$STAMP"
 scp $SSH_OPTS -q "$LOCAL_FILE" "$SSH_TARGET:$TMP" && ok "uploaded to $TMP" || { bad "scp failed"; exit 1; }
+scp $SSH_OPTS -q "$LOCAL_PROBE" "$SSH_TARGET:$PROBE_TMP" && ok "probe uploaded to $PROBE_TMP" || { bad "probe scp failed"; run_remote "rm -f '$TMP'"; exit 1; }
 
 # ── 4. remote syntax check BEFORE touching the running service ───────────
 say "4 · Remote syntax check"
-run_remote "python3 -m py_compile '$TMP'" \
+run_remote "python3 -m py_compile '$TMP' '$PROBE_TMP'" \
   && ok "compiles on the VPS" \
-  || { bad "does NOT compile on the VPS — service untouched, nothing changed"; run_remote "rm -f '$TMP'"; exit 1; }
+  || { bad "does NOT compile on the VPS — service untouched, nothing changed"; run_remote "rm -f '$TMP' '$PROBE_TMP'"; exit 1; }
 
-run_remote "mv '$TMP' '$REMOTE_FILE'" && ok "installed" || { bad "install failed"; exit 1; }
+run_remote "test -f '$REMOTE_PROBE' && cp '$REMOTE_PROBE' '$REMOTE_PROBE.bak.$STAMP' || true"
+run_remote "mv '$TMP' '$REMOTE_FILE' && mv '$PROBE_TMP' '$REMOTE_PROBE'" && ok "installed" || { bad "install failed"; exit 1; }
 
 # ── 5. restart + health, with auto-rollback ──────────────────────────────
 say "5 · Restart"

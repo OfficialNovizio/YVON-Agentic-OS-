@@ -1,20 +1,18 @@
 /**
  * /api/manual-competitor
  * Manual competitor tracking — user provides brand name + Instagram handle.
- * Scrapes only Instagram via Apify, saves to competitors table.
+ * Saves to competitors table. (Instagram metric scraping retired with Apify,
+ * 2026-09-07 — records save with zero metrics until a replacement source is
+ * wired; the scrape_error field says so.)
  *
  * GET  ?venture=<slug>          → list manual competitors
- * POST { ventureSlug, brandName, instagramHandle } → scrape & save
+ * POST { ventureSlug, brandName, instagramHandle } → save
  * DELETE ?venture=<slug>&id=<uuid> → remove
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { getToken } from '@/lib/apify'
 
 export const runtime = 'nodejs'
-export const maxDuration = 120
-
-const APIFY_BASE = 'https://api.apify.com/v2'
 
 // ── GET — list manual competitors ──────────────────────────────────────────────
 
@@ -52,7 +50,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ competitors: result })
 }
 
-// ── POST — add and scrape a single Instagram handle ────────────────────────────
+// ── POST — add a single Instagram handle (save-only; scraping retired with Apify) ──
 
 export async function POST(req: NextRequest) {
   let body: { ventureSlug?: string; brandName?: string; instagramHandle?: string }
@@ -72,11 +70,6 @@ export async function POST(req: NextRequest) {
     .from('ventures').select('id').eq('slug', ventureSlug).limit(1)
   const ventureId = (ventures?.[0] as any)?.id
   if (!ventureId) return NextResponse.json({ error: 'Venture not found' }, { status: 404 })
-
-  // Check Apify
-  let token: string
-  try { token = await getToken() }
-  catch { return NextResponse.json({ error: 'APIFY_TOKEN not configured' }, { status: 500 }) }
 
   // Upsert competitor record
   const { data: upserted } = await supabase
@@ -119,46 +112,12 @@ export async function POST(req: NextRequest) {
     }, { onConflict: 'competitor_id,platform' })
   } catch { /* ok if fails */ }
 
-  // Scrape Instagram
-  let followers = 0
-  let engagementRate = 0
-  let postCount = 0
-  let scrapeError: string | null = null
-
-  try {
-    const url = `${APIFY_BASE}/acts/apify~instagram-profile-scraper/run-sync-get-dataset-items?token=${token}&memory=256`
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ usernames: [handle], resultsLimit: 10 }),
-      signal: AbortSignal.timeout(120_000),
-    })
-    if (!res.ok) throw new Error(`Apify returned ${res.status}`)
-
-    const items = await res.json() as any[]
-    const p = (items?.[0] ?? {}) as Record<string, any>
-    const pArr = (Array.isArray(p.latestPosts) ? p.latestPosts : []) as Record<string, any>[]
-
-    followers = Number(p.followersCount ?? 0)
-    postCount = Number(p.postsCount ?? 0)
-    const count = pArr.length || 1
-    const avgLikes = pArr.reduce((s: number, v: any) => s + Number(v.likesCount ?? 0), 0) / count
-    const avgComments = pArr.reduce((s: number, v: any) => s + Number(v.commentsCount ?? 0), 0) / count
-    engagementRate = followers > 0 ? (avgLikes + avgComments) / followers : 0
-
-    // Save metrics (time-series: INSERT)
-    await supabase.from('competitor_metrics').insert({
-      competitor_id: competitorId,
-      platform: 'instagram',
-      followers,
-      engagement_rate: Math.round(engagementRate * 10000) / 10000,
-      monthly_reach: 0,
-      estimated_monthly_traffic: 0,
-      recorded_at: new Date().toISOString(),
-    })
-  } catch (e: any) {
-    scrapeError = e.message ?? 'Unknown scrape error'
-  }
+  // Metric scraping retired with Apify (2026-09-07) — save with zeros and an
+  // honest scrape_error rather than a fake metrics row.
+  const followers = 0
+  const engagementRate = 0
+  const postCount = 0
+  const scrapeError: string | null = 'Instagram scraping removed (Apify decommissioned 2026-09-07) — no replacement metric source wired'
 
   // Compute signal score
   const followerScore = Math.min(Math.log10(Math.max(followers, 1)) * 10, 35)

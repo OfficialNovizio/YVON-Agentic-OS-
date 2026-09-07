@@ -88,6 +88,7 @@ strip_block=re.compile(r'/\*[\s\S]*?\*/')
 strip_line=re.compile(r'^\s*//.*$', re.M)
 found={}
 for root,_,files in os.walk(appdir):
+    root = root.replace('\\', '/')  # Windows os.walk yields backslash paths; the skip markers use '/'
     if any(x in root for x in ('node_modules','/.next','.import-backup','/scripts')): continue
     for f in files:
         if not f.endswith(('.ts','.tsx','.js','.jsx','.mjs')): continue

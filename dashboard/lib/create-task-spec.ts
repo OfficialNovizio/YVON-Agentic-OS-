@@ -31,8 +31,10 @@ import { promisify } from 'util'
 import fs from 'fs'
 import path from 'path'
 import { hermesConfig } from '@/lib/hermes-client'
+import { readDesignSession } from '@/lib/design-session'
 import { errMsg } from '@/lib/errors'
 import type { GeneratedPrd } from '@/lib/prd-generator'
+import type { TaskEvidenceRef } from '@/lib/prd-pending'
 
 const execFileAsync = promisify(execFile)
 
@@ -107,6 +109,14 @@ export interface CreateTaskFromPrdResult {
   failedStep: string | null
   kanbanOk: boolean
   kanbanError: string | null
+  /** Evidence rail fix ⑥ (2026-09-04): stderr from best-effort `set-evidence`
+   * runs that failed. Evidence is enrichment — a failed run never fails the
+   * conversion — but it fails LOUD, collected here instead of vanishing. */
+  evidenceErrors?: string[]
+  /** Re-engineer Phase 5 (2026-09-05): failures from the best-effort
+   * design-origin step (design.md copy + set-design-origin). Same discipline
+   * as evidenceErrors — enrichment, loud, never fatal. */
+  designErrors?: string[]
 }
 
 async function runTask(...args: string[]): Promise<{ ok: boolean; stdout: string; stderr: string }> {
@@ -124,27 +134,103 @@ export async function createTaskFromPrd(
   summary: string,
   generated: GeneratedPrd,
   approvedBy: string,
+  evidence?: TaskEvidenceRef[],
+  /** Re-engineer Phase 5 (2026-09-05) — the room's reference-build design
+   * session (from the pending PRD record). Present → the session's design.md
+   * is copied next to the task's PRD and the task's design origin is set,
+   * which finally calls task.py's implemented-but-orphaned set-design-origin
+   * and lights TaskFocusView's DesignPreviewPanel. */
+  design?: { designSessionId: string; designMdPath: string },
+  /** Re-engineer Phase 8 (2026-09-06) — follow-on build linkage
+   * (continue-to-backend): task.py's derived_from — "different goal, made
+   * possible by the first" — never revision_of (that supersedes). */
+  derivedFrom?: string,
 ): Promise<CreateTaskFromPrdResult> {
   const sourceMessage = `${title.trim()}\n\n${summary.trim()}`
 
-  const created = await runTask('new', sourceMessage, '--actor', approvedBy)
+  const created = await runTask(
+    'new',
+    sourceMessage,
+    '--actor',
+    approvedBy,
+    ...(derivedFrom && /^TS-\d+$/.test(derivedFrom) ? ['--derived-from', derivedFrom] : []),
+  )
   const idMatch = created.stdout.match(/TS-\d+/)
   if (!created.ok || !idMatch) {
     return { taskId: null, status: null, error: created.stderr || 'task.py new produced no TS id', failedStep: 'new', kanbanOk: false, kanbanError: null }
   }
   const taskId = idMatch[0]
 
+  // ── Evidence block (evidence rail fix ⑥, 2026-09-04) ─────────────────────
+  // Carry the chat proposal's artifacts into the TASK-SPEC's evidence block
+  // BEFORE the PRD chain, so a chain that stalls later still records what the
+  // task builds on. Best-effort by design: a failed set-evidence is collected
+  // into evidenceErrors, never allowed to fail the conversion — the evidence
+  // lives in the chat transcript either way.
+  const evidenceErrors: string[] = []
+  for (const a of (evidence ?? []).slice(0, 12)) {
+    if (!a?.url) continue
+    const label = a.label?.trim() || a.url.split('/').pop() || 'artifact'
+    const r = await runTask('set-evidence', taskId, '--url', a.url, '--label', label, '--kind', a.kind || 'file', '--actor', approvedBy)
+    if (!r.ok) evidenceErrors.push(r.stderr.slice(0, 200))
+  }
+
+  // ── Design origin (re-engineer Phase 5, 2026-09-05) ─────────────────────
+  // The room's design session produced design.md (facts: reference profile,
+  // intent, motion decision, build recipe). Copy it next to the task's PRD —
+  // the PRD is generated from it, so the task carries both — then set the
+  // task's design origin via task.py set-design-origin (--tool
+  // reference-build). Best-effort like evidence: failures are collected,
+  // loud, never fatal to the conversion.
+  const designErrors: string[] = []
+  if (design?.designSessionId && design.designMdPath) {
+    const designRelPath = path.join('store', 'tasks', `${taskId}-design.md`)
+    try {
+      const md = await fs.promises.readFile(design.designMdPath, 'utf-8')
+      await fs.promises.writeFile(path.join(REPO_ROOT, designRelPath), md)
+      const r = await runTask(
+        'set-design-origin', taskId,
+        '--session', design.designSessionId,
+        '--tool', 'reference-build',
+        '--handoff', designRelPath,
+        '--actor', approvedBy,
+      )
+      if (!r.ok) designErrors.push(r.stderr.slice(0, 200))
+    } catch (e) {
+      designErrors.push(`design.md copy from ${design.designMdPath} failed: ${errMsg(e)}`)
+    }
+  }
+
+  // ── Product home stamp (re-engineer Phase 8 residual, 2026-09-06) ───────
+  // Decision 3 made workspaces/<venture>/ the product home, and
+  // scripts/run-task-suite.mjs derives product-root ONLY from workspaces/
+  // produces paths — an unstamped record makes product-build skip and the
+  // suite hard-fail on zero executed checks. So the convert chain stamps
+  // WI-1's produces from the design session's venture. Session missing or
+  // venture-less → loud note here, chain proceeds exactly as before.
+  let producesArg: string | null = null
+  if (design?.designSessionId) {
+    const session = await readDesignSession(design.designSessionId)
+    if (session?.venture) {
+      producesArg = `workspaces/${session.venture}/`
+    } else {
+      designErrors.push(
+        `design session ${design.designSessionId} has no venture — WI-1 produces not stamped; the suite's product checks will be skipped`,
+      )
+    }
+  }
+
   // Write the real PRD file BEFORE set-prd — set-prd requires it to exist on disk.
   const prdRelPath = path.join('store', 'tasks', `${taskId}-prd.md`)
   try {
     await fs.promises.writeFile(path.join(REPO_ROOT, prdRelPath), generated.markdown)
   } catch (e) {
-    return { taskId, status: 'draft', error: `wrote ${taskId} but failed to write its PRD file: ${errMsg(e)}`, failedStep: 'write-prd', kanbanOk: false, kanbanError: null }
+    return { taskId, status: 'draft', error: `wrote ${taskId} but failed to write its PRD file: ${errMsg(e)}`, failedStep: 'write-prd', kanbanOk: false, kanbanError: null, evidenceErrors, designErrors }
   }
 
   const setPrd = await runTask('set-prd', taskId, '--ref', prdRelPath, '--rice', String(generated.riceScore), '--actor', 'spec')
   if (!setPrd.ok) {
-    return { taskId, status: 'draft', error: setPrd.stderr, failedStep: 'set-prd', kanbanOk: false, kanbanError: null }
+    return { taskId, status: 'draft', error: setPrd.stderr, failedStep: 'set-prd', kanbanOk: false, kanbanError: null, evidenceErrors, designErrors }
   }
 
   const fillDiscovery = await runTask(
@@ -153,26 +239,27 @@ export async function createTaskFromPrd(
     '--decisions', JSON.stringify(generated.meta.decisions),
     '--objective', generated.meta.objective,
     '--actor', 'spec',
+    ...(producesArg ? ['--produces', producesArg] : []),
   )
   if (!fillDiscovery.ok) {
-    return { taskId, status: 'draft', error: fillDiscovery.stderr, failedStep: 'fill-discovery', kanbanOk: false, kanbanError: null }
+    return { taskId, status: 'draft', error: fillDiscovery.stderr, failedStep: 'fill-discovery', kanbanOk: false, kanbanError: null, evidenceErrors, designErrors }
   }
 
   const discover = await runTask('discover', taskId, '--actor', 'spec')
   if (!discover.ok) {
-    return { taskId, status: 'draft', error: discover.stderr, failedStep: 'discover', kanbanOk: false, kanbanError: null }
+    return { taskId, status: 'draft', error: discover.stderr, failedStep: 'discover', kanbanOk: false, kanbanError: null, evidenceErrors, designErrors }
   }
 
   const approve = await runTask('approve', taskId, '--by', approvedBy)
   if (!approve.ok) {
-    return { taskId, status: 'discovery', error: approve.stderr, failedStep: 'approve', kanbanOk: false, kanbanError: null }
+    return { taskId, status: 'discovery', error: approve.stderr, failedStep: 'approve', kanbanOk: false, kanbanError: null, evidenceErrors, designErrors }
   }
 
   const start = await runTask('start', taskId, '--actor', approvedBy)
   if (!start.ok) {
-    return { taskId, status: 'approved', error: start.stderr, failedStep: 'start', kanbanOk: false, kanbanError: null }
+    return { taskId, status: 'approved', error: start.stderr, failedStep: 'start', kanbanOk: false, kanbanError: null, evidenceErrors, designErrors }
   }
 
   const { kanbanOk, kanbanError } = await mirrorToKanban(taskId, title)
-  return { taskId, status: 'executing', error: null, failedStep: null, kanbanOk, kanbanError }
+  return { taskId, status: 'executing', error: null, failedStep: null, kanbanOk, kanbanError, evidenceErrors, designErrors }
 }

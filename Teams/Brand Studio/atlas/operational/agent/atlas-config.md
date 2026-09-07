@@ -21,7 +21,8 @@ brands:
   # - brand_id: …                    # repeat per brand; single-brand businesses have one entry
 
 # --- Multi-brand separation (multi-brand-system Phase 1) ---
-brand_separation_matrix: <FILL_IN>   # path to the operator-approved matrix; leave unset for
+brand_separation_matrix: Teams/Brand Studio/atlas/operational/agent/brand-separation-matrix.md
+                                      # operator-approved 2026-08-30; leave unset for
                                       # single-brand businesses (skill is a documented no-op)
 
 # --- Audit logging (brand-guidelines Phase 5) ---

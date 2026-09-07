@@ -64,6 +64,27 @@ except ImportError:
     HAS_SHARED_OS = False
 
 
+# ── Retrieval warnings (failure-surfacing discipline, 2026-09-05) ───────────
+# The disease this cures: a retrieval degradation looks IDENTICAL to "no
+# relevant memory exists" — dimension mismatch scored 0, stale chunks.json
+# served as if fresh, hermes-memory injection skipped. Each now appends a
+# distinct warning here, degraded loudly to stderr AND readable by the
+# subprocess bridge (run_turn_pipeline.py) via last_retrieval_warnings(), so
+# a failed component is observable instead of silent.
+_LAST_RETRIEVAL_WARNINGS: List[str] = []
+
+
+def _warn_retrieval(msg: str) -> None:
+    """Record one degradation for this retrieval run + stderr (degrade loudly)."""
+    _LAST_RETRIEVAL_WARNINGS.append(msg)
+    print(f"[retriever] warning: {msg}", file=sys.stderr)
+
+
+def last_retrieval_warnings() -> List[str]:
+    """Warnings from the most recent retrieve() call (cleared at its start)."""
+    return list(_LAST_RETRIEVAL_WARNINGS)
+
+
 # ═══════════════════════════════════════════════════════════════════
 # PART 1 — QUERY REWRITER
 # ═══════════════════════════════════════════════════════════════════
@@ -161,8 +182,9 @@ class HybridRetriever:
         self.store = None
         try:
             self.store = VectorStore()
-        except Exception:
+        except Exception as exc:
             self.store = None  # DB not yet created — run embed.py --all first
+            _warn_retrieval(f'vector store unavailable (run embed.py --all): {exc}')
         self._fitted = False
 
     def _ensure_fitted(self):
@@ -196,13 +218,17 @@ class HybridRetriever:
             try:
                 count = self.store.conn.execute('SELECT COUNT(*) FROM chunks').fetchone()
                 store_has_data = count and count[0] > 0
-            except Exception:
+            except Exception as exc:
                 store_has_data = False
+                _warn_retrieval(f'vector store query failed — falling back to chunks.json: {exc}')
 
         if self.store and store_has_data:
             all_results = self._retrieve_from_store(queries, agent_dept, agent_id, top_k, seen_ids)
         else:
-            # Fallback: search local chunks.json directly with sparse + dense scoring
+            # Fallback: search local chunks.json directly with sparse + dense scoring.
+            # Not silent: chunks.json is a BUILD-TIME snapshot, so anything served
+            # this way is potentially stale (failure-matrix row 10).
+            _warn_retrieval('vector store empty/absent — serving stale chunks.json fallback')
             all_results = self._retrieve_from_chunks(queries, agent_dept, agent_id, top_k, seen_ids)
 
         # Sort by combined score, deduplicate
@@ -223,8 +249,10 @@ class HybridRetriever:
                     'quality_score': 1.0,
                     'hermes': True,
                 })
-        except Exception:
-            pass  # Hermes optional — degrade without breaking retrieval
+        except Exception as exc:
+            # Hermes optional — degrade without breaking retrieval, but never
+            # silently: memory read-back skipped is a visible degradation.
+            _warn_retrieval(f'hermes memory injection skipped: {exc}')
 
         return all_results[:top_k]
 
@@ -291,6 +319,7 @@ class HybridRetriever:
 
             filtered_chunks.append(c)
 
+        dim_warned = False  # dimension-mismatch warning fires once per run, not per chunk
         for q in queries:
             q_embedding = self.dense.embed_single(q)
             q_sparse = self.sparse.encode_query(q) if self.sparse.vocab else {}
@@ -310,6 +339,15 @@ class HybridRetriever:
                     dense_sim = max(0, min(1, dense_sim))
                 else:
                     dense_sim = 0.0
+                    # Silent-zero trap (failure-matrix row 9): a dims mismatch
+                    # here looks exactly like "no relevant chunk". Say so once.
+                    if not dim_warned and q_embedding and section_emb:
+                        dim_warned = True
+                        _warn_retrieval(
+                            f'embedding dimension mismatch — dense similarity scored 0 '
+                            f'(query={len(q_embedding)}, chunk={len(section_emb)}); '
+                            f're-embed the index (embed.py --all)'
+                        )
 
                 # Sparse scoring
                 chunk_tokens = self.sparse._tokenize(c.get('chunk_text', ''))
@@ -582,6 +620,10 @@ def retrieve(query: str, agent_id: str = '', agent_dept: str = '',
     Returns: RetrievalResult with all intermediate outputs + final injection
     """
     t0 = time.time()
+
+    # Failure-surfacing contract (row 20): warnings are per-run. Clear at entry
+    # so last_retrieval_warnings() only reports THIS call's degradations.
+    del _LAST_RETRIEVAL_WARNINGS[:]
 
     # Step 0: Rail 1 plan-lock — freeze the plan BEFORE retrieval (MASTER PART 8).
     # Append-only record in store/plan-lock.jsonl; a blocked lock degrades

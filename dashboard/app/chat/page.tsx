@@ -22,7 +22,11 @@ import { HistoryPanel } from './HistoryPanel'
 import { TaskPill } from './TaskPill'
 import { LiveStrip } from './LiveStrip'
 import { CaosPanel } from './CaosPanel'
-import { TaskProposalPrompt, type PendingTaskProposal } from './TaskProposalPrompt'
+import { TaskProposalPrompt, type PendingTaskProposal, type ProposalArtifact } from './TaskProposalPrompt'
+import { IntentGateCard, type DesignGatePayload } from './IntentGateCard'
+import { MotionBriefCard, type MotionGatePayload } from './MotionBriefCard'
+import type { MotionNeed } from '@/lib/motion-brief'
+import { ArtifactStrip } from './ArtifactStrip'
 import { PrdProposalCard, type PendingPrdProposal } from './PrdProposalCard'
 import { VentureSelector } from './VentureSelector'
 import { AtelierBackdrop } from './Atelier'
@@ -32,7 +36,7 @@ import type { UploadedAttachment } from '@/lib/attachments-client'
 import type { ChatRoom } from '@/app/api/chat/rooms/route'
 import type { ChatMessage } from '@/app/api/chat/messages/route'
 import type { TurnEvent } from '@/app/api/chat/events/route'
-import { stageFromSseEvent, stageFromEventRow, upsertStage, type PipelineView, type InputAnalysisStage, type SkillDisclosureStage } from '@/lib/pipeline'
+import { stageFromSseEvent, stageFromEventRow, stagesFromEventRows, upsertStage, type PipelineView, type InputAnalysisStage, type SkillDisclosureStage } from '@/lib/pipeline'
 import type { TurnUsage } from '@/lib/hermes-client'
 
 // Live-status chip types (moved from the removed StatusChip.tsx — page.tsx is
@@ -71,6 +75,16 @@ export type Focus =
   | { kind: 'room'; roomId: string }
 
 const POLL_INTERVAL_MS = 4000
+
+/** One evidence card for the current/past turn — an `artifact` SSE frame live,
+ * an `artifact` events-table row for past turns. URL is absolute
+ * (https://hermes.yvon.in/artifacts/...). Mirrors ProposalArtifact in
+ * TaskProposalPrompt (same shape, different kind-name per source). */
+interface TurnArtifact {
+  url: string
+  label: string
+  artifactKind?: string
+}
 
 /** Raised on a 401 so callers can tell "signed out" from a real failure. */
 class SessionExpiredError extends Error {
@@ -167,6 +181,14 @@ export default function ChatPage() {
   // task?" offer, parsed server-side from a fenced marker (see
   // /api/chat/stream). null = nothing pending.
   const [taskProposal, setTaskProposal] = useState<PendingTaskProposal | null>(null)
+  // Re-engineer Phase 2+3 (2026-09-05): the reference-build gate cards
+  // (design.gate SSE frame → IntentGateCard for stage "intent",
+  // MotionBriefCard for stage "motion").
+  const [designGate, setDesignGate] = useState<DesignGatePayload | MotionGatePayload | null>(null)
+  // Evidence rail fix ② (2026-09-04): artifacts this turn produced — live from
+  // `artifact` SSE frames, or rehydrated from `artifact` events-table rows for
+  // the last correlation (same pattern as the past-turn pipeline panel).
+  const [turnArtifacts, setTurnArtifacts] = useState<TurnArtifact[]>([])
   // PRD gate (docs/PRD-prd-gated-task-conversion.md): the second stage,
   // after TaskProposalPrompt hands off a generated PRD. null = nothing pending.
   const [prdProposal, setPrdProposal] = useState<PendingPrdProposal | null>(null)
@@ -444,7 +466,9 @@ export default function ChatPage() {
     setMessages([])
     lastMessageIdRef.current = null
     setTaskProposal(null)
+    setTurnArtifacts([])
     setPrdProposal(null)
+    setDesignGate(null)
     // Don't wipe the live turn's state just because the user looked at another
     // room — the turn is still running and they may well come back to watch it
     // finish. Display is gated on streamingRoomId instead, so the other room
@@ -454,10 +478,38 @@ export default function ChatPage() {
       setStreamingText(null)
     }
     loadMessages(activeRoom.id)
+    // Evidence rail fix ① rehydration (2026-09-04): a reload (or a room
+    // opened mid-turn) misses the live task.proposed SSE frame — ask the
+    // server for the room's latest UNRESOLVED proposal instead of assuming
+    // there is none. Skipped while a turn is live in this room: the stream
+    // will deliver the proposal itself, and a stale fetch must not clobber it.
+    let proposalFetchCancelled = false
+    if (streamingRoomId === null) {
+      ;(async () => {
+        try {
+          const data = await jsonFetch<{ proposal: { title: string; summary: string; artifacts?: ProposalArtifact[]; correlation?: string | null } | null }>(
+            `/api/chat/task-proposal?roomId=${encodeURIComponent(activeRoom.id)}`,
+          )
+          if (!proposalFetchCancelled && data.proposal) {
+            setTaskProposal({
+              title: data.proposal.title,
+              summary: data.proposal.summary,
+              correlation: data.proposal.correlation ?? null,
+              artifacts: data.proposal.artifacts ?? [],
+            })
+          }
+        } catch {
+          // rehydration never blocks the room
+        }
+      })()
+    }
     const t = setInterval(() => {
       if (activeRoom) loadMessages(activeRoom.id, { silent: true })
     }, POLL_INTERVAL_MS)
-    return () => clearInterval(t)
+    return () => {
+      proposalFetchCancelled = true
+      clearInterval(t)
+    }
     // streamingRoomId is read but deliberately not a dependency: it changes
     // when a turn starts/ends, and re-running this effect then would clear the
     // message list mid-turn.
@@ -477,11 +529,29 @@ export default function ChatPage() {
           `/api/chat/events?correlation=${encodeURIComponent(correlation)}`,
         )
         if (cancelled) return
-        const stages = data.events
-          .map((r) => stageFromEventRow(r))
-          .filter((s): s is NonNullable<typeof s> => s !== null)
+        // stagesFromEventRows pairs tool.call start/end rows onto one stage —
+        // the old row-by-row map rendered every call twice (a done row plus an
+        // eternal "started" ghost), see pipeline.ts.
+        const stages = stagesFromEventRows(data.events)
         if (stages.length > 0) {
           setPipeline({ stages, source: 'past' })
+        }
+        // Evidence rail fix ② rehydration (2026-09-04): `artifact` rows the
+        // wrapper persisted during the turn → evidence cards for a past turn,
+        // exactly like the pipeline panel above rehydrates its stages.
+        const pastArtifacts: TurnArtifact[] = data.events
+          .filter((ev) => ev.kind === 'artifact')
+          .map((ev) => ({
+            url: String(ev.payload.url ?? ''),
+            label: String(ev.payload.label ?? ev.payload.url ?? 'artifact'),
+            artifactKind: ev.payload.artifact_kind ? String(ev.payload.artifact_kind) : undefined,
+          }))
+          .filter((a) => a.url)
+        if (pastArtifacts.length > 0) {
+          setTurnArtifacts((prev) => {
+            const seen = new Set(prev.map((p) => p.url))
+            return [...prev, ...pastArtifacts.filter((a) => !seen.has(a.url))]
+          })
         }
       } catch {
         // panel stays as-is on failure — observability never breaks the turn
@@ -505,7 +575,9 @@ export default function ChatPage() {
       // A new turn starting supersedes any unresolved proposal from the
       // previous one — sending a follow-up message is itself "discuss more".
       setTaskProposal(null)
+      setTurnArtifacts([])
       setPrdProposal(null)
+      setDesignGate(null)
       const abort = new AbortController()
       sendAbortRef.current = abort
 
@@ -595,6 +667,9 @@ export default function ChatPage() {
                 mustHaves?: string[]
                 targetAgents?: { primary: string; team: string[]; reason: string }
                 title?: string
+                url?: string
+                artifactKind?: string
+                artifacts?: ProposalArtifact[]
                 correlation?: string
                 active?: SkillDisclosureStage['active']
                 inactiveCount?: number
@@ -604,6 +679,13 @@ export default function ChatPage() {
                 wing?: string
                 count?: number
                 usage?: TurnUsage
+                // design.gate (re-engineer Phase 2+3, 2026-09-05)
+                stage?: string
+                sessionId?: string
+                reference?: DesignGatePayload['reference']
+                needs?: MotionNeed[]
+                // task.proposed follow-on linkage (re-engineer Phase 8)
+                derivedFrom?: string
               }
 
               // Live tokens → streaming card (TS-020)
@@ -805,7 +887,44 @@ export default function ChatPage() {
                   title: event.title,
                   summary: event.summary,
                   correlation: event.correlation ?? null,
+                  artifacts: event.artifacts ?? [],
+                  derivedFrom: event.derivedFrom ?? undefined,
                 })
+              }
+
+              // Evidence rail fix ② (2026-09-04): a file the agent saved into
+              // the turn's artifacts dir — screenshot, scraped data, notes.
+              // Emitted before `done`; deduped by URL (the tool-end scan and
+              // the pre-done sweep can both see the same file).
+              if (event.kind === 'artifact' && event.url) {
+                const a: TurnArtifact = {
+                  url: event.url,
+                  label: event.label ?? event.url.split('/').pop() ?? 'artifact',
+                  artifactKind: event.artifactKind,
+                }
+                setTurnArtifacts((prev) =>
+                  prev.some((p) => p.url === a.url) ? prev : [...prev, a],
+                )
+              }
+
+              // Re-engineer Phase 2+3 (2026-09-05): the agent ended a reference
+              // turn with a design gate (server already parsed + validated the
+              // fence against the session this turn opened). Render the
+              // clone-or-adapt card or the motion options brief.
+              if (event.kind === 'design.gate' && event.sessionId) {
+                if (event.stage === 'intent') {
+                  setDesignGate({
+                    stage: 'intent',
+                    sessionId: event.sessionId,
+                    reference: event.reference ?? { url: '' },
+                  })
+                } else if (event.stage === 'motion') {
+                  setDesignGate({
+                    stage: 'motion',
+                    sessionId: event.sessionId,
+                    needs: event.needs ?? [],
+                  })
+                }
               }
 
               if (event.kind === 'error') {
@@ -1274,6 +1393,11 @@ export default function ChatPage() {
               {/* Task section moved to /task-board (2026-08-25) — the pill
                   now deep-links to the kanban's focus view. */}
               <TaskPill roomId={activeRoom?.id ?? null} onOpen={(taskId) => router.push(`/task-board?task=${encodeURIComponent(taskId)}`)} />
+              {/* Evidence rail fix ② (2026-09-04): screenshots/scraped data the
+                  agent saved this turn — live via `artifact` SSE frames,
+                  rehydrated from events rows for past turns. Sits directly
+                  above the proposal card it evidences. */}
+              <ArtifactStrip artifacts={turnArtifacts.map((a) => ({ url: a.url, label: a.label, kind: a.artifactKind }))} />
               <TaskProposalPrompt
                 proposal={taskProposal}
                 roomId={activeRoom?.id ?? ''}
@@ -1284,6 +1408,22 @@ export default function ChatPage() {
                 proposal={prdProposal}
                 roomId={activeRoom?.id ?? ''}
                 onResolved={() => setPrdProposal(null)}
+              />
+              {/* Re-engineer Phase 2+3 (2026-09-05): Stages 1-2 of the
+                  reference-build flow — the clone-vs-adapt gate and the motion
+                  options brief. Sit with the other gate cards; their decision
+                  turns flow through the normal send path. */}
+              <IntentGateCard
+                gate={designGate?.stage === 'intent' ? designGate : null}
+                roomId={activeRoom?.id ?? ''}
+                onSend={(text) => { void send(text, [], []) }}
+                onResolved={() => setDesignGate(null)}
+              />
+              <MotionBriefCard
+                gate={designGate?.stage === 'motion' ? designGate : null}
+                roomId={activeRoom?.id ?? ''}
+                onSend={(text) => { void send(text, [], []) }}
+                onResolved={() => setDesignGate(null)}
               />
               <Composer
                 sending={sending}
@@ -1315,7 +1455,11 @@ export default function ChatPage() {
 
         {/* Fixed CAOS card (right column, always present, no close — TS-023).
             Disabled + 'waiting' until a turn starts, then live metrics. */}
-        <div className="hidden w-[312px] shrink-0 py-3 pr-3 xl:block">
+        {/* min-h-0 + overflow-y-auto: the shell is h-full, so without these
+            the panel rendered at natural height and was clipped — Settle and
+            everything below the fold were unreachable, and the stage-pill
+            jump() had nothing to scroll. */}
+        <div className="hidden w-[312px] shrink-0 py-3 pr-3 xl:block min-h-0 overflow-y-auto caos2-rail">
           {/* CAOS v2 (2026-08-22) — replaces PipelineHud's twelve-phase
               catalogue with seven steps that all run. `usage` carries the
               measured per-turn cost (llmCalls / estInputTokens / poolTurns);

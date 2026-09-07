@@ -7,6 +7,10 @@ covers everything else.
 
 *Last restructured 2026-08-01 — added placement map + INSTALLED/LICENCE columns; recorded the
 reticle/page-agent/taste-skill/localstack/vaultwarden installs and the overlap dedup.*
+*2026-09-04 VPS audit — every VPS row below verified against the live box (`hermes.yvon.in`);
+vaultwarden stood up (https://vault.yvon.in), graphify skills synced 0.9.32→0.9.49, opensandbox
+SDK/CLI installed in a dedicated venv, turbovec venv torn down (see its entry), MemPalace row
+corrected — it was behind reality.*
 
 ---
 
@@ -90,7 +94,7 @@ Legend for **Installed?**: ✅ installed · ◑ declared (run one command to fin
 | Tool | Home | Installed? | Licence | Purpose | Consumers |
 |---|---|---|---|---|---|
 | localstack | Mac dev | ⚙ ready | Apache-2.0 | Local AWS emulator for integration tests | raj, dana |
-| vaultwarden | VPS | ⚙ ready | GPL-3.0 | Self-hosted secrets vault (Bitwarden-compatible, ~256 MB) | warden, bastion, ops |
+| vaultwarden | VPS | ✅ **running** (2026-09-04) | GPL-3.0 | Self-hosted secrets vault (Bitwarden-compatible, ~256 MB) — live at `https://vault.yvon.in` (TLS via certbot, nginx → 127.0.0.1:8080, signups invite-only, admin token in the VPS-side `.env` never committed, weekly backup cron Mondays 05:00 → `/root/vault-backups/`) | warden, bastion, ops |
 | plausible | VPS | ○ | AGPL-3.0 | Privacy web analytics | ops, rank |
 | cal-com | VPS | ○ | AGPL-3.0 | Scheduling (likely on old Hostinger box) | raj, spec |
 | penpot | VPS | ○ | MPL-2.0 | Design/prototyping (Figma alt) | atlas, spark, pixel |
@@ -105,19 +109,28 @@ On 12 GB, run one heavy service at a time.
 | Tool | Installed? | Licence | Purpose | Consumers |
 |---|---|---|---|---|
 | crawl4ai | ✅ `/opt/yvon-tools/venvs/crawl4ai` (CLI: `crwl`) | Apache-2.0 | JS-rendered crawl → markdown for RAG (key-free default) | dana, rank, scout |
-| browser-use | ✅ `/opt/yvon-tools/venvs/browser-use` (import lib) | MIT (verify) | Autonomous NL browser agent (exploratory) | quinn, dana, rank, scout |
-| scrapegraphai | ✅ `/opt/yvon-tools/venvs/scrapegraphai` (import lib) | MIT (verify) | LLM-driven structured web extraction | dana, rank, cypher |
-| agent-reach | ✅ `/opt/yvon-tools/venvs/agent-reach` + `/usr/local/bin` + skill (**VPS**) | ✅ installed v1.5.0 (2026-08-25) | Read Web/YouTube/GitHub/RSS/V2EX (+opt-in Twitter/Reddit) | cypher, meta |
+| agent-reach | ✅ `/opt/yvon-tools/venvs/agent-reach` + `/usr/local/bin` + skill (**VPS**) | ✅ installed v1.5.0 (2026-08-25); **refreshed 2026-09-05** — `yt-dlp 2026.08.19` + `yt-dlp-ejs 0.8.0` installed into the venv, CLI symlinked to `/usr/local/bin/yt-dlp`, `--js-runtimes node` config written → doctor now **5/15 channels** (Web via Jina Reader, YouTube ✅, RSS, V2EX, Bilibili) | Read Web/YouTube/GitHub/RSS/V2EX (+opt-in Twitter/Reddit). **2026-09-05: first-choice reference reader for hermes chat** (Jina Reader fetches from Jina's infra, so it succeeds where the site blocks the VPS IP — e.g. Akamai 403s — key-free) | cypher, meta, **hermes (reference-scrape order: agent-reach → web_extract → crawl4ai)** |
 | strix | ✅ pipx `strix-agent 1.4.1` → `/usr/local/bin/strix` (Docker on-demand) | Apache-2.0 | Autonomous security/pentest agent; **reuses Hermes's LLM key** (`STRIX_LLM`+`LLM_API_KEY`) | cypher |
-| opensandbox (SDK/CLI/MCP) | ◐ SDK+CLI installed & unit-tested 2026-08-10 (`pip install opensandbox==0.1.14 opensandbox-cli==0.1.1`, pinned in `requirements.txt`) — import + `osb config init` + all 8 CLI subcommands confirmed live. ○ live containers still need Docker/K8s (VPS), not present in the build sandbox | ⚠ verify | Isolation runtime — quarantine box (§7.7) | ops, warden, bastion, dana, scout; mia, quinn, raj, nova (MCP) |
-| **graphify** (`graphifyy`) | ✅ VPS `/usr/local/bin/graphify` 0.9.32 (skills in `~/.hermes/skills/` + `~/.agents/skills/`) · Mac `uv tool` + git hooks | MIT | **Graph-brain structural engine**: deterministic AST knowledge graph, Obsidian export, community clustering, lessons/reflect loop, MCP serve, git-hook self-build. **No vector store.** Not in Shared OS/tools — uv-tool/venv + `graphify-out/` in repo | all agents (via `/graphify` skill + MCP) |
-| **MemPalace** | ✅ **Phase 1** (2026-08-09, ADR-001) — installed per Claude Code session via `uv tool install mempalace` / `pip install mempalace[pgvector]`, backend `pgvector` against the shared Supabase Postgres (`vector` extension enabled 2026-08-09). ○ **Phase 2** (planned, not installed) — VPS-resident `mempalace serve`, deferred until the chat system (`MASTER-PLAN.md`) is live; scaffold at `vps-scripts/mempalace-serve-install.md` | MIT | **Graph-brain episodic engine** (replaces turbovec, ADR-001): verbatim storage + semantic search, wings=brands/clients · rooms=depts · drawers=verbatim, temporal KG (add/query/invalidate/timeline), 44 MCP tools. Full detail: `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §6 | Claude Code sessions only in Phase 1. Phase 2 adds Hermes + dashboard backend — not yet, not wired |
+| **HeadlessX** | ✅ **self-host Docker stack** at `/root/.headlessx` (2026-09-05, `headlessx init --mode self-host`): 7 containers (api :38473, web :34872, worker, postgres :35432, redis :36379, yt-engine, html-to-md) all healthy. **All ports bound 127.0.0.1** (same-day fix: init shipped 0.0.0.0 — API/web/Postgres/Redis were internet-reachable with only the internal key guarding the API; compose profiles = `--profile all`). API auth: `DASHBOARD_INTERNAL_API_KEY` in `/root/.headlessx/repo/infra/docker/.env` (401 without it). MCP endpoint at `/mcp`. TIER-1 log: `store/quarantine/headlessx.log` (heuristic FAIL — child_process/env/hooks — overridden by operator review, findings individually assessed) | AGPL-3.0 | Anti-detect browsing + scraping platform (Camoufox/Firefox stealth): website render/crawl/map, YouTube ops, html→md, proxy mgmt — for the hard-blocked targets neither crawl4ai nor agent-reach can reach | cypher, dana, rank, scout, hermes (escalation AFTER agent-reach/crawl4ai) |
+| opensandbox (SDK/CLI/MCP) | ◐ SDK+CLI installed 2026-09-04 in dedicated VPS venv `/opt/yvon-tools/venvs/opensandbox` (`opensandbox==0.1.14` + `opensandbox-cli==0.1.1`, pinned in `requirements.txt`). An earlier 2026-08-10 "installed" claim proved stale — the 2026-09-04 audit found it on no VPS python env. ○ live containers still need Docker/K8s (VPS has Docker; not yet run) | ⚠ verify | Isolation runtime — quarantine box (§7.7) | ops, warden, bastion, dana, scout; mia, quinn, raj, nova (MCP) |
+| **graphify** (`graphifyy`) | ✅ VPS `/usr/local/bin/graphify` 0.9.49 (skills in `~/.hermes/skills/` + `~/.agents/skills/` + `~/.claude/skills/` synced to 0.9.49 on 2026-09-04 — package had drifted to 0.9.49 while skills sat at 0.9.32, the tool itself warning about the mismatch) · Mac `uv tool` + git hooks | MIT | **Graph-brain structural engine**: deterministic AST knowledge graph, Obsidian export, community clustering, lessons/reflect loop, MCP serve, git-hook self-build. **No vector store.** Not in Shared OS/tools — uv-tool/venv + `graphify-out/` in repo | all agents (via `/graphify` skill + MCP) |
+| **MemPalace** | ✅ **Phase 1** (2026-08-09, ADR-001) — installed per Claude Code session via `uv tool install mempalace` / `pip install mempalace[pgvector]`, backend `pgvector` against the shared Supabase Postgres (`vector` extension enabled 2026-08-09). ✅ **VPS-resident CLI also live (verified 2026-09-04)** — venv `/opt/yvon-tools/venvs/mempalace` with `mempalace` + `mempalace-mcp` CLIs, local data store at `/root/.mempalace` (rag.db, drawers, runs, design-sessions, plan-lock.jsonl). A prior row here said "Phase 2 not installed" — that was behind reality: the nightly mempalace rebuilds (cron) have been running against this venv for weeks. ○ **`mempalace serve` for Hermes/dashboard** still not stood up as a service (deferred until the chat system plan lands; scaffold at `vps-scripts/mempalace-serve-install.md`) | MIT | **Graph-brain episodic engine** (replaces turbovec, ADR-001): verbatim storage + semantic search, wings=brands/clients · rooms=depts · drawers=verbatim, temporal KG (add/query/invalidate/timeline), 44 MCP tools. Full detail: `system-harness/graph-brain/GRAPH-BRAIN-DESIGN.md` §6 | Claude Code sessions + nightly cron in Phase 1. `serve` for Hermes + dashboard backend — not yet wired |
 
-~~turbovec / fastembed~~ — **removed 2026-08-09, superseded by MemPalace (ADR-001).** Live VPS venv at `/opt/yvon-tools/venvs/turbovec` may still physically exist until ops tears it down; nothing in this repo installs or calls it anymore.
+~~turbovec / fastembed~~ — **removed 2026-08-09, superseded by MemPalace (ADR-001).** VPS venv at `/opt/yvon-tools/venvs/turbovec` torn down 2026-09-04 (verified — venvs dir held agent-reach, browser-use, crawl4ai, jobhunt, mempalace, opensandbox, scrapegraphai at teardown time; browser-use + scrapegraphai were removed 2026-09-07, see below). **WHY removed:** ADR-001 (2026-08-09) named MemPalace the episodic engine and dropped turbovec; nothing in this repo installs or calls it, it was occupying disk on the box while dead, and the teardown was approved during the 2026-09-04 VPS audit.
+
+~~browser-use~~ — **removed 2026-09-07 (operator order, after the LLM-vs-deterministic comparison).** Venv `/opt/yvon-tools/venvs/browser-use` (435 MB) torn down same day; VPS sweep found zero cron/systemd/script references and the repo had zero runtime callers (agent-doc mentions only). **WHY:** an autonomous NL browser agent nobody called — deterministic browser automation is Playwright (the release gate) + quinn's local real-browser gate, and stealth fetching of walled targets is HeadlessX + the capture-worker relay. Exploratory-QA skills that named it (quinn `exploratory-qa`, rank `browser-audit`, dana act-and-extract) degrade to those.
+
+~~scrapegraphai~~ — **removed 2026-09-07 (operator order).** Venv `/opt/yvon-tools/venvs/scrapegraphai` (520 MB) torn down same day; zero references on the VPS and zero runtime callers in the repo. **WHY:** every extraction page burned LLM inference, and structured extraction is covered free by **crawl4ai** (kept — the deterministic bulk-crawl default) plus the agents' own LLM reading crawl4ai's markdown. Rule of thumb recorded from the comparison: *LLM for the first read of something new; deterministic for everything you'll ever read twice.* ~955 MB freed (disk 37G→36G used).
 
 **Agent usage** (preserved from the removed command-only stub folders):
-- **agent-reach** — CLI: `agent-reach read <url>` · `agent-reach search twitter|github "q"` · `agent-reach doctor`. Python: `from agent_reach import AgentReach; AgentReach().read(url)`. Zero-config for Web/YouTube/GitHub/RSS/V2EX/Exa/Bilibili; Twitter/Reddit/XiaoHongShu need opt-in cookie login.
-- **scrapegraphai** — Python: `from scrapegraphai.graphs import SmartScraperGraph` with `config={"llm":{"model":"openai/gpt-4o-mini"|"ollama/llama3.2"}}`. Pipelines: SmartScraperGraph (single page), SearchGraph (across results), ScriptCreatorGraph (emit a scraper), SpeechGraph (extract + audio).
+- **agent-reach** — CLI: `agent-reach read <url>` · `agent-reach search twitter|github "q"` · `agent-reach doctor`. Python: `from agent_reach import AgentReach; AgentReach().read(url)`. Zero-config for Web/YouTube/GitHub/RSS/V2EX/Exa/Bilibili; Twitter/Reddit/XiaoHongShu need opt-in cookie login. Web reads go through Jina Reader (`https://r.jina.ai/URL`) — the fetch comes from Jina's infrastructure, so pages that 403 the VPS's own IP (Akamai etc.) still read fine, key-free. YouTube path needs the node JS runtime: `/root/.config/yt-dlp/config` holds `--js-runtimes node` (set 2026-09-05).
+
+### Reference capture — repo-local scripts (THE site scraper, 2026-09-07)
+
+| Tool | Home | Requirements | Purpose | Consumers |
+|---|---|---|---|---|
+| **capture-reference.py** (+ `build-static-clone.py` + `verify-clone-proof.py`) | repo `scripts/` — runs on the **local machine** (headed browser, residential IP) | Python + `playwright` + `undetected-playwright`, Edge/Chrome installed; a visible browser window for ~1-2 min | **THE canonical site scraper for reference capture**: stealth headed browser passes Akamai-class bot walls; harvests every DOM/CSS-referenced asset (bot-walled fonts via in-page fetch bridge); emits `reference.html/png` + `inventory.json` + `asset-manifest.json` → clone builder → offline static clone (+ `--standalone` single-file) → headless proof | mia, dev, spec — the reference-capture stage; any "clone/ingest this site" task |
+| **capture-worker.py** + **request-capture.py** | repo `scripts/` — worker runs on the local (residential-IP) machine; dispatcher runs anywhere with ssh to the VPS | ssh key auth to `root@hermes.yvon.in`; queue dirs at `/root/capture-queue/{pending,running,done,failed,captures}` (auto-created) | **The live-operation relay** (built + smoke-proven 2026-09-07, 55s round-trip): VPS agent enqueues `{url,out}` jobs (`request-capture.py` / plain ssh write), the worker polls over ssh, captures with its own private stealth Edge, uploads the bundle; `request-capture.py --wait/--fetch` retrieves + extracts. E2E smoke: books.toscrape.com → complete capture, 30/30 assets | hermes/devops (dispatch side), mia (worker host) |
 
 ### MCP servers (registered by relay; spawned on demand)
 
@@ -137,16 +150,41 @@ On 12 GB, run one heavy service at a time.
 ## Overlap decisions (dedup audit, 2026-08-01)
 
 - **Whisper = Hermes builtin `stt`** → dropped (above).
-- **Scraping cluster** (crawl4ai / scrapegraphai / agent-reach / browser-use): **crawl4ai is the
-  key-free default**; scrapegraphai only when LLM-structured extraction is needed; agent-reach
-  only for gated social platforms; browser-use for autonomous exploratory tasks. Complementary,
-  but don't reach for scrapegraphai/agent-reach when crawl4ai suffices.
+- **Scraping cluster (UPDATED 2026-09-07 — operator directive after the Brunello Cucinelli
+  proof): `scripts/capture-reference.py` (local headed stealth capture) is THE site scraper —
+  use it and ignore the rest for any website reference capture.** Proof matrix
+  (2026-09-06/07, shop.brunellocucinelli.com): agent-reach/Jina, HeadlessX (Camoufox stealth,
+  VPS), crawl4ai, plain fetch — ALL 403 (Akamai). The only passing combo: Playwright +
+  undetected-playwright Malenia stealth, HEADED, on the local machine (headless still denied).
+  Demotions: agent-reach stays fine for chat-turn TEXT reads (hermes reference-reading order
+  unchanged for markdown-only needs); crawl4ai stays the bulk-RAG crawl default for unwalled
+  sites. But anything needing a site's real DOM / assets / motion (reference capture, clone,
+  design ingest) goes **straight to capture-reference.py** — never re-probe the matrix.
+  Constraint: it needs the local machine (headed browser + residential IP) — it cannot run
+  unattended on the VPS.
+  **Tier rule for LIVE operation (2026-09-07):** (1) unwalled targets → VPS built-ins
+  (agent-reach / crawl4ai / HeadlessX) as today; (2) walled targets → the VPS agent enqueues
+  a capture job (`scripts/request-capture.py`) and the local **capture-worker** picks it up
+  and captures with its private stealth Edge; (3) no worker online → **loud gate failure** —
+  never a silent text-only clone. Worker + queue details in the Reference-capture table above.
+- **Tool-cost doctrine (2026-09-05, operator directive):** always prefer tools already
+  installed in the repo/VPS that are **free**; paid services only when no free path exists
+  AND the cost is negligible cents — never wire in a paid tool when a free installed one
+  covers the need (this is why the dashboard chat pre-scrape moved off Apify to agent-reach).
+  **APIFY DECOMMISSIONED 2026-09-07 (operator order):** every dashboard Apify route is
+  deleted (`scrape`, `trending`, `calendar-verify`, `competitor-bulk`, `instagram` POST,
+  `linkedin` POST) along with `lib/apify.ts`; `social-stats` is cache-only
+  (`lib/social-cache.ts`), `manual-competitor` saves without scraping,
+  `competitor-refresh` POST returns 501. The only paid scraping service in the stack is
+  gone — website reference capture is `capture-reference.py` (+ worker relay), text reads
+  are agent-reach/Jina, bulk RAG crawling is crawl4ai.
 - **Design cluster** (impeccable / taste-skill / getdesign / penpot): kept **all** per operator —
   impeccable = deterministic CI detectors, taste-skill = generation guidance, getdesign =
   references, penpot = full design tool. `taste-skill/stitch-design-taste` overlaps getdesign and
   `redesign-existing-projects` overlaps impeccable, but both installed by choice.
-- **Browser cluster** (playwright / browser-use / reticle / agentation / page-agent): kept all —
-  each hits a different point (scripted gate · autonomous · in-loop · feedback-in · shipped feature).
+- **Browser cluster** (playwright / reticle / agentation / page-agent): kept all —
+  each hits a different point (scripted gate · in-loop · feedback-in · shipped feature).
+  ~~browser-use~~ (the cluster's "autonomous" point) **removed 2026-09-07** — zero callers; see removal note above.
 
 ---
 
@@ -156,10 +194,10 @@ Any new external tool/skill/dep is vetted BEFORE it touches the repo:
 - **TIER-2 · container** — OpenSandbox `Sandbox.create()` (kernel isolation, needs Docker/K8s) when available.
 Rule: no Docker ⇒ TIER-1, never skip. Each installed tool should carry a `store/quarantine/<name>.log` once re-vetted.
 
-## Boundary note — browser-use vs Playwright (don't confuse them)
+## Boundary note — browser automation (after browser-use removal)
 - **Playwright** = deterministic release gate. Script every step + assertion; answers "does the *known* flow still pass?" Runs in CI, blocks releases. Owner: quinn.
-- **browser-use** = autonomous exploratory agent. Give a natural-language task; the LLM decides the steps. Non-deterministic → NOT a CI gate. Owner: quinn (QA), dana/rank.
-- They stack: browser-use surfaces a bug → the fix gets a scripted Playwright test so the regression is gated forever.
+- ~~browser-use~~ (autonomous NL exploratory agent, non-deterministic, never a CI gate) — **removed 2026-09-07** with zero callers; exploratory QA runs through quinn's local real-browser gate + Playwright regressions instead.
+- The old stacking pattern survives that pair: real-browser exploration finds the bug → a scripted Playwright test gates the regression forever.
 
 ## How to add a row
 1. Confirm the tool is (or will be) used by ≥2 agents. One agent only → keep it in that agent's `tool/` file until a second needs it.

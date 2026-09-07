@@ -634,7 +634,7 @@ items were built as far as this sandbox's access allows).
 | Thing | Evidence |
 |---|---|
 | Structure generation | `scripts/build-structure.mjs` → 7 depts / 46 agents |
-| Alias map + collision guard | `vps-scripts/yvon-hermes-http/agent-alias.json`; script throws on duplicate names |
+| Alias map + collision guard | `vps-scripts/yvon-hermes-http/agent-alias.json`; script throws on unknown duplicates, omits known-ambiguous names (shield) from the bare-name map |
 | Event log schema | `dashboard/supabase/migrations/052_events.sql` |
 | Event producer | `events.py` (fire-and-forget) + `main.py` (start/completed/failed + correlation) |
 | Unknown-actor warning | `resolve_actor()` logs drift instead of failing silently |

@@ -83,6 +83,7 @@ export const NAV: NavSection[] = [
       { label: 'Docs', href: '/docs', icon: 'FileText' },
       { label: 'Logs', href: '/logs', icon: 'ScrollText' },
       { label: 'Hardware & Runtime', href: '/hardware', icon: 'Cpu' },
+      { label: 'VPS Server', href: '/vps', icon: 'Server', full: true },
     ],
   },
 ]

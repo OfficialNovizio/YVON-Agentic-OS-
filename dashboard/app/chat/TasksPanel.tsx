@@ -92,6 +92,10 @@ export interface TaskSpecItem {
   designHandoffPath: string
   prdRef: string
   riceScore: string
+  /** Evidence rail fix ⑥ (2026-09-04) — what this task builds on: artifacts
+   * the origin chat turn actually saved, carried from the proposal on PRD
+   * conversion. task.py list always emits it ([] when none). */
+  evidence: { url: string; label: string; kind: string }[]
 }
 
 interface TasksPanelProps {

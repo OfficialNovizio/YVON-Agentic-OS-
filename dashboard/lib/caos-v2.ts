@@ -150,7 +150,11 @@ export function buildCaosView(input: BuildInput): CaosView {
 
   const analyze = first('analyze')
   const disclosure = first('disclosure')
-  const resolve = first('resolve')
+  // phase.resolve and venture.context BOTH map to kind 'resolve' — picking by
+  // kind alone is order-fragile (whichever event lands first wins). The two
+  // consumers want different stages, so look them up by their stable ids.
+  const ventureCtx = stages.find((s) => s.id === 'venture-context') ?? null
+  const resolveActual = stages.find((s) => s.id === 'resolve') ?? null
   const retrieve = first('retrieve')
   const toolStages = byKind('tool')
   const runDone = stages.find((s) => s.id === 'run-done')
@@ -172,8 +176,8 @@ export function buildCaosView(input: BuildInput): CaosView {
   const steps: CaosStep[] = [
     stepLink(analyze, mode),
     stepClassify(analyze),
-    stepRoute(analyze),
-    stepAssemble(disclosure, resolve, retrieve),
+    stepRoute(analyze, resolveActual),
+    stepAssemble(disclosure, ventureCtx, retrieve),
     stepBudget(usage),
     stepEnvelope(usage),
     stepVerify(),
@@ -205,7 +209,7 @@ export function buildCaosView(input: BuildInput): CaosView {
       turnsUntilRecycle: poolTurns === null ? null : Math.max(0, POOL_RECYCLE_TURNS - poolTurns),
     },
     stageMs: {
-      prepare: sumMs([analyze, disclosure, resolve]),
+      prepare: sumMs([analyze, disclosure, ventureCtx, resolveActual]),
       execute: num(usage?.latencyMs),
       settle: runDone?.ts && runFailed === undefined ? null : null,
     },
@@ -246,7 +250,7 @@ function buildCalls(toolStages: PipelineStage[], awaiting: boolean): CaosCall[] 
       summary: s.detail ?? '',
       ms: parseMs(s.detail),
       tokens: null, // per-call apportioning needs the payload recorder extended
-      status: awaiting && s.status === 'active' ? status : status,
+      status,
     }
   })
 }
@@ -263,15 +267,16 @@ export function parseMs(detail?: string): number | null {
 
 function stepLink(analyze: PipelineStage | null, mode: CaosView['mode']): CaosStep {
   const known = analyze !== null
+  const sticky = analyze?.analysis?.targetAgents?.sticky === true
   return {
     id: 'link', stage: 'prepare', n: '1', title: 'Link',
     status: mode === 'none' ? 'pending' : known ? 'ok' : 'pending',
-    summary: known ? 'new frame — no prior turn' : 'waiting',
+    summary: known ? (sticky ? 'continuation — held with the prior agent' : 'new frame — no prior turn') : 'waiting',
     detail: [
-      { label: 'continuation', value: 'no — nothing prior in this room' },
-      { label: 'agent lock', value: 'opens on this turn, held for follow-ups' },
+      { label: 'continuation', value: analyze?.analysis?.targetAgents?.previousAgent != null ? 'yes — a prior agent reply holds this room' : 'no — nothing prior in this room' },
+      { label: 'agent lock', value: analyze?.analysis?.targetAgents?.sticky ? `held with ${analyze.analysis.targetAgents.primary}` : 'opens on this turn' },
     ],
-    verdict: known ? '→ NEW FRAME · the agent routed below is locked for follow-ups' : undefined,
+    verdict: known ? `→ ${analyze?.analysis?.targetAgents?.sticky ? 'CONTINUATION' : 'NEW FRAME'} · the agent routed below ${analyze?.analysis?.targetAgents?.sticky ? 'holds this conversation' : 'opens this frame'}` : undefined,
     ms: null,
   }
 }
@@ -301,29 +306,52 @@ function stepClassify(analyze: PipelineStage | null): CaosStep {
   }
 }
 
-function stepRoute(analyze: PipelineStage | null): CaosStep {
+function stepRoute(analyze: PipelineStage | null, resolveActual: PipelineStage | null): CaosStep {
   const t = analyze?.analysis?.targetAgents
-  if (!t) {
+  // Actual beats prediction (2026-09-05 flow-test finding): the input-analysis
+  // router's `primary` is a content-based PREDICTION that ignores explicit
+  // @mentions — on the VPS-requirements test turn it said "meta" while the
+  // turn actually ran as ops. phase.resolve carries the wrapper's real
+  // targets; when known, show those and demote the prediction to a detail row.
+  // detail format from stageFromEventRow: "targets → ops" / "targets → a, b".
+  const actual = resolveActual?.detail?.match(/^targets → (.+)$/)?.[1] ?? null
+  if (!t && !actual) {
     return {
       id: 'route', stage: 'prepare', n: '3', title: 'Route',
       status: 'pending', summary: 'waiting', detail: [], ms: null,
     }
   }
-  const scores = t.scores ?? []
+  const scores = t?.scores ?? []
+  const primary = actual ?? t?.primary ?? '?'
   return {
     id: 'route', stage: 'prepare', n: '3', title: 'Route',
     status: 'ok',
-    summary: `→ ${t.primary}${scores.length ? ` · score ${scores[0].score}` : ''}`,
-    chips: scores.length
+    summary: `→ ${primary}${actual ? ' · mentioned' : scores.length ? ` · score ${scores[0].score}` : ''}`,
+    chips: scores.length && t
       ? scores.flatMap((s) => s.hits.map((h) => ({ text: h, on: s.agent === t.primary })))
       : undefined,
-    detail: scores.length
-      ? scores.map((s) => ({ label: s.agent, value: `${s.score} — ${s.hits.join(', ')}` }))
-      : [
-          { label: 'scores', value: 'not forwarded by this build', muted: true },
-          { label: 'reason', value: t.reason },
-        ],
-    verdict: `→ ${t.primary.toUpperCase()} · locked for this frame`,
+    detail: [
+      ...(actual
+        ? [{ label: 'ran as', value: actual }]
+        : []),
+      ...(actual && t?.primary && t.primary !== actual
+        ? [{ label: 'predicted', value: `${t.primary} — the scorer ignored the @mention`, muted: true }]
+        : []),
+      ...(t?.previousAgent != null
+        ? [{ label: 'previous agent', value: String(t.previousAgent) }]
+        : []),
+      ...(t?.resolution ? [{ label: 'resolution', value: t.resolution }] : []),
+      ...(scores.length && t
+        ? scores.map((s) => ({ label: s.agent, value: `${s.score} — ${s.hits.join(', ')}` }))
+        : t?.previousAgent != null
+          // scores were forwarded — there simply were none. "not forwarded"
+          // would be a lie about the pipeline, not the scorer.
+          ? [{ label: 'scores', value: 'none — the scorer matched nothing', muted: true }]
+          : t
+            ? [{ label: 'scores', value: 'not forwarded by this build', muted: true }]
+            : []),
+    ],
+    verdict: `→ ${primary.toUpperCase()} · ${actual ? 'ran as mentioned' : t?.sticky ? 'HELD — continuation overrules the scorer' : 'opens this frame'}`,
     ms: null,
   }
 }
@@ -347,7 +375,7 @@ function stepAssemble(
       : { label: 'venture memory', value: 'no resolve event', muted: true },
     retrieve
       ? { label: 'retrieved', value: retrieve.detail ?? 'ran' }
-      : { label: 'retrieved', value: 'unwired — pgvector query not built', muted: true },
+      : { label: 'retrieved', value: 'no retrieve event this turn', muted: true },
     { label: 'MemPalace', value: 'unwired — drawers written, never queried', muted: true },
     { label: 'venture graph', value: 'unwired — rows written, never queried', muted: true },
     { label: 'history', value: 'unwired — needs the turn ledger', muted: true },

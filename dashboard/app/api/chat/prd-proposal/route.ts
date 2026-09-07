@@ -28,7 +28,8 @@ import { cookies } from 'next/headers'
 import { supabaseServer } from '@/lib/supabase-server'
 import { activeWorkspace, type WorkspaceKey } from '@/lib/workspaces'
 import { generatePrd } from '@/lib/prd-generator'
-import { writePendingPrd, readPendingPrd, discardPendingPrd } from '@/lib/prd-pending'
+import { writePendingPrd, readPendingPrd, discardPendingPrd, type TaskEvidenceRef } from '@/lib/prd-pending'
+import { findLatestSessionByRoom, renderDesignMd } from '@/lib/design-session'
 import { createTaskFromPrd } from '@/lib/create-task-spec'
 import { errMsg } from '@/lib/errors'
 
@@ -42,6 +43,29 @@ interface Body {
   pendingId?: string
   correlation?: string
   roomId?: string
+  /** Evidence rail fix ⑥ (2026-09-04): the proposal's artifacts[], forwarded
+   * by TaskProposalPrompt on 'generate' so they ride the pending record into
+   * the eventual TASK-SPEC's evidence block. */
+  artifacts?: { url?: string; label?: string; kind?: string }[]
+  /** Re-engineer Phase 8 — follow-on build linkage from the fence
+   * (continue-to-backend): `task.py new --derived-from` at conversion. */
+  derivedFrom?: string
+}
+
+/** Evidence rail ⑥: normalize the client-supplied artifacts[] into the
+ * TaskEvidenceRef shape we persist. https-only (artifact URLs are always the
+ * wrapper's https://hermes.yvon.in/artifacts/... store — anything else is
+ * not evidence we saved), capped at 12 to match the proposal card. */
+function normalizeEvidence(raw: Body['artifacts']): TaskEvidenceRef[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter((a): a is { url: string; label?: string; kind?: string } => !!a && typeof a.url === 'string' && a.url.startsWith('https://'))
+    .slice(0, 12)
+    .map((a) => ({
+      url: a.url,
+      label: typeof a.label === 'string' && a.label.trim() ? a.label.trim().slice(0, 120) : a.url.split('/').pop() || 'artifact',
+      kind: typeof a.kind === 'string' && a.kind.trim() ? a.kind.trim().slice(0, 20) : undefined,
+    }))
 }
 
 export async function POST(request: NextRequest) {
@@ -95,9 +119,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'title and summary are required to generate a PRD' }, { status: 400 })
     }
     try {
-      const generated = await generatePrd(title.trim(), summary.trim())
-      const pid = await writePendingPrd(title.trim(), summary.trim(), generated)
-      await emitEvent('prd.proposal.generated', { title: title.trim(), pendingId: pid, riceScore: generated.riceScore, lead: generated.meta.lead })
+      // Re-engineer Phase 5 (2026-09-05): if this room has a reference-build
+      // design session with both gates answered, fold its design.md facts
+      // into the PRD and ride the session onto the pending record so the
+      // convert step copies design.md into the task and sets its origin.
+      // Best-effort: a missing/unreadable session degrades to today's
+      // behavior, never fails generation.
+      const session = await findLatestSessionByRoom(roomId)
+      const hasGates = !!(session?.intent && session?.motion)
+      const designContext = session && hasGates ? renderDesignMd(session) : undefined
+      const generated = await generatePrd(title.trim(), summary.trim(), designContext)
+      const evidence = normalizeEvidence(body.artifacts)
+      const design =
+        session && hasGates && session.designMd?.path
+          ? { designSessionId: session.id, designMdPath: session.designMd.path }
+          : undefined
+      const pid = await writePendingPrd(
+        title.trim(),
+        summary.trim(),
+        generated,
+        evidence.length ? evidence : undefined,
+        design,
+        // Re-engineer Phase 8 — follow-on linkage from the proposal fence
+        // (continue-to-backend): validated TS-id or absent.
+        typeof body.derivedFrom === 'string' && /^TS-\d+$/.test(body.derivedFrom) ? body.derivedFrom : undefined,
+      )
+      await emitEvent('prd.proposal.generated', { title: title.trim(), pendingId: pid, riceScore: generated.riceScore, lead: generated.meta.lead, evidenceCount: evidence.length, designSessionId: design?.designSessionId })
       return NextResponse.json({
         ok: true,
         pendingId: pid,
@@ -106,6 +153,18 @@ export async function POST(request: NextRequest) {
         departments: generated.meta.departments,
         riceScore: generated.riceScore,
         warnings: generated.warnings,
+        // Present only when the room had a briefed design session — the card
+        // renders Design.md/Recipe tabs from this, else it shows PRD alone.
+        ...(design && session
+          ? {
+              design: {
+                sessionId: session.id,
+                designMdPath: session.designMd!.path,
+                designMd: designContext!,
+                recipe: session.recipe ?? null,
+              },
+            }
+          : {}),
       })
     } catch (e) {
       return NextResponse.json({ ok: false, error: `PRD generation failed: ${errMsg(e)}` }, { status: 502 })
@@ -125,7 +184,7 @@ export async function POST(request: NextRequest) {
     if (!pending) {
       return NextResponse.json({ ok: false, error: 'pending PRD not found or already converted/discarded' }, { status: 404 })
     }
-    const result = await createTaskFromPrd(pending.title, pending.summary, pending.prd, requesterName)
+    const result = await createTaskFromPrd(pending.title, pending.summary, pending.prd, requesterName, pending.evidence, pending.design, pending.derivedFrom)
     await discardPendingPrd(pendingId)
 
     if (!result.taskId) {
@@ -134,7 +193,18 @@ export async function POST(request: NextRequest) {
 
     await emitEvent('task.proposal.accepted', {
       title: pending.title, summary: pending.summary, taskId: result.taskId, kanbanOk: result.kanbanOk,
+      evidenceCount: pending.evidence?.length ?? 0,
     })
+
+    // Evidence rail ⑥: collected set-evidence failures ride along loudly —
+    // they never block the task, but they are never silently swallowed either.
+    for (const ee of result.evidenceErrors ?? []) {
+      console.error('[chat/prd-proposal] set-evidence failed:', ee)
+    }
+    // Re-engineer Phase 5: same discipline for the design-origin step.
+    for (const de of result.designErrors ?? []) {
+      console.error('[chat/prd-proposal] design-origin failed:', de)
+    }
 
     if (result.status !== 'executing') {
       // Partial success: the record is real and on disk, but the chain stalled
@@ -145,6 +215,7 @@ export async function POST(request: NextRequest) {
         taskId: result.taskId,
         status: result.status,
         error: `${result.taskId} was created but stalled at '${result.failedStep}' (currently ${result.status}): ${result.error}`,
+        evidenceErrors: result.evidenceErrors,
       }, { status: 207 })
     }
 
@@ -156,16 +227,26 @@ export async function POST(request: NextRequest) {
     // for. Via RPC, not a plain .update() — see task-proposal/route.ts's
     // accept handler for why (chat_rooms' only UPDATE RLS policy is
     // thread-only; a direct update silently no-ops for every other room
-    // kind). Best-effort — the TASK-SPEC itself is already safely created.
+    // kind). Best-effort — the TASK-SPEC itself is already safely created —
+    // but NEVER silent: supabase-js resolves RPC failures as {error} rather
+    // than throwing, so an unchecked result used to strand the room locked
+    // with the first symptom minutes later (kickoff's 409
+    // "no execution-unlocked room"). Now the failure surfaces in the convert
+    // response itself and the card prints it.
+    let unlockError: string | null = null
     try {
-      await (supabase as unknown as {
+      const { error } = await (supabase as unknown as {
         rpc: (fn: string, args: Record<string, unknown>) => Promise<{ error: { message: string } | null }>
       }).rpc('chat_room_unlock_execution', { p_room_id: roomId, p_task_id: result.taskId })
-    } catch {
-      // best-effort — see comment above
+      if (error) unlockError = error.message
+    } catch (e) {
+      unlockError = e instanceof Error ? e.message : String(e)
+    }
+    if (unlockError) {
+      console.error(`[prd-proposal] chat_room_unlock_execution failed for room ${roomId} / task ${result.taskId}: ${unlockError}`)
     }
 
-    return NextResponse.json({ ok: true, taskId: result.taskId, status: result.status, kanbanOk: result.kanbanOk, kanbanError: result.kanbanOk ? null : result.kanbanError })
+    return NextResponse.json({ ok: true, taskId: result.taskId, status: result.status, kanbanOk: result.kanbanOk, kanbanError: result.kanbanOk ? null : result.kanbanError, evidenceErrors: result.evidenceErrors, unlockError })
   }
 
   return NextResponse.json({ error: `unknown action: ${action}` }, { status: 400 })

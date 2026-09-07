@@ -124,6 +124,11 @@ export interface TaskSpecItem {
   designHandoffPath: string
   prdRef: string
   riceScore: string
+  /** Evidence rail fix ⑥ (2026-09-04) — task.py list always emits it ([] when
+   * the record has none): what this task builds ON — screenshots/scraped data
+   * the chat turn actually saved (the wrapper's https /artifacts/ store),
+   * carried from the chat proposal on PRD conversion via set-evidence. */
+  evidence: { url: string; label: string; kind: string }[]
 }
 
 export async function GET(request: NextRequest) {

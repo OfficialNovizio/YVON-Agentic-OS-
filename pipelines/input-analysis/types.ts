@@ -29,6 +29,11 @@ export interface InputAnalysis {
     reason: string
     /** per-bucket routing scores (2026-08-22) — see routing.ts RouteScore */
     scores?: { agent: string; score: number; hits: string[] }[]
+    /** 2026-09-04 continuation routing — set by the stream route after
+     *  resolveRoute() consults the room's previous agent reply. */
+    sticky?: boolean
+    previousAgent?: string | null
+    resolution?: string
   }
   /** Implicit requirements (preservation/propagation/connecting) — F2. */
   implicit?: { preservation: string[]; propagation: string[]; connecting: string[] }

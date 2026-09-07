@@ -22,7 +22,7 @@ import { createClient } from '@supabase/supabase-js'
 
 /** Secrets migrated to Vault. Order doesn't matter — list is informational. */
 export const MOVABLE_SECRETS = [
-  'GITHUB_TOKEN', 'APIFY_TOKEN', 'YOUTUBE_API_KEY', 'GOOGLE_SA_JSON',
+  'GITHUB_TOKEN', 'YOUTUBE_API_KEY', 'GOOGLE_SA_JSON',
   'GOOGLE_STITCH_API_KEY', 'ELEVENLABS_API_KEY', 'ICEBERG_TOKEN',
   'KREA_API_KEY', 'POSTHOG_API_KEY', 'POSTHOG_HOST',
   'RESEND_API_KEY', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET',

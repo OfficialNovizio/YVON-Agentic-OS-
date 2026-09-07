@@ -17,7 +17,17 @@
 //     is auto-approved. The rest of the state machine (discover/approve/
 //     start/gate/done) still runs through the normal CLI, untouched.
 //
-// Owner: dev · chat-as-task feature, 2026-08-11
+// GET /api/chat/task-proposal?roomId=<id>
+// Evidence rail fix ① rehydration (2026-09-04): the live task.proposed frame
+// only exists during the turn's SSE stream — a page opened after that misses
+// the prompt entirely. This replays the room's proposal lifecycle from the
+// events table: the latest task.proposed is returned unless a resolution
+// event (accepted / dismissed / PRD generated / PRD discarded) is newer, in
+// which case there is nothing pending. Same shape the stream's
+// task.proposed frame produces, so the prompt card looks identical rehydrated
+// or live.
+//
+// Owner: dev · chat-as-task feature, 2026-08-11 · GET rehydration 2026-09-04
 
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
@@ -128,4 +138,76 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ ok: true, taskId, kanbanOk, kanbanError: kanbanOk ? null : kanbanError })
+}
+
+// ── GET — proposal rehydration (evidence rail fix ①, 2026-09-04) ─────────────
+const PROPOSAL_KINDS = ['task.proposed', 'task.proposal.accepted', 'task.proposal.dismissed', 'prd.proposal.generated', 'prd.proposal.discarded']
+const RESOLUTION_KINDS = new Set(['task.proposal.accepted', 'task.proposal.dismissed', 'prd.proposal.generated', 'prd.proposal.discarded'])
+
+export async function GET(request: Request): Promise<Response> {
+  const { searchParams } = new URL(request.url)
+  const roomId = searchParams.get('roomId')?.trim()
+  if (!roomId) return Response.json({ error: 'roomId required' }, { status: 400 })
+
+  const supabase = await supabaseServer()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return Response.json({ error: 'unauthorized' }, { status: 401 })
+
+  // Room-visibility guard, same spirit as events/route.ts's chat_messages
+  // probe: RLS on chat_rooms decides whether the caller may see this room at
+  // all — an id alone must never leak another room's proposal.
+  const { data: roomRows } = await supabase.from('chat_rooms').select('id').eq('id', roomId).limit(1)
+  if (!roomRows || roomRows.length === 0) return Response.json({ error: 'not found' }, { status: 404 })
+
+  // The RPC chat_emit_task_proposal_event embeds room_id inside payload, so
+  // room scoping is a payload filter (same convention page.tsx's past-turn
+  // effect already uses for artifact rows).
+  const { data, error } = await supabase
+    .from('events')
+    .select('ts, kind, payload')
+    .filter('payload->>room_id', 'eq', roomId)
+    .in('kind', PROPOSAL_KINDS)
+    .order('ts', { ascending: false })
+    .limit(30)
+
+  if (error) return Response.json({ error: String(error.message ?? error) }, { status: 500 })
+
+  const rows = (data as unknown as { ts: string; kind: string; payload: Record<string, unknown> }[] | null) ?? []
+  const latestProposed = rows.find((r) => r.kind === 'task.proposed')
+  if (!latestProposed) return Response.json({ proposal: null })
+
+  // Resolved? Any resolution event strictly newer than the latest proposal
+  // means the prompt was already answered (Yes → PRD path, No/Discuss more,
+  // or a PRD that was itself generated/discarded) — nothing to re-show.
+  const proposedTs = Date.parse(latestProposed.ts)
+  const resolved = rows.some((r) => RESOLUTION_KINDS.has(r.kind) && Date.parse(r.ts) > proposedTs)
+  if (resolved) return Response.json({ proposal: null })
+
+  const p = latestProposed.payload
+  const title = typeof p.title === 'string' ? p.title : ''
+  const summary = typeof p.summary === 'string' ? p.summary : ''
+  if (!title || !summary) return Response.json({ proposal: null })
+
+  // artifacts[] arrived with the evidence rail (2026-09-04) — proposals from
+  // before it simply have none.
+  const rawArtifacts = Array.isArray(p.artifacts) ? p.artifacts : []
+  const artifacts = rawArtifacts
+    .filter((a): a is { url: string; label?: string; kind?: string } => !!a && typeof (a as { url?: unknown }).url === 'string')
+    .slice(0, 12)
+    .map((a) => ({
+      url: a.url,
+      label: typeof a.label === 'string' && a.label ? a.label : a.url.split('/').pop() || 'artifact',
+      kind: typeof a.kind === 'string' ? a.kind : undefined,
+    }))
+
+  return Response.json({
+    proposal: {
+      title,
+      summary,
+      correlation: typeof p.correlation === 'string' ? p.correlation : null,
+      artifacts,
+    },
+  })
 }

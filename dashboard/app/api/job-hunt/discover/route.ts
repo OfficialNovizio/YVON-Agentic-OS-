@@ -148,6 +148,10 @@ export async function POST(request: NextRequest) {
 
     const needsFallback = !body.query?.trim() && !body.industry?.trim()
 
+    // Declared before the sweep so the sweep path can use it too (was declared
+    // below — a TDZ ReferenceError crash on every full-sweep request).
+    const requestedIds = body.sources?.length ? new Set(body.sources) : undefined
+
     // Load per-source credentials (only Adzuna needs one today).
     const { data: keyRows } = await sb.from('job_hunt_source_keys').select('source, config, enabled')
     const configBySource = new Map((keyRows ?? []).map((r) => [r.source, r]))
@@ -173,7 +177,6 @@ export async function POST(request: NextRequest) {
     const query = body.query?.trim() || fallback.query
     const industry = body.industry?.trim() || fallback.industry
     const limit = body.limit ?? 25
-    const requestedIds = body.sources?.length ? new Set(body.sources) : null
     const sources = JOB_SOURCES.filter((s) => !requestedIds || requestedIds.has(s.id))
 
     const results = await Promise.allSettled(

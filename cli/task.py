@@ -58,11 +58,14 @@ Commands (see `task.sh` wrapper):
                                   attach spec's generated PRD + RICE score to a draft/discovery
                                   record (docs/PRD-prd-gated-task-conversion.md). REQUIRED before
                                   `approve` will let the record leave discovery — see that gate below.
-    set-design-origin <id> --session "<sid>" --tool screenshot-to-code|open-design|custom
+    set-design-origin <id> --session "<sid>" --tool screenshot-to-code|open-design|custom|reference-build
                                   [--artifact "<artifact_id>"] [--handoff "<path>"] [--actor <who>]
                                   link a task back to the cli/design.py session that produced it
                                   (docs/PRD-design-first-workflow.md). Optional, any status — powers
                                   the dashboard's unified design-preview panel. Never hand-typed.
+                                  reference-build = the chat reference-build pipeline's design
+                                  sessions (store/design-sessions/{sid}.json, kind
+                                  "reference-build") — set by createTaskFromPrd on convert.
     fill-discovery <id> --lead "<agent>" --decisions '["...", "..."]' [--objective "<text>"] [--actor <who>]
                                   one-shot transcription of the PRD's own decisions into
                                   classification.lead + discovery.decisions — the PRD chat flow's
@@ -90,6 +93,15 @@ import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+# Windows consoles default to a cp1252 stdout; every ✓/·/→ this CLI prints
+# would raise UnicodeEncodeError AFTER the work is already done (the file is
+# written, then the confirmation print crashes and the caller — e.g. the
+# dashboard's createTaskSpecAndMirror — sees a failure for a task that
+# exists). Force UTF-8 with a safe fallback before any command runs.
+for _stream in (sys.stdout, sys.stderr):
+    if _stream is not None and hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
 
 ROOT = Path(__file__).resolve().parent.parent
 TASKS = Path(os.environ.get("TASKS_DIR", ROOT / "store" / "tasks"))
@@ -145,6 +157,17 @@ def list_items(blk: str) -> list[str]:
     return re.findall(r"^\s*-\s+(.*\S)\s*$", blk, re.M)
 
 
+def _sub_literal(pattern: str, repl: str, text: str, flags: int = 0) -> str:
+    r"""re.sub with a LITERAL replacement. A dynamic value (a file path, the
+    user's verbatim request, a block reason) must never be interpreted as a
+    replacement TEMPLATE: `\T` is a bad escape and crashes, `\1` would splice
+    a capture group into the value. Real defect found 2026-09-06: on a
+    Windows runtime `set-prd` stalled EVERY chat→task convert (prd_ref held
+    `store\tasks\...`, re raised `bad escape \T`). Lambda replacements are
+    inserted verbatim — use this wherever the replacement carries data."""
+    return re.sub(pattern, lambda _m: repl, text, count=1, flags=flags)
+
+
 def set_status(text: str, new: str) -> str:
     out = re.sub(r"^status:[ \t]*\w+", f"status: {new}", text, count=1, flags=re.M)
     return _stamp(out)
@@ -172,7 +195,7 @@ def path_for(tid: str) -> Path:
 
 def active_id() -> str:
     p = ACTIVE()
-    return p.read_text().strip() if p.exists() else ""
+    return p.read_text(encoding="utf-8").strip() if p.exists() else ""
 
 
 def resolve(argv_id: str | None) -> str:
@@ -205,7 +228,7 @@ def _append_history(path: Path, actor: str, event: str, note: str = ""):
     an existing `history:` block → appends after its last entry; no `history:`
     key at all (very old record, pre-2026-08-18) → adds the block at EOF.
     Never rewrites or drops an existing entry — append-only, like feedback.jsonl."""
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     ts = now_iso()
     actor_safe = (actor or "operator").replace('"', "'").strip() or "operator"
     event_safe = (event or "").replace('"', "'").strip()
@@ -213,7 +236,7 @@ def _append_history(path: Path, actor: str, event: str, note: str = ""):
     entry = f'  - {{ts: "{ts}", actor: "{actor_safe}", event: "{event_safe}", note: "{note_safe}"}}\n'
 
     if re.search(r"^history:[ \t]*\[\][ \t]*(?:#.*)?$", text, re.M):
-        text = re.sub(r"^history:[ \t]*\[\][ \t]*(?:#.*)?$", "history:\n" + entry.rstrip("\n"), text, count=1, flags=re.M)
+        text = _sub_literal(r"^history:[ \t]*\[\][ \t]*(?:#.*)?$", "history:\n" + entry.rstrip("\n"), text, re.M)
     elif re.search(r"^history:[ \t]*$", text, re.M):
         m = re.search(r"^history:[ \t]*$", text, re.M)
         start = m.end()
@@ -224,7 +247,7 @@ def _append_history(path: Path, actor: str, event: str, note: str = ""):
         if not text.endswith("\n"):
             text += "\n"
         text += "history:\n" + entry
-    path.write_text(_stamp(text))
+    path.write_text(_stamp(text), encoding="utf-8")
 
 
 def _parse_history(text: str) -> list[dict]:
@@ -313,29 +336,29 @@ def cmd_new(args: list[str]):
     nums = [int(m.group(1)) for p in TASKS.glob("TS-*.yaml")
             for m in [re.match(r"TS-(\d+)", p.stem)] if m]
     tid = f"TS-{(max(nums) + 1 if nums else 1):03d}"
-    tmpl = (TASKS / "TEMPLATE.yaml").read_text()
+    tmpl = (TASKS / "TEMPLATE.yaml").read_text(encoding="utf-8")
     rec = re.sub(r"^id:.*$", f"id: {tid}", tmpl, count=1, flags=re.M)
     rec = set_status(rec, "draft")
     safe = msg.replace('"', "'")
-    rec = re.sub(r'^source_message:.*$', f'source_message: "{safe}"', rec, count=1, flags=re.M)
+    rec = _sub_literal(r'^source_message:.*$', f'source_message: "{safe}"', rec, re.M)
     if re.search(r'^created_at:.*$', rec, re.M):
         rec = re.sub(r'^created_at:.*$', f'created_at: "{now_iso()}"', rec, count=1, flags=re.M)
     if revision_of and re.search(r'^revision_of:.*$', rec, re.M):
-        rec = re.sub(r'^revision_of:.*$', f'revision_of: {revision_of}', rec, count=1, flags=re.M)
+        rec = _sub_literal(r'^revision_of:.*$', f'revision_of: {revision_of}', rec, re.M)
     if derived_from and re.search(r'^derived_from:.*$', rec, re.M):
-        rec = re.sub(r'^derived_from:.*$', f'derived_from: {derived_from}', rec, count=1, flags=re.M)
-    path_for(tid).write_text(rec)
-    ACTIVE().write_text(tid)
+        rec = _sub_literal(r'^derived_from:.*$', f'derived_from: {derived_from}', rec, re.M)
+    path_for(tid).write_text(rec, encoding="utf-8")
+    ACTIVE().write_text(tid, encoding="utf-8")
     _append_history(path_for(tid), actor, "opened_draft",
                     f"revision of {revision_of}" if revision_of else "")
     if revision_of:
         # Rotation: the parent attempt is superseded by its revision. Forward-only —
         # the history never has to lie about what happened (artifact beat 13).
-        parent = path_for(revision_of).read_text()
+        parent = path_for(revision_of).read_text(encoding="utf-8")
         if top(parent, "superseded_by") in ("", "null"):
             parent = re.sub(r"^superseded_by:.*$", f"superseded_by: {tid}", parent, count=1, flags=re.M) \
                 if re.search(r"^superseded_by:", parent, re.M) else parent + f"\nsuperseded_by: {tid}\n"
-            path_for(revision_of).write_text(_stamp(parent))
+            path_for(revision_of).write_text(_stamp(parent), encoding="utf-8")
         _append_history(path_for(revision_of), "system", "superseded", f"superseded by {tid}")
         if revision_of != tid:
             _append_history(path_for(tid), "system", "revision_opened", f"forked from {revision_of}")
@@ -344,18 +367,18 @@ def cmd_new(args: list[str]):
 
 def cmd_discover(args, tid):
     actor = _opt(args, "--actor") or "operator"
-    text = path_for(tid).read_text()
+    text = path_for(tid).read_text(encoding="utf-8")
     require(top(text, "status") == "draft", f"{tid} is not in draft")
     require(bool(top(text, "source_message")), "source_message is empty")
     require(bool(indented(text, "lead")), "classification.lead is empty — meta must classify first")
-    path_for(tid).write_text(set_status(text, "discovery"))
+    path_for(tid).write_text(set_status(text, "discovery"), encoding="utf-8")
     _append_history(path_for(tid), actor, "discovery_opened", "")
     print(f"✓ {tid} → discovery. Fill discovery.questions/decisions, then task.sh approve --by <who>")
 
 
 def cmd_approve(args, tid):
     who = _opt(args, "--by") or "operator"
-    text = path_for(tid).read_text()
+    text = path_for(tid).read_text(encoding="utf-8")
     require(top(text, "status") == "discovery", f"{tid} is not in discovery")
     require(bool(list_items(block(text, "discovery"))) or "decisions:" in text and
             bool(list_items(block_after(text, "decisions"))), "discovery.decisions is empty")
@@ -381,7 +404,7 @@ def cmd_approve(args, tid):
     text = set_status(text, "approved")
     if not top(text, "approved_by"):
         text += f"\napproved_by: {who}\napproved_at: {now_iso()}\n"
-    path_for(tid).write_text(text)
+    path_for(tid).write_text(text, encoding="utf-8")
     note = "gate_0 RFC satisfied" if is_gate0 else ""
     _append_history(path_for(tid), who, "approved", note)
     print(f"✓ {tid} → approved by {who}")
@@ -389,24 +412,24 @@ def cmd_approve(args, tid):
 
 def cmd_start(args, tid):
     actor = _opt(args, "--actor") or "operator"
-    text = path_for(tid).read_text()
+    text = path_for(tid).read_text(encoding="utf-8")
     require(top(text, "status") == "approved", f"{tid} is not approved")
     require(bool(top(text, "approved_by")) and bool(top(text, "approved_at")), "missing approved_by/approved_at")
     owners = [o for o in re.findall(r"^\s+owner:[ \t]*(.*\S)?\s*$", block(text, "work_items"), re.M) if o]
     require(len(owners) >= 1, "no work_item has an owner")
-    path_for(tid).write_text(set_status(text, "executing"))
+    path_for(tid).write_text(set_status(text, "executing"), encoding="utf-8")
     _append_history(path_for(tid), actor, "executing_started", f"{len(owners)} work item(s) dispatched")
     print(f"✓ {tid} → executing ({len(owners)} work item(s) with owners)")
 
 
 def cmd_gate(args, tid):
     actor = _opt(args, "--actor") or "operator"
-    text = path_for(tid).read_text()
+    text = path_for(tid).read_text(encoding="utf-8")
     require(top(text, "status") == "executing", f"{tid} is not executing")
     produces = [p for p in re.findall(r"^\s+produces:[ \t]*(.*\S)?\s*$", block(text, "work_items"), re.M) if p]
     missing = [p for p in produces if "/" in p and not (ROOT / p.strip('"')).exists()]
     require(not missing, f"produces paths not on disk: {', '.join(missing)}")
-    path_for(tid).write_text(set_status(text, "gated"))
+    path_for(tid).write_text(set_status(text, "gated"), encoding="utf-8")
     _append_history(path_for(tid), actor, "gated", "")
     print(f"✓ {tid} → gated (all produces paths exist)")
 
@@ -415,11 +438,25 @@ def cmd_review(args, tid):
     """gated → review — the suite's turn. A review opens with NO verdict yet;
     `suite` decides it. (Artifact beat 12: review is a run, not a signature.)"""
     runner = _opt(args, "--runner") or "operator"
-    text = path_for(tid).read_text()
+    text = path_for(tid).read_text(encoding="utf-8")
     require(top(text, "status") == "gated", f"{tid} is not gated")
-    path_for(tid).write_text(set_status(text, "review"))
-    _append_history(path_for(tid), runner, "review_opened", "suite queued")
-    print(f"✓ {tid} → review ({runner}). Run the suite: task.sh suite {tid} --result pass|fail --run <path>")
+    # The suite's pass requires exit_gate.owner (it fails loudly on an empty
+    # one) but no CLI writer existed for it — every record needed a hand edit
+    # before suite pass (2026-09-06 gap). Stamp it from --runner when empty:
+    # whoever opened the review owns the exit gate by default. An owner already
+    # set on the record is never overwritten.
+    stamped = False
+    if not indented("exit_gate:\n" + block(text, "exit_gate"), "owner"):
+        text = re.sub(r"^(exit_gate:\n[ \t]+owner:)[ \t]*.*$",
+                      lambda m: f'{m.group(1)} "{runner.replace(chr(34), chr(39))}"',
+                      text, count=1, flags=re.M)
+        stamped = True
+    path_for(tid).write_text(set_status(text, "review"), encoding="utf-8")
+    _append_history(path_for(tid), runner, "review_opened",
+                    "suite queued" + (" · exit_gate.owner stamped from --runner" if stamped else ""))
+    print(f"✓ {tid} → review ({runner})" +
+          (" · exit_gate.owner stamped from --runner" if stamped else "") +
+          f". Run the suite: task.sh suite {tid} --result pass|fail --run <path>")
 
 
 def cmd_suite(args, tid):
@@ -433,11 +470,11 @@ def cmd_suite(args, tid):
     require(result in ("pass", "fail"), 'suite needs --result pass|fail')
     require(bool(run), 'suite needs --run "<path>" (the run record file)')
     require((ROOT / run.strip('"')).exists(), f"run record does not exist on disk: {run}")
-    text = path_for(tid).read_text()
+    text = path_for(tid).read_text(encoding="utf-8")
     require(top(text, "status") == "review", f"{tid} is not in review")
     run_clean = run.strip('"')
     if re.search(r"^run_ref:", text, re.M):
-        text = re.sub(r"^run_ref:.*$", f'run_ref: "{run_clean}"', text, count=1, flags=re.M)
+        text = _sub_literal(r"^run_ref:.*$", f'run_ref: "{run_clean}"', text, re.M)
     else:
         text += f'run_ref: "{run_clean}"\n'
     if result == "pass":
@@ -446,12 +483,12 @@ def cmd_suite(args, tid):
         text = set_status(text, "done")
         if re.search(r"^\s+proof:", eg, re.M):
             text = re.sub(r"^(\s+proof:)[ \t]*.*$",
-                          rf'\1 "{run_clean}"', text, count=1, flags=re.M)
-        path_for(tid).write_text(text)
+                          lambda m: f'{m.group(1)} "{run_clean}"', text, count=1, flags=re.M)
+        path_for(tid).write_text(text, encoding="utf-8")
         _append_history(path_for(tid), actor, "suite_passed", f"{run_clean}" + (f" · {detail}" if detail else ""))
         print(f"✓ {tid} → done (suite passed · run: {run_clean})")
     else:
-        path_for(tid).write_text(text)
+        path_for(tid).write_text(text, encoding="utf-8")
         _append_history(path_for(tid), actor, "suite_failed", f"{run_clean}" + (f" · {detail}" if detail else ""))
         print(f"✗ {tid} stays in review (suite failed · run: {run_clean}). "
               f"Rotate: task.sh new --revision-of {tid} \"<request>\" (cap: 2 rotations, then dispute the criterion)")
@@ -464,7 +501,7 @@ def cmd_block(args, tid):
     reason = _opt(args, "--reason")
     actor = _opt(args, "--actor") or "operator"
     require(bool(reason), 'block needs --reason "<why>"')
-    text = path_for(tid).read_text()
+    text = path_for(tid).read_text(encoding="utf-8")
     require(top(text, "status") != "done", f"{tid} is done — nothing blocks a closed task")
     require(top(text, "blocked") != "true", f"{tid} is already blocked")
     if re.search(r"^blocked:.*$", text, re.M):
@@ -474,22 +511,22 @@ def cmd_block(args, tid):
     else:
         text += f"\nblocked: true\nblocked_at: \"{now_iso()}\"\n"
     if re.search(r"^blocked_reason:", text, re.M):
-        text = re.sub(r"^blocked_reason:.*$", f'blocked_reason: "{reason.replace(chr(34), chr(39))}"',
-                      text, count=1, flags=re.M)
+        text = _sub_literal(r"^blocked_reason:.*$", f'blocked_reason: "{reason.replace(chr(34), chr(39))}"',
+                      text, re.M)
     else:
         text += f'blocked_reason: "{reason.replace(chr(34), chr(39))}"\n'
-    path_for(tid).write_text(_stamp(text))
+    path_for(tid).write_text(_stamp(text), encoding="utf-8")
     _append_history(path_for(tid), actor, "blocked", reason)
     print(f"✓ {tid} blocked (sidecar — status still {top(text, 'status')})")
 
 
 def cmd_unblock(args, tid):
     actor = _opt(args, "--actor") or "operator"
-    text = path_for(tid).read_text()
+    text = path_for(tid).read_text(encoding="utf-8")
     require(top(text, "blocked") == "true", f"{tid} is not blocked")
     if re.search(r"^blocked:.*$", text, re.M):
         text = re.sub(r"^blocked:.*$", "blocked: false", text, count=1, flags=re.M)
-    path_for(tid).write_text(_stamp(text))
+    path_for(tid).write_text(_stamp(text), encoding="utf-8")
     _append_history(path_for(tid), actor, "unblocked", "resolved")
     print(f"✓ {tid} unblocked (status still {top(text, 'status')})")
 
@@ -497,11 +534,11 @@ def cmd_unblock(args, tid):
 def cmd_supersede(args, tid):
     by = _opt(args, "--by")
     require(bool(by), 'supersede needs --by <TS-id>')
-    text = path_for(tid).read_text()
+    text = path_for(tid).read_text(encoding="utf-8")
     if top(text, "superseded_by") in ("", "null"):
-        text = re.sub(r"^superseded_by:.*$", f"superseded_by: {by}", text, count=1, flags=re.M) \
+        text = _sub_literal(r"^superseded_by:.*$", f"superseded_by: {by}", text, re.M) \
             if re.search(r"^superseded_by:", text, re.M) else text + f"\nsuperseded_by: {by}\n"
-        path_for(tid).write_text(_stamp(text))
+        path_for(tid).write_text(_stamp(text), encoding="utf-8")
     _append_history(path_for(tid), "system", "superseded", f"superseded by {by}")
     print(f"✓ {tid} superseded_by {by}")
 
@@ -516,7 +553,7 @@ def cmd_setacceptance(args, tid):
     require(idx_s.isdigit(), 'set-acceptance needs --i <0-based index>')
     require(status in ACCEPT_STATUSES, f"--status must be one of {sorted(ACCEPT_STATUSES)}")
     idx = int(idx_s)
-    text = path_for(tid).read_text()
+    text = path_for(tid).read_text(encoding="utf-8")
     chunks = _wi_chunks(text)
     target = next(((c, s, e) for c, s, e in chunks if re.match(rf"\s*-\s+id:\s*{re.escape(wi)}\b", c)), None)
     require(target is not None, f"no work item {wi} in {tid}")
@@ -539,7 +576,7 @@ def cmd_setacceptance(args, tid):
     # Replace from the acceptance key line through the end of the old block.
     old_end = cstart + (am.end() + len(ablk))
     text = text[:cstart] + chunk[:am.start()] + f"{ind}acceptance:\n" + new_block + "\n" + text[old_end:]
-    path_for(tid).write_text(_stamp(text))
+    path_for(tid).write_text(_stamp(text), encoding="utf-8")
     _append_history(path_for(tid), actor, "acceptance_updated",
                     f"{wi}[{idx}] → {status}" + (f" · {evidence}" if evidence else ""))
     print(f"✓ {tid} {wi}[{idx}] acceptance → {status}")
@@ -549,7 +586,7 @@ def cmd_setroles(args, tid):
     wi = _opt(args, "--wi")
     actor = _opt(args, "--actor") or "operator"
     require(bool(wi), 'set-roles needs --wi <WI-id>')
-    text = path_for(tid).read_text()
+    text = path_for(tid).read_text(encoding="utf-8")
     chunks = _wi_chunks(text)
     target = next(((c, s, e) for c, s, e in chunks if re.match(rf"\s*-\s+id:\s*{re.escape(wi)}\b", c)), None)
     require(target is not None, f"no work item {wi} in {tid}")
@@ -562,12 +599,14 @@ def cmd_setroles(args, tid):
     new_chunk = chunk
     for key, val in (("doer", doer), ("verifier", verifier), ("integrator", integrator)):
         if re.search(rf"^\s+{key}:", new_chunk, re.M):
-            new_chunk = re.sub(rf"^(\s+{key}:)[ \t]*.*$", rf'\1 "{val.replace(chr(34), chr(39))}"',
-                               new_chunk, count=1, flags=re.M)
+            new_chunk = re.sub(
+                rf"^(\s+{key}:)[ \t]*.*$",
+                lambda m, _v=val.replace(chr(34), chr(39)), _k=key: f'{m.group(1)} "{_v}"',
+                new_chunk, count=1, flags=re.M)
         else:
             new_chunk += f'    {key}: "{val.replace(chr(34), chr(39))}"\n'
     text = text[:cstart] + new_chunk + text[cend:]
-    path_for(tid).write_text(_stamp(text))
+    path_for(tid).write_text(_stamp(text), encoding="utf-8")
     _append_history(path_for(tid), actor, "roles_set",
                     f"{wi}: doer={doer or '—'}, verifier={verifier or '—'}, integrator={integrator or '—'}")
     print(f"✓ {tid} {wi} roles: doer={doer or '—'} verifier={verifier or '—'} integrator={integrator or '—'}")
@@ -581,13 +620,13 @@ def cmd_sethandoff(args, tid):
     actor = _opt(args, "--actor") or "operator"
     missing = [f for f in HANDOFF_FIELDS if not vals[f]]
     require(not missing, f"set-handoff needs all six fields: --{' --'.join(HANDOFF_FIELDS)} (missing: {', '.join(missing)})")
-    text = path_for(tid).read_text()
+    text = path_for(tid).read_text(encoding="utf-8")
     block_str = "handoff:\n" + "".join(
         f'  {k}: "{vals[k].replace(chr(34), chr(39))}"\n' for k in HANDOFF_FIELDS)
     if re.search(r"^handoff:[ \t]*\{\}[ \t]*(?:#.*)?$", text, re.M):
         # TEMPLATE placeholder `handoff: {}` → replace the whole line with the block.
-        text = re.sub(r"^handoff:[ \t]*\{\}[ \t]*(?:#.*)?$", block_str.rstrip("\n"),
-                      text, count=1, flags=re.M)
+        text = _sub_literal(r"^handoff:[ \t]*\{\}[ \t]*(?:#.*)?$", block_str.rstrip("\n"),
+                      text, re.M)
     elif re.search(r"^handoff:", text, re.M):
         m = re.search(r"^handoff:[ \t]*(?:#.*)?$", text, re.M)
         start = m.end()
@@ -598,7 +637,7 @@ def cmd_sethandoff(args, tid):
         if not text.endswith("\n"):
             text += "\n"
         text += block_str
-    path_for(tid).write_text(_stamp(text))
+    path_for(tid).write_text(_stamp(text), encoding="utf-8")
     _append_history(path_for(tid), actor, "handoff_emitted", "6-field packet written")
     print(f"✓ {tid} handoff packet written (6 fields) + handoff_emitted")
 
@@ -607,7 +646,7 @@ def cmd_done(args, tid):
     proof = _opt(args, "--proof") or ""
     run_ref = _opt(args, "--run-ref") or ""
     actor = _opt(args, "--actor") or "operator"
-    text = path_for(tid).read_text()
+    text = path_for(tid).read_text(encoding="utf-8")
     require(top(text, "status") in ("gated", "review"), f"{tid} is not gated/review")
     eg = block(text, "exit_gate")
     require(bool(indented("exit_gate:\n" + eg, "owner")), "exit_gate.owner is empty")
@@ -619,8 +658,9 @@ def cmd_done(args, tid):
     require(not is_self_assert(proof), "proof is self-asserting — cite a real artifact or pass --run-ref")
     if re.search(r"^\s+proof:", eg, re.M):
         text = re.sub(r"^(\s+proof:)[ \t]*.*$",
-                      rf'\1 "{proof.replace(chr(34), chr(39))}"', text, count=1, flags=re.M)
-    path_for(tid).write_text(set_status(text, "done"))
+                      lambda m, _p=proof.replace(chr(34), chr(39)): f'{m.group(1)} "{_p}"',
+                      text, count=1, flags=re.M)
+    path_for(tid).write_text(set_status(text, "done"), encoding="utf-8")
     _append_history(path_for(tid), actor, "done", proof)
     print(f"✓ {tid} → done (proof: {proof})")
 
@@ -636,34 +676,94 @@ def cmd_setprd(args, tid):
     actor = _opt(args, "--actor") or "operator"
     require(bool(ref), 'set-prd needs --ref "<path to store/tasks/{id}-prd.md>"')
     require(bool(rice), 'set-prd needs --rice "<score>" (real scripts/rice.py output, not hand-typed)')
-    text = path_for(tid).read_text()
+    text = path_for(tid).read_text(encoding="utf-8")
     st = top(text, "status")
     require(st in ("draft", "discovery"), f"{tid} is {st} — PRD is frozen once approved (amend via a new PRD version instead)")
     ref_clean = ref.strip('"').strip("'")
     require((ROOT / ref_clean).exists(), f"no such file on disk: {ref_clean}")
     if re.search(r"^prd_ref:.*$", text, re.M):
-        text = re.sub(r"^prd_ref:.*$", f'prd_ref: "{ref_clean}"', text, count=1, flags=re.M)
+        text = _sub_literal(r"^prd_ref:.*$", f'prd_ref: "{ref_clean}"', text, re.M)
     else:
         if not text.endswith("\n"):
             text += "\n"
         text += f'prd_ref: "{ref_clean}"\n'
     if re.search(r"^rice_score:.*$", text, re.M):
-        text = re.sub(r"^rice_score:.*$", f'rice_score: "{rice}"', text, count=1, flags=re.M)
+        text = _sub_literal(r"^rice_score:.*$", f'rice_score: "{rice}"', text, re.M)
     else:
         text += f'rice_score: "{rice}"\n'
-    path_for(tid).write_text(_stamp(text))
+    path_for(tid).write_text(_stamp(text), encoding="utf-8")
     _append_history(path_for(tid), actor, "prd_attached", f"ref={ref_clean} rice={rice}")
     print(f"✓ {tid} prd_ref={ref_clean} rice_score={rice}")
 
 
-DESIGN_TOOLS = {"screenshot-to-code", "open-design", "custom"}
+def cmd_setevidence(args, tid):
+    """Attach one evidence artifact to the record (evidence rail fix ⑥,
+    2026-09-04) — a URL of something the chat turn ACTUALLY saved (the
+    wrapper's https /artifacts/ store: screenshots, scraped data), never a
+    claim about what could be fetched. Idempotent by URL: re-adding the same
+    artifact is a no-op, not a duplicate row. Descriptive metadata like
+    set-design-origin — allowed at any status, never a gate."""
+    url = _opt(args, "--url")
+    label = _opt(args, "--label")
+    kind = _opt(args, "--kind") or "file"
+    actor = _opt(args, "--actor") or "operator"
+    require(bool(url), 'set-evidence needs --url "<artifact URL>"')
+    require(bool(label), 'set-evidence needs --label "<file name>"')
+    require(url.startswith("https://"), "evidence --url must be https (the wrapper's /artifacts/ store)")
+    text = path_for(tid).read_text(encoding="utf-8")
+    entry = f'- url: "{url}"\n    label: "{label.replace(chr(34), chr(39))}"\n    kind: "{kind}"'
+    if re.search(r"^evidence:[ \t]*\[\][ \t]*(?:#.*)?$", text, re.M):
+        # TEMPLATE placeholder `evidence: []` → replace the whole line with a real list.
+        text = _sub_literal(r"^evidence:[ \t]*\[\][ \t]*(?:#.*)?$",
+                      "evidence:\n  " + entry, text, re.M)
+    elif re.search(r"^evidence:", text, re.M):
+        m = re.search(r"^evidence:[ \t]*(?:#.*)?$", text, re.M)
+        start = m.end()
+        nxt = re.search(r"^\S", text[start:], re.M)
+        end = start + (nxt.start() if nxt else len(text) - start)
+        if f'url: "{url}"' in text[start:end]:
+            print(f"• {tid} evidence already recorded: {url}")
+            return 0
+        # Append inside the block, before the next column-0 key.
+        text = text[:end] + "  " + entry + "\n" + text[end:]
+    else:
+        if not text.endswith("\n"):
+            text += "\n"
+        text += "evidence:\n  " + entry + "\n"
+    path_for(tid).write_text(_stamp(text), encoding="utf-8")
+    _append_history(path_for(tid), actor, "evidence_attached", f"{kind}: {label} <{url}>")
+    print(f"✓ {tid} evidence +1 ({kind}: {label})")
+
+
+def _parse_evidence(blk):
+    """evidence block → [{url,label,kind}] — mirrors _parse_acceptance's
+    chunk-split approach. No values invented: a field absent from an entry
+    comes back empty/its default, never guessed."""
+    out = []
+    for chunk in re.split(r"^[ \t]*-[ \t]+", blk, flags=re.M):
+        if not chunk.strip():
+            continue
+        url = re.search(r"url:[ \t]*\"?([^\"\n]*)", chunk)
+        if not url or not url.group(1).strip():
+            continue
+        label = re.search(r"label:[ \t]*\"?([^\"\n]*)", chunk)
+        kind = re.search(r"kind:[ \t]*\"?([^\"\n]*)", chunk)
+        out.append({
+            "url": url.group(1).strip(),
+            "label": label.group(1).strip() if label else "",
+            "kind": kind.group(1).strip() if kind and kind.group(1).strip() else "file",
+        })
+    return out
+
+
+DESIGN_TOOLS = {"screenshot-to-code", "open-design", "custom", "reference-build"}
 
 
 def _set_flat_field(text: str, key: str, value: str) -> str:
     """Set (or append) a top-level flat scalar field — same technique
     set-prd already uses for prd_ref/rice_score."""
     if re.search(rf"^{re.escape(key)}:.*$", text, re.M):
-        return re.sub(rf"^{re.escape(key)}:.*$", f'{key}: "{value}"', text, count=1, flags=re.M)
+        return _sub_literal(rf"^{re.escape(key)}:.*$", f'{key}: "{value}"', text, re.M)
     if not text.endswith("\n"):
         text += "\n"
     return text + f'{key}: "{value}"\n'
@@ -681,14 +781,14 @@ def cmd_set_design_origin(args, tid):
     actor = _opt(args, "--actor") or "operator"
     require(bool(session), 'set-design-origin needs --session "<design-session id>"')
     require(tool in DESIGN_TOOLS, f"set-design-origin needs --tool one of {sorted(DESIGN_TOOLS)}, got {tool!r}")
-    text = path_for(tid).read_text()
+    text = path_for(tid).read_text(encoding="utf-8")
     text = _set_flat_field(text, "design_session_id", session)
     text = _set_flat_field(text, "design_tool", tool)
     if artifact:
         text = _set_flat_field(text, "design_artifact_id", artifact)
     if handoff:
         text = _set_flat_field(text, "design_handoff_path", handoff)
-    path_for(tid).write_text(_stamp(text))
+    path_for(tid).write_text(_stamp(text), encoding="utf-8")
     _append_history(path_for(tid), actor, "design_origin_set", f"session={session} tool={tool}")
     print(f"✓ {tid} design_session_id={session} design_tool={tool}")
 
@@ -700,10 +800,18 @@ def cmd_filldiscovery(args, tid):
     converted task — this isn't a second round of questions. Deliberately
     NOT a general decisions editor: only fires while decisions is still the
     pristine `[]` TEMPLATE default, so it can't silently clobber a record a
-    human has already filled in by hand."""
+    human has already filled in by hand.
+
+    Re-engineer Phase 8 residual (2026-09-06): --produces "<path>" also stamps
+    the first work item's produces (decision 3 — product home
+    workspaces/<venture>/). scripts/run-task-suite.mjs derives product-root
+    ONLY from workspaces/ produces paths, so an unstamped record makes
+    product-build skip and the suite hard-fail on zero executed checks —
+    the chat-convert chain must stamp it, not a hand edit."""
     lead = _opt(args, "--lead")
     decisions_raw = _opt(args, "--decisions")
     objective = _opt(args, "--objective")
+    produces = _opt(args, "--produces")
     actor = _opt(args, "--actor") or "operator"
     require(bool(lead), 'fill-discovery needs --lead "<agent>"')
     require(bool(decisions_raw), 'fill-discovery needs --decisions \'["...", "..."]\' (JSON array)')
@@ -713,14 +821,14 @@ def cmd_filldiscovery(args, tid):
         decisions = None
     require(isinstance(decisions, list) and len(decisions) > 0 and all(isinstance(d, str) for d in decisions),
             "--decisions must be a non-empty JSON array of strings")
-    text = path_for(tid).read_text()
+    text = path_for(tid).read_text(encoding="utf-8")
     st = top(text, "status")
     require(st in ("draft", "discovery"), f"{tid} is {st} — discovery is closed")
     require(bool(re.search(r"^[ \t]*decisions:[ \t]*\[\][ \t]*(?:#.*)?$", text, re.M)),
             "discovery.decisions is not empty/pristine — fill-discovery only sets it once; edit the record by hand for amendments")
 
     lead_safe = lead.replace('"', "'").strip()
-    text = re.sub(r'^([ \t]*)lead:[ \t]*.*$', rf'\1lead: "{lead_safe}"', text, count=1, flags=re.M)
+    text = re.sub(r'^([ \t]*)lead:[ \t]*.*$', lambda m: f'{m.group(1)}lead: "{lead_safe}"', text, count=1, flags=re.M)
 
     m = re.search(r"^([ \t]*)decisions:[ \t]*\[\][ \t]*(?:#.*)?$", text, re.M)
     indent = m.group(1)
@@ -732,12 +840,20 @@ def cmd_filldiscovery(args, tid):
         # first work_items[].owner/objective only — the chat-conversion flow
         # writes a single-work-item record; a multi-work-item DAG is a
         # manual/dev-authored task, not this path's job.
-        text = re.sub(r'^([ \t]*)owner:[ \t]*""[ \t]*$', rf'\1owner: "{lead_safe}"', text, count=1, flags=re.M)
-        text = re.sub(r'^([ \t]*)objective:[ \t]*""(?:[ \t]*#.*)?$', rf'\1objective: "{obj_safe}"', text, count=1, flags=re.M)
+        text = re.sub(r'^([ \t]*)owner:[ \t]*""[ \t]*$', lambda m: f'{m.group(1)}owner: "{lead_safe}"', text, count=1, flags=re.M)
+        text = re.sub(r'^([ \t]*)objective:[ \t]*""(?:[ \t]*#.*)?$', lambda m: f'{m.group(1)}objective: "{obj_safe}"', text, count=1, flags=re.M)
 
-    path_for(tid).write_text(_stamp(text))
-    _append_history(path_for(tid), actor, "discovery_filled", f"lead={lead_safe}; {len(decisions)} decision(s)")
-    print(f"✓ {tid} classification.lead={lead_safe}, discovery.decisions ({len(decisions)} entries)")
+    if produces:
+        prod_safe = produces.replace('"', "'").strip()
+        # same single-work-item discipline as the owner/objective writes above
+        text = re.sub(r'^([ \t]*)produces:[ \t]*""[ \t]*$',
+                      lambda m: f'{m.group(1)}produces: "{prod_safe}"', text, count=1, flags=re.M)
+
+    path_for(tid).write_text(_stamp(text), encoding="utf-8")
+    note = f"lead={lead_safe}; {len(decisions)} decision(s)" + (f"; produces={prod_safe}" if produces else "")
+    _append_history(path_for(tid), actor, "discovery_filled", note)
+    print(f"✓ {tid} classification.lead={lead_safe}, discovery.decisions ({len(decisions)} entries)"
+          + (f", WI-1 produces={prod_safe}" if produces else ""))
 
 
 def cmd_note(args, tid):
@@ -754,7 +870,7 @@ def cmd_note(args, tid):
 
 
 def cmd_status(args, tid):
-    text = path_for(tid).read_text()
+    text = path_for(tid).read_text(encoding="utf-8")
     st = top(text, "status")
     print(f"ACTIVE: {tid}   status: {st}   lead: {indented(text, 'lead') or '—'}")
     owners = [o for o in re.findall(r"^\s+owner:[ \t]*(.*\S)?\s*$", block(text, 'work_items'), re.M) if o]
@@ -772,7 +888,7 @@ def cmd_list(args):
     import json as _json
     out = []
     for p in sorted(TASKS.glob("TS-*.yaml")):
-        t = p.read_text()
+        t = p.read_text(encoding="utf-8")
         tid = top(t, "id") or p.stem
         st = top(t, "status")
         work_items_blk = block(t, "work_items")
@@ -841,6 +957,7 @@ def cmd_list(args):
             "history": _parse_history(t),
             "prdRef": top(t, "prd_ref"),
             "riceScore": top(t, "rice_score"),
+            "evidence": _parse_evidence(block_after(t, "evidence")) if "evidence:" in t else [],
             "designSessionId": top(t, "design_session_id"),
             "designTool": top(t, "design_tool"),
             "designArtifactId": top(t, "design_artifact_id"),
@@ -854,7 +971,7 @@ def cmd_validate(args):
     recs = [path_for(only)] if only else sorted(TASKS.glob("TS-*.yaml"))
     fails = []
     for p in recs:
-        t = p.read_text()
+        t = p.read_text(encoding="utf-8")
         tid, st = top(t, "id"), top(t, "status")
         if tid != p.stem:
             fails.append(f"{p.name}: id '{tid}' != filename")
@@ -966,7 +1083,7 @@ def main(argv):
     idarg = None
     if cmd in ("discover", "approve", "start", "gate", "review", "suite", "block", "unblock",
                "supersede", "done", "status", "note", "set-prd", "set-design-origin",
-               "fill-discovery", "set-acceptance", "set-roles", "set-handoff"):
+               "fill-discovery", "set-acceptance", "set-roles", "set-handoff", "set-evidence"):
         # id is the first bare positional that looks like TS-xxx
         cand = [a for a in pos if re.match(r"TS-\d+", a)]
         idarg = cand[0] if cand else None
@@ -976,7 +1093,8 @@ def main(argv):
                 "done": cmd_done, "status": cmd_status, "note": cmd_note,
                 "set-prd": cmd_setprd, "set-design-origin": cmd_set_design_origin,
                 "fill-discovery": cmd_filldiscovery, "set-acceptance": cmd_setacceptance,
-                "set-roles": cmd_setroles, "set-handoff": cmd_sethandoff}
+                "set-roles": cmd_setroles, "set-handoff": cmd_sethandoff,
+                "set-evidence": cmd_setevidence}
     if cmd in dispatch:
         return dispatch[cmd](rest, resolve(idarg))
     die(f"unknown command: {cmd}")

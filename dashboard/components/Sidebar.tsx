@@ -136,6 +136,11 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Email Inbox', href: '/inbox', icon: 'inbox' },
       { label: 'Settings', href: '/settings', icon: 'settings' },
       { label: 'Hardware', href: '/hardware', icon: 'dns' },
+      // icon 'storage', not 'server': the Material Symbols subset served to
+      // this app has no 'server' ligature, so the raw word rendered as 120px
+      // of text over the label (2026-09-05). 'storage' measures a real 20px
+      // glyph — verified in-browser before swapping.
+      { label: 'VPS Server', href: '/vps', icon: 'storage' },
       { label: 'Projects', href: '/projects', icon: 'folder' },
       { label: 'People', href: '/people', icon: 'people' },
       { label: 'Docs', href: '/docs', icon: 'description' },

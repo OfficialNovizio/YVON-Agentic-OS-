@@ -797,7 +797,10 @@ Running `bash cli/verify-deploy.sh` (or `git push`, which runs it via the hook) 
    matches preceded by a word char, `/`, or `.` — i.e. rejects "part of a path/property access",
    accepts "real statement/keyword position"). Not yet re-run to confirm this closes check 1
    clean — do that first on resume.
-2. **Real finding — UNRESOLVED, needs a decision.** `vercel.json` now has 3 cron entries
+2. **Real finding — UNRESOLVED, needs a decision.** *(Superseded 2026-09-07: all three
+   crons were since removed from `vercel.json` and frozen — see `docs/CRON-JOBS.md` —
+   and `/api/trending` itself was deleted with the Apify decommission. Historical;
+   the Hobby cap no longer blocks pushes.)* `vercel.json` now has 3 cron entries
    (`/api/briefing` 7am, `/api/trending` 9am, `/api/job-hunt/companies/leads/cron` 8am) but
    Vercel's Hobby plan hard-caps at 2 crons — this will be rejected at deploy time, not just by
    the local gate (`VERCEL_PLAN` defaults to `hobby` in `cli/verify-deploy.sh` §CHECK 5). **Asked

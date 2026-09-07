@@ -2,7 +2,10 @@
 # install-tools.sh — provision the Python/CLI tool layer on the Contabo VPS.
 # ---------------------------------------------------------------------------
 # Groups D + E of the tool inventory:
-#   crawl4ai · browser-use · scrapegraphai · agent-reach · strix
+#   crawl4ai · agent-reach · strix
+#   (browser-use + scrapegraphai REMOVED 2026-09-07, operator order —
+#    zero runtime callers; see Teams/Shared OS/tools/shared-tool-registry.md
+#    removal notes. Do not re-add without a registry row + a caller.)
 # Idempotent — safe to re-run. Ubuntu 24.04 system Python is "externally
 # managed" (PEP-668), so EACH tool lives in its own venv under
 # /opt/yvon-tools/venvs — nothing touches system Python, no --break-system-packages.
@@ -44,12 +47,6 @@ echo "▸ 2/4  Group E — scraping/browser tools (own venvs)…"
 mkvenv crawl4ai      "crawl4ai"      crwl crawl4ai-doctor crawl4ai-setup   # CLI is `crwl`, not `crawl4ai`
 "$VENVS/crawl4ai/bin/crawl4ai-setup" || true        # pulls Playwright browsers into this venv
 
-mkvenv browser-use   "browser-use playwright"   browser-use
-"$VENVS/browser-use/bin/playwright" install chromium || true
-
-mkvenv scrapegraphai "scrapegraphai playwright"
-"$VENVS/scrapegraphai/bin/playwright" install chromium || true
-
 echo "▸ 3/4  Group D — agent-reach (moved to VPS per operator)…"
 mkvenv agent-reach   "https://github.com/Panniantong/agent-reach/archive/main.zip"   agent-reach
 agent-reach install --env=auto || true              # opt-in cookie setup runs interactively later
@@ -81,8 +78,7 @@ echo "✓ Python/CLI tool layer installed under $BASE"
 echo "  venvs:        $(ls "$VENVS" 2>/dev/null | tr '\n' ' ')"
 echo "  CLIs on PATH: crawl4ai, agent-reach, strix, graphify"
 echo "  libraries (import from their venv python):"
-echo "    $VENVS/browser-use/bin/python   -c 'import browser_use'"
-echo "    $VENVS/scrapegraphai/bin/python -c 'import scrapegraph_py'"
+echo "    $VENVS/crawl4ai/bin/python      -c 'import crawl4ai'"
 echo ""
 echo "  Runtime keys (set in the calling shell / systemd, NOT here):"
-echo "    scrapegraphai + strix need an LLM key · strix also needs Docker running."
+echo "    strix needs an LLM key · strix also needs Docker running."

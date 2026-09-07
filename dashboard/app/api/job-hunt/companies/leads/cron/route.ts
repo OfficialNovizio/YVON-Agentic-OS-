@@ -1,7 +1,7 @@
 /**
  * /api/job-hunt/companies/leads/cron — fully automatic OrgBook BC lead
  * pull, zero manual action once deployed (matches the pattern of the
- * existing /api/briefing and /api/trending crons in vercel.json).
+ * existing /api/briefing cron).
  *
  * One keyword's full pagination per invocation (bounded — OrgBook's own
  * pagination caps around page 11/offset 100 regardless of `total`, so this

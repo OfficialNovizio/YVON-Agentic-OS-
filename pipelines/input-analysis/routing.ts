@@ -135,7 +135,15 @@ const BUCKETS: AgentBucket[] = [
 ]
 
 export function routeAgents(message: string): AgentRoute {
-  const t = message.toLowerCase()
+  // 2026-09-04 routing hygiene (concern #1, revisit): the scorer ran on the
+  // RAW message, so URL text scored as content — "this is the url -
+  // https://shop.brunellocucinelli.com/en-gb/" routed to ops because the
+  // literal word "url" is an ops keyword, and any message with a link was
+  // at the mercy of whatever words the domain happened to contain. Strip
+  // URLs first. Word-boundary matching replaces raw substring matching:
+  // t.includes('ui') matched "build" and "luxury", t.includes('git')
+  // matched "digit", t.includes('port') matched "important".
+  const t = scoreableText(message)
 
   // ── Primary agent: score every bucket, highest total weight wins ─────────
   // (replaces the old first-match-wins if/else-if chain — see header comment)
@@ -145,7 +153,7 @@ export function routeAgents(message: string): AgentRoute {
   const matchedByBucket: { agent: string; score: number; hits: string[] }[] = []
 
   for (const bucket of BUCKETS) {
-    const hits = bucket.keywords.filter((k) => t.includes(k.phrase))
+    const hits = bucket.keywords.filter((k) => wordMatches(t, k.phrase))
     if (hits.length === 0) continue
     const score = hits.reduce((sum, k) => sum + k.weight, 0)
     matchedByBucket.push({ agent: bucket.agent, score, hits: hits.map((h) => h.phrase) })
@@ -178,4 +186,73 @@ export function routeAgents(message: string): AgentRoute {
     .sort((a, b) => (b.score - a.score) || a.agent.localeCompare(b.agent))
 
   return { primary, team: Array.from(team), reason, scores }
+}
+
+/** 2026-09-04 — continuation-aware routing (the stickiness fix). The scorer
+ *  above is per-message and memoryless; this layer owns the conversation
+ *  frame. Rules, most-specific first:
+ *   1. no previous agent            → new frame, scorer decides (meta on zero match)
+ *   2. hold lapsed (> 30 min idle)  → new frame, scorer decides
+ *   3. explicit mention             → handled BEFORE this (mention always wins)
+ *   4. zero keyword signal          → hold with previous agent (kills the
+ *                                     meta-fallback-on-a-bare-URL bug)
+ *   5. top match IS the previous    → hold (signal agrees)
+ *   6. strong match (score ≥ 2)     → release to the stronger agent (genuine
+ *                                     topic change, e.g. "now deploy it")
+ *   7. weak match (score 1)         → hold — one generic word ('design',
+ *                                     'url', 'page') must not hijack a frame
+ */
+export const AGENT_STICKY_WINDOW_MS = 30 * 60 * 1000
+
+export interface ContinuationContext {
+  previousAgent?: string | null
+  /** created_at (ms) of the previous agent reply in this room */
+  previousAt?: string | null
+}
+
+export interface ResolvedRoute extends AgentRoute {
+  /** true when the previous agent held the frame (scorer overruled) */
+  sticky: boolean
+  /** one-line, honest explanation — rendered by the CAOS panel's Route step */
+  resolution: string
+}
+
+/** Lowercase, URLs stripped — the only text the keyword scorer may see. */
+export function scoreableText(message: string): string {
+  return message.replace(/\bhttps?:\/\/\S+/gi, ' ').toLowerCase()
+}
+
+/** Word-boundary keyword match (escaped phrase, trimmed). */
+export function wordMatches(text: string, phrase: string): boolean {
+  const p = phrase.trim()
+  if (!p) return false
+  return new RegExp(`\\b${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(text)
+}
+
+/** The continuation layer. `now` is injectable so tests can freeze time. */
+export function resolveRoute(
+  route: AgentRoute,
+  cont: ContinuationContext,
+  now: number = Date.now(),
+): ResolvedRoute {
+  const prev = cont.previousAgent ?? null
+  if (!prev) {
+    return { ...route, sticky: false, resolution: 'new frame — no agent holds this conversation yet' }
+  }
+  const prevMs = cont.previousAt ? Date.parse(cont.previousAt) : NaN
+  const fresh = Number.isFinite(prevMs) && now - prevMs <= AGENT_STICKY_WINDOW_MS
+  if (!fresh) {
+    return { ...route, sticky: false, resolution: `new frame — ${prev}'s hold lapsed (idle > 30 min)` }
+  }
+  const top = route.scores[0]
+  if (!top) {
+    return { ...route, primary: prev, sticky: true, resolution: `no keyword signal — held with ${prev} (was the meta fallback)` }
+  }
+  if (top.agent === prev) {
+    return { ...route, sticky: true, resolution: `signal agrees with ${prev}` }
+  }
+  if (top.score >= 2) {
+    return { ...route, sticky: false, resolution: `strong ${top.agent} signal (${top.score}) — released from ${prev}` }
+  }
+  return { ...route, primary: prev, sticky: true, resolution: `weak match (${top.agent} ${top.score}) — held with ${prev}` }
 }

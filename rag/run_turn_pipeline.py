@@ -96,7 +96,11 @@ def main() -> None:
         top_k = 40
 
     try:
-        from retriever import retrieve as rag_retrieve  # rag/core/retriever.py
+        # last_retrieval_warnings: the failure-surfacing contract (matrix row
+        # 20) — degradations inside retrieval (stale chunks.json fallback,
+        # embedding dim mismatch, skipped hermes memory) travel out with the
+        # result instead of dying in the subprocess's stderr.
+        from retriever import last_retrieval_warnings, retrieve as rag_retrieve  # rag/core/retriever.py
     except Exception as exc:  # noqa: BLE001
         _emit_failure(f"retriever import failed: {exc}")
         return
@@ -131,6 +135,7 @@ def main() -> None:
             "ok": True, "injection_text": injection_text, "chunk_count": 0,
             "sources": "", "timing_ms": timing_ms, "gates": {},
             "lock_status": lock_status,
+            "warnings": last_retrieval_warnings(),
         }))
         return
 
@@ -143,6 +148,7 @@ def main() -> None:
             "ok": True, "injection_text": injection_text, "chunk_count": len(chunks),
             "sources": "", "timing_ms": timing_ms, "gates": {},
             "lock_status": lock_status, "gate_error": str(exc)[:300],
+            "warnings": last_retrieval_warnings(),
         }))
         return
 
@@ -160,6 +166,7 @@ def main() -> None:
         "sources": sources,
         "timing_ms": timing_ms,
         "lock_status": lock_status,
+        "warnings": last_retrieval_warnings(),
         "gates": _build_gate_payload(trace),
     }, default=str))
 

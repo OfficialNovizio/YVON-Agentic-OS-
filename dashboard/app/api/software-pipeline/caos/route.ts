@@ -6,7 +6,7 @@
 // otherwise cost fields stay null ("absent is the truth", never faked to 0).
 
 import { createClient } from '@supabase/supabase-js'
-import { stageFromEventRow, type TurnEvent } from '@/lib/pipeline'
+import { stagesFromEventRows, type TurnEvent } from '@/lib/pipeline'
 import { buildCaosView, type CaosView } from '@/lib/caos-v2'
 
 const supabase = createClient(
@@ -86,9 +86,7 @@ export async function GET(request: Request): Promise<Response> {
     let view: CaosView | null = null
     if (turnList[0]) {
       const evs = turns.get(turnList[0].id)!
-      const stages = evs
-        .map((e) => stageFromEventRow(e))
-        .filter((s): s is NonNullable<typeof s> => !!s)
+      const stages = stagesFromEventRows(evs)
       const usageRow = evs.find((e) => e.kind === 'run.completed' && e.payload?.usage)
       view = buildCaosView({
         stages,

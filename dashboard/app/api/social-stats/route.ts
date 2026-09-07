@@ -2,26 +2,28 @@
  * /api/social-stats
  *
  * GET  ?venture=<slug>&platform=instagram&handle=novizio&refresh=false
- *      → Returns SocialMetrics (from cache or Apify)
+ *      → Returns SocialMetrics (cache-only)
  *
  * POST { venture, platforms: [{ platform, handle }], refresh? }
  *      → Returns metrics for multiple platforms in one request
  *
- * Budget rule: refresh=true only accepted when triggered by user action.
- * Page-load requests always use cache (refresh defaults to false).
+ * Cache-only since 2026-09-07: Apify (which populated the social_snapshots /
+ * social_posts cache) was decommissioned. Uncached handles return empty
+ * metrics rather than scraping; the `refresh` param is accepted for URL
+ * compatibility and ignored.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { getSocialMetrics, getSocialPosts, isApifyConfigured } from '@/lib/apify'
+import { getSocialMetrics, getSocialPosts } from '@/lib/social-cache'
 
 export const runtime = 'nodejs'
-export const maxDuration = 130  // Apify sync runs can take up to 2 min
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
   const venture  = searchParams.get('venture')
   const platform = searchParams.get('platform') as 'instagram' | 'tiktok' | 'linkedin' | 'youtube' | null
   const handle   = searchParams.get('handle')
-  const refresh  = searchParams.get('refresh') === 'true'
+  const refresh  = searchParams.get('refresh') === 'true' // accepted, ignored (cache-only)
+  void refresh
   const posts    = searchParams.get('posts') === 'true'
 
   if (!venture || !platform || !handle) {
@@ -30,7 +32,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const [metrics, recentPosts] = await Promise.all([
-      getSocialMetrics(venture, platform, handle, refresh),
+      getSocialMetrics(venture, platform, handle),
       posts ? getSocialPosts(venture, platform, 10) : Promise.resolve([]),
     ])
     return NextResponse.json({ metrics, posts: recentPosts })
@@ -65,14 +67,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing venture or platforms array' }, { status: 400 })
   }
 
-  // Cap at 4 platforms (one per connected account) to conserve Apify credits
+  // Cap at 4 platforms (one per connected account)
   const capped = platforms.slice(0, 4)
 
   try {
     const results = await Promise.allSettled(
       capped.map(async ({ platform, handle }) => {
         const [metrics, posts] = await Promise.all([
-          getSocialMetrics(venture, platform, handle, refresh),
+          getSocialMetrics(venture, platform, handle),
           includePosts ? getSocialPosts(venture, platform, 10) : Promise.resolve([]),
         ])
         return { platform, handle, metrics, posts }
@@ -84,8 +86,7 @@ export async function POST(req: NextRequest) {
       return { platform: capped[i].platform, handle: capped[i].handle, error: (r.reason as Error).message }
     })
 
-    const apifyOk = await isApifyConfigured()
-    return NextResponse.json({ results: data, apifyConfigured: apifyOk })
+    return NextResponse.json({ results: data })
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
     console.error('[social-stats POST]', msg)

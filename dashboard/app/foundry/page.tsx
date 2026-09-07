@@ -35,7 +35,7 @@ const SUBSYSTEMS: Subsystem[] = [
   {
     href: '/foundry/tools',
     label: 'Tools',
-    tagline: 'Shared tool registry — impeccable, Playwright, agentation, browser-use, and more.',
+    tagline: 'Shared tool registry — impeccable, Playwright, agentation, HeadlessX, and more.',
     Icon: Wrench,
   },
   {

@@ -33,6 +33,7 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.parse
 import urllib.request
 import uuid
 from collections import deque
@@ -44,10 +45,14 @@ import httpx
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse, Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 # Run lifecycle → Supabase event log. Fire-and-forget; never blocks a run.
 from events import emit
+# Re-engineer Phase 1 (2026-09-05): server-side motion probe for reference
+# URLs — stdlib-only sibling module so tests import it without fastapi.
+from motion_probe import detect_reference_urls, probe_url, render_markdown
 
 # ═══════════════════════════════════════════════════════════════════════════
 # OpenAI TPM governor — the real fix for "Rate limit reached ... tokens per
@@ -1437,6 +1442,28 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="YVON Hermes HTTP", version="0.1.0", lifespan=lifespan)
 
 
+# ── Evidence artifacts (2026-09-04 evidence rail, fix ②) ────────────────────
+# A per-turn evidence store OUTSIDE every git checkout (workspaces/_artifacts/,
+# sibling of the venture dirs — never inside one, so a screenshot dir can never
+# carry a .git/config or expose the checkout's GitHub PAT through /artifacts).
+# Agents save evidence files here (the [ARTIFACTS] prompt block names the dir;
+# the save_artifact tool enforces the path); chat_stream scans it and pushes
+# each new file to the chat as an `artifact` SSE frame + a persisted `artifact`
+# event row. StaticFiles serves it read-only at /artifacts/... so the
+# dashboard can render the actual screenshot/data — evidence you cannot open
+# is not evidence.
+ARTIFACTS_ROOT = os.path.join(
+    REPO_WORKSPACES_DIR, "_artifacts"
+)
+os.makedirs(ARTIFACTS_ROOT, exist_ok=True)
+# Evidence rail fix ② (2026-09-04): the save_artifact tool (deployed to
+# /usr/local/lib/hermes-agent/tools/) writes only under this root — exported
+# here so the tool never has to guess the wrapper's install path.
+os.environ.setdefault("YVON_ARTIFACTS_ROOT", ARTIFACTS_ROOT)
+PUBLIC_BASE_URL = os.environ.get("YVON_PUBLIC_BASE_URL", "https://hermes.yvon.in").rstrip("/")
+app.mount("/artifacts", StaticFiles(directory=ARTIFACTS_ROOT), name="artifacts")
+
+
 def require_bearer(authorization: Optional[str] = Header(default=None)) -> None:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="missing bearer token")
@@ -1484,6 +1511,14 @@ class ChatRequest(BaseModel):
     # the active venture's own repo_url column — never an arbitrary client URL.
     repo_mode: Optional[str] = Field(default=None, description="Deprecated 2026-08-21, no longer read — kept for backward compat only")
     repo_url: Optional[str] = Field(default=None, description="Venture's linked GitHub repo (Settings → Venture → Technical). When set, Hermes always ensures it's cloned/pulled — no mode gate.")
+    # 2026-09-04 (repo-link false-negative fix): set by the dashboard when the
+    # venture HAS a repo linked but the room's execution gate is closed (chat
+    # not yet converted into an approved task), so repo_url itself is withheld.
+    # Without this, the else-branch below fires and the agent tells the user
+    # "no repo is linked" — a falsehood the user can see contradicted in
+    # Settings. Requires the matching dashboard change (hermes-client.ts
+    # repo_gated_url) to be deployed together.
+    repo_gated_url: Optional[str] = Field(default=None, description="Repo that IS linked but is execution-gated this turn (chat not yet an approved task) — changes the no-repo prompt block into a gated-access one")
     # Added 2026-08-19: the active venture's own write-scoped GitHub PAT
     # (Settings → Venture → Technical, Supabase `ventures.github_pat`) — the
     # same credential graphify/MemPalace already use. Lets Hermes clone
@@ -1511,6 +1546,80 @@ class ChatRequest(BaseModel):
     # Forwarded now and used to pick MAX_ITER_BY_TIER below. Absent/unknown
     # values fall back to MAX_ITERATIONS — an older dashboard is unaffected.
     tier: Optional[str] = Field(default=None, description="Turn tier: generic | info | build")
+    # Evidence rail fix ③ (2026-09-04): when the user's message contains an
+    # external https URL, the dashboard may scrape it dashboard-side (the VPS
+    # egress is routinely blocked by WAFs like Akamai) and forward the scraped
+    # text here. Injected as a [REFERENCE — DASHBOARD-SCRAPED CONTENT] block
+    # right before the user's message so the agent grounds itself in the real
+    # reference instead of claiming it cannot access the site. DORMANT since
+    # 2026-09-07: the Apify pre-scrape was removed and no replacement is wired
+    # (reference scraping is agent-side via agent-reach) — the field stays
+    # None; an older dashboard is unaffected.
+    reference_context: Optional[str] = Field(default=None, description="Dashboard-side scrape of the reference URL in the user's message, if any")
+    # Re-engineer Phase 2 (2026-09-05): id of the reference-build design
+    # session the dashboard opened for this turn's reference URL (records in
+    # store/design-sessions/). When set, the [DESIGN GATE] contract below is
+    # injected and the agent ends the turn with a machine-parseable
+    # ```design-gate fence (stage: intent) instead of a free-text
+    # clone-or-adapt question — the dashboard parses that fence into an
+    # intent card. Absent/None on turns without a reference URL: the old
+    # free-text gate in [REFERENCE RULES] rule 2 still applies.
+    design_session_id: Optional[str] = Field(default=None, description="Reference-build design session id (dashboard store/design-sessions/); presence injects the [DESIGN GATE] contract")
+    # Re-engineer Phase 6 (2026-09-05): the executing TASK-SPEC, injected on
+    # every turn in an execution-unlocked room with chat_rooms.execution_task_id
+    # set. Rendered as the [ACTIVE TASK] block below — the builder must load
+    # the recipe's named skills/libraries BEFORE writing code and report
+    # against each acceptance criterion. Absent on ordinary turns (None).
+    active_task: Optional[dict] = Field(default=None, description="Executing TASK-SPEC payload (task_id, title, source_message, acceptance_criteria, work_items, design_md, recipe) — renders the [ACTIVE TASK] block")
+    # Re-engineer Phase 7 (2026-09-06): the alignment loop's turn contract.
+    # Injected on verify turns (the dashboard's task-kickoff route writes a
+    # [TASK VERIFY] message into the gated room; the stream route detects the
+    # marker and builds this payload from the same disk sources). Rendered as
+    # the [TASK VERIFY] block below — the agent verifies against the user's
+    # original asks and the acceptance criteria and ends with a
+    # ```design-gate {"stage":"verify"} fence the dashboard parses into a
+    # verdict card. Absent on ordinary turns (None).
+    verify_task: Optional[dict] = Field(default=None, description="Verify-turn payload (task_id, criteria:[{ref,text}], original_asks, produces, evidence_urls) — renders the [TASK VERIFY] block and the verify-stage fence contract")
+
+
+# ── Execution-gate read (evidence rail fix ⑤, 2026-09-04) ───────────────────
+# chat_rooms.execution_unlocked_at (migration chat_rooms_execution_gate, set by
+# the dashboard's chat_room_unlock_execution RPC when a proposal is approved):
+# NULL = the room is still discussion-only — the chat has not been converted
+# into an approved, started task. The wrapper CANNOT veto a tool call:
+# hermes-agent swallows on_tool_start exceptions (codex_runtime.py:508), so a
+# raising tripwire dies silently — the same arity bug that hid every tool event
+# until 2026-08-22. What we CAN do is know the gate state and record violations
+# loudly (gate.violation event rows + a warn notice in the chat) while the
+# dashboard holds back repoUrl and the PAT until the gate opens. The veto lives
+# at the data layer; the tripwire lives here.
+_GATE_EXECUTION_TOOLS = {"terminal", "code_execution", "cronjob", "delegation"}
+
+
+async def _room_gate_locked(room_id: str) -> Optional[bool]:
+    """True = execution gate closed · False = unlocked · None = unknown.
+
+    None must never be treated as locked — a Supabase blip would otherwise
+    tripwire every terminal call in every working room. Degrades to silent."""
+    url = os.environ.get("SUPABASE_URL", "").rstrip("/")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+    if os.environ.get("YVON_EVENTS_ENABLED", "1") == "0" or not url or not key or not room_id:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=4.0) as client:
+            resp = await client.get(
+                f"{url}/rest/v1/chat_rooms",
+                params={"id": f"eq.{room_id}", "select": "execution_unlocked_at"},
+                headers={"apikey": key, "Authorization": f"Bearer {key}"},
+            )
+            resp.raise_for_status()
+            rows = resp.json()
+    except Exception:  # noqa: BLE001 — gate telemetry must never break a turn
+        log.warning("gate read failed for room=%s — tripwire disabled this turn", room_id)
+        return None
+    if not isinstance(rows, list) or not rows:
+        return None
+    return rows[0].get("execution_unlocked_at") is None
 
 
 # ── Chat stream endpoint ────────────────────────────────────────────────────
@@ -1560,6 +1669,68 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     # phase.classify/phase.resolve/run.completed with the dashboard's own
     # input.analysis/chat.conversation events under one id per turn.
     _correlation = req.correlation or str(uuid.uuid4())
+
+    # ── Evidence artifacts (fix ②) + execution gate (fix ⑤) ─────────────────
+    # Per-turn evidence dir under workspaces/_artifacts/<venture>/<correlation>/
+    # (see ARTIFACTS_ROOT above — outside every checkout, so nothing here can
+    # ever expose a .git/config). Scanned after every tool call and once more
+    # before the done frame; each new file becomes an `artifact` SSE frame plus
+    # a persisted event row, so the chat shows real screenshots/data instead of
+    # the agent's claim that it "took a screenshot".
+    _artifacts_seen: set[str] = set()
+    _venture_slug = re.sub(r"[^a-z0-9_-]+", "-", (req.workspace or "general").lower()).strip("-") or "general"
+    _turn_artifacts_dir = os.path.join(ARTIFACTS_ROOT, _venture_slug, _correlation)
+    try:
+        os.makedirs(_turn_artifacts_dir, exist_ok=True)
+    except OSError:
+        log.warning("artifacts dir not creatable: %s — evidence saving disabled this turn", _turn_artifacts_dir)
+        _turn_artifacts_dir = ""
+
+    def _scan_new_artifacts() -> list[dict[str, Any]]:
+        found: list[dict[str, Any]] = []
+        if not _turn_artifacts_dir:
+            return found
+        try:
+            with os.scandir(_turn_artifacts_dir) as it:
+                entries = [e for e in it if e.is_file() and not e.name.startswith(".")]
+        except OSError:
+            return found
+        try:
+            entries.sort(key=lambda e: e.stat().st_mtime)
+        except OSError:
+            pass
+        for e in entries:
+            if e.name in _artifacts_seen:
+                continue
+            _artifacts_seen.add(e.name)
+            try:
+                size = e.stat().st_size
+            except OSError:
+                size = 0
+            ext = e.name.rsplit(".", 1)[-1].lower() if "." in e.name else ""
+            akind = ("image" if ext in {"png", "jpg", "jpeg", "webp", "gif"}
+                     else "data" if ext in {"json", "md", "csv", "txt", "yaml", "yml"}
+                     else "file")
+            found.append({
+                "url": f"{PUBLIC_BASE_URL}/artifacts/{_venture_slug}/{_correlation}/{urllib.parse.quote(e.name)}",
+                "label": e.name,
+                "artifactKind": akind,
+                "bytes": size,
+            })
+        return found
+
+    def _publish_new_artifacts() -> None:
+        for a in _scan_new_artifacts():
+            _sse({"kind": "artifact", **a})
+            _emit_all("artifact", url=a["url"], label=a["label"], artifact_kind=a["artifactKind"],
+                      bytes=a["bytes"], room_id=req.room_id)
+
+    # Gate state is read once per turn (best-effort — None disables the
+    # tripwire rather than crying wolf on a Supabase blip).
+    try:
+        _gate_locked = await _room_gate_locked(req.room_id)
+    except Exception:  # noqa: BLE001
+        _gate_locked = None
 
     def _sse(event: dict[str, Any]) -> None:
         loop.call_soon_threadsafe(queue.put_nowait, {**event, "correlation": _correlation})
@@ -1665,7 +1836,26 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
             _tool_starts[tc_id or name] = time.time()
             _sse({"kind": "tool_call.start", "toolName": name, "argsPreview": args_preview})
             # TS-018 WI-4 — persisted phase detail (fire-and-forget; see events.py).
-            _emit_all("tool.call", tool=name, status="start")
+            # tool_call_id (2026-09-04): lets the dashboard's past-turn normalizer
+            # (pipeline.ts stagesFromEventRows) pair start/end rows exactly, even
+            # when one turn calls the same tool twice. Harmless until deployed.
+            _emit_all("tool.call", tool=name, status="start", tool_call_id=tc_id)
+            # Execution-gate tripwire (fix ⑤): we cannot veto (raising here is
+            # swallowed by codex_runtime.py:508 — never re-introduce a raise),
+            # so an execution-class tool in a still-locked room is recorded
+            # loudly instead: a warn notice in the chat + a persisted
+            # gate.violation row the dashboard renders as an ERROR gate stage.
+            if _gate_locked and name.strip().lower() in _GATE_EXECUTION_TOOLS:
+                _sse({
+                    "kind": "notice",
+                    "level": "warn",
+                    "message": (
+                        f"gate violation — {name} ran while this room's execution gate "
+                        "was still closed (no approved task). Recorded for review."
+                    ),
+                })
+                _emit_all("gate.violation", tool=name, room_id=req.room_id,
+                          note="execution-class tool ran while the room gate was closed (tripwire — veto is not possible at this layer)")
         except Exception:  # noqa: BLE001
             # The runtime swallows whatever we raise (codex_runtime.py:508), so a
             # throw here would be invisible — exactly the failure being fixed.
@@ -1678,7 +1868,12 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
             started = _tool_starts.pop(tc_id or name, None)
             ms = int((time.time() - started) * 1000) if started else None
             _tool_call_count[0] += 1
-            _emit_all("tool.call", tool=name, ok=bool(ok), ms=ms, summary=str(summary)[:300])
+            _emit_all("tool.call", tool=name, ok=bool(ok), ms=ms, summary=str(summary)[:300], tool_call_id=tc_id)
+            # Evidence sweep (fix ②): a file may have landed in the artifacts
+            # dir since the last check (browser screenshot, save_artifact, a
+            # terminal copy) — push it to the chat immediately so evidence
+            # streams in during the turn, not only at the end.
+            _publish_new_artifacts()
         except Exception:  # noqa: BLE001
             log.exception("on_tool_end failed for args=%r kwargs=%r", cb_args, cb_kwargs)
 
@@ -1766,6 +1961,29 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
                 f"[WORKING REPO] Cloning/pulling {req.repo_url} failed: {repo_error}. "
                 f"Continue in your default working directory and tell the user the clone failed."
             )
+    elif req.repo_gated_url:
+        # 2026-09-04 (repo-link false-negative fix): the venture DOES have a
+        # repo linked — the dashboard withheld repo_url because this room's
+        # execution gate is still closed (chat not converted into an approved
+        # task). The old flow hit the else-branch below and the agent relayed
+        # "no repo is linked" / "I can't access the repo", which the user
+        # could see was false in Settings. State the gated truth instead.
+        prompt_parts.append(
+            "[WORKING REPO] This venture DOES have a repo linked (visible in Settings "
+            f"→ Venture → Technical: {req.repo_gated_url}), but this chat has not been "
+            "converted into an approved task yet, so no checkout was prepared for this "
+            "turn and you have no file/terminal access. NEVER say the repo is not "
+            "linked, missing, or that none is configured — the accurate statement is "
+            "that repo access is gated until the user approves this chat as a task. "
+            "Discuss the request, ask clarifying questions, and follow the "
+            "[REFERENCE RULES] below — evidence and suggestions still come first, "
+            "all in words only; never claim to have made, committed, or run "
+            "anything. When the plan is concrete, END YOUR REPLY with the "
+            "[TASK PROPOSAL] fenced block described below: the user accepting "
+            "that proposal is exactly what converts this chat into an approved "
+            "task and unlocks repo access. The proposal IS the approval button — "
+            "a gated turn that ends without one deadlocks this room."
+        )
     else:
         # No repo_url saved for this venture at all (Settings → Venture →
         # Technical). Previously this branch said nothing, leaving the model
@@ -1792,12 +2010,341 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
         "real work (not for routine questions or ongoing exploration), end "
         "your reply with a fenced block exactly like this, on its own lines:\n"
         "```task-proposal\n"
-        '{"title": "<short task title>", "summary": "<1-3 sentence summary of what would be done>"}\n'
+        '{"title": "<short task title>", "summary": "<1-3 sentence summary of what would be done>", "artifacts": [{"label": "<file name you saved>", "url": "<its published URL>", "kind": "image"}]}\n'
         "```\n"
+        "The block must be STRICT compact JSON on one line: double-quoted keys and "
+        "strings, no newlines inside strings, no trailing commas. The artifacts "
+        "array is optional (use [] if none) and should list the evidence files you "
+        "actually saved this turn that the task builds on. "
+        "Follow-on builds: when the user asks for the NEXT task that a finished "
+        "task made possible (e.g. the backend + connect + e2e for a design that "
+        "just shipped), include \"derivedFrom\": \"TS-NNN\" in the JSON — the id "
+        "of the task that made this one possible — and carry that task's design "
+        "facts, recipe and produced artifact paths into the summary and artifacts. "
         "Do not include this block unless the discussion is genuinely resolved "
-        "and ready to move to execution. Never fabricate a title or summary "
-        "that misrepresents what was actually discussed."
+        "and ready to move to execution. Exception — gated rooms: if the "
+        "user's request is concretely actionable but this turn's execution is "
+        "gated (no repo checkout; chat not yet an approved task), still emit "
+        "the block once your plan and suggestions are clear — the user's "
+        "acceptance is what unlocks execution. Never fabricate a title or "
+        "summary that misrepresents what was actually discussed."
     )
+    # ── Evidence rail fixes ③④ (2026-09-04): reference-first contract ────────
+    # (1) the agent must look at the user's reference before building anything,
+    # (2) clone-vs-adapt is the user's call, stated BEFORE any build, (3)
+    # evidence is saved to the per-turn artifacts dir and shows up in chat as
+    # cards, (4) failures are loud, never improvised around. Operator sign-off
+    # 2026-09-04: "when I say clone make clone, when I mention adapt do
+    # accordingly — before making anything understand context, then clone it
+    # and change text/images to ours, and before cloning give suggestions."
+    prompt_parts.append(
+        "[REFERENCE RULES] When the user's message contains a URL (a website, "
+        "page, or app to learn from), that URL is the REFERENCE for this turn:\n"
+        "1. Evidence first. Phase 1 of any reference request is evidence and "
+        "understanding, not building. Study the reference with YOUR OWN tools "
+        "before anything else. A reference study needs BOTH text and a "
+        "screenshot. TEXT: run `curl -sL 'https://r.jina.ai/<url>'` in terminal "
+        "(Jina Reader — the fetch comes from Jina's infrastructure, so it "
+        "succeeds on many sites that block this server directly). CONTENT + "
+        "SCREENSHOT via the self-hosted anti-detect engine (HeadlessX, local "
+        "API; read its key from its env file, never print the key): "
+        "KEY=$(grep '^DASHBOARD_INTERNAL_API_KEY=' /root/.headlessx/repo/infra/docker/.env | cut -d= -f2) ; "
+        "content: curl -s -m 90 -X POST http://127.0.0.1:38473/api/operators/website/scrape/content "
+        "-H \"X-API-Key: $KEY\" -H 'Content-Type: application/json' "
+        "-d '{\"url\":\"<url>\"}' ; screenshot: same POST to "
+        "http://127.0.0.1:38473/api/operators/website/scrape/screenshot with "
+        "-o <artifacts_dir>/reference.png — ALWAYS the full page, top to "
+        "bottom, never a cropped viewport (the engine does full-page by "
+        "default; just don't ask it to crop). "
+        "CHECK before citing: if the content or the screenshot is an "
+        "'Access Denied' / Akamai / challenge page, the site blocks automated "
+        "access — do NOT save the block page as evidence, treat that path as "
+        "failed. Save all real text you got as reference.md with save_artifact. "
+        "Fallbacks: browser_navigate + browser_snapshot/browser_vision (text, "
+        "DOM, screenshots), then crawl4ai (`crwl`) for text. Present what you "
+        "understood and give concrete suggestions BEFORE creating anything. "
+        "Never silently review or rebuild a local project instead of the given "
+        "reference.\n"
+        "2. Ask clone or adapt. Before building anything, ask exactly one "
+        "question: 'CLONE — same structure, our content? or ADAPT — "
+        "reinterpreted for our brand?'. CLONE means replicate the reference's "
+        "structure, layout and sections exactly but replace ALL text and images "
+        "with our venture's own content and brand. ADAPT means keep the spirit "
+        "and style and redesign the rest for us. Never ship a verbatim copy of "
+        "someone else's copy or media. When a [DESIGN GATE] block is present "
+        "below, its machine-parseable gate REPLACES this free-text question — "
+        "emit the gate instead of asking in prose.\n"
+        "3. Save evidence — once, with stable names. Run the capture chain ONCE "
+        "per reference; if a capture must be redone, RE-SAVE with "
+        "save_artifact overwrite=true so the file REPLACES the old one — never "
+        "let -2/-3 suffixed copies pile up. Fixed names per role: "
+        "text -> reference.md, full-page screenshot -> reference.png, "
+        "motion-profile.md -> written automatically by the server (do not "
+        "recreate it), and the "
+        "study is not complete until design.md exists — a distilled design "
+        "spec of the reference grounded in what the evidence actually shows "
+        "(never assumptions): page structure and sections, navigation model, "
+        "typography scale, palette, spacing rhythm, component inventory, "
+        "imagery direction, motion. For extra pages give purposeful names "
+        "(reference-pricing.md), never suffixed copies. All artifacts land in "
+        "the directory below and appear in the chat as evidence cards "
+        "automatically.\n"
+        "4. Loud failure. If the reference is still unreachable after Jina "
+        "text, HeadlessX content + screenshot, browser navigation, and "
+        "crawl4ai all returned block pages or errors, say so plainly — 'scrape "
+        "failed: <reason> per path' — save the per-path failure notes as "
+        "reference.md, and ask the user for screenshots or materials instead "
+        "of improvising a lookalike from memory. Akamai/Cloudflare-hardened "
+        "sites commonly block every automated path including third-party "
+        "renderers (Jina, HeadlessX, thum.io all get denied) — that is a "
+        "site-level block, not a bug in this chain; report it and ask. If a "
+        "[REFERENCE — DASHBOARD-SCRAPED CONTENT] block is present, that "
+        "scrape already succeeded: ground your understanding in it."
+    )
+    # ── Server-side motion probe (re-engineer Phase 1, 2026-09-05) ──────────
+    # The static screenshot + Jina text physically carry no motion information
+    # — the Novizio rebuild was "faithful" to evidence that couldn't show the
+    # reference's videos, keyframes or scroll machinery. When the user's
+    # message carries a URL, probe it HERE (server-side: zero agent turns,
+    # zero tokens, ~1-3s) and ground the turn in the page's real motion
+    # machinery. Loud degrade on failure: the turn must never assume a
+    # reference is static just because the probe couldn't read it.
+    _ref_urls = detect_reference_urls(req.message or "")
+    if _ref_urls:
+        _probe_ok = False
+        _probe_detail = ""
+        try:
+            _profile = await asyncio.to_thread(probe_url, _ref_urls[0], 10.0)
+            if _profile.get("ok"):
+                _probe_ok = True
+                _probe_detail = render_markdown(_profile)
+                if _turn_artifacts_dir:
+                    try:
+                        with open(os.path.join(_turn_artifacts_dir, "motion-profile.md"), "w", encoding="utf-8") as _pfh:
+                            _pfh.write(_probe_detail)
+                    except OSError as _pwerr:
+                        log.warning("motion-profile.md write failed: %s", _pwerr)
+            else:
+                _probe_detail = str(_profile.get("reason", "unknown"))
+        except Exception as _pexc:  # noqa: BLE001 — probe must never break a turn
+            log.warning("motion probe errored for %s: %s", _ref_urls[0], _pexc)
+            _probe_detail = f"probe errored: {_pexc}"
+        if _probe_ok and _probe_detail:
+            prompt_parts.append(
+                "[REFERENCE — MOTION PROFILE] Server-side probe of the reference's "
+                "actual motion machinery (videos, @keyframes, animation/transition "
+                "density, scroll libraries, CSS anatomy, media assets). Ground every "
+                "motion/animation claim about this reference in this profile — the "
+                "full-page screenshot cannot show motion, and a static rebuild of an "
+                "animated reference is a FAILED build. Reference taxonomy and asset "
+                "inventory below feed the design spec (design.md) and any motion "
+                "decision the user is asked to make:\n" + _probe_detail
+            )
+        else:
+            prompt_parts.append(
+                "[REFERENCE — MOTION PROBE] The server-side motion probe could not "
+                f"read {_ref_urls[0]} ({_probe_detail or 'no result'}). Do NOT "
+                "assume the reference is static: before building anything, "
+                "determine its motion from your own capture chain — HeadlessX "
+                "full-page screenshot, browser_snapshot DOM (look for video/canvas/"
+                "@keyframes/scroll containers), and the Jina text. A static rebuild "
+                "of an animated reference is a FAILED build."
+            )
+    # ── Active task (re-engineer Phase 6, 2026-09-05) ────────────────────────
+    # The engine feed: a turn in an execution-unlocked room with an execution
+    # task carries the TASK-SPEC itself. Before Phase 6 the agent never saw
+    # the TASK-SPEC it was nominally executing — ChatRequest had no task_id —
+    # so "executing" was prose. Now every turn in the room re-grounds the
+    # builder: source message, work items, acceptance criteria, design.md,
+    # recipe — and the load-skills-first rule fixes the token burn (skills
+    # are selected at work time, not discovered after the build).
+    if req.active_task:
+        _at = req.active_task
+        _at_lines = [
+            "[ACTIVE TASK] This turn executes a governed TASK-SPEC. Build "
+            "against it — do not re-ask what it already answers.",
+            "TASK: " + str(_at.get("task_id", "?")) + " — " + str(_at.get("title", "")).strip()[:200],
+        ]
+        _src = str(_at.get("source_message", "") or "").strip()
+        if _src:
+            _at_lines.append("ORIGINAL ASK (verbatim, from the task record):\n" + _src[:4000])
+        _wis = _at.get("work_items") or []
+        if _wis:
+            _at_lines.append(
+                "WORK ITEMS:\n"
+                + "\n".join("- " + str(w).strip()[:300] for w in _wis if str(w).strip())
+            )
+        _acs = _at.get("acceptance_criteria") or []
+        if _acs:
+            _at_lines.append(
+                "ACCEPTANCE CRITERIA (testable — your reply must report "
+                "against EACH one: met or not met, with evidence):\n"
+                + "\n".join("- " + str(a).strip()[:300] for a in _acs if str(a).strip())
+            )
+        _md = str(_at.get("design_md", "") or "").strip()
+        if _md:
+            _at_lines.append(
+                "DESIGN SPEC (design.md — the operator's recorded intent, "
+                "motion decision and build recipe; honor it):\n" + _md[:12000]
+            )
+        _recipe = _at.get("recipe")
+        if isinstance(_recipe, dict):
+            try:
+                _at_lines.append(
+                    "BUILD RECIPE (JSON — load EVERY named skill path BEFORE "
+                    "writing code; honor its obligations):\n"
+                    + json.dumps(_recipe, ensure_ascii=False)[:6000]
+                )
+            except (TypeError, ValueError):
+                pass
+        _at_lines.append(
+            "RULES: (1) Load the recipe's named skills and libraries BEFORE "
+            "building — never discover them after the fact. (2) Build in the "
+            "repo checkout. (3) End with a per-criterion status report. "
+            "(4) If a criterion cannot be met, say so explicitly — never "
+            "claim done without the evidence."
+        )
+        prompt_parts.append("\n\n".join(_at_lines))
+    # ── Task verify (re-engineer Phase 7, 2026-09-06) ────────────────────────
+    # The alignment loop: after a build turn, a verify turn re-reads the
+    # user's ORIGINAL asks and the acceptance criteria and checks the actual
+    # output against them — the CAOS loop the system never had (it built
+    # without ever looking back). The verify contract supersedes the ACTIVE
+    # TASK build rules for this turn: no building, no fixing — verdicts with
+    # evidence, ending in a machine-parseable fence the dashboard turns into
+    # the gap/aligned card that drives the fix loop.
+    if req.verify_task:
+        _vt = req.verify_task
+        _vt_lines = [
+            "[TASK VERIFY] This turn VERIFIES a finished build — it does not "
+            "build, fix, or modify anything. The rules below supersede the "
+            "[ACTIVE TASK] build rules for this turn.",
+            "TASK: " + str(_vt.get("task_id", "?")),
+        ]
+        _asks = _vt.get("original_asks") or []
+        _ask_rows = [str(a).strip()[:400] for a in _asks if str(a).strip()]
+        if _ask_rows:
+            _vt_lines.append(
+                "ORIGINAL ASKS (the user's verbatim messages in this room — "
+                "the output is judged against THESE, not against what the "
+                "builder found convenient):\n"
+                + "\n".join("- " + a for a in _ask_rows)
+            )
+        _vcs = _vt.get("criteria") or []
+        _vc_rows = []
+        for c in _vcs:
+            if isinstance(c, dict) and c.get("text"):
+                _vc_rows.append("[" + str(c.get("ref", "?")) + "] " + str(c["text"]).strip()[:300])
+            elif isinstance(c, str) and c.strip():
+                _vc_rows.append("- " + c.strip()[:300])
+        if _vc_rows:
+            _vt_lines.append(
+                "ACCEPTANCE CRITERIA (each has a ref in [brackets] — cite it "
+                "VERBATIM as the verdict's \"ref\", e.g. \"WI-1:2\". Never "
+                "invent slugs or reword a ref: the verdict is recorded into "
+                "the task record by that exact ref):\n"
+                + "\n".join(_vc_rows)
+            )
+        _prod = [str(p).strip() for p in (_vt.get("produces") or []) if str(p).strip()]
+        if _prod:
+            _vt_lines.append(
+                "PRODUCED PATHS (inspect the real files — open them, don't assume):\n"
+                + "\n".join("- " + p[:300] for p in _prod)
+            )
+        _ev = [str(e).strip() for e in (_vt.get("evidence_urls") or []) if str(e).strip()]
+        if _ev:
+            _vt_lines.append(
+                "EVIDENCE ARTIFACTS (screenshots/scrapes from the build turns):\n"
+                + "\n".join("- " + e[:300] for e in _ev)
+            )
+        _vt_lines.append(
+            "VERIFY CONTRACT: For EACH criterion above, check the actual "
+            "output (files, rendered result) and end your turn with exactly "
+            "one ```design-gate fence containing this JSON shape:\n"
+            '{"stage":"verify","taskId":"<task id>","verdicts":[{"ref":"<criterion ref>",'
+            '"status":"aligned|gap","evidence":"<what you actually saw>"}],'
+            '"asks":[{"ask":"<original ask>","status":"aligned|gap","evidence":"<...>"}],'
+            '"summary":"<one-paragraph verdict>"}\n'
+            "Rules: status is aligned ONLY with concrete evidence from the "
+            "real output — never from reading your own plan back. A criterion "
+            "you could not check is a gap, with the reason in evidence. Every "
+            "verdict's \"ref\" MUST be copied verbatim from the bracketed "
+            "criterion refs above (format \"WI-<n>:<k>\") — an unrecognized "
+            "ref fails the pass step. Do not write any other ```design-gate fence."
+        )
+        prompt_parts.append("\n\n".join(_vt_lines))
+    # ── Design gate (re-engineer Phase 2, 2026-09-05) ────────────────────────
+    # [REFERENCE RULES] rule 2 asks clone-or-adapt as free text — nothing
+    # downstream could parse the answer, so the decision lived only in the
+    # transcript and every later stage (motion brief, recipe, PRD) rebuilt it
+    # from guesswork. When the dashboard opened a design session for this
+    # reference, the question upgrades to a machine-parseable gate: the agent
+    # ends the turn with a ```design-gate fence, the dashboard renders an
+    # intent card from it, and the decision lands on a durable record
+    # (store/design-sessions/) that the later stages read.
+    if req.design_session_id:
+        _gate_json = (
+            '{"stage":"intent","sessionId":"' + req.design_session_id + '","reference":'
+            '{"url":"<the reference url>","taxonomy":"<static-editorial|motion-marketing|'
+            'video-led|immersive-3d|dashboard>","motionSummary":"<one line: what actually '
+            'moves on the reference and how>"}}'
+        )
+        _motion_json = (
+            '{"stage":"motion","sessionId":"' + req.design_session_id + '","needs":'
+            '[{"need":"<observed motion need>","reference":"<what the reference actually '
+            'does>","bestPath":"video|code|either","why":"<one line>"}]}'
+        )
+        prompt_parts.append(
+            "[DESIGN GATE] A reference-build design session is open for this "
+            f"turn (id: {req.design_session_id}). The reference pipeline has "
+            "TWO machine-parsed gates. Never build anything until BOTH are "
+            "answered — the chat renders decision cards from these fences; "
+            "plain-text questions do NOT render cards.\n"
+            "GATE 1 — INTENT (clone vs adapt):\n"
+            "1a. If the user's message already states the intent, do NOT "
+            "emit this gate — go to Gate 2 below.\n"
+            "1b. Otherwise END this turn with EXACTLY this fenced block as "
+            "the last thing in your reply — valid JSON on one line, no text "
+            "after it:\n"
+            "```design-gate\n" + _gate_json + "\n```\n"
+            "taxonomy comes from the [REFERENCE — MOTION PROFILE] above when "
+            "present (use its Taxonomy line's value verbatim); if the probe "
+            "failed, classify from your own capture and say so inside "
+            "motionSummary.\n"
+            "GATE 2 — MOTION (video vs code): only after intent is stated.\n"
+            "2a. If the conversation already states the motion decision, do "
+            "NOT emit this gate — proceed to the design study and design.md.\n"
+            "2b. Otherwise present your design study, then END the turn with "
+            "EXACTLY this fenced block:\n"
+            "```design-gate\n" + _motion_json + "\n```\n"
+            "List 3-6 needs OBSERVED in the motion profile / your capture "
+            "(hero loop, scroll narrative, entrances, micro-interactions, "
+            "page transitions, particles/3D — as applicable to THIS "
+            "reference). State only what this reference actually animates: "
+            "do NOT state costs, licenses or tool names — the card renders "
+            "the full video-vs-code comparison itself.\n"
+            "BOTH GATES ANSWERED: proceed with the full design study and "
+            "design.md; emit no further gates for this session.\n"
+            f"Use {req.design_session_id} exactly as the sessionId — never "
+            "invent one. Never emit a gate on turns without this block."
+        )
+    if _turn_artifacts_dir:
+        prompt_parts.append(
+            f"[ARTIFACTS] Evidence directory for this turn: {_turn_artifacts_dir}\n"
+            "Save evidence files there (screenshots as .png, scraped content as "
+            ".md/.json). A save_artifact tool may be available — prefer it; "
+            "otherwise use terminal with this absolute path directly. Every file "
+            f"you leave there is published under {PUBLIC_BASE_URL}/artifacts/ and "
+            "shown to the user automatically."
+        )
+    if req.reference_context:
+        prompt_parts.append(
+            "[REFERENCE — DASHBOARD-SCRAPED CONTENT] The dashboard already "
+            "scraped the URL in the user's message. Ground your understanding of "
+            "the reference in this content; do not claim you could not access the "
+            "site. It may be partial (length-capped) — say what's missing if it "
+            "matters.\n" + req.reference_context
+        )
     prompt_parts.append(req.message)
     full_prompt = "\n".join(prompt_parts)
 
@@ -1894,19 +2441,40 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
             "phase.retrieve",
             count=rag_result.get("chunk_count", 0),
             sources=rag_result.get("sources", ""),
+            # Failure-surfacing discipline (matrix row 20): degradations inside
+            # retrieval (stale chunks.json fallback, embedding dim mismatch,
+            # skipped hermes memory) travel with the result — never logged-only.
+            warnings=rag_result.get("warnings") or [],
         )
+        # Gates pipeline itself crashed but retrieval succeeded (distinct
+        # outcome from a gate BLOCKING a chunk — the panel must not conflate
+        # "no harness check ran" with "harness passed everything").
+        if rag_result.get("gate_error"):
+            _emit_all(
+                "gate.blocked", gate="harness",
+                reason=f"gates pipeline error: {rag_result['gate_error']}",
+            )
         _rag_gates = rag_result.get("gates") or {}
         # Rail 1 plan-lock (rag/core/plan_lock.py): 'blocked' means
         # `req.department` wasn't a recognized department — an
         # untrusted-identity signal distinct from (and more severe than) the
         # 5 harness gates below, folded into source-authentication since
         # that's the closest semantic match and caos-phases.ts has no
-        # separate gate id for it.
+        # separate gate id for it. Two very different realities land here:
+        # a department-LESS room (every operator "New chat" thread — benign,
+        # common) vs a department that was sent and didn't resolve (actually
+        # suspicious). 2026-09-05: the reason says which, so the panel stops
+        # crying wolf on every thread turn.
         _g1 = _rag_gates.get("source-authentication") or {}
         if rag_result.get("lock_status") == "blocked":
+            _lock_reason = (
+                "no department on this room — department-less thread is unscoped by Rail 1 (benign)"
+                if not req.department
+                else "unrecognized department identity (Rail 1 plan-lock)"
+            )
             _emit_all(
                 "gate.blocked", gate="source-authentication",
-                reason="unscoped/unrecognized department identity (Rail 1 plan-lock)",
+                reason=_lock_reason,
             )
         elif _g1.get("blocked", 0) > 0:
             _emit_all(
@@ -1950,14 +2518,19 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
         else:
             _emit_all("gate.passed", gate="quarantine-recovery")
     else:
-        # Deliberately log-only, not on_notice(): CAOS phase 04/07 retrieval is
-        # intentionally NOT deployed yet (the subprocess + sentence-transformers
-        # approach cannot meet the 100-500ms budget for CAOS — it is being
-        # replaced with a pgvector query against embeddings that already exist
-        # in Supabase). Until then this path is expected to be unavailable on
-        # every turn, and telling the operator so on every single message is
-        # noise that trains them to ignore notices.
-        log.info("rag pipeline unavailable (expected until the pgvector rewrite): %s", rag_error or "unknown")
+        # Failure-surfacing discipline (matrix rows 6/20): a broken retrieval
+        # dependency must never look identical to "no relevant context". The
+        # pipeline is NOT expected to fail anymore — verified live on this box
+        # (rc 0, ~850ms, real chunks, lock locked) — so a failure here is a
+        # REAL failure (missing script, cold index, timeout) and gets a
+        # distinct phase.retrieve event with ok:false, not just a log line the
+        # panel never sees. Turn still proceeds; nothing fabricated.
+        log.info("rag pipeline unavailable this turn: %s", rag_error or "unknown")
+        _emit_all(
+            "phase.retrieve",
+            ok=False,
+            error=str(rag_error or "unknown")[:300],
+        )
 
     def run_agent() -> None:
         # Sample the process-global LLM counter before and after the agent
@@ -2105,6 +2678,13 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
                         if repo_workdir:
                             _after_fp = await asyncio.to_thread(_repo_fingerprint, repo_workdir)
                             _repo_changed = bool(_after_fp) and bool(_repo_baseline_fp) and _after_fp != _repo_baseline_fp
+                        # Evidence sweep (fix ②, final): anything the agent saved
+                        # in the last stretch (no tool call followed it) is
+                        # pushed here — BEFORE the done frame. Wire-order
+                        # matters: the dashboard's reader loop breaks on `done`
+                        # (page.tsx), so anything enqueued after it never
+                        # reaches the client. Same rule task.proposed follows.
+                        _publish_new_artifacts()
                         yield f"data: {json.dumps({'kind': 'done', 'response': result_holder['response'], 'correlation': _correlation, 'usage': _usage, 'repoChanged': _repo_changed})}\n\n"
                     break
 
@@ -2410,6 +2990,241 @@ async def repo_preview(req: RepoPreviewRequest) -> JSONResponse:
         return JSONResponse({"ok": True, "port": port, "previewHost": f"{req.venture_slug}.{PREVIEW_DOMAIN}"})
     log.warning("dev server failed for venture=%s: %s", req.venture_slug, error)
     return JSONResponse({"ok": False, "error": error}, status_code=502)
+
+
+# ── VPS status + backup (2026-09-04, dashboard "VPS Server" tab) ────────────
+# Read-only host telemetry + a manual trigger for the same tar backup the
+# Monday cron runs. Every command here is a FIXED argv list — no request input
+# ever reaches a shell — and every failure degrades to a "status: unavailable"
+# field rather than 500-ing the whole status payload (the tab should show
+# what it can even when one probe breaks).
+import shutil
+import platform
+
+VPS_BACKUP_DIR = os.environ.get("VPS_BACKUP_DIR", "/root/vault-backups")
+VPS_BACKUP_SRC = os.environ.get(
+    "VPS_BACKUP_SRC",
+    "/root/YVON-Agentic-OS-/Teams/Shared OS/tools/vaultwarden/data",
+)
+_backup_lock = threading.Lock()
+
+
+def _vps_run(argv: list, timeout: int = 15) -> str | None:
+    """Run a fixed command, return stripped stdout — None on any failure.
+    The None is load-bearing: the tab renders 'unavailable', never fake data."""
+    try:
+        r = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+        if r.returncode != 0:
+            return None
+        return r.stdout.strip()
+    except Exception:
+        return None
+
+
+def _cpu_usage_pct(interval_s: float = 0.15) -> float | None:
+    """Sample /proc/stat twice — honest busy% across all cores."""
+    def snapshot():
+        with open("/proc/stat") as f:
+            for line in f:
+                if line.startswith("cpu "):
+                    parts = [int(x) for x in line.split()[1:]]
+                    idle = parts[3] + (parts[4] if len(parts) > 4 else 0)
+                    return idle, sum(parts)
+        return None
+    a = snapshot()
+    if a is None:
+        return None
+    time.sleep(interval_s)
+    b = snapshot()
+    if b is None:
+        return None
+    d_idle, d_total = b[0] - a[0], b[1] - a[1]
+    if d_total <= 0:
+        return None
+    return round(100.0 * (1.0 - d_idle / d_total), 1)
+
+
+def _meminfo() -> dict:
+    out: dict[str, float] = {}
+    try:
+        with open("/proc/meminfo") as f:
+            for line in f:
+                k, _, rest = line.partition(":")
+                kb = rest.strip().split(" ")[0]
+                if kb.isdigit():
+                    out[k] = int(kb) / 1024  # → MB
+    except Exception:
+        return {}
+    total, avail = out.get("MemTotal"), out.get("MemAvailable")
+    mem: dict[str, Any] = {"total_mb": round(total) if total else None,
+                           "available_mb": round(avail) if avail else None}
+    if total and avail:
+        used = total - avail
+        mem["used_mb"] = round(used)
+        mem["used_pct"] = round(100.0 * used / total, 1)
+    swap_total, swap_free = out.get("SwapTotal"), out.get("SwapFree")
+    if swap_total:
+        mem["swap_total_mb"] = round(swap_total)
+        mem["swap_used_mb"] = round(swap_total - (swap_free or 0))
+    return mem
+
+
+def _backups_list() -> list[dict]:
+    """Newest-first listing of /root/vault-backups/*.tgz."""
+    try:
+        files = [f for f in os.listdir(VPS_BACKUP_DIR) if f.endswith(".tgz")]
+    except Exception:
+        return []
+    out = []
+    for name in files:
+        p = os.path.join(VPS_BACKUP_DIR, name)
+        try:
+            st = os.stat(p)
+            out.append({"name": name, "size_mb": round(st.st_size / 1024 / 1024, 2),
+                        "created_at": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(st.st_mtime))})
+        except Exception:
+            continue
+    return sorted(out, key=lambda b: b["created_at"], reverse=True)
+
+
+def _vps_status() -> dict:
+    load_line = _vps_run(["cat", "/proc/loadavg"])
+    load = None
+    if load_line:
+        try:
+            load = [float(x) for x in load_line.split()[:3]]
+        except ValueError:
+            load = None
+
+    # docker ps -a — one JSON object per line
+    containers: list[dict] = []
+    docker_out = _vps_run(["docker", "ps", "-a", "--format", "{{json .}}"], timeout=20)
+    if docker_out:
+        for line in docker_out.splitlines():
+            try:
+                c = json.loads(line)
+                containers.append({"name": c.get("Names"), "image": c.get("Image"),
+                                   "state": c.get("State"), "status": c.get("Status")})
+            except json.JSONDecodeError:
+                continue
+    containers.sort(key=lambda c: c.get("name") or "")
+
+    # yvon-* systemd services
+    services: list[dict] = []
+    units_out = _vps_run(
+        ["systemctl", "list-units", "yvon-*", "--type=service", "--no-legend", "--plain"], timeout=20)
+    if units_out:
+        for line in units_out.splitlines():
+            unit = line.split()[0] if line.split() else ""
+            if not unit:
+                continue
+            props = _vps_run(["systemctl", "show", unit,
+                              "-p", "ActiveState", "-p", "SubState"], timeout=10) or ""
+            state: dict[str, str] = {}
+            for pline in props.splitlines():
+                k, _, v = pline.partition("=")
+                state[k] = v
+            services.append({"unit": unit,
+                             "state": state.get("ActiveState") or "unknown",
+                             "sub": state.get("SubState") or "unknown"})
+
+    # installed tool inventory — venvs + the CLIs agents call directly
+    venvs: list[str] = []
+    try:
+        venvs = sorted(d for d in os.listdir("/opt/yvon-tools/venvs")
+                       if os.path.isdir(os.path.join("/opt/yvon-tools/venvs", d)))
+    except Exception:
+        pass
+    tool_versions: dict[str, str | None] = {}
+    for cli in ("graphify", "strix", "agent-reach", "mempalace"):
+        raw = _vps_run([cli, "--version"], timeout=15)
+        tool_versions[cli] = raw.splitlines()[-1].strip() if raw else None
+
+    # cron (root) — non-comment lines only
+    cron_out = _vps_run(["crontab", "-l"], timeout=10)
+    cron_jobs = ([ln.strip() for ln in cron_out.splitlines()
+                  if ln.strip() and not ln.strip().startswith("#")] if cron_out else [])
+
+    disk = None
+    try:
+        du = shutil.disk_usage("/")
+        disk = {"total_gb": round(du.total / 1024**3, 1), "used_gb": round(du.used / 1024**3, 1),
+                "free_gb": round(du.free / 1024**3, 1),
+                "used_pct": round(100.0 * du.used / du.total, 1)}
+    except Exception:
+        pass
+
+    return {
+        "host": socket.gethostname(),
+        "os": None,  # filled below; omitted rather than guessed
+        "kernel": platform.release(),
+        "uptime_s": None,
+        "cpu": {"cores": os.cpu_count(), "usage_pct": _cpu_usage_pct(), "load": load},
+        "memory": _meminfo(),
+        "disk": disk,
+        "containers": containers,
+        "services": services,
+        "tools": {"venvs": venvs, "versions": tool_versions},
+        "cron_jobs": cron_jobs,
+        "backups": _backups_list(),
+        "backup_dir": VPS_BACKUP_DIR,
+    }
+
+
+@app.get("/v1/vps/status", dependencies=[Depends(require_bearer)])
+def vps_status() -> JSONResponse:
+    status = _vps_status()
+    # os pretty name via a single fixed cat — last field, degrades to omitted
+    pretty = _vps_run(["sh", "-c", ". /etc/os-release && echo $PRETTY_NAME"], timeout=5)
+    if pretty:
+        status["os"] = pretty
+    up = _vps_run(["cat", "/proc/uptime"], timeout=5)
+    if up:
+        try:
+            status["uptime_s"] = int(float(up.split()[0]))
+        except (ValueError, IndexError):
+            pass
+    return JSONResponse(status)
+
+
+class VpsBackupResponse(BaseModel):
+    ok: bool
+    file: Optional[str] = None
+    size_mb: Optional[float] = None
+    error: Optional[str] = None
+
+
+@app.post("/v1/vps/backup", dependencies=[Depends(require_bearer)])
+def vps_backup() -> JSONResponse:
+    """Run the SAME tar backup the Monday 05:00 cron runs, on demand.
+    Fixed source/dir from env (no request input); timestamped filename so a
+    manual run never collides with (or clobbers) the cron's own file."""
+    if not _backup_lock.acquire(blocking=False):
+        return JSONResponse({"ok": False, "error": "a backup is already running"}, status_code=409)
+    try:
+        src = VPS_BACKUP_SRC
+        if not os.path.isdir(src):
+            return JSONResponse({"ok": False, "error": f"backup source missing: {src}"}, status_code=500)
+        os.makedirs(VPS_BACKUP_DIR, exist_ok=True)
+        name = time.strftime("vault-%Y-%m-%dT%H%M%S.tgz")
+        dest = os.path.join(VPS_BACKUP_DIR, name)
+        r = subprocess.run(
+            ["tar", "czf", dest, "-C", os.path.dirname(src), os.path.basename(src)],
+            capture_output=True, text=True, timeout=300,
+        )
+        if r.returncode != 0 or not os.path.exists(dest):
+            log.error("manual vault backup failed: %s", r.stderr[-300:])
+            return JSONResponse({"ok": False, "error": (r.stderr or "tar failed")[-300:]}, status_code=500)
+        size_mb = round(os.path.getsize(dest) / 1024 / 1024, 2)
+        log.info("manual vault backup ok: %s (%s MB)", dest, size_mb)
+        return JSONResponse({"ok": True, "file": name, "size_mb": size_mb})
+    except subprocess.TimeoutExpired:
+        return JSONResponse({"ok": False, "error": "backup timed out (300s)"}, status_code=504)
+    except Exception as exc:
+        log.exception("manual vault backup failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+    finally:
+        _backup_lock.release()
 
 
 # ── Hermes API proxy (TS-018: full Hermes control) ─────────────────────────

@@ -1,8 +1,8 @@
 /**
  * lib/facebook-graph.ts — Facebook Graph API client for Instagram Business insights.
  *
- * Provides reach, impressions, shares, and saves that the public Apify scraper
- * cannot access. Requires a Facebook Page Access Token with:
+ * Provides reach, impressions, shares, and saves for Instagram Business
+ * accounts. Requires a Facebook Page Access Token with:
  *   - instagram_basic
  *   - instagram_manage_insights
  *   - pages_show_list

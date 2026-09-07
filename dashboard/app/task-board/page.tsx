@@ -108,22 +108,32 @@ export default function TaskBoardPage() {
   }
 
   // ── Detail view (card clicked, or deep-linked) ──────────────────────────
+  // Scroll fix (2026-09-05): with fullBleed on, Shell's <main> is
+  // `flex-1 overflow-hidden` — a fixed-height clipper whose contract (§1.3)
+  // is "the page fills it with h-full min-h-0 and scrolls internally". This
+  // view used `min-h-screen` instead, so the shell grew to the content height
+  // (4000px+ for a long task) inside the clipping main: body can't scroll
+  // (h-screen overflow-hidden root), main clips, and TaskFocusView's internal
+  // .chat-scroll never activates because its height chain was auto. Now the
+  // height is definite end-to-end and .chat-scroll does the scrolling.
   if (selected) {
     return (
-      <div className="chat-shell relative min-h-screen overflow-hidden">
+      <div className="chat-shell relative h-full min-h-0 overflow-hidden">
         <AtelierBackdrop />
-        <div className="relative z-10 mx-auto max-w-[1120px] px-4 py-6 md:px-8 md:py-8">
+        <div className="relative z-10 mx-auto flex h-full min-h-0 max-w-[1120px] flex-col px-4 py-6 md:px-8 md:py-8">
           <button
             onClick={closeDetail}
             className="chat-ghost-btn mb-4 inline-flex items-center gap-1.5 rounded-[200px] px-4 py-2 text-[13px] font-medium"
           >
             <ChevronLeft className="h-3.5 w-3.5" /> Back to board
           </button>
-          <TaskFocusView
-            taskId={selected}
-            onBack={closeDetail}
-            onOpenInChat={() => router.push('/chat')}
-          />
+          <div className="min-h-0 flex-1">
+            <TaskFocusView
+              taskId={selected}
+              onBack={closeDetail}
+              onOpenInChat={() => router.push('/chat')}
+            />
+          </div>
         </div>
       </div>
     )

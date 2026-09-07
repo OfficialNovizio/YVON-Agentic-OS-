@@ -252,8 +252,10 @@ async function runBoardSite(sb: ReturnType<typeof supabase>, job: PullJob, site:
 }
 
 async function run(job: PullJob, requestedSources?: string[]) {
+  // Hoisted above the try so the catch can persist the error state (the whole
+  // point of the catch block — inside the try it was a ReferenceError).
+  const sb = supabase()
   try {
-    const sb = supabase()
     void persistJob(sb, job) // initial row — progress survives restarts
 
     // Boards FIRST (2026-08-25 v5): Indeed + LinkedIn run before the source

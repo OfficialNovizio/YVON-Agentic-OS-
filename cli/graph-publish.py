@@ -11,8 +11,13 @@ Out: dashboard/public/graph-view.json   (small overview)
 Run after `graphify extract .` (or cli/graph-sync). No values invented — pure aggregation.
 """
 from __future__ import annotations
-import json, shutil
+import json, shutil, sys
 from collections import defaultdict, Counter
+
+# 2026-08-27: Windows consoles default to cp1252, which cannot encode the ✓
+# progress glyph — print in UTF-8 regardless of the active code page.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent

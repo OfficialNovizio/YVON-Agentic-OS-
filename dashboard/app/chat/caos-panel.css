@@ -171,3 +171,15 @@
   .caos2-chev { transition: none; }
   .caos2-card.is-flash { animation: none; outline: 2px solid var(--vio); }
 }
+
+/* ── Rail scroll (2026-09-04) ─────────────────────────────────────────────
+   The rail column got min-h-0 + overflow-y-auto (page.tsx) — without a
+   scrollbar style the default browser bar sits in the 12px pr-3 gutter and
+   looks broken. Thin + translucent, matching .chat-scroll's convention. */
+.caos2-rail { scrollbar-width: thin; scrollbar-color: rgba(33, 22, 76, 0.16) transparent; }
+.caos2-rail::-webkit-scrollbar { width: 7px; }
+.caos2-rail::-webkit-scrollbar-thumb {
+  background: rgba(33, 22, 76, 0.16); border-radius: 9999px;
+}
+.caos2-rail::-webkit-scrollbar-thumb:hover { background: rgba(33, 22, 76, 0.24); }
+.caos2-rail::-webkit-scrollbar-track { background: transparent; }

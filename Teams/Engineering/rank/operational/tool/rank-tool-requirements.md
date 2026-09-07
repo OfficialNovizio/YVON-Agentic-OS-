@@ -36,7 +36,6 @@ What rank needs, and what happens without each. Every external tool call is plan
 
 | Tool | Purpose | When to use |
 |------|---------|-------------|
-| **ScrapeGraphAI** — see `Shared OS/tools/shared-tool-registry.md` | AI-powered web scraping for competitor analysis | When extracting structured SEO data from competitor pages — meta tags, headings, schemas, content structure |
 | **Plausible CE** — see `Shared OS/tools/shared-tool-registry.md` | Self-hosted web analytics | When analyzing traffic sources, page performance, bounce rates, and SEO measurement data |
 
 ## MCP Marketplace Tools (added 2026-07-14)

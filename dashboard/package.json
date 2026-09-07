@@ -55,5 +55,7 @@
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.4.0"
-  }
+  },
+  "dev": "node ../scripts/build-structure.mjs && node ../scripts/build-agent-details.mjs && node ../scripts/build-code-graph.mjs && next dev",
+  "prebuild": "node ../scripts/build-structure.mjs && node ../scripts/build-agent-details.mjs && node ../scripts/build-code-graph.mjs"
 }

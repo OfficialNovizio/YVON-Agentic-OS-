@@ -21,14 +21,15 @@
 // Owner: dev · task-section-in-chat feature, 2026-08-18; task-surface v4 2026-08-24
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ChevronLeft, CircleCheck, ArrowRight, User, Building2, Flag, Redo2, RotateCcw,
-  Pencil, Ban, Play, Users, FileText,
+  Pencil, Ban, Play, Users, FileText, ExternalLink, Hammer,
 } from 'lucide-react'
 import { TASK_STAGES, type TaskStage } from '@/lib/task-theme'
 import { StagePill, type TaskSpecItem } from './TasksPanel'
 import { Markdown } from './Markdown'
+import { VerifyCard, type VerifyVerdictRow } from './VerifyCard'
 
 // Mirrors /api/design-preview's response shape (dashboard/app/api/design-preview/route.ts).
 interface DesignPreviewTab {
@@ -55,6 +56,26 @@ interface TaskFocusViewProps {
   onOpenInChat: (roomId: string, prefillText: string) => void
 }
 
+/** SSE events the build console cares about (subset of the stream route's
+ * frames — unknown kinds are ignored, same policy as the chat page reader). */
+interface KickoffSseEvent {
+  kind: string
+  toolName?: string
+  argsPreview?: string
+  summary?: string
+  ok?: boolean
+  message?: string
+  text?: string
+  response?: string
+  repoChanged?: boolean
+  url?: string
+  label?: string
+  // design.verify (re-engineer Phase 7)
+  taskId?: string
+  verdicts?: unknown
+  asks?: unknown
+}
+
 // ── helpers ────────────────────────────────────────────────────────────────
 
 /** "2d 6h" / "3h" / "18m" — staleness is the point of updated_at. */
@@ -74,6 +95,16 @@ function shortDate(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '—'
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+/** Evidence rail (2026-09-05): a produced artifact under dashboard/public/
+ *  is served LIVE by this very server — dashboard/public/novizio/index.html
+ *  renders at /novizio/index.html. Return that in-page URL, or null when the
+ *  produces path isn't a servable public artifact. */
+function publicArtifactUrl(produces: string): string | null {
+  const p = produces.replace(/\\/g, '/')
+  const m = p.match(/^dashboard\/public\/(.+)$/)
+  return m ? `/${m[1]}` : null
 }
 
 /** History event → icon tone (artifact rail: ● info · ✓ success · ↺ warn · ✕ error). */
@@ -167,6 +198,41 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
     }
   }, [task?.id, task?.designSessionId])
 
+  // Evidence rail (2026-09-05): which produced artifacts are live on this
+  // server right now — a HEAD probe per dashboard/public/ artifact URL.
+  // Keyed on the joined produces string, NOT on `task`: the board re-fetches
+  // every 8s and hands down a fresh object each time, so depending on the
+  // array would re-probe every poll. Empty → nothing servable, no probes.
+  const [liveArtifacts, setLiveArtifacts] = useState<Record<string, boolean>>({})
+  const producesKey = (task?.workItems ?? []).map((wi) => wi.produces || '').join('|')
+  useEffect(() => {
+    const urls = producesKey
+      .split('|')
+      .filter(Boolean)
+      .map(publicArtifactUrl)
+      .filter((u): u is string => Boolean(u))
+    if (urls.length === 0) {
+      setLiveArtifacts({})
+      return
+    }
+    let cancelled = false
+    Promise.all(
+      urls.map(async (u) => {
+        try {
+          const r = await fetch(u, { method: 'HEAD' })
+          return [u, r.ok] as const
+        } catch {
+          return [u, false] as const
+        }
+      }),
+    ).then((pairs) => {
+      if (!cancelled) setLiveArtifacts(Object.fromEntries(pairs))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [producesKey])
+
   const makeChangesText = (kind: 'changes' | 'retry' | 'redo') => {
     const label =
       kind === 'changes'
@@ -232,6 +298,278 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
       setActionError(e instanceof Error ? e.message : String(e))
     } finally {
       setActionPending(null)
+    }
+  }
+
+  // ── Run suite (re-engineer Phase 8, 2026-09-06) — the company loop's last
+  // joint. review is a run, not a signature: this POSTs /suite, which spins
+  // scripts/run-task-suite.mjs (mechanical checks → store/runs/run-N.md →
+  // task.py suite closes review→done). The 409 with swapRequired is the
+  // asset-swap gate surfacing: the card shows the swap list and the two
+  // honest exits (confirm swapped / waive, recorded on the design session).
+  interface SuiteState {
+    phase: 'running' | 'ready' | 'error'
+    result?: 'pass' | 'fail'
+    run?: string
+    checks?: { name: string; state: 'pass' | 'fail' | 'skipped'; detail?: string }[]
+    error?: string
+    swapRequired?: boolean
+    swapList?: { kind?: string; what?: string; note?: string }[]
+  }
+  const [suite, setSuite] = useState<SuiteState | null>(null)
+  const [suitePending, setSuitePending] = useState(false)
+
+  async function runSuite(swap?: 'swapped' | 'waived') {
+    if (!task) return
+    setSuitePending(true)
+    setSuite({ phase: 'running' })
+    try {
+      const res = await fetch(`/api/task-spec/${task.id}/suite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(swap ? { swap } : {}),
+      })
+      const data = (await res.json()) as {
+        ok?: boolean
+        error?: string
+        result?: 'pass' | 'fail'
+        run?: string
+        checks?: SuiteState['checks']
+        swapRequired?: boolean
+        swapList?: SuiteState['swapList']
+      }
+      if (res.ok && data.ok) {
+        setSuite({ phase: 'ready', result: data.result, run: data.run, checks: data.checks })
+        load() // task.py may have closed the task — refresh under the panel
+      } else if (res.status === 409 && data.swapRequired) {
+        setSuite({ phase: 'error', swapRequired: true, swapList: data.swapList, error: data.error })
+      } else {
+        setSuite({ phase: 'error', error: data.error ?? `HTTP ${res.status}` })
+      }
+    } catch (e) {
+      setSuite({ phase: 'error', error: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setSuitePending(false)
+    }
+  }
+
+  // ── Continue to backend (re-engineer Phase 8, 2026-09-06) — a done design
+  // task is not a dead end: this sends a real turn into the originating room
+  // asking for the follow-on proposal (backend + connect + e2e), carrying the
+  // design.md, the recipe and the produced artifact paths. The agent ends the
+  // turn with a normal ```task-proposal fence (plus "derivedFrom": this task)
+  // and the EXISTING governed chain takes over: proposal card → PRD → convert
+  // (task.py --derived-from + the same design origin) → Start build → verify
+  // → gate → review → suite. The button only ever sends the turn; the
+  // proposal still has to be accepted by a human.
+  const [backendPending, setBackendPending] = useState(false)
+  const [backendSent, setBackendSent] = useState(false)
+  const [backendError, setBackendError] = useState<string | null>(null)
+
+  async function handleContinueBackend() {
+    if (!task?.roomId || !task.designSessionId) return
+    setBackendPending(true)
+    setBackendError(null)
+    try {
+      const res = await fetch('/api/chat/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomId: task.roomId,
+          content:
+            `Continue to backend for ${task.id} — the design build is done and verified. ` +
+            `Draft the follow-on TASK-SPEC proposal for the backend + API + connect + e2e work this design made possible:\n` +
+            `- Carry the design.md facts (${task.id}-design.md) and the build recipe into the proposal summary.\n` +
+            `- List the design's produced artifact paths as evidence.\n` +
+            `- Include "derivedFrom": "${task.id}" in the task-proposal fence so the records link.\n` +
+            `End with the task-proposal fence.`,
+        }),
+      })
+      const data = (await res.json()) as { ok?: boolean; error?: string }
+      if (!res.ok || !data.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+      setBackendSent(true)
+    } catch (e) {
+      setBackendError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBackendPending(false)
+    }
+  }
+
+  // ── Start build + the alignment loop (re-engineer Phases 6+7, 2026-09-05/06) ─
+  // The engine's user-facing surface. Every pipeline turn — build, fix,
+  // verify — goes POST /api/chat/task-kickoff → GET /api/chat/stream?
+  // userMessageId=…, consumed quietly here. The loop closes itself: a build
+  // (or fix) turn's done auto-starts the verify turn, whose design.verify
+  // frame becomes the VerifyCard; its Fix-gaps button sends a [TASK FIX]
+  // turn, which auto-verifies again — build → verify → fix → verify …
+  interface KickoffState {
+    phase: 'starting' | 'streaming' | 'done' | 'error'
+    mode: 'build' | 'fix'
+    roomId?: string
+    error?: string
+    lines: string[]
+    tail?: string
+    repoChanged?: boolean
+  }
+  interface VerifyState {
+    phase: 'streaming' | 'ready' | 'error'
+    payload?: { verdicts: VerifyVerdictRow[]; asks: VerifyVerdictRow[]; summary: string }
+    error?: string
+  }
+  const [kickoff, setKickoff] = useState<KickoffState | null>(null)
+  const [verify, setVerify] = useState<VerifyState | null>(null)
+  const kickoffAbortRef = useRef<AbortController | null>(null)
+  useEffect(() => () => kickoffAbortRef.current?.abort(), [])
+
+  /** Shared SSE consumption for one pipeline turn. Verify frames go to the
+   * caller's handler; everything else feeds the build console (or is ignored
+   * on verify turns, whose reply renders through the VerifyCard). */
+  async function consumePipelineTurn(
+    userMessageId: string,
+    opts: {
+      mode: 'build' | 'fix' | 'verify'
+      onVerifyFrame: (p: { verdicts: VerifyVerdictRow[]; asks: VerifyVerdictRow[]; summary: string }) => void
+    },
+  ): Promise<{ tail: string; repoChanged?: boolean }> {
+    const abort = new AbortController()
+    kickoffAbortRef.current = abort
+    const pushLine = (line: string) =>
+      setKickoff((k) => (k && k.phase === 'streaming' ? { ...k, lines: [...k.lines, line].slice(-12) } : k))
+    const sseRes = await fetch(`/api/chat/stream?userMessageId=${userMessageId}`, { signal: abort.signal })
+    if (!sseRes.ok || !sseRes.body) throw new Error(`SSE stream failed: HTTP ${sseRes.status}`)
+    const reader = sseRes.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let tail = ''
+    let repoChanged: boolean | undefined
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      let sep: number
+      while ((sep = buffer.indexOf('\n\n')) !== -1) {
+        const raw = buffer.slice(0, sep)
+        buffer = buffer.slice(sep + 2)
+        const dataLines = raw
+          .split('\n')
+          .filter((l) => l.startsWith('data:'))
+          .map((l) => l.slice(5).trim())
+          .join('')
+        if (!dataLines) continue
+        let evt: KickoffSseEvent | null = null
+        try {
+          evt = JSON.parse(dataLines) as KickoffSseEvent
+        } catch {
+          evt = null
+        }
+        if (!evt) continue
+        if (evt.kind === 'tool_call.start') {
+          pushLine(`⚙ ${evt.toolName ?? 'tool'} ${evt.argsPreview?.slice(0, 90) ?? ''}`)
+        } else if (evt.kind === 'tool_call.end') {
+          pushLine(`${evt.ok === false ? '✕' : '✓'} ${evt.toolName ?? 'tool'} — ${evt.summary?.slice(0, 120) ?? ''}`)
+        } else if (evt.kind === 'notice') {
+          pushLine(`• ${evt.message?.slice(0, 160) ?? ''}`)
+        } else if (evt.kind === 'artifact') {
+          pushLine(`📎 artifact — ${evt.label ?? evt.url ?? ''}`)
+        } else if (evt.kind === 'design.verify') {
+          opts.onVerifyFrame({
+            verdicts: (evt.verdicts ?? []) as VerifyVerdictRow[],
+            asks: (evt.asks ?? []) as VerifyVerdictRow[],
+            summary: evt.summary ?? '',
+          })
+        } else if (evt.kind === 'token' && evt.text) {
+          tail = (tail + evt.text).slice(-900)
+          if (opts.mode !== 'verify') {
+            setKickoff((k) => (k && k.phase === 'streaming' ? { ...k, tail } : k))
+          }
+        } else if (evt.kind === 'done') {
+          if (typeof evt.repoChanged === 'boolean') repoChanged = evt.repoChanged
+          const response = evt.response ?? tail
+          if (opts.mode !== 'verify') {
+            setKickoff((k) => (k ? { ...k, phase: 'done', tail: response.slice(-900), repoChanged } : k))
+          }
+          return { tail: response || tail, repoChanged }
+        } else if (evt.kind === 'error') {
+          throw new Error(evt.message ?? 'stream error')
+        }
+      }
+    }
+    // Stream closed without an explicit done — end quietly, show the tail.
+    if (opts.mode !== 'verify') {
+      setKickoff((k) => (k && k.phase === 'streaming' ? { ...k, phase: 'done', tail: tail.slice(-900), repoChanged } : k))
+    }
+    return { tail, repoChanged }
+  }
+
+  /** One governed pipeline turn, end to end: insert → stream → next step.
+   * build/fix auto-chain into verify (the CAOS loop); verify ends at the
+   * VerifyCard (or an honest error when no verdict fence arrived). */
+  async function startPipelineTurn(mode: 'build' | 'fix' | 'verify', gaps?: string[]) {
+    if (!task) return
+    setActionError(null)
+    if (mode === 'verify') {
+      setVerify({ phase: 'streaming' })
+    } else {
+      setKickoff({ phase: 'starting', lines: [], mode })
+    }
+    try {
+      const res = await fetch('/api/chat/task-kickoff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: task.id, mode, ...(gaps ? { gaps } : {}) }),
+      })
+      const data = (await res.json()) as {
+        ok?: boolean
+        error?: string
+        roomId?: string
+        userMessage?: { id: string }
+      }
+      if (!res.ok || !data.ok || !data.userMessage?.id) {
+        throw new Error(data.error ?? `HTTP ${res.status}`)
+      }
+      if (mode !== 'verify') {
+        setKickoff((k) =>
+          k ? { ...k, phase: 'streaming', roomId: data.roomId, lines: [mode === 'fix' ? 'fix turn sent — streaming' : 'kickoff sent — builder turn is streaming'] } : k,
+        )
+      }
+      let gotFrame = false
+      const { tail } = await consumePipelineTurn(data.userMessage.id, {
+        mode,
+        onVerifyFrame: (payload) => {
+          gotFrame = true
+          setVerify({ phase: 'ready', payload })
+        },
+      })
+      load()
+      if (mode === 'verify') {
+        if (!gotFrame) {
+          setVerify({
+            phase: 'error',
+            error:
+              'The verify turn finished without a verdict fence — no card can be shown. Try re-running verify; if it repeats, the verifier is not following the contract.',
+          })
+        }
+        return
+      }
+      // The loop: a finished build or fix turn triggers its verify pass.
+      void startPipelineTurn('verify')
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return
+      const msg = e instanceof Error ? e.message : String(e)
+      if (mode === 'verify') setVerify({ phase: 'error', error: msg })
+      else setKickoff((k) => (k ? { ...k, phase: 'error', error: msg } : k))
+    }
+  }
+
+  const handleStartBuild = () => startPipelineTurn('build')
+
+  /** ref → criterion text for the VerifyCard, from the live task record. */
+  const criteriaText: Record<string, string> = {}
+  if (task) {
+    for (const wi of task.workItems) {
+      wi.acceptance.forEach((a, i) => {
+        criteriaText[`${wi.id}:${i + 1}`] = a.text
+      })
     }
   }
 
@@ -382,6 +720,136 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
                 </div>
               </div>
 
+              {/* ── Build console — live while a kickoff turn streams ──── */}
+              {kickoff && (
+                <div className="chat-glass-soft mt-4 p-5">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--chat-text-faint)]">
+                      🔨 Build console · {task.id}
+                    </div>
+                    <div
+                      className="chat-mono text-[11px]"
+                      style={{
+                        color:
+                          kickoff.phase === 'error' ? '#b91c1c' : kickoff.phase === 'done' ? '#587000' : '#0a7ea6',
+                      }}
+                    >
+                      {kickoff.phase === 'starting' && 'sending kickoff…'}
+                      {kickoff.phase === 'streaming' && 'builder is working'}
+                      {kickoff.phase === 'done' && 'build turn finished'}
+                      {kickoff.phase === 'error' && 'failed'}
+                    </div>
+                  </div>
+
+                  {kickoff.lines.length > 0 && (
+                    <pre className="mb-2 max-h-[150px] overflow-auto rounded-[10px] border border-[var(--chat-hairline)] bg-[var(--chat-surface-strong)] p-2.5 text-[10.5px] leading-[1.6] text-[var(--chat-text-dim)]">
+                      {kickoff.lines.join('\n')}
+                    </pre>
+                  )}
+
+                  {kickoff.tail && (
+                    <div className="chat-prose max-h-[300px] overflow-auto whitespace-pre-wrap rounded-[10px] border border-[var(--chat-hairline)] bg-white p-3 text-[12px] leading-[1.6] text-[var(--chat-body)]">
+                      {kickoff.tail}
+                    </div>
+                  )}
+
+                  {kickoff.phase === 'streaming' && !kickoff.tail && (
+                    <div className="text-[12px] italic text-[var(--chat-text-faint)]">
+                      The turn must be streamed to run — keep this view open; the reply will appear here.
+                    </div>
+                  )}
+
+                  {kickoff.phase === 'error' && kickoff.error && (
+                    <div className="mb-2 text-[12px] text-[#b91c1c]">{kickoff.error}</div>
+                  )}
+
+                  {kickoff.phase === 'done' && kickoff.repoChanged && (
+                    <div className="mb-2 text-[11.5px] text-[#4d7000]">✓ the working repo changed during this turn</div>
+                  )}
+
+                  {(kickoff.phase === 'done' || kickoff.phase === 'error') && kickoff.roomId && (
+                    <div className="mt-1 flex gap-2">
+                      <button
+                        onClick={() => {
+                          onOpenInChat(kickoff.roomId!, '')
+                          onBack()
+                        }}
+                        className="rounded-[8px] border border-[var(--chat-hairline)] bg-white px-3 py-1.5 text-[12px] font-medium text-[var(--chat-text)] transition hover:border-[rgba(89,46,255,0.5)]"
+                      >
+                        Open in chat
+                      </button>
+                      {kickoff.phase === 'done' && verify === null && (
+                        <button
+                          onClick={() => startPipelineTurn('verify')}
+                          className="rounded-[8px] border border-[rgba(89,46,255,0.4)] bg-white px-3 py-1.5 text-[12px] font-medium text-[var(--chat-accent)] transition hover:border-[rgba(89,46,255,0.7)]"
+                        >
+                          Verify against original asks
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Verify — the alignment loop's verdict card ──────────── */}
+              {verify && (
+                <div className="chat-glass-soft mt-4 p-5">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--chat-text-faint)]">
+                      ✅ Verify · {task.id} — output vs original asks
+                    </div>
+                    <div
+                      className="chat-mono text-[11px]"
+                      style={{ color: verify.phase === 'error' ? '#b91c1c' : '#0a7ea6' }}
+                    >
+                      {verify.phase === 'streaming' && 'verifying against the real output…'}
+                      {verify.phase === 'error' && 'verify failed'}
+                    </div>
+                  </div>
+                  {verify.phase === 'streaming' && (
+                    <div className="text-[12px] italic text-[var(--chat-text-faint)]">
+                      The verifier is inspecting the produced files and evidence — its verdict card appears here when the turn ends.
+                    </div>
+                  )}
+                  {verify.phase === 'error' && verify.error && (
+                    <div className="text-[12px] text-[#b91c1c]">
+                      {verify.error}
+                      {/* the verify loop must never dead-end on a transient
+                          stream failure — verify is read-only, retrying is
+                          always safe (live E2E gap, 2026-09-06) */}
+                      <button
+                        onClick={() => startPipelineTurn('verify')}
+                        className="ml-3 rounded-md border border-[var(--chat-border)] px-2 py-1 text-[11px] hover:bg-[var(--chat-hover)]"
+                      >
+                        Retry verify
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {verify?.phase === 'ready' && verify.payload && (
+                <VerifyCard
+                  taskId={task.id}
+                  verdicts={verify.payload.verdicts}
+                  asks={verify.payload.asks}
+                  summary={verify.payload.summary}
+                  criteriaText={criteriaText}
+                  onFixGaps={(gaps) => {
+                    setVerify(null)
+                    startPipelineTurn('fix', gaps)
+                  }}
+                  onReverify={() => {
+                    setVerify(null)
+                    startPipelineTurn('verify')
+                  }}
+                  onPassed={() => {
+                    setVerify(null)
+                    setKickoff(null)
+                    load()
+                  }}
+                />
+              )}
+
               {/* ── Acceptance — from the PRD, verdict per criterion ──── */}
               <div className="chat-glass-soft mt-4 p-5">
                 <div className="mb-2 flex items-center justify-between">
@@ -457,6 +925,36 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
                 </div>
               )}
 
+              {/* ── Evidence — what this task builds on ───────────────── */}
+              {/* Evidence rail fix ⑥ (2026-09-04): screenshots/scraped data
+                  the origin chat turn actually saved (wrapper /artifacts/
+                  store), carried from the proposal on PRD conversion. Honest
+                  absence: no section at all when the record has none. */}
+              {task.evidence && task.evidence.length > 0 && (
+                <div className="chat-glass-soft mt-4 p-5">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--chat-text-faint)]">Evidence</div>
+                    <div className="chat-mono text-[11px] text-[var(--chat-text-dim)]">{task.evidence.length} item(s)</div>
+                  </div>
+                  <div className="space-y-1.5">
+                    {task.evidence.map((e) => (
+                      <a
+                        key={e.url}
+                        href={e.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="group flex items-center gap-2.5"
+                      >
+                        <FileText className="h-3.5 w-3.5 shrink-0 text-[var(--chat-text-faint)]" />
+                        <span className="chat-mono min-w-0 flex-1 truncate text-[11.5px] text-[var(--chat-text)] group-hover:text-[#592eff]">{e.label || e.url}</span>
+                        <span className="chat-mono shrink-0 text-[10px] uppercase text-[var(--chat-text-faint)]">{e.kind}</span>
+                        <ExternalLink className="h-3 w-3 shrink-0 text-[var(--chat-text-faint)] opacity-0 transition group-hover:opacity-100" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* ── Artifacts — produces + the run record ─────────────── */}
               {task.workItems.some((wi) => wi.produces) && (
                 <div className="chat-glass-soft mt-4 p-5">
@@ -465,14 +963,49 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
                     <div className="chat-mono text-[11px] text-[var(--chat-text-dim)]">{task.workItems.filter((wi) => wi.produces).length} item(s)</div>
                   </div>
                   <div className="space-y-1.5">
-                    {task.workItems.map((wi) =>
-                      wi.produces ? (
-                        <div key={`${wi.id}-p`} className="flex items-center gap-2.5">
+                    {task.workItems.map((wi) => {
+                      if (!wi.produces) return null
+                      const previewUrl = publicArtifactUrl(wi.produces)
+                      if (!previewUrl) {
+                        // Not a servable public artifact (a source file, say) —
+                        // keep the plain path row.
+                        return (
+                          <div key={`${wi.id}-p`} className="flex items-center gap-2.5">
+                            <FileText className="h-3.5 w-3.5 shrink-0 text-[var(--chat-text-faint)]" />
+                            <span className="chat-mono min-w-0 flex-1 truncate text-[11.5px] text-[var(--chat-text)]">{wi.produces}</span>
+                          </div>
+                        )
+                      }
+                      // A dashboard/public/ artifact is served by this server:
+                      // make the row a live link, with the HEAD-probe verdict
+                      // (live · not built yet) shown honestly beside it.
+                      const live = liveArtifacts[previewUrl]
+                      return (
+                        <a
+                          key={`${wi.id}-p`}
+                          href={previewUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          title={`${typeof window !== 'undefined' ? window.location.origin : ''}${previewUrl}${live === false ? ' (not built yet)' : ''}`}
+                          className="group flex items-center gap-2.5"
+                        >
                           <FileText className="h-3.5 w-3.5 shrink-0 text-[var(--chat-text-faint)]" />
-                          <span className="chat-mono min-w-0 flex-1 truncate text-[11.5px] text-[var(--chat-text)]">{wi.produces}</span>
-                        </div>
-                      ) : null,
-                    )}
+                          <span className="chat-mono min-w-0 flex-1 truncate text-[11.5px] text-[var(--chat-text)] group-hover:text-[#592eff]">
+                            {wi.produces}
+                          </span>
+                          {live === true ? (
+                            <>
+                              <span className="chat-mono shrink-0 rounded-[200px] bg-[rgba(89,46,255,0.07)] px-2 py-0.5 text-[10px] font-semibold text-[var(--chat-accent)]">
+                                preview live
+                              </span>
+                              <ExternalLink className="h-3 w-3 shrink-0 text-[var(--chat-text-faint)] opacity-0 transition group-hover:opacity-100" />
+                            </>
+                          ) : live === false ? (
+                            <span className="chat-mono shrink-0 text-[10px] text-[var(--chat-text-faint)]">not built yet</span>
+                          ) : null}
+                        </a>
+                      )
+                    })}
                     {task.runRef && (
                       <div className="flex items-center gap-2.5">
                         <CircleCheck className="h-3.5 w-3.5 shrink-0 text-[#587000]" />
@@ -592,6 +1125,46 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
 
               {/* ── Lifecycle actions ─────────────────────────────────── */}
               <div className="mt-5 flex flex-wrap gap-2.5">
+                {task.status === 'executing' && !task.blocked && (
+                  <button
+                    onClick={handleStartBuild}
+                    disabled={
+                      actionPending !== null ||
+                      kickoff?.phase === 'starting' ||
+                      kickoff?.phase === 'streaming'
+                    }
+                    title="Sends the kickoff turn into the originating room — the builder receives the TASK-SPEC, design.md and recipe for this turn"
+                    className="flex min-w-[150px] flex-1 flex-col gap-0.5 rounded-[14px] px-4 py-2.5 text-left text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ background: 'var(--chat-accent)' }}
+                  >
+                    <span className="flex items-center gap-1.5 text-[13px] font-semibold">
+                      <Hammer className="h-3.5 w-3.5" />
+                      {kickoff?.phase === 'starting' ? 'Kicking off…' : kickoff?.phase === 'streaming' ? 'Building…' : 'Start build'}
+                    </span>
+                    <span className="text-[11px] text-white/70">
+                      Sends the kickoff turn — the builder loads the recipe's skills, builds, reports per criterion.
+                    </span>
+                  </button>
+                )}
+                {task.status === 'executing' && !task.blocked && (
+                  <button
+                    onClick={() => startPipelineTurn('verify')}
+                    disabled={
+                      actionPending !== null ||
+                      kickoff?.phase === 'starting' ||
+                      kickoff?.phase === 'streaming'
+                    }
+                    title="Runs the alignment verifier against the produced output and the original asks — read-only, safe to run any time. Use this after publishing new evidence (screenshots, artifacts) without another build turn."
+                    className="flex min-w-[150px] flex-1 flex-col gap-0.5 rounded-[14px] border border-[rgba(89,46,255,0.3)] bg-white px-4 py-2.5 text-left transition hover:border-[rgba(89,46,255,0.55)] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[var(--chat-accent)]">
+                      ✅ Verify output
+                    </span>
+                    <span className="text-[11px] text-[var(--chat-text-faint)]">
+                      The verifier inspects the produced files and evidence — verdict card per criterion and per original ask.
+                    </span>
+                  </button>
+                )}
                 <button
                   onClick={handleMakeChanges}
                   disabled={!task.roomId}
@@ -684,16 +1257,130 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
                   </button>
                 )}
                 {task.status === 'review' && (
-                  <div className="flex min-w-[150px] flex-1 flex-col gap-1 rounded-[14px] border border-[rgba(89,46,255,0.3)] bg-white px-4 py-2.5">
+                  <div className="flex min-w-[220px] flex-[1.4] flex-col gap-1 rounded-[14px] border border-[rgba(89,46,255,0.45)] bg-white px-4 py-2.5">
                     <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[var(--chat-accent)]">
-                      <Users className="h-3.5 w-3.5" /> Suite decides
+                      <Users className="h-3.5 w-3.5" />
+                      {suite?.phase === 'running' ? 'Running the suite…' : 'Run suite'}
                     </span>
-                    <span className="chat-mono text-[10.5px] leading-[1.5] text-[var(--chat-text-faint)]">
-                      task.sh suite {task.id} --result pass|fail --run &lt;path&gt;
+                    <span className="text-[11px] leading-[1.5] text-[var(--chat-text-faint)]">
+                      Mechanical checks (produces on disk, product build, specs) → run record → review closes. Minutes, not moments.
                     </span>
+                    {!suite && (
+                      <button
+                        onClick={() => runSuite()}
+                        disabled={suitePending || actionPending !== null}
+                        className="mt-1 self-start rounded-[8px] px-3.5 py-1.5 text-[12.5px] font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+                        style={{ background: 'var(--chat-accent)' }}
+                      >
+                        Run suite
+                      </button>
+                    )}
+                    {suite?.phase === 'running' && (
+                      <div className="chat-mono mt-1 text-[10.5px] text-[var(--chat-text-faint)]">building + checking — this can take a few minutes…</div>
+                    )}
+                    {suite?.phase === 'error' && suite.swapRequired && (
+                      <div className="mt-1 space-y-1.5">
+                        <div className="text-[11.5px] font-semibold text-[#c8951a]">
+                          Asset-swap gate — this build used the reference&apos;s own assets
+                        </div>
+                        <ul className="ml-3 list-disc space-y-0.5 text-[11px] text-[var(--chat-text-dim)]">
+                          {(suite.swapList ?? []).map((a, i) => (
+                            <li key={i}>
+                              {a.what ?? a.kind ?? 'asset'}
+                              {a.note ? ` — ${a.note}` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => runSuite('swapped')}
+                            disabled={suitePending}
+                            className="rounded-[8px] bg-[#587000] px-3 py-1.5 text-[11.5px] font-semibold text-white transition disabled:opacity-50"
+                          >
+                            Assets swapped — run suite
+                          </button>
+                          <button
+                            onClick={() => runSuite('waived')}
+                            disabled={suitePending}
+                            className="rounded-[8px] border border-[rgba(200,149,26,0.5)] px-3 py-1.5 text-[11.5px] font-semibold text-[#c8951a] transition hover:border-[#c8951a] disabled:opacity-50"
+                          >
+                            Waive — ship reference assets as-is
+                          </button>
+                        </div>
+                        <div className="text-[10.5px] text-[var(--chat-text-faint)]">Either choice is recorded on the design session — the waiver is visible forever.</div>
+                      </div>
+                    )}
+                    {suite?.phase === 'error' && !suite.swapRequired && (
+                      <div className="mt-1 text-[11px] leading-[1.5] text-[#b91c1c]">{suite.error}</div>
+                    )}
+                    {suite?.phase === 'ready' && (
+                      <div className="mt-1.5 space-y-1">
+                        <div
+                          className="flex items-center gap-2 text-[12px] font-semibold"
+                          style={{ color: suite.result === 'pass' ? '#587000' : '#b91c1c' }}
+                        >
+                          {suite.result === 'pass' ? '✓ Suite passed' : '✗ Suite failed'}
+                          <span className="chat-mono min-w-0 truncate text-[10.5px] font-normal text-[var(--chat-text-faint)]">{suite.run}</span>
+                        </div>
+                        {(suite.checks ?? []).map((c, i) => (
+                          <div key={i} className="flex items-start gap-2 text-[11px]">
+                            <span
+                              className="chat-mono shrink-0 rounded-[4px] px-1.5 text-[9.5px] font-bold text-white"
+                              style={{ background: c.state === 'pass' ? '#587000' : c.state === 'fail' ? '#b91c1c' : '#8a8a80' }}
+                            >
+                              {c.state}
+                            </span>
+                            <span className="chat-mono shrink-0 text-[var(--chat-text)]">{c.name}</span>
+                            {c.detail && (
+                              <span className="min-w-0 flex-1 truncate text-[var(--chat-text-faint)]" title={c.detail}>
+                                {c.detail}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                        <div className="text-[10.5px] text-[var(--chat-text-faint)]">
+                          The run record is the proof — task.py recorded {suite.result === 'pass' ? 'done' : 'the failure (review stays open)'}.
+                          {suite.result !== 'pass' && (
+                            // a failed run must not dead-end the card — fix the
+                            // environment and re-run; the record trail stays
+                            // append-only (live E2E, 2026-09-06)
+                            <button
+                              onClick={() => runSuite()}
+                              disabled={suitePending || actionPending !== null}
+                              className="ml-3 rounded-md border border-[var(--chat-border)] px-2 py-1 text-[11px] hover:bg-[var(--chat-hover)] disabled:opacity-50"
+                            >
+                              Run again
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
+                {task.status === 'done' && task.designSessionId && task.roomId && (
+                  <button
+                    onClick={handleContinueBackend}
+                    disabled={backendPending}
+                    title="Sends a turn into the originating room asking for the backend follow-on proposal — it arrives as a normal task-proposal card you still have to accept"
+                    className="flex min-w-[150px] flex-1 flex-col gap-0.5 rounded-[14px] border border-[rgba(89,46,255,0.45)] bg-white px-4 py-2.5 text-left transition hover:border-[rgba(89,46,255,0.8)] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[var(--chat-accent)]">
+                      <ArrowRight className="h-3.5 w-3.5" />
+                      {backendPending ? 'Sending…' : 'Continue to backend'}
+                    </span>
+                    <span className="text-[11px] leading-[1.5] text-[var(--chat-text-faint)]">
+                      {backendSent
+                        ? 'Proposal turn sent — open the chat to review and accept it.'
+                        : 'Proposes the backend + connect + e2e task this design made possible, linked as derived-from.'}
+                    </span>
+                  </button>
+                )}
               </div>
+              {backendError && (
+                <div className="mt-2 rounded-[10px] border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.05)] px-3 py-2 text-[11.5px] text-[#b91c1c]">
+                  Couldn&apos;t send the backend proposal turn: {backendError}
+                </div>
+              )}
               {actionError && (
                 <div className="mt-2 rounded-[10px] border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.05)] px-3 py-2 text-[11.5px] text-[#b91c1c]">
                   Couldn&apos;t record that action: {actionError}

@@ -25,9 +25,13 @@ export async function GET(request: Request): Promise<Response> {
       hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
     // ── Decision counts (from our own queue API) ──────────────────────────
+    // Same-origin self-call (2026-09-05): derive the origin from the request
+    // itself so this works on any dev port (autoPort) and in prod — the old
+    // hardcoded localhost:3000 fallback silently zeroed the decision counts
+    // whenever the server ran on any other port.
     const queueUrl = process.env.NEXT_PUBLIC_SITE_URL
       ? `${process.env.NEXT_PUBLIC_SITE_URL}/api/decision-queue`
-      : 'http://localhost:3000/api/decision-queue'
+      : `${new URL(request.url).origin}/api/decision-queue`
 
     const decisions: { total: number; critical: number; posts: number; codeReviews: number; warRoom: number; security: number } = { total: 0, critical: 0, posts: 0, codeReviews: 0, warRoom: 0, security: 0 }
 

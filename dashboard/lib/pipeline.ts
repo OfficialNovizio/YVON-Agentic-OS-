@@ -5,6 +5,11 @@
 // Owner: mia · TS-018 WI-5
 import type { TurnEvent } from '@/app/api/chat/events/route'
 
+// Re-exported: consumers (software-pipeline/caos route) import TurnEvent from
+// this module alongside the stage builders, and the chat/events route owns the
+// canonical declaration.
+export type { TurnEvent }
+
 /** Structural subset of HermesEvent — accepts the page's parsed SSE objects too. */
 export type SseLike = {
   kind: string
@@ -72,6 +77,11 @@ export interface InputAnalysisStage {
     team: string[]
     reason: string
     scores?: { agent: string; score: number; hits: string[] }[]
+    /** 2026-09-04 continuation routing — the stream route's resolveRoute()
+     *  consults the room's previous agent reply before trusting the scorer. */
+    sticky?: boolean
+    previousAgent?: string | null
+    resolution?: string
   }
 }
 
@@ -146,13 +156,31 @@ export function stageFromEventRow(row: TurnEvent): PipelineStage | null {
         ts,
       }
     case 'phase.retrieve':
+      // ok===false is the failure-surfacing contract (matrix row 20): the
+      // wrapper emits a distinct phase.retrieve event when the retrieval
+      // pipeline itself broke (missing script, cold index, timeout) — that
+      // must render as an ERROR stage, never look like a quiet "0 chunks".
+      if (payload.ok === false) {
+        return {
+          id: 'retrieve',
+          kind: 'retrieve',
+          label: 'retrieve',
+          detail: payload.error ? `failed: ${String(payload.error).slice(0, 120)}` : 'pipeline unavailable',
+          status: 'error',
+          ts,
+        }
+      }
       return {
         id: 'retrieve',
         kind: 'retrieve',
         label: 'retrieve',
         detail:
           payload.count != null
-            ? `${String(payload.count)} chunks${payload.sources ? ` · ${String(payload.sources)}` : ''}`
+            ? `${String(payload.count)} chunks${payload.sources ? ` · ${String(payload.sources)}` : ''}${
+                Array.isArray(payload.warnings) && payload.warnings.length
+                  ? ` · ${payload.warnings.length} warning(s)`
+                  : ''
+              }`
             : undefined,
         status: 'done',
         ts,
@@ -184,6 +212,21 @@ export function stageFromEventRow(row: TurnEvent): PipelineStage | null {
         kind: 'gate',
         label: `gate blocked${payload.gate ? ` · ${String(payload.gate)}` : ''}`,
         detail: payload.reason ? String(payload.reason) : undefined,
+        status: 'error',
+        ts,
+      }
+    case 'gate.violation':
+      // Evidence rail fix ⑤ (2026-09-04): the wrapper's execution-gate
+      // tripwire — an execution-class tool (terminal/code_execution/cronjob/
+      // delegation) ran while this room's chat_rooms.execution_unlocked_at
+      // was still null (chat not yet approved as a task). Veto is impossible
+      // at that layer (hermes-agent swallows on_tool_start exceptions), so
+      // this is recorded-for-review data, rendered as an error stage.
+      return {
+        id: `gate-violation-${String(payload.tool ?? 'tool')}-${row.ts}`,
+        kind: 'gate',
+        label: `gate violation · ${String(payload.tool ?? 'tool')}`,
+        detail: payload.note ? String(payload.note).slice(0, 140) : undefined,
         status: 'error',
         ts,
       }
@@ -291,6 +334,52 @@ export function stageFromInputAnalysisPayload(
           : undefined,
     },
   }
+}
+
+// ── Past source, folded ─────────────────────────────────────────────────────
+// BUG FIXED (2026-09-04): stageFromEventRow ids each `tool.call` row by its
+// row timestamp, but Hermes writes every tool call to the events table TWICE
+// — a `status:"start"` row, then a done row with ok/ms (main.py:1666-1681).
+// Different timestamps → different ids → the pair never merged, so every real
+// call rendered TWICE in past-turn reconstruction: one `done` row and one
+// eternal `started` row with pulsing dots that would never resolve. The Work
+// loop header counted the inflation too (3 real calls → "6 tool calls").
+//
+// stagesFromEventRows folds rows in ts order and pairs each end row back onto
+// its start's id, by tool_call_id when Hermes provides one (main.py now emits
+// it) or by tool name otherwise. A start with no end stays `active` — which is
+// now an honest signal (a call that genuinely never completed), not an
+// artifact of the normalizer.
+export function stagesFromEventRows(rows: TurnEvent[]): PipelineStage[] {
+  const stages: PipelineStage[] = []
+  // tool name (and tool_call_id when present) → index of the start stage awaiting its end
+  const pending: Map<string, number> = new Map()
+
+  for (const row of rows) {
+    const stage = stageFromEventRow(row)
+    if (!stage) continue
+
+    if (row.kind === 'tool.call') {
+      const isStart = row.payload.status === 'start'
+      const callId = row.payload.tool_call_id != null ? String(row.payload.tool_call_id) : null
+      const name = String(row.payload.tool ?? '')
+      const byId = callId ? pending.get(callId) : undefined
+      const pendingIdx = byId ?? pending.get(name)
+      if (!isStart && pendingIdx != null && stages[pendingIdx]) {
+        // end row → resolve onto the start's stage (same id, live-path semantics)
+        stages[pendingIdx] = stage.id === stages[pendingIdx].id ? stage : { ...stage, id: stages[pendingIdx].id }
+        if (callId) pending.delete(callId)
+        pending.delete(name)
+        continue
+      }
+      if (isStart) {
+        if (callId) pending.set(callId, stages.length)
+        if (name) pending.set(name, stages.length)
+      }
+    }
+    stages.push(stage)
+  }
+  return stages
 }
 
 /** Merge live stages into the panel list: same tool id → latest status wins. */

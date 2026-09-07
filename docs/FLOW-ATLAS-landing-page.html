@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FLOW ATLAS — Landing-Page Build Flow · Scenario Atlas</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: #11151d;
+    --panel2: #161b26;
+    --line: #232a36;
+    --text: #e6eaf2;
+    --dim: #8b94a7;
+    --faint: #5b6475;
+    --accent: #6ea8fe;
+    --green: #34d399;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --purple: #c4b5fd;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: 32px 20px 80px;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; }
+
+  h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  h1 .accent { color: var(--accent); }
+  .sub { color: var(--dim); font-size: 13px; margin-bottom: 6px; }
+  .meta { color: var(--faint); font-size: 11.5px; margin-bottom: 28px; }
+  .meta b { color: var(--amber); font-weight: 600; }
+
+  h2 {
+    font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--dim); margin: 44px 0 12px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  h2 .n { color: var(--accent); margin-right: 8px; }
+  h3 { font-size: 14.5px; margin: 22px 0 8px; }
+  p.lede { color: var(--dim); max-width: 78ch; margin: 0 0 14px; }
+  code {
+    font: 12px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace;
+    background: var(--panel2); border: 1px solid var(--line);
+    padding: 1px 5px; border-radius: 4px; color: #cdd6e4;
+  }
+
+  /* ── Legend ─────────────────────────────────────────────── */
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; margin: 14px 0 6px; }
+  .legend span { color: var(--dim); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .dot.ok { background: var(--green); }
+  .dot.part { background: var(--amber); }
+  .dot.miss { background: var(--red); }
+
+  /* ── Panel ──────────────────────────────────────────────── */
+  .panel {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 18px 20px; margin: 14px 0;
+  }
+
+  /* ── Swimlanes ──────────────────────────────────────────── */
+  .flow { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+  .lane { display: grid; grid-template-columns: 108px 1fr; gap: 10px; align-items: stretch; }
+  .lane-label {
+    font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--faint); padding-top: 9px; text-align: right;
+  }
+  .lane-track {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+    background: var(--panel2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 10px; min-height: 42px;
+  }
+  .chip {
+    font-size: 12px; padding: 5px 10px; border-radius: 8px;
+    background: #1b2130; border: 1px solid var(--line); color: var(--text);
+    white-space: nowrap;
+  }
+  .chip.you { border-color: rgba(196,181,253,0.35); color: var(--purple); }
+  .chip.agent { border-color: rgba(110,168,254,0.4); }
+  .chip.sys { border-color: rgba(139,148,167,0.35); color: var(--dim); }
+  .chip.ui { border-color: rgba(52,211,153,0.35); }
+  .chip.break {
+    border-color: var(--red); color: var(--red);
+    background: rgba(248,113,113,0.08); font-weight: 600;
+  }
+  .chip.stop {
+    border-color: var(--amber); color: var(--amber);
+    background: rgba(251,191,36,0.07); font-weight: 600;
+  }
+  .chip.good {
+    border-color: var(--green); color: var(--green);
+    background: rgba(52,211,153,0.07); font-weight: 600;
+  }
+  .arr { color: var(--faint); font-size: 12px; user-select: none; }
+  .brk {
+    color: var(--red); font-size: 10.5px; font-weight: 700;
+    border: 1px solid var(--red); border-radius: 50%;
+    width: 17px; height: 17px; display: inline-flex;
+    align-items: center; justify-content: center; margin-left: 2px;
+    background: rgba(248,113,113,0.1);
+  }
+  .st { font-size: 10px; margin-right: 5px; vertical-align: 1px; }
+  .st.ok { color: var(--green); } .st.part { color: var(--amber); } .st.miss { color: var(--red); }
+
+  .footnotes { margin: 12px 0 0; padding: 0; list-style: none; }
+  .footnotes li { font-size: 12px; color: var(--dim); padding: 4px 0; display: flex; gap: 8px; }
+  .footnotes b {
+    color: var(--red); flex-shrink: 0; width: 18px; height: 18px;
+    border: 1px solid var(--red); border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 10px; margin-top: 1px;
+  }
+  .footnotes code { color: #cdd6e4; }
+
+  /* ── Target flow (hero) ─────────────────────────────────── */
+  .target { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+  .target .chip { font-size: 12.5px; padding: 8px 12px; }
+  .target .chip.q { border-color: var(--amber); color: var(--amber); }
+  .target .chip.task { border-color: var(--green); color: var(--green); }
+  .target .chip.miss { border-color: var(--red); color: var(--red); background: rgba(248,113,113,0.07); }
+
+  /* ── Scenario cards ─────────────────────────────────────── */
+  .scen-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 860px) { .scen-grid { grid-template-columns: 1fr; } }
+  .scen {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .scen .head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .scen .sid {
+    font: 700 11px ui-monospace, Consolas, monospace; color: var(--accent);
+    background: rgba(110,168,254,0.1); border: 1px solid rgba(110,168,254,0.35);
+    padding: 1px 7px; border-radius: 6px;
+  }
+  .scen .title { font-weight: 600; font-size: 13.5px; }
+  .scen .trigger { color: var(--faint); font-size: 12px; font-style: italic; margin-bottom: 8px; }
+  .scen .row { font-size: 12.5px; padding: 3px 0; display: flex; gap: 8px; }
+  .scen .row .k { color: var(--faint); flex-shrink: 0; width: 56px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; padding-top: 1px; }
+  .scen .bad { color: var(--red); }
+  .scen .aim { color: var(--green); }
+
+  /* ── Infra table ────────────────────────────────────────── */
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th {
+    text-align: left; color: var(--faint); font-size: 10.5px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 8px 10px; border-bottom: 1px solid var(--line);
+  }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--text); }
+  td .small { color: var(--dim); font-size: 11.5px; display: block; margin-top: 2px; }
+  td.center { text-align: center; }
+  tr.crit td { background: rgba(248,113,113,0.045); }
+  .pill {
+    font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+    display: inline-block; white-space: nowrap;
+  }
+  .pill.miss { color: var(--red); border: 1px solid var(--red); background: rgba(248,113,113,0.08); }
+  .pill.part { color: var(--amber); border: 1px solid var(--amber); background: rgba(251,191,36,0.08); }
+  .pill.ok   { color: var(--green); border: 1px solid var(--green); background: rgba(52,211,153,0.08); }
+
+  /* ── Recommendation ─────────────────────────────────────── */
+  .rec {
+    border: 1px solid rgba(52,211,153,0.4); background: rgba(52,211,153,0.05);
+    border-radius: 12px; padding: 18px 20px; margin: 14px 0;
+  }
+  .rec h3 { margin: 0 0 8px; color: var(--green); font-size: 15px; }
+  ol.decisions { margin: 8px 0 0; padding-left: 20px; color: var(--dim); font-size: 13px; }
+  ol.decisions li { padding: 4px 0; }
+  ol.decisions b { color: var(--text); }
+
+  .opt-tag {
+    font: 700 11px ui-monospace, Consolas, monospace; letter-spacing: 0.04em;
+    padding: 2px 9px; border-radius: 6px; margin-right: 8px;
+  }
+  .opt-a { color: var(--accent); border: 1px solid rgba(110,168,254,0.4); background: rgba(110,168,254,0.08); }
+  .opt-b { color: var(--green); border: 1px solid rgba(52,211,153,0.4); background: rgba(52,211,153,0.08); }
+  .opt-c { color: var(--purple); border: 1px solid rgba(196,181,253,0.4); background: rgba(196,181,253,0.08); }
+  .opt-sub { color: var(--dim); font-size: 12.5px; margin: 4px 0 10px; }
+  .verdict { font-size: 12px; color: var(--dim); margin-top: 10px; }
+  .verdict b { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>FLOW ATLAS <span class="accent">·</span> Landing-Page Build Flow</h1>
+  <div class="sub">"Build me a website like &lt;URL&gt;" — what should happen, what actually happened, and three ways to make the target real.</div>
+  <div class="meta">Discussion artifact · routes through <b>dev</b> (flow design) · built from the 2026-09-04 brunellocucinelli.com live test (room 913bee40) · awaiting sign-off — <b>nothing in this document is built yet</b></div>
+
+  <div class="legend">
+    <span><i class="dot ok"></i> exists &amp; works today</span>
+    <span><i class="dot part"></i> partial / prompt-steered only</span>
+    <span><i class="dot miss"></i> missing or broken</span>
+    <span style="margin-left:8px;">Numbers <b style="color:var(--red)">①②③</b> = break points observed in the live test</span>
+  </div>
+
+  <!-- ════════════════════ 1 · TARGET ════════════════════ -->
+  <h2><span class="n">01</span> The target flow — your sentence, formalized</h2>
+  <p class="lede">This is the flow you described. Every option below is judged by how directly it delivers this chain, and which links have to be built.</p>
+
+  <div class="panel">
+    <div class="target">
+      <span class="chip you">You: "build me a website like brunellocucinelli.com"</span>
+      <span class="arr">→</span>
+      <span class="chip agent">auto-scrape the reference<span class="st miss">○</span></span>
+      <span class="arr">→</span>
+      <span class="chip ui">screenshots + all scraped data render <b>in chat</b><span class="st miss">○</span></span>
+      <span class="arr">→</span>
+      <span class="chip q">ask: exact clone, or adapt?<span class="st ok">●</span></span>
+      <span class="arr">→</span>
+      <span class="chip you">you answer</span>
+      <span class="arr">→</span>
+      <span class="chip task">task proposal <b>carrying the evidence</b><span class="st miss">○</span></span>
+      <span class="arr">→</span>
+      <span class="chip task">Yes → TASK-SPEC + Kanban<span class="st ok">●</span></span>
+    </div>
+    <div class="verdict" style="margin-top:12px;">
+      <b>Score today:</b> 3 of 7 links exist. The asking/discipline half works; the evidence half (scrape → render → carry) is missing — and that's exactly what you didn't see in the test.
+    </div>
+  </div>
+
+  <!-- ════════════════════ 2 · WHAT HAPPENED ════════════════════ -->
+  <h2><span class="n">02</span> What actually happened — the live test, annotated</h2>
+  <p class="lede">The brunellocucinelli.com test, reconstructed from the events table (correlation <code>2c3f6e63-…</code>, mia room <code>913bee40</code>). Green chips obeyed the rail; red chips are the break points.</p>
+
+  <div class="panel">
+    <div class="flow">
+      <div class="lane">
+        <div class="lane-label">You</div>
+        <div class="lane-track">
+          <span class="chip you">@mia build a landing page like brunellocucinelli.com…</span>
+          <span class="arr">→</span>
+          <span class="chip ui">mia asks scope questions (turn 1)</span>
+          <span class="arr">→</span>
+          <span class="chip you">"approved, proceed"</span>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-label">Router</div>
+        <div class="lane-track">
+          <span class="chip sys">@mention → mia (sticky follow-up)</span>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-label">mia</div>
+        <div class="lane-track">
+          <span class="chip agent">turn 2 begins</span>
+          <span class="arr">→</span>
+          <span class="chip break">reviews the LOCAL Novizio site instead<span class="brk">1</span></span>
+          <span class="arr">→</span>
+          <span class="chip agent">24 tool calls: terminal, browser, read_file</span>
+          <span class="arr">→</span>
+          <span class="chip break">screenshots taken — die on the VPS<span class="brk">2</span></span>
+          <span class="arr">→</span>
+          <span class="chip break">scraped text lives in context only<span class="brk">3</span></span>
+          <span class="arr">→</span>
+          <span class="chip break">proposal block leaks as raw text<span class="brk">4</span></span>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-label">Wrapper</div>
+        <div class="lane-track">
+          <span class="chip sys">gate is prompt-steering — 24 calls ran with execution_unlocked_at = null<span class="brk">5</span></span>
+          <span class="arr">→</span>
+          <span class="chip sys">strip regex misses → no task.proposed event</span>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-label">Chat UI</div>
+        <div class="lane-track">
+          <span class="chip ui">no Yes/No card</span>
+          <span class="arr">→</span>
+          <span class="chip break">no task created (latest = TS-046, Aug 24)<span class="brk">4</span></span>
+          <span class="arr">→</span>
+          <span class="chip break">no screenshot, no data, no design file — anywhere</span>
+        </div>
+      </div>
+    </div>
+    <ul class="footnotes">
+      <li><b>1</b> Never opened <code>brunellocucinelli.com</code>. Browsed <code>127.0.0.1:3100/{,shop,collections,about,contact}</code> — its own local site. No prompt rule says "scrape the reference first"; <code>web_extract</code> may also lack its API key on the VPS, so the agent quietly substituted what it could reach.</li>
+      <li><b>2</b> <code>computer_use capture · vision</code> ran — the model saw the screenshots. No agent→chat image path exists, so nothing reached you.</li>
+      <li><b>3</b> Text snapshots went into the model's context and were lost when the turn ended. No artifact store.</li>
+      <li><b>4</b> The <code>```task-proposal</code> block rendered as visible raw JSON: the strip regex never matched → no <code>task.proposed</code> event → no Yes/No card → <b>no task was created</b>.</li>
+      <li><b>5</b> "Discussion-only" is a paragraph in the prompt, not a gate. It held only because mia chose to obey.</li>
+    </ul>
+    <div class="verdict">
+      <b>Cost of this one turn:</b> 31 LLM calls · ~1.9M estimated input tokens · 136s of rate-limit governor waiting · ~6 minutes — spent reviewing the wrong site, producing zero durable output.
+    </div>
+  </div>
+
+  <!-- ════════════════════ 3 · SCENARIOS ════════════════════ -->
+  <h2><span class="n">03</span> Scenario atlas — every way this request can arrive</h2>
+  <p class="lede">Eight scenarios. "Today" is what the current system would actually do (verified where tested); "Target" is what should happen. Every option in §04 must cover all eight.</p>
+
+  <div class="scen-grid">
+
+    <div class="scen">
+      <div class="head"><span class="sid">S0</span><span class="title">No URL given</span></div>
+      <div class="trigger">"build me a landing page" — no reference at all</div>
+      <div class="row"><span class="k">Today</span><span>agent picks something nearby to look at — in the test, its own local site <span class="bad">(break ①)</span></span></div>
+      <div class="row"><span class="k">Target</span><span class="aim">ask for the reference URL first — never substitute a local review by default</span></div>
+    </div>
+
+    <div class="scen">
+      <div class="head"><span class="sid">S1</span><span class="title">URL + @mention</span></div>
+      <div class="trigger">"@mia build like brunellocucinelli.com"</div>
+      <div class="row"><span class="k">Today</span><span>routing works; turn 1 asks questions; turn 2 drifts to the wrong target <span class="bad">(breaks ①–④)</span></span></div>
+      <div class="row"><span class="k">Target</span><span class="aim">scrape → evidence in chat → clone/adapt question → task with evidence</span></div>
+    </div>
+
+    <div class="scen">
+      <div class="head"><span class="sid">S2</span><span class="title">URL, no mention</span></div>
+      <div class="trigger">"build me a website like this: &lt;URL&gt;"</div>
+      <div class="row"><span class="k">Today</span><span class="bad">no orchestration: router scores content → one agent (or meta passthrough) — meta never sequences mia/spark/atlas</span></div>
+      <div class="row"><span class="k">Target</span><span class="aim">router detects build-tier + URL → meta orchestrates the fleet (Option C), or sticky-agent concierge (Options A/B)</span></div>
+    </div>
+
+    <div class="scen">
+      <div class="head"><span class="sid">S3</span><span class="title">Scrape fails</span></div>
+      <div class="trigger">site blocked, no API key, JS-only render, timeout</div>
+      <div class="row"><span class="k">Today</span><span class="bad">silent substitution — the agent pivots to whatever it CAN reach (exactly break ①)</span></div>
+      <div class="row"><span class="k">Target</span><span class="aim">loud degradation: "scrape failed: &lt;reason&gt;" + fallback choices (retry via browser, wire a scraper tool, you paste screenshots) — never a quiet pivot</span></div>
+    </div>
+
+    <div class="scen">
+      <div class="head"><span class="sid">S4</span><span class="title">Reference IS local</span></div>
+      <div class="trigger">"review localhost:3100 and rebuild the shop page"</div>
+      <div class="row"><span class="k">Today</span><span>works, but indistinguishable from the S0 mistake — you can't tell deliberate from accidental</span></div>
+      <div class="row"><span class="k">Target</span><span class="aim">local reference is allowed but labeled <b>"LOCAL REFERENCE"</b> on every evidence card</span></div>
+    </div>
+
+    <div class="scen">
+      <div class="head"><span class="sid">S5</span><span class="title">You pick EXACT CLONE</span></div>
+      <div class="trigger">"make it exactly like that"</div>
+      <div class="row"><span class="k">Today</span><span>question is only asked in prose; answer changes nothing about the task record</span></div>
+      <div class="row"><span class="k">Target</span><span class="aim">task = replication spec: evidence attached, section-by-section clone checklist in the TASK-SPEC</span></div>
+    </div>
+
+    <div class="scen">
+      <div class="head"><span class="sid">S6</span><span class="title">You pick ADAPT</span></div>
+      <div class="trigger">"same vibe but make it Novizio"</div>
+      <div class="row"><span class="k">Today</span><span>direction lives in chat prose; design tokens/direction never captured</span></div>
+      <div class="row"><span class="k">Target</span><span class="aim">design-direction proposal (atlas tokens + spark direction) rides in the task proposal as artifacts</span></div>
+    </div>
+
+    <div class="scen">
+      <div class="head"><span class="sid">S7</span><span class="title">Multiple references</span></div>
+      <div class="trigger">"like this and also this" — 2+ URLs</div>
+      <div class="row"><span class="k">Today</span><span class="bad">one target gets picked arbitrarily; others silently dropped</span></div>
+      <div class="row"><span class="k">Target</span><span class="aim">one evidence card set per URL; the clone/adapt question names all sources</span></div>
+    </div>
+
+  </div>
+
+  <!-- ════════════════════ 4 · OPTIONS ════════════════════ -->
+  <h2><span class="n">04</span> Three ways to build the flow</h2>
+
+  <!-- OPTION A -->
+  <h3><span class="opt-tag opt-a">OPTION A</span> Evidence-first turn — one agent, fast</h3>
+  <div class="opt-sub">One turn does everything: scrape → persist → render → ask. You steer after seeing evidence. Fastest path to your target sentence; the agent holds the whole job.</div>
+  <div class="panel">
+    <div class="flow">
+      <div class="lane">
+        <div class="lane-label">You</div>
+        <div class="lane-track">
+          <span class="chip you">"build like &lt;URL&gt;"</span>
+          <span class="arr">→</span>
+          <span class="chip ui">sees screenshots + data inline</span>
+          <span class="arr">→</span>
+          <span class="chip you">"adapt it to Novizio"</span>
+          <span class="arr">→</span>
+          <span class="chip ui">Yes on proposal</span>
+          <span class="arr">→</span>
+          <span class="chip good">task born with evidence</span>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-label">Agent (mia)</div>
+        <div class="lane-track">
+          <span class="chip agent">scrape reference<span class="st part">◐</span></span>
+          <span class="arr">→</span>
+          <span class="chip agent">save artifacts to workspace<span class="st miss">○</span></span>
+          <span class="arr">→</span>
+          <span class="chip agent">emit evidence (images + data)<span class="st miss">○</span></span>
+          <span class="arr">→</span>
+          <span class="chip stop">ask: clone or adapt?</span>
+          <span class="arr">→</span>
+          <span class="chip agent">proposal carries artifacts[]<span class="st miss">○</span></span>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-label">Wrapper</div>
+        <div class="lane-track">
+          <span class="chip sys">stream phase + tool events<span class="st ok">●</span></span>
+          <span class="arr">→</span>
+          <span class="chip sys">strip proposal block<span class="st miss">○ fix needed</span></span>
+          <span class="arr">→</span>
+          <span class="chip sys">emit task.proposed + artifacts<span class="st part">◐</span></span>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-label">Chat UI</div>
+        <div class="lane-track">
+          <span class="chip ui">evidence cards (screenshot + data table)<span class="st miss">○</span></span>
+          <span class="arr">→</span>
+          <span class="chip ui">Yes/No proposal card<span class="st ok">●</span></span>
+          <span class="arr">→</span>
+          <span class="chip ui">artifact links on the task<span class="st miss">○</span></span>
+        </div>
+      </div>
+    </div>
+    <div class="verdict"><b>Pros:</b> closest to your sentence — one message in, evidence out, question asked. <b>Cons:</b> one agent self-scopes a big turn (the test's cost problem); gate stays soft unless paired with the unlock button. <b>Covers:</b> S1 S3 S4 S5 S6 S7 (S2 via sticky routing, no fleet).</div>
+  </div>
+
+  <!-- OPTION B -->
+  <h3><span class="opt-tag opt-b">OPTION B</span> Two-phase, gate kept — today's design, made real</h3>
+  <div class="opt-sub">Turn 1 produces the <b>scrape report</b> and stops — wrapper enforces read-only tools in discussion-only rooms. Your reply (one click) unlocks phase 2, which ends in the proposal. Same shape as the rail intends; every gap fixed.</div>
+  <div class="panel">
+    <div class="flow">
+      <div class="lane">
+        <div class="lane-label">You</div>
+        <div class="lane-track">
+          <span class="chip you">"build like &lt;URL&gt;"</span>
+          <span class="arr">→</span>
+          <span class="chip ui">scrape report + clone/adapt question</span>
+          <span class="arr">→</span>
+          <span class="chip you">clicks <b>Approve &amp; execute</b> (inline)</span>
+          <span class="arr">→</span>
+          <span class="chip ui">Yes on proposal</span>
+          <span class="arr">→</span>
+          <span class="chip good">task born with evidence</span>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-label">Agent (mia)</div>
+        <div class="lane-track">
+          <span class="chip agent">turn 1: scrape → artifacts → evidence → ask<span class="st miss">○ build</span></span>
+          <span class="arr">→</span>
+          <span class="chip stop">HARD STOP (read-only tools only)</span>
+          <span class="arr">→</span>
+          <span class="chip agent">turn 2: direction → proposal w/ artifacts</span>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-label">Wrapper</div>
+        <div class="lane-track">
+          <span class="chip sys"><b>enforce</b> gate: block terminal/write tools when unlocked_at is null<span class="st miss">○ decision</span></span>
+          <span class="arr">→</span>
+          <span class="chip sys">one-click unlock flips execution_unlocked_at<span class="st miss">○</span></span>
+          <span class="arr">→</span>
+          <span class="chip sys">strip fix + artifacts[] on proposal<span class="st miss">○</span></span>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-label">Chat UI</div>
+        <div class="lane-track">
+          <span class="chip ui">evidence cards + unlock button<span class="st miss">○</span></span>
+          <span class="arr">→</span>
+          <span class="chip ui">Yes/No card<span class="st ok">●</span></span>
+          <span class="arr">→</span>
+          <span class="chip ui">artifact links on task<span class="st miss">○</span></span>
+        </div>
+      </div>
+    </div>
+    <div class="verdict"><b>Pros:</b> the stall you hit becomes impossible — the agent physically cannot run 24 unrestricted calls while "discussion-only"; every turn is cheap. <b>Cons:</b> two turns minimum; needs the gate decision made (enforce vs one-click). <b>Covers:</b> all of A's scenarios, plus S2 stays single-agent unless C is added later.</div>
+  </div>
+
+  <!-- OPTION C -->
+  <h3><span class="opt-tag opt-c">OPTION C</span> Orchestrated fleet — no mention needed</h3>
+  <div class="opt-sub">The truest-to-rail shape: no mention → meta sequences mia (scrape/review) and spark/atlas (directions) in parallel; you pick a direction; dev sequences the build task. Slowest, most expensive, most "YVON".</div>
+  <div class="panel">
+    <div class="flow">
+      <div class="lane">
+        <div class="lane-label">You</div>
+        <div class="lane-track">
+          <span class="chip you">"build me a website like this" — <b>no @mention</b></span>
+          <span class="arr">→</span>
+          <span class="chip ui">evidence from mia + directions from spark/atlas</span>
+          <span class="arr">→</span>
+          <span class="chip you">pick a direction</span>
+          <span class="arr">→</span>
+          <span class="chip good">task via dev-sequenced proposal</span>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-label">Router</div>
+        <div class="lane-track">
+          <span class="chip sys">build-tier + URL detected → <b>meta</b> (orchestrator)<span class="st miss">○</span></span>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-label">meta</div>
+        <div class="lane-track">
+          <span class="chip agent">delegate → mia: scrape + review<span class="st miss">○ delegate_tool unexposed</span></span>
+          <span class="arr">→</span>
+          <span class="chip agent">delegate → spark/atlas: 2–3 direction options<span class="st miss">○</span></span>
+          <span class="arr">→</span>
+          <span class="chip agent">collect → present → after pick, hand to dev</span>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-label">Wrapper</div>
+        <div class="lane-track">
+          <span class="chip sys">multi-agent event lanes (which agent emitted what)<span class="st miss">○</span></span>
+          <span class="arr">→</span>
+          <span class="chip sys">same infra as A/B: artifacts, strip, evidence</span>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-label">Chat UI</div>
+        <div class="lane-track">
+          <span class="chip ui">per-agent evidence cards<span class="st miss">○</span></span>
+          <span class="arr">→</span>
+          <span class="chip ui">direction picker (A/B/C options)<span class="st miss">○</span></span>
+          <span class="arr">→</span>
+          <span class="chip ui">proposal → task</span>
+        </div>
+      </div>
+    </div>
+    <div class="verdict"><b>Pros:</b> the no-mention case becomes the showcase — fleet behavior, design directions to choose from. <b>Cons:</b> everything A/B need, <b>plus</b> delegation plumbing and multi-lane UI; orchestrator loops are a new failure class; 3× the turns. <b>Covers:</b> S2 properly; all others.</div>
+  </div>
+
+  <!-- ════════════════════ 5 · INFRA ════════════════════ -->
+  <h2><span class="n">05</span> The infrastructure underneath — what each option needs</h2>
+  <p class="lede">Whatever option you pick, the same six pieces carry the evidence. Status is today's reality. The critical path is highlighted.</p>
+
+  <div class="panel">
+    <table>
+      <tr>
+        <th style="width:26%;">Piece</th>
+        <th style="width:34%;">What it is</th>
+        <th class="center" style="width:8%;">A</th>
+        <th class="center" style="width:8%;">B</th>
+        <th class="center" style="width:8%;">C</th>
+        <th style="width:16%;">Status today</th>
+      </tr>
+      <tr class="crit">
+        <td><b>Agent→chat image path</b></td>
+        <td>agent emits files/images with a message; chat renders them as cards<span class="small">precedent: repo/preview link chips main.py already emits — same pattern, image payloads</span></td>
+        <td class="center">●</td><td class="center">●</td><td class="center">●</td>
+        <td><span class="pill miss">missing</span></td>
+      </tr>
+      <tr class="crit">
+        <td><b>Artifact store + preview</b></td>
+        <td>scraped data/screenshots persist at <code>workspaces/&lt;venture&gt;/artifacts/&lt;task&gt;/</code>; chat + task pages render them later<span class="small">answers your "where is the design file?" — it has a home, not chat-transcript purgatory</span></td>
+        <td class="center">●</td><td class="center">●</td><td class="center">●</td>
+        <td><span class="pill miss">missing</span></td>
+      </tr>
+      <tr class="crit">
+        <td><b>Proposal strip fix</b></td>
+        <td>the <code>```task-proposal</code> regex missed in the test → raw JSON leaked, no task. Make the marker deterministic (event-first, strip guaranteed)</td>
+        <td class="center">●</td><td class="center">●</td><td class="center">●</td>
+        <td><span class="pill miss">broken</span></td>
+      </tr>
+      <tr>
+        <td><b>Proposals carry artifacts[]</b></td>
+        <td>proposal JSON gains <code>artifacts:[…]</code> → TASK-SPEC + Kanban inherit the links</td>
+        <td class="center">●</td><td class="center">●</td><td class="center">●</td>
+        <td><span class="pill miss">missing</span></td>
+      </tr>
+      <tr>
+        <td><b>External scrape backend</b></td>
+        <td>verify <code>web_extract</code> env key on the VPS; else wire the repo-local capture tool (<code>scripts/capture-reference.py</code> + capture-worker relay) to agents as a tool</td>
+        <td class="center">●</td><td class="center">●</td><td class="center">●</td>
+        <td><span class="pill part">partial</span></td>
+      </tr>
+      <tr>
+        <td><b>Reference-first contract</b></td>
+        <td>prompt rule: "scrape the REFERENCE before anything; failure is reported, never substituted" (fixes S0/S3) — B can additionally hard-gate it</td>
+        <td class="center">●</td><td class="center">●</td><td class="center">●</td>
+        <td><span class="pill part">prompt only</span></td>
+      </tr>
+      <tr>
+        <td><b>Gate: enforce or one-click unlock</b></td>
+        <td>enforce = wrapper blocks non-read-only tools while unlocked_at is null; one-click = "Approve &amp; execute" button on any message</td>
+        <td class="center">◐</td><td class="center">●</td><td class="center">◐</td>
+        <td><span class="pill part">soft today</span></td>
+      </tr>
+      <tr>
+        <td><b>meta delegation</b></td>
+        <td>expose <code>delegate_tool</code> to the wrapper + multi-agent event lanes + direction picker UI</td>
+        <td class="center">—</td><td class="center">—</td><td class="center">●</td>
+        <td><span class="pill miss">missing</span></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ════════════════════ 6 · RECOMMENDATION ════════════════════ -->
+  <h2><span class="n">06</span> Recommendation &amp; the calls only you can make</h2>
+
+  <div class="rec">
+    <h3>Recommended: B's gate + A's evidence turn — C later</h3>
+    <p style="color:var(--dim); font-size:13px; margin:0 0 8px;">
+      Build the six shared pieces first (they're option-independent), ship the flow as
+      <b style="color:var(--text)">Option B</b> — a Phase-1 turn that <b style="color:var(--text)">shows before it asks</b>
+      (screenshots + data inline, then the clone/adapt question), a gate that's actually enforced,
+      and a task proposal born with its evidence. That delivers your target sentence on the current
+      two-turn shape. <b style="color:var(--text)">Option C</b> (no-mention fleet) then becomes an
+      increment — meta delegation on top of working evidence rails — instead of a rewrite.
+      Building C first would fail the same way the test did, because its evidence rails don't exist yet.
+    </p>
+    <p style="color:var(--dim); font-size:13px; margin:0;">
+      Suggested build order: <b style="color:var(--text)">①</b> strip fix (smallest, unblocks tasks today) →
+      <b style="color:var(--text)">②</b> artifact store + image path (the critical path) →
+      <b style="color:var(--text)">③</b> scrape backend verified →
+      <b style="color:var(--text)">④</b> reference-first contract →
+      <b style="color:var(--text)">⑤</b> gate decision implemented →
+      <b style="color:var(--text)">⑥</b> proposals carry artifacts[] →
+      <b style="color:var(--text)">⑦</b> (later) meta delegation for C.
+    </p>
+  </div>
+
+  <div class="panel">
+    <h3 style="margin-top:0;">Three decisions to sign off</h3>
+    <ol class="decisions">
+      <li><b>Clone vs adapt</b> — when you say "like this", is exact-clone ever the goal, or is it always "adapt to the venture"? (Decides whether Phase 1 ends in a comparison question or a direction proposal.)</li>
+      <li><b>Where evidence lives</b> — chat-only previews, or a per-task <b>artifact drawer</b> you can reopen weeks later? (Decides how much of the artifact store to build.)</li>
+      <li><b>Gate philosophy</b> — enforce discussion-only (agents physically can't execute), or one-click "Approve &amp; execute" unlock anywhere? (Decides the wrapper change.)</li>
+    </ol>
+  </div>
+
+</div>
+</body>
+</html>

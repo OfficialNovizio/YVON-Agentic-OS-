@@ -131,16 +131,14 @@ const VALID_SOURCES = [
 
 /**
  * Detect trends from specified sources, tagged by workspace relevance.
- * Falls back to mock data when CRON_SECRET / API keys are not configured.
+ * Falls back to mock data when CRON_SECRET is not configured.
  */
 export async function detectTrends(
   sources?: string[]
 ): Promise<ScanResult> {
   const cronSecret = await getSecret('CRON_SECRET')
-  const apifyToken = (await getSecret('APIFY_TOKEN')) ?? process.env.APIFY_TOKEN
 
-  // Need both secrets for a real scan
-  if (!cronSecret || !apifyToken) {
+  if (!cronSecret) {
     return mockScan(sources)
   }
 
@@ -154,9 +152,8 @@ export async function detectTrends(
       return mockScan(sources)
     }
 
-    // In a real implementation, we'd scrape each source via Apify
-    // and run Claude analysis. For now, we return filtered mock data
-    // matching the requested sources.
+    // No live source is wired (Apify was decommissioned 2026-09-07), so we
+    // return filtered mock data matching the requested sources.
     const filtered = MOCK_TRENDS.filter(
       (t) => validSources.length === 0 || validSources.includes(t.source)
     )

@@ -33,8 +33,6 @@ case "$ACTION" in
     echo "  hermes       always-on  (https://hermes.yvon.in)"
     echo "  whisper      CLI        (whisper audio.wav)"
     echo "  agent-reach  CLI        (agent-reach read URL)"
-    echo "  scrapegraph  Python lib (from scrapegraphai import ...)"
-    echo "  browser-use  Python lib (from browser_use import Agent)"
     echo "  opensandbox  CLI        (osb --help)"
     echo "  crawl4ai     Python lib (from crawl4ai import ...)"
     echo "  plausible    docker     (yvon-tools start plausible)"

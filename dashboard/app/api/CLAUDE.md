@@ -11,13 +11,18 @@ All Next.js Route Handlers live here. These run **server-side only** — they ar
 | Folder | Method | External service | Auth env var |
 |--------|--------|-----------------|-------------|
 | `claude/` | POST | Anthropic API — streams SSE | `ANTHROPIC_API_KEY` |
-| `instagram/` | POST | Apify Instagram Profile Scraper | `APIFY_TOKEN` |
-| `linkedin/` | POST | Apify LinkedIn Scraper | `APIFY_TOKEN` |
+| `instagram/graph/`, `instagram/insights` | GET, POST | Facebook Graph API (OAuth + Business insights) | `FACEBOOK_GRAPH_TOKEN` (Vault) |
+| `linkedin/{callback,me,publish}` | GET, POST | LinkedIn OAuth + publishing | Vault tokens |
 | `youtube/` | POST | YouTube Data API v3 | `YOUTUBE_API_KEY` |
 | `analytics/` | GET | Google Analytics Data API | `GOOGLE_SA_JSON`, `GA4_PROPERTY_ID` |
-| `scrape/` | POST | Apify Web Scraper | `APIFY_TOKEN` |
-| `trending/` | GET | Apify + Anthropic (cron) | `APIFY_TOKEN`, `ANTHROPIC_API_KEY`, `CRON_SECRET` |
 | `session-sync/` | GET, POST | Supabase `agent_sessions` + GitHub Contents API | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GITHUB_TOKEN`, `YVON_GITHUB_OWNER`, `YVON_GITHUB_REPO` |
+
+> **Apify routes removed 2026-09-07** (operator decision — Apify decommissioned):
+> the old `instagram/` POST, `linkedin/` POST, `scrape/`, `trending/`, `calendar-verify/`,
+> `competitor-bulk/` routes and `lib/apify.ts` are gone. `social-stats` and
+> `manual-competitor`/`competitor-refresh` survive cache-only / with POST retired
+> (501). Site reference capture is repo-local now: `scripts/capture-reference.py`
+> (+ `capture-worker.py` relay) — see `Teams/Shared OS/tools/shared-tool-registry.md`.
 
 ## Shared conventions for every route
 

@@ -36,7 +36,8 @@ What dana needs, and what happens without each. dana's defining constraint: it a
 
 | Tool | Purpose | When to use |
 |------|---------|-------------|
-| **ScrapeGraphAI** — see `Shared OS/tools/shared-tool-registry.md` | AI-powered structured web data extraction | When extracting structured data from documentation sites, competitor platforms, or public web sources for data modeling and analysis |
+
+*(none — ScrapeGraphAI removed 2026-09-07, see the registry removal notes. Structured extraction = Crawl4AI (below) + the agent LLM reading its markdown.)*
 
 ## MCP Marketplace Tools (added 2026-07-14)
 

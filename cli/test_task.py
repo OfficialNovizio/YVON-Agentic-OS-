@@ -23,14 +23,25 @@ ROOT = Path(__file__).resolve().parent.parent
 TASK_PY = ROOT / "cli" / "task.py"
 TEMPLATE = ROOT / "store" / "tasks" / "TEMPLATE.yaml"
 
+# Windows locale (cp1252) mojibake guard: TEMPLATE.yaml's em-dash comments
+# survive a cp1252 read/write only by accident, the decisions-fill
+# string-replace silently stops matching, and ❌/✓ prints crash. Re-exec
+# under UTF-8 mode so every read_text/write_text/print below is UTF-8.
+if os.name == "nt" and sys.flags.utf8_mode != 1:
+    os.execv(sys.executable, [sys.executable, "-X", "utf8", *sys.argv])
+
 PASS, FAIL = [], []
 
 
 def run(scratch: Path, *args: str) -> subprocess.CompletedProcess:
-    env = dict(os.environ, TASKS_DIR=str(scratch))
+    # encoding pinned on BOTH sides: task.py prints UTF-8 (✓ — →), and the
+    # Windows default locale (cp1252) decode crashes subprocess's reader
+    # threads, which silently yields stdout/stderr = None (found 2026-09-06).
+    env = dict(os.environ, TASKS_DIR=str(scratch), PYTHONIOENCODING="utf-8")
     return subprocess.run(
         [sys.executable, str(TASK_PY), *args],
         cwd=str(ROOT), env=env, capture_output=True, text=True,
+        encoding="utf-8", errors="replace",
     )
 
 
@@ -174,6 +185,22 @@ def main() -> int:
         check("fill-discovery sets work_items[0].owner from --lead", 'owner: "mia"' in rec2.read_text())
         check("fill-discovery sets work_items[0].objective", "Ship the v1 list+detail screen" in rec2.read_text())
 
+        # ── 10b. fill-discovery --produces (Phase 8 residual) — the suite's
+        # product-root reads WI-1's produces; an unstamped record hard-fails
+        # the suite on zero executed checks. Backslash path proves the write
+        # is re.sub-literal (the Windows escape bug class).
+        r2b = run(scratch, "new", "test: fill-discovery produces stamp")
+        tid2b = re.search(r"TS-\d+", r2b.stdout).group(0)
+        rec2b = scratch / f"{tid2b}.yaml"
+        r = run(scratch, "fill-discovery", tid2b, "--lead", "raj",
+                "--decisions", '["one decision"]',
+                "--produces", "workspaces\\smoke\\index.html")
+        check("fill-discovery --produces succeeds", r.returncode == 0, r.stderr)
+        check("fill-discovery stamps WI-1 produces verbatim (backslash path safe)",
+              'produces: "workspaces\\smoke\\index.html"' in rec2b.read_text())
+        check("produces stamp noted in discovery_filled history",
+              "produces=workspaces\\smoke\\index.html" in rec2b.read_text())
+
         r = run(scratch, "discover", tid2)
         check("discover succeeds after fill-discovery set lead", r.returncode == 0, r.stderr)
 
@@ -230,9 +257,11 @@ def main() -> int:
         # ── 11. v3 (2026-08-24, "One Request, End to End"): blocked sidecar,
         #       review state, suite run records, acceptance statuses, roles,
         #       handoff packet, derived_from, superseded_by ──────────────────
-        def drive_to(tid_n: str, lead: str = "dev") -> None:
+        def drive_to(tid_n: str, lead: str = "dev", gate_owner: str | None = "quinn") -> None:
             """fill lead + decisions + owner + exit-gate owner, set-prd,
-            discover, approve, start — a realistic record all the way to executing."""
+            discover, approve, start — a realistic record all the way to executing.
+            gate_owner=None leaves exit_gate.owner empty (the review-stamp test —
+            review stamps it from --runner)."""
             p = scratch / f"{tid_n}.yaml"
             t = p.read_text()
             t = re.sub(r'(classification:\n[ \t]*task_type:[ \t]*"[^"]*"\n[ \t]*departments:[ \t]*\[\]\n[ \t]*lead:)[ \t]*""',
@@ -240,7 +269,9 @@ def main() -> int:
             t = t.replace("  questions: []\n  decisions: []",
                           "  questions: []\n  decisions:\n    - \"test decision\"")
             t = re.sub(r'^([ \t]*)owner:[ \t]*""[ \t]*$', rf'\1owner: "{lead}"', t, count=1, flags=re.M)
-            t = t.replace('exit_gate:\n  owner: ""\n  proof: ""', 'exit_gate:\n  owner: "quinn"\n  proof: ""')
+            if gate_owner is not None:
+                t = t.replace('exit_gate:\n  owner: ""\n  proof: ""',
+                              f'exit_gate:\n  owner: "{gate_owner}"\n  proof: ""')
             p.write_text(t)
             prd = scratch / f"{tid_n}-prd.md"
             prd.write_text("# PRD — test\n")
@@ -284,6 +315,7 @@ def main() -> int:
         r = run(scratch, "review", tid2, "--runner", "quinn")
         check("review opens from gated", r.returncode == 0, r.stderr)
         check("review writes review_opened history", "review_opened" in rec2.read_text())
+        check("review leaves an explicit exit_gate.owner alone", 'owner: "quinn"' in rec2.read_text())
         r = run(scratch, "suite", tid2, "--result", "pass", "--run", "store/runs/run-9999.md")
         check("suite pass requires a run file on disk", r.returncode != 0)
         runpath = scratch / "run-9999.md"
@@ -306,6 +338,24 @@ def main() -> int:
         r = run(scratch, "suite", tid3c, "--result", "fail", "--run", str(runpath), "--detail", "1 of 4 assertions")
         check("suite fail stays in review", r.returncode == 0 and "status: review" in (scratch / f"{tid3c}.yaml").read_text(), r.stderr)
         check("suite fail appends suite_failed history", "suite_failed" in (scratch / f"{tid3c}.yaml").read_text())
+
+        # 11c-bis. review stamps empty exit_gate.owner from --runner (2026-09-06:
+        # no CLI writer existed for owner, so suite pass needed a hand edit on
+        # every record). The loop below closes with ZERO hand edits.
+        r = run(scratch, "new", "test: owner stamp closes the loop")
+        tid3d = re.search(r"TS-\d+", r.stdout).group(0)
+        drive_to(tid3d, gate_owner=None)
+        r = run(scratch, "gate", tid3d)
+        assert r.returncode == 0, r.stderr
+        r = run(scratch, "review", tid3d, "--runner", "quinn")
+        assert r.returncode == 0, r.stderr
+        check("review stamps empty exit_gate.owner from --runner",
+              'owner: "quinn"' in (scratch / f"{tid3d}.yaml").read_text())
+        check("stamped owner noted in review_opened history",
+              "stamped from --runner" in (scratch / f"{tid3d}.yaml").read_text())
+        r = run(scratch, "suite", tid3d, "--result", "pass", "--run", str(runpath))
+        check("suite pass closes WITHOUT any hand-set owner", r.returncode == 0, r.stderr)
+        check("stamped record closes to done", "status: done" in (scratch / f"{tid3d}.yaml").read_text())
 
         # 11d. rotation: new --revision-of marks the parent superseded
         r = run(scratch, "new", "test: revision", "--revision-of", tid3c)

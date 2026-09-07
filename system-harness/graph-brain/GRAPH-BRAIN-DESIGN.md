@@ -864,9 +864,12 @@ BASELINE (always loaded per department, regardless of specific task)
 
 TASK-SPECIFIC (pulled per phase/archetype)
   Adversarial Testing phase → strix
-  Scraping/research → crawl4ai (default) → scrapegraphai (structured
-    extraction) → agent-reach (gated platforms) → browser-use
-    (autonomous exploratory) — per the registry's existing dedup rule
+  Scraping/research → crawl4ai (default) → agent-reach (gated platforms) →
+    HeadlessX / capture-worker relay (walled targets) — per the registry's
+    existing dedup rule. browser-use + scrapegraphai removed 2026-09-07
+    (zero runtime callers, registry removal notes): exploratory QA runs
+    through Playwright + quinn's real-browser gate, structured extraction
+    through crawl4ai + the agent LLM reading its markdown
 
 Tool LOCATION varies and must be resolved before assignment:
   repo (node_modules) → in-process
@@ -1561,9 +1564,11 @@ verified as "real code," not as "confirmed live process." `Supabase: events · t
 — all three now genuinely real (events/ventures fixed this session; tasks exists but is a plain
 kanban table, not a leasing queue, per §17.1). `scheduler [planned]` — the diagram places this
 under the VPS always-on runtime; no such VPS scheduler exists. Found something adjacent but
-distinct: `dashboard/vercel.json` has two real Vercel crons (`/api/briefing` daily, `/api/trending`
-daily) — narrow, serverless, dashboard-feature-specific, not a general agent-task scheduler. Tag
-stands; noted so "scheduler [planned]" isn't misread as "nothing scheduled anywhere."
+distinct: `dashboard/vercel.json` had two real Vercel crons at audit time (`/api/briefing`
+daily, `/api/trending` daily) — narrow, serverless, dashboard-feature-specific, not a general
+agent-task scheduler. Tag stands; noted so "scheduler [planned]" isn't misread as "nothing
+scheduled anywhere." *(Both crons were removed 2026-08-21 and frozen per `docs/CRON-JOBS.md`;
+`/api/trending` was deleted outright 2026-09-07 with the Apify decommission.)*
 
 ```
 ┌───────────────────────────────────────────────────────────────┐

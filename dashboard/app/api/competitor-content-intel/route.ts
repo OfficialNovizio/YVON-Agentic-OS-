@@ -207,7 +207,7 @@ export async function GET(req: NextRequest) {
     for (const post of posts.slice(0, 6)) {
       // Handle two snapshot formats:
       // Format A (competitor-bulk): type='reel'|'carousel'|'static', id, displayUrl, images, publishedAt
-      // Format B (competitor-pipeline scrapeInstagramFull): post_type, post_id, published_at, likesCount etc (raw Apify fields)
+      // Format B (legacy scraper snapshots): post_type, post_id, published_at, likesCount etc (raw scraper fields)
       const isFormatA = 'type' in post && (post.type === 'reel' || post.type === 'carousel' || post.type === 'static')
 
       const postType: string = isFormatA

@@ -42,7 +42,7 @@ const DESIGN_SESSIONS_DIR = path.join(REPO_ROOT, 'store', 'design-sessions')
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-type DesignTool = 'screenshot-to-code' | 'open-design' | 'custom'
+type DesignTool = 'screenshot-to-code' | 'open-design' | 'custom' | 'reference-build'
 
 interface PreviewTab {
   available: boolean
@@ -156,9 +156,9 @@ export async function GET(request: NextRequest) {
     designSessionId: null,
     tool: null,
     tabs: {
-      preview: unavailable('this task has no design_origin — it was not sourced from cli/design.py'),
-      code: unavailable('this task has no design_origin — it was not sourced from cli/design.py'),
-      designMd: unavailable('this task has no design_origin — it was not sourced from cli/design.py'),
+      preview: unavailable('this task has no design_origin — it was not sourced from a design session'),
+      code: unavailable('this task has no design_origin — it was not sourced from a design session'),
+      designMd: unavailable('this task has no design_origin — it was not sourced from a design session'),
     },
   }
   if (!designSessionId || !designTool) {
@@ -217,6 +217,14 @@ export async function GET(request: NextRequest) {
         '(Stage 5b, which would produce these, is not built yet).',
       )
     }
+  } else if (designTool === 'reference-build') {
+    // Re-engineer Phase 5 (2026-09-05): the chat reference-build pipeline's
+    // sessions (store/design-sessions/{sid}.json, kind "reference-build").
+    // Their design.md is written by the design-gate cascade; the preview and
+    // code live in the BUILT product (workspaces/<venture>/), not in the
+    // session — say that honestly instead of reusing the custom/stub wording.
+    code = unavailable('reference-build produces the real product (workspaces/<venture>/) — no generated code lives in the design session')
+    preview = unavailable('reference-build preview is the built product itself — this tab fills from the build, not the session')
   } else {
     // custom / stub-only session — no generation tool was actually called.
     code = unavailable('no code-generation tool was used for this session (custom/stub)')

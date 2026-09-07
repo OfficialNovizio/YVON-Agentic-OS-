@@ -99,6 +99,14 @@ handoff: {}
 prd_ref: ""               # path to store/tasks/{id}-prd.md — spec's generated PRD (prd-discipline: 7 sections + Working Agents + Context Refs)
 rice_score: ""            # spec's scripts/rice.py output for this item — "[reasoning-based, not formula-verified]" per backlog-rules rule 0.6
 
+# Evidence block (2026-09-04, evidence rail fix ⑥) — what this task was built
+# ON: screenshots/scraped data the chat turn actually saved (the wrapper's
+# https /artifacts/ store). Appended per-URL via
+# `task.sh set-evidence <id> --url <u> --label <name> --kind image|data|file`,
+# carried automatically from the chat proposal's artifacts[] on PRD
+# conversion. Descriptive, never a gate; absent/[] on tasks without evidence.
+evidence: []
+
 # Design-origin linkage (2026-08-19, docs/PRD-design-first-workflow.md) —
 # optional, only set on tasks that came out of cli/design.py's handoff, via
 # `task.sh set-design-origin <id> --session <sid> --tool screenshot-to-code|open-design|custom

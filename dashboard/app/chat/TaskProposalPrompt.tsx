@@ -30,10 +30,25 @@ import { gsap } from 'gsap'
 import { CircleCheck, X, MessageSquareMore, Sparkles } from 'lucide-react'
 import type { PendingPrdProposal } from './PrdProposalCard'
 
+/** One evidence artifact attached to a proposal — parsed from the proposal's
+ * artifacts[] array (stream/route.ts), each pointing at the wrapper's
+ * /artifacts/... evidence store. */
+export interface ProposalArtifact {
+  url: string
+  label: string
+  kind?: string
+}
+
 export interface PendingTaskProposal {
   title: string
   summary: string
   correlation: string | null
+  /** Evidence the task builds on (evidence rail fix ①, 2026-09-04). */
+  artifacts?: ProposalArtifact[]
+  /** Re-engineer Phase 8 — set when the proposal is a follow-on build
+   * (continue-to-backend): the task that made it possible, linked via
+   * task.py --derived-from at conversion. */
+  derivedFrom?: string
 }
 
 interface TaskProposalPromptProps {
@@ -64,6 +79,10 @@ export function TaskProposalPrompt({ proposal, roomId, onResolved, onPrdGenerate
             action: 'generate',
             title: proposal!.title,
             summary: proposal!.summary,
+            // Evidence rail fix ⑥ (2026-09-04): carry the proposal's evidence
+            // through the pending PRD into the eventual TASK-SPEC.
+            artifacts: proposal!.artifacts ?? [],
+            ...(proposal!.derivedFrom ? { derivedFrom: proposal!.derivedFrom } : {}),
             correlation: proposal!.correlation,
             roomId,
           }),
@@ -76,6 +95,14 @@ export function TaskProposalPrompt({ proposal, roomId, onResolved, onPrdGenerate
           departments?: string[]
           riceScore?: number
           warnings?: string[]
+          // Re-engineer Phase 5 — present when the room had a reference-build
+          // design session with both gates answered; rides to the card's tabs.
+          design?: {
+            sessionId: string
+            designMdPath: string
+            designMd: string
+            recipe: Record<string, unknown> | null
+          }
           error?: string
         }
         if (res.ok && data.ok && data.pendingId && data.markdown) {
@@ -89,6 +116,7 @@ export function TaskProposalPrompt({ proposal, roomId, onResolved, onPrdGenerate
             riceScore: data.riceScore ?? 0,
             warnings: data.warnings ?? [],
             correlation: proposal!.correlation,
+            ...(data.design ? { design: data.design } : {}),
           })
           // Terminal state for THIS card, not buttons — PrdProposalCard is
           // now the live one; this card just fades out (finally block below).
@@ -170,6 +198,25 @@ export function TaskProposalPrompt({ proposal, roomId, onResolved, onPrdGenerate
             <p className="mt-1.5 text-[13.5px] leading-[1.6] text-[var(--chat-text-dim)]">
               {proposal.summary}
             </p>
+            {proposal.artifacts && proposal.artifacts.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--chat-text-dim)]">
+                  Evidence
+                </span>
+                {proposal.artifacts.map((a) => (
+                  <a
+                    key={a.url}
+                    href={a.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex max-w-[240px] items-center gap-1 rounded-[8px] border border-[var(--chat-hairline)] bg-white px-2 py-1 text-[12px] text-[var(--chat-body)] transition hover:border-[var(--chat-accent)]"
+                  >
+                    <span className="truncate">{a.label}</span>
+                    <span className="shrink-0 text-[10px] uppercase text-[var(--chat-text-dim)]">{a.kind ?? 'file'}</span>
+                  </a>
+                ))}
+              </div>
+            )}
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <button onClick={() => resolve('accept')} disabled={busy !== null} className="adora-cta text-[14px]">
                 <CircleCheck size={16} />

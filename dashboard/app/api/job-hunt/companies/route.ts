@@ -46,7 +46,7 @@ async function fetchAllPostings(sb: SupabaseClient, cols: string, cap = 8000): P
       .order('discovered_at', { ascending: false })
       .range(offset, offset + 999)
     if (!data || data.length === 0) break
-    out.push(...(data as Record<string, unknown>[]))
+    out.push(...(data as unknown as Record<string, unknown>[]))
   }
   return out
 }
@@ -137,23 +137,32 @@ export async function GET(req: NextRequest) {
     const byCompany = new Map<string, HiringAcc>()
     for (const p of postings ?? []) {
       if (sources.length > 0 && !sources.includes(String(p.source ?? ''))) continue
-      const name = (p.company ?? '').trim()
+      const name = String(p.company ?? '').trim()
       if (!name) continue
       const key = name.toLowerCase()
       let entry = byCompany.get(key)
       if (!entry) {
-        entry = {
+        // Fresh literal is fully typed first, then assigned — assigning an
+        // unknown-typed literal straight into `entry` used to defeat TS
+        // narrowing and cascade ~20 errors past this point.
+        const fresh: HiringAcc = {
           name, locations: new Set<string>(), sources: new Set<string>(), postingCount: 0,
-          sampleUrl: p.url ?? null, samplePostingId: p.id ?? null, onWatchlist: watchNames.has(key),
+          sampleUrl: (p.url as string | null) ?? null,
+          samplePostingId: p.id != null ? String(p.id) : null,
+          onWatchlist: watchNames.has(key),
           teerCounts: {}, bcPnp: 0, canExp: 0, payMin: null, payMax: null, postings: [],
         }
-        byCompany.set(key, entry)
+        byCompany.set(key, fresh)
+        entry = fresh
       }
       entry.postingCount += 1
-      if (p.location) entry.locations.add(p.location)
-      if (p.source) entry.sources.add(p.source)
-      if (!entry.samplePostingId && p.id) entry.samplePostingId = p.id
-      if (p.teer_category) entry.teerCounts[p.teer_category] = (entry.teerCounts[p.teer_category] ?? 0) + 1
+      if (p.location) entry.locations.add(String(p.location))
+      if (p.source) entry.sources.add(String(p.source))
+      if (!entry.samplePostingId && p.id) entry.samplePostingId = String(p.id)
+      if (p.teer_category) {
+        const teer = String(p.teer_category)
+        entry.teerCounts[teer] = (entry.teerCounts[teer] ?? 0) + 1
+      }
       if (p.bc_pnp_indemand === true) entry.bcPnp += 1
       if (p.canadian_exp === true) entry.canExp += 1
       if (typeof p.salary_min === 'number') entry.payMin = entry.payMin === null ? p.salary_min : Math.min(entry.payMin, p.salary_min)
@@ -196,7 +205,7 @@ export async function GET(req: NextRequest) {
       const jobs = (postings ?? [])
         .filter((p) => ((p.company as string | null) ?? '').trim() !== '')
         .filter((p) => sources.length === 0 || sources.includes(String(p.source ?? '')))
-        .filter((p) => provMatches(p.location, p.remote))
+        .filter((p) => provMatches((p.location as string | null) ?? null, (p.remote as boolean | null) ?? null))
         .map((p) => {
           const title = (p.title as string) ?? ''
           const company = (p.company as string) ?? ''

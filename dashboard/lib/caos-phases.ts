@@ -10,10 +10,12 @@
 //     Never live data. Sourced from the docs, not invented (Playbook §0.5).
 //   - decision: the phase's real output, pulled from the live event stream
 //     when a `kind` mapping exists and that stage has fired. Where no event
-//     kind exists yet (`docs/YVON-CHAT.md` §Phase observability — only
-//     phase.classify / phase.resolve / tool.call are emitted by hermes-agent
-//     today; phase.retrieve / gate.* / loop.iteration are reserved), the
-//     fallback text says so honestly instead of fabricating a result.
+//     kind exists yet (`docs/YVON-CHAT.md` §Phase observability — the wrapper
+//     emits phase.classify / phase.resolve / phase.retrieve / tool.call /
+//     gate.passed / gate.blocked / run.* for real since the 2026-08-21
+//     wiring; phase.retrieve additionally carries `warnings` and a failure
+//     emits ok:false since 2026-09-05; loop.iteration is still reserved),
+//     the fallback text says so honestly instead of fabricating a result.
 //
 // §3's own definition (line 264) draws the CAOS boundary at CLASSIFY →
 // RESOLVE → RETRIEVE → GATE. Phases 08–11 are the doc's post-CAOS pipeline

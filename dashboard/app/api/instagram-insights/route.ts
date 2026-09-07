@@ -2,8 +2,8 @@
  * POST /api/instagram-insights
  *
  * Enriches social_posts with real reach, saves, and shares from the
- * Facebook Graph API. Called after Apify scraping or on-demand from the
- * Social Media analytics page.
+ * Facebook Graph API. On-demand enrichment from the Social Media
+ * analytics page.
  *
  * Body: { ventureSlug: string, handle?: string }
  *

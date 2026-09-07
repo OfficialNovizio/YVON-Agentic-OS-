@@ -4,7 +4,8 @@
  *
  * Flow:
  *   1. resolveHandles() — AI-powered social handle discovery for a brand name
- *   2. scrapeCompetitor() — run Apify actors per platform, save metrics + posts
+ *   2. scrapeCompetitor() — RETIRED with Apify (2026-09-07): returns failed-
+ *      zeros for every handle until a replacement metric source is wired
  *   3. scoreAndSave() — compute signal score from fresh metrics
  *   4. generateIntel() — Kai (Anthropic) brief on the competitor
  *
@@ -18,16 +19,7 @@
  */
 import 'server-only'
 import { supabase } from '@/lib/supabase'
-import {
-  getToken,
-  scrapeInstagramFull,
-  scrapeTikTokFull,
-  scrapeLinkedInFull,
-  scrapeYouTubeFull,
-} from '@/lib/apify'
-import type { ScraperResult } from '@/lib/apify'
-import { upsertCompetitors, upsertCompetitorMetrics } from '@/lib/market-radar'
-import { insertCompetitorSnapshot } from '@/lib/db'
+import { upsertCompetitors } from '@/lib/market-radar'
 import { callFast } from '@/lib/ai-client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -159,79 +151,28 @@ For LinkedIn, use the full company URL. For YouTube, use the @handle format. For
   ]
 }
 
-// ─── Scraping ─────────────────────────────────────────────────────────────────
+// ─── Scraping (retired with Apify, 2026-09-07) ───────────────────────────────
+// No replacement metric source is wired. scrapeCompetitor keeps its signature
+// so the pipeline and its route consumers keep compiling; every platform
+// reports 'failed' with zeros (computeSignalScore → 0, tier keeps its AI
+// guess) until a real source exists.
 
 export async function scrapeCompetitor(
   competitorId: string,
   brandName: string,
   handles: CompetitorHandle[],
 ): Promise<PipelineResult['platforms']> {
-  let token: string
-  try {
-    token = await getToken()
-  } catch {
-    return handles.map(h => ({
-      platform: h.platform,
-      handle: h.handle,
-      status: 'failed' as const,
-      followers: 0,
-      engagementRate: 0,
-      postCount: 0,
-      error: 'APIFY_TOKEN not configured',
-    }))
-  }
-
-  const results = await Promise.allSettled(
-    handles.map(async (h): Promise<PipelineResult['platforms'][0]> => {
-      let data: ScraperResult
-      switch (h.platform) {
-        case 'instagram': data = await scrapeInstagramFull(token, h.handle); break
-        case 'tiktok':    data = await scrapeTikTokFull(token, h.handle);    break
-        case 'linkedin':  data = await scrapeLinkedInFull(token, h.handle);  break
-        case 'youtube':   data = await scrapeYouTubeFull(token, h.handle);   break
-        default: throw new Error(`Unsupported platform: ${h.platform}`)
-      }
-
-      await upsertCompetitorMetrics(competitorId, [{
-        platform: h.platform,
-        followers: data.metrics.followers,
-        engagementRate: data.metrics.engagement_rate,
-        monthlyReach: Math.round(data.metrics.avg_views * (data.metrics.posts_count || 1)),
-        estimatedMonthlyTraffic: 0,
-      }])
-
-      if (data.posts.length > 0) {
-        await insertCompetitorSnapshot(
-          competitorId,
-          h.platform,
-          { posts: data.posts.slice(0, 10), scrapedAt: new Date().toISOString() },
-          h.handle,
-        ).catch(() => {})
-      }
-
-      return {
-        platform: h.platform,
-        handle: h.handle,
-        status: 'success' as const,
-        followers: data.metrics.followers,
-        engagementRate: Math.round(data.metrics.engagement_rate * 10000) / 10000,
-        postCount: data.metrics.posts_count,
-      }
-    }),
-  )
-
-  return results.map((r, i) => {
-    if (r.status === 'fulfilled') return r.value
-    return {
-      platform: handles[i].platform,
-      handle: handles[i].handle,
-      status: 'failed' as const,
-      followers: 0,
-      engagementRate: 0,
-      postCount: 0,
-      error: (r.reason as Error)?.message ?? 'Unknown error',
-    }
-  })
+  void competitorId
+  void brandName
+  return handles.map(h => ({
+    platform: h.platform,
+    handle: h.handle,
+    status: 'failed' as const,
+    followers: 0,
+    engagementRate: 0,
+    postCount: 0,
+    error: 'Scraping removed (Apify decommissioned 2026-09-07) — no replacement source wired',
+  }))
 }
 
 // ─── Scoring ──────────────────────────────────────────────────────────────────
