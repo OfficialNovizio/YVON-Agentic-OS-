@@ -1,0 +1,109 @@
+{
+ "root_status": 200,
+ "landed_url": "http://novizio.preview.yvon.in/novizio",
+ "title": "USAVIONIX \u2014 Autonomous aerial intelligence",
+ "h1": [
+  "Securing the skies with autonomous intelligence",
+  "One platform, many missions.",
+  "USAvionix covers vast areas and long distances across real-world missions, provi",
+  "Autonomy in real operations",
+  "Ready to talk to us?"
+ ],
+ "sections": [
+  {
+   "id": "top",
+   "cls": "hero",
+   "h": "Securing the skies with autonomous intelligence"
+  },
+  {
+   "id": "mission",
+   "cls": "missions text-section",
+   "h": "One platform, many missions."
+  },
+  {
+   "id": "swarm",
+   "cls": "statement text-section",
+   "h": "USAvionix covers vast areas and long distances across real-w"
+  },
+  {
+   "id": "specs",
+   "cls": "demo text-section",
+   "h": "Autonomy in real operations"
+  },
+  {
+   "id": "sync",
+   "cls": "founders text-section",
+   "h": null
+  },
+  {
+   "id": "contact",
+   "cls": "contact text-section",
+   "h": "Ready to talk to us?"
+  }
+ ],
+ "body_font": "\"SF Pro Display\", Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+ "body_bg": "rgb(14, 14, 14)",
+ "h1_font": "Geist, Arial, sans-serif",
+ "h1_size": "80px",
+ "h1_weight": "500",
+ "h1_color": "rgb(255, 255, 255)",
+ "pill_radius": {
+  "count": 4,
+  "sample": [
+   "Contact",
+   "Scroll To Explore \u2193",
+   "Request Access"
+  ]
+ },
+ "accent_scan": [],
+ "usavionix_leak": true,
+ "anim_names": [
+  "terminal-in:0.4s"
+ ],
+ "overflow_1440": {
+  "sw": 1440,
+  "iw": 1440
+ },
+ "ov_1280": {
+  "sw": 1280,
+  "iw": 1280,
+  "h1": "80px",
+  "ok": true
+ },
+ "ov_768": {
+  "sw": 768,
+  "iw": 768,
+  "h1": "49.92px",
+  "ok": true
+ },
+ "ov_600": {
+  "sw": 600,
+  "iw": 600,
+  "h1": "43px",
+  "ok": true
+ },
+ "ov_480": {
+  "sw": 480,
+  "iw": 480,
+  "h1": "43px",
+  "ok": true
+ },
+ "ov_390": {
+  "sw": 390,
+  "iw": 390,
+  "h1": "43px",
+  "ok": true
+ },
+ "reduced_anim": {
+  "durations": [
+   "1e-05s"
+  ],
+  "allClamped": true
+ },
+ "reduced_visible": true,
+ "axe": {
+  "violations": [],
+  "passes": 34
+ },
+ "console_errors": []
+}

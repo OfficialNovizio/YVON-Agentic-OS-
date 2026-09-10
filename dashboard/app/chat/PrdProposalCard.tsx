@@ -21,6 +21,7 @@ import { useRef, useState } from 'react'
 import { gsap } from 'gsap'
 import { CircleCheck, X, FileText, FlaskConical, ScrollText } from 'lucide-react'
 import { Markdown } from './Markdown'
+import { DesignMdView } from './DesignMdView'
 
 /** The design payload (re-engineer Phase 5) — present when the room had a
  * reference-build design session with both gates answered. designMd is the
@@ -168,7 +169,7 @@ export function PrdProposalCard({ proposal, roomId, onResolved }: PrdProposalCar
             )}
             {proposal.design && tab === 'design' && (
               <div className="mt-3 max-h-[420px] overflow-y-auto rounded-[14px] border border-[var(--chat-hairline)] bg-[var(--chat-surface-strong)] p-4 text-[13.5px] leading-[1.6]">
-                <Markdown text={proposal.design.designMd} />
+                <DesignMdView text={proposal.design.designMd} />
               </div>
             )}
             {proposal.design && tab === 'recipe' && (

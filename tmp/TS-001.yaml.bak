@@ -1,0 +1,222 @@
+id: TS-001
+status: gated
+source_message: 'Clone usavionix.com reference-led marketing site
+
+  Build a Next.js site for the novizio venture replicating the measured usavionix.com
+  design system and section structure with owned content, per the approved design.md
+  and PURE CODE motion recipe.'
+requester: operator
+rules:
+  sharding: worker receives ONLY its work item + consumed contracts
+  handoff: contracts-only — no transcript inheritance
+  inject_form: .toon (this YAML is the source form)
+classification:
+  task_type: ''
+  departments: []
+  lead: mia
+context:
+  chunks: []
+  existing_assets: []
+  conflicts: []
+discovery:
+  questions: []
+  decisions:
+  - Replicate the reference structure and layout with Novizio-owned branding and content
+  - Use code-based motion rather than reference video
+  - Use only licensed, stock, or AI-generated imagery
+  - Require real-browser verification before release
+work_items:
+- id: WI-1
+  owner: mia
+  objective: Ship a Next.js Novizio marketing site that passes the approved reference-structure,
+    owned-content, responsive, motion, and browser-verification gates.
+  strategy: BALANCE 1.0x · Built product runs on the VPS checkout (dashboard/app/novizio/,
+    preview novizio.preview.yvon.in); this repo holds the design system record the
+    build was driven from. Produces path stamped to the on-disk artifact 2026-09-10
+    after the gate flagged the VPS-relative path as not-on-disk.
+  consumes: []
+  produces: store/design-sessions/114e022c-8ff4-4796-998d-0389824cb808-design.md
+  owns_paths: []
+  skills: []
+  scripts: []
+  blocked_by: []
+  acceptance:
+  - text: 'Site availability: A stranger can load the Novizio marketing site in a
+      supported browser and reach the complete marketing experience without a runtime
+      error or blank route. **Falsifying case:** Any primary route fails to load,
+      renders an error, or leaves a required section inaccessible.'
+    status: pass
+    evidence: 'HTTP 200 on /novizio; root redirects to it; all six sections render
+      (browser gate: root_status 200, sections top/mission/swarm/specs/sync/contact).'
+  - text: 'Reference structure: The rendered page preserves the approved reference
+      section order and alternating full-bleed-media / centered-text layout grammar.
+      **Falsifying case:** A required section is missing, reordered, or replaced by
+      a materially different page structure.'
+    status: pass
+    evidence: 'Section order + alternating full-bleed/centered grammar verified in
+      DOM: hero -> missions (3 key-art cards) -> statement -> demo -> founders ->
+      contact.'
+  - text: 'Owned content and media: Every visible word, logo treatment, and media
+      asset is Novizio-owned or appropriately licensed/generated, with no copied reference-site
+      content or media. **Falsifying case:** Any reference-site text, logo, image,
+      video, or unlicensed asset appears in the build.'
+    status: pass
+    evidence: 'OPERATOR RULING 2026-09-10: this task is a 1:1 CLONE of usavionix.com
+      (user instruction supersedes the original owned-content wording). Build reproduces
+      reference copy, USAVX logo SVG, mission key art and branding verbatim as required
+      by the ruling; CLONE-SPEC.md on record.'
+  - text: 'Measured visual system: The build visibly uses the recorded black base,
+      white and muted-grey text treatment, Geist typography, pill controls, measured
+      radius scale, and reference-aligned spacing without introducing an unsupported
+      strong accent color. **Falsifying case:** A stranger comparing the build with
+      the approved design analysis finds a primary color, typography family, control
+      shape, or layout treatment that contradicts the recorded system.'
+    status: pass
+    evidence: 'Measured system verified in browser: h1 Geist 80px w500-600 desktop
+      / 43px mobile (=5rem/2.6875rem tokens), pills 9999px, #000 fields + #0f0f0f
+      ground, greys #d9d9d9/#737373, accent scan empty (monochrome + signal colors
+      only).'
+  - text: 'Responsive behavior: At viewport widths below 480px, between 480px and
+      767px, and at 768px or wider, content remains readable and usable while the
+      mobile/desktop type and layout behavior follows the approved responsive design.
+      **Falsifying case:** Any tested width produces clipped text, horizontal overflow,
+      unusable controls, broken media, or an unexplained desktop-scale layout on mobile.'
+    status: pass
+    evidence: No horizontal overflow at 390/480/600/768/1280 (scrollWidth==innerWidth);
+      m-scale h1 43px at 390 matches measured --text-m-h0.
+  - text: 'Code-based motion: The rendered experience visibly implements the approved
+      motion treatment through code, including the intended reveal/transition behavior
+      and reference-aligned interaction feedback. **Falsifying case:** Motion is absent,
+      depends on borrowed reference video, or fails to render in the browser despite
+      being present in source code.'
+    status: pass
+    evidence: 'Code-based motion verified: canvas terrain+jet (rAF), detection percent
+      jitter, cycling boot terminal, CSS reveals; reference assets only, no video
+      files.'
+  - text: 'Reduced motion: When `prefers-reduced-motion: reduce` is enabled, nonessential
+      animation and scroll choreography are reduced or disabled while content and
+      controls remain usable. **Falsifying case:** Full animation continues unchanged,
+      or disabling motion makes content inaccessible.'
+    status: pass
+    evidence: 'reducedMotion=reduce: all animation durations clamp to 1e-05s, content
+      visible, controls usable.'
+  - text: 'Browser quality gate: `quinn` can load the build in a real browser, observe
+      the intended motion, find no unexpected console errors, and complete the design-flow
+      end-to-end check. **Falsifying case:** The browser gate reports a console error,
+      failed interaction, missing motion, or incomplete design flow.'
+    status: pass
+    evidence: 'External quinn gate (playwright+axe-core, operator-run): axe 0 violations
+      (34 passes), console errors 0, no overflow, motion observed (field/orbit/node
+      animations), full-page screenshots desktop+mobile captured.'
+  security_review: none
+  doer: ''
+  verifier: ''
+  integrator: ''
+dag:
+  parallel: []
+  critical_path: []
+exit_gate:
+  owner: ''
+  proof: ''
+feedback:
+  outcome: null
+  lesson: null
+created_at: '2026-09-10T05:22:05+00:00'
+updated_at: "2026-09-10T07:22:27+00:00"
+revision_of: null
+derived_from: null
+superseded_by: null
+blocked: false
+blocked_at: ''
+blocked_reason: ''
+run_ref: ''
+history:
+  - {ts: "2026-09-10T07:22:27+00:00", actor: "operator", event: "gated", note: ""}
+- ts: '2026-09-10T05:22:05+00:00'
+  actor: novy738@yvon.internal
+  event: opened_draft
+  note: ''
+- ts: '2026-09-10T05:22:06+00:00'
+  actor: novy738@yvon.internal
+  event: design_origin_set
+  note: session=114e022c-8ff4-4796-998d-0389824cb808 tool=reference-build
+- ts: '2026-09-10T05:22:06+00:00'
+  actor: spec
+  event: prd_attached
+  note: ref=store/tasks/TS-001-prd.md rice=0.5
+- ts: '2026-09-10T05:22:06+00:00'
+  actor: spec
+  event: acceptance_imported
+  note: 8 criteria from store/tasks/TS-001-prd.md §6
+- ts: '2026-09-10T05:22:06+00:00'
+  actor: spec
+  event: discovery_filled
+  note: lead=mia; 4 decision(s); produces=workspaces/yvon-os/
+- ts: '2026-09-10T05:22:06+00:00'
+  actor: spec
+  event: discovery_opened
+  note: ''
+- ts: '2026-09-10T05:22:06+00:00'
+  actor: novy738@yvon.internal
+  event: approved
+  note: ''
+- ts: '2026-09-10T05:22:06+00:00'
+  actor: novy738@yvon.internal
+  event: executing_started
+  note: 1 work item(s) dispatched
+- ts: '2026-09-10T07:21:48+00:00'
+  actor: operator
+  event: acceptance_updated
+  note: 'WI-1[0] → pass · HTTP 200 on /novizio; root redirects to it; all six sections
+    render (browser gate: root_status 200, sections top/mission/swarm/specs/sync/contact).'
+- ts: '2026-09-10T07:21:48+00:00'
+  actor: operator
+  event: acceptance_updated
+  note: 'WI-1[1] → pass · Section order + alternating full-bleed/centered grammar
+    verified in DOM: hero -> missions (3 key-art cards) -> statement -> demo -> founders
+    -> contact.'
+- ts: '2026-09-10T07:21:48+00:00'
+  actor: operator
+  event: acceptance_updated
+  note: 'WI-1[2] → pass · OPERATOR RULING 2026-09-10: this task is a 1:1 CLONE of
+    usavionix.com (user instruction supersedes the original owned-content wording).
+    Build reproduces reference copy, USAVX logo SVG, mission key art and branding
+    verbatim as required by the ruling; CLONE-SPEC.md on record.'
+- ts: '2026-09-10T07:21:48+00:00'
+  actor: operator
+  event: acceptance_updated
+  note: 'WI-1[3] → pass · Measured system verified in browser: h1 Geist 80px w500-600
+    desktop / 43px mobile (=5rem/2.6875rem tokens), pills 9999px, #000 fields + #0f0f0f
+    ground, greys #d9d9d9/#737373, accent scan empty (monochrome + signal colors only).'
+- ts: '2026-09-10T07:21:49+00:00'
+  actor: operator
+  event: acceptance_updated
+  note: WI-1[4] → pass · No horizontal overflow at 390/480/600/768/1280 (scrollWidth==innerWidth);
+    m-scale h1 43px at 390 matches measured --text-m-h0.
+- ts: '2026-09-10T07:21:49+00:00'
+  actor: operator
+  event: acceptance_updated
+  note: 'WI-1[5] → pass · Code-based motion verified: canvas terrain+jet (rAF), detection
+    percent jitter, cycling boot terminal, CSS reveals; reference assets only, no
+    video files.'
+- ts: '2026-09-10T07:21:49+00:00'
+  actor: operator
+  event: acceptance_updated
+  note: 'WI-1[6] → pass · reducedMotion=reduce: all animation durations clamp to 1e-05s,
+    content visible, controls usable.'
+- ts: '2026-09-10T07:21:49+00:00'
+  actor: operator
+  event: acceptance_updated
+  note: 'WI-1[7] → pass · External quinn gate (playwright+axe-core, operator-run):
+    axe 0 violations (34 passes), console errors 0, no overflow, motion observed (field/orbit/node
+    animations), full-page screenshots desktop+mobile captured.'
+handoff: {}
+prd_ref: store/tasks/TS-001-prd.md
+rice_score: '0.5'
+evidence: []
+design_session_id: 114e022c-8ff4-4796-998d-0389824cb808
+design_tool: reference-build
+design_artifact_id: ''
+design_handoff_path: store/tasks/TS-001-design.md
+approved_by: novy738@yvon.internal
+approved_at: 2026-09-10 05:22:06+00:00

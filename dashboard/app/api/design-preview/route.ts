@@ -33,6 +33,7 @@ import { execFile } from 'child_process'
 import { promisify } from 'util'
 import path from 'path'
 import fs from 'fs'
+import { ensureRepoPreview, hermesConfig } from '@/lib/hermes-client'
 
 const execFileAsync = promisify(execFile)
 const REPO_ROOT = path.resolve(process.cwd(), '..')
@@ -51,11 +52,20 @@ interface PreviewTab {
 interface PreviewTabHtml extends PreviewTab {
   html?: string
   stub?: boolean
+  /** reference-build: URL of the built product's live dev server
+   * (https://<venture>.preview.yvon.in/) — link-out, never an iframe
+   * (next.config.ts sets frame-src 'none'). */
+  url?: string
+  note?: string
 }
 interface CodeTab extends PreviewTab {
   code?: string
   stack?: string
   stub?: boolean
+  /** reference-build: the dashboard repo browser for the built product
+   * (/repo/<venture>) — link-out for the same frame-src 'none' reason. */
+  repoFilesUrl?: string
+  note?: string
 }
 interface DesignMdTab extends PreviewTab {
   text?: string
@@ -89,6 +99,21 @@ const SESSION_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 
 function unavailable(reason: string): PreviewTab {
   return { available: false, reason }
+}
+
+// 2026-09-08: derive the venture slug for reference-build tabs from the
+// record's stamped work-item produces ("workspaces/novizio/" → "novizio") —
+// the disk value written at convert time (createTaskFromPrd reads the design
+// session's venture; scripts/run-task-suite.mjs parses the same shape), never
+// the session cookie. Regex-validated before it touches any URL or the VPS
+// call: a crafted produces value like "workspaces/../_dev_logs/" must not
+// flow into the VPS path join (main.py _venture_repo_dir).
+function deriveWorkspaceSlug(task: Record<string, unknown>): string | null {
+  const items = task.workItems as Array<{ produces?: string }> | undefined
+  const produces = items?.map((wi) => wi?.produces ?? '').find((p) => /^workspaces\/[^/]+\/?$/.test(p.trim()))
+  if (!produces) return null
+  const slug = produces.trim().split('/')[1]
+  return /^[a-z0-9-]+$/.test(slug) ? slug : null
 }
 
 async function resolveOpenDesignPreview(artifactId: string, projectId: string): Promise<PreviewTabHtml> {
@@ -222,9 +247,35 @@ export async function GET(request: NextRequest) {
     // sessions (store/design-sessions/{sid}.json, kind "reference-build").
     // Their design.md is written by the design-gate cascade; the preview and
     // code live in the BUILT product (workspaces/<venture>/), not in the
-    // session — say that honestly instead of reusing the custom/stub wording.
-    code = unavailable('reference-build produces the real product (workspaces/<venture>/) — no generated code lives in the design session')
-    preview = unavailable('reference-build preview is the built product itself — this tab fills from the build, not the session')
+    // session. 2026-09-08: the two tabs now RESOLVE the built product the same
+    // way the chat repo-links block does — venture slug derived from the
+    // record's stamped WI produces (the disk value, never the session cookie),
+    // dev server via ensureRepoPreview (same call stream/route.ts makes), and
+    // the code tab opens the dashboard's own /repo/<slug> browser. Both are
+    // link-out: next.config.ts sets frame-src 'none', so neither URL can be
+    // iframed into this panel.
+    const slug = deriveWorkspaceSlug(task)
+    if (!slug) {
+      code = unavailable('no workspaces/<venture>/ product home stamped on this task yet — the design session has no venture or convert never stamped WI produces')
+      preview = code
+    } else {
+      const p = await ensureRepoPreview(slug, hermesConfig())
+      preview = p.ok && p.previewHost
+        ? {
+            available: true,
+            // http:// until a wildcard TLS cert exists for *.preview.yvon.in
+            // (per-venture certbot needs the DNS record first) — the nginx
+            // vhost serves the dev server on port 80 today.
+            url: `http://${p.previewHost}/`,
+            note: 'the built product itself, served by its dev server on the VPS — opens in a new tab (dashboard CSP sets frame-src \'none\', so it cannot render inline here)',
+          }
+        : unavailable(`live preview not ready: ${p.error ?? 'unknown error'}`)
+      code = {
+        available: true,
+        repoFilesUrl: `/repo/${slug}`,
+        note: 'the built product\'s source tree on the VPS checkout — read-only file browser, opens in a new tab',
+      }
+    }
   } else {
     // custom / stub-only session — no generation tool was actually called.
     code = unavailable('no code-generation tool was used for this session (custom/stub)')

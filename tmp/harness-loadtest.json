@@ -1,0 +1,209 @@
+{
+ "started": "2026-09-10 00:08:28",
+ "repo": "C:\\Users\\Novy\\Desktop\\YVON-Agentic-OS-",
+ "rss_before_mb": 0.0,
+ "import_s": 10.59,
+ "warmup": {
+  "ms": 3771.6,
+  "chunks": 0,
+  "error": null
+ },
+ "serial": {
+  "samples": [
+   {
+    "case": 0,
+    "agent": "mia",
+    "ms": 2754.1,
+    "chunks": 0,
+    "error": null
+   },
+   {
+    "case": 1,
+    "agent": "quinn",
+    "ms": 2638.2,
+    "chunks": 0,
+    "error": null
+   },
+   {
+    "case": 2,
+    "agent": "raj",
+    "ms": 2676.2,
+    "chunks": 0,
+    "error": null
+   },
+   {
+    "case": 3,
+    "agent": "dev",
+    "ms": 2602.1,
+    "chunks": 0,
+    "error": null
+   },
+   {
+    "case": 4,
+    "agent": "scope",
+    "ms": 2599.5,
+    "chunks": 0,
+    "error": null
+   },
+   {
+    "case": 5,
+    "agent": "rival",
+    "ms": 2644.4,
+    "chunks": 0,
+    "error": null
+   },
+   {
+    "case": 6,
+    "agent": "felix",
+    "ms": 2662.9,
+    "chunks": 0,
+    "error": null
+   },
+   {
+    "case": 7,
+    "agent": "flow",
+    "ms": 2601.9,
+    "chunks": 0,
+    "error": null
+   },
+   {
+    "case": 8,
+    "agent": "retain",
+    "ms": 2674.8,
+    "chunks": 0,
+    "error": null
+   },
+   {
+    "case": 9,
+    "agent": "lena",
+    "ms": 2708.7,
+    "chunks": 0,
+    "error": null
+   },
+   {
+    "case": 10,
+    "agent": "comply",
+    "ms": 2672.4,
+    "chunks": 0,
+    "error": null
+   },
+   {
+    "case": 11,
+    "agent": "trial",
+    "ms": 2606.5,
+    "chunks": 0,
+    "error": null
+   }
+  ],
+  "n": 12,
+  "errors": 0,
+  "error_samples": [],
+  "p50_ms": 2662.9,
+  "p95_ms": 2708.7,
+  "p99_ms": 2754.1,
+  "min_ms": 2599.5,
+  "max_ms": 2754.1,
+  "mean_ms": 2653.5,
+  "empty_results": 12
+ },
+ "concurrency": {
+  "2": {
+   "calls": 6,
+   "wall_s": 8.6,
+   "throughput_cps": 0.7,
+   "n": 6,
+   "errors": 0,
+   "error_samples": [],
+   "p50_ms": 2820.8,
+   "p95_ms": 2908.5,
+   "p99_ms": 2908.5,
+   "min_ms": 2622.8,
+   "max_ms": 2908.5,
+   "mean_ms": 2793.8,
+   "empty_results": 6
+  },
+  "4": {
+   "calls": 12,
+   "wall_s": 9.7,
+   "throughput_cps": 1.23,
+   "n": 12,
+   "errors": 0,
+   "error_samples": [],
+   "p50_ms": 3175.4,
+   "p95_ms": 3354.0,
+   "p99_ms": 3495.8,
+   "min_ms": 2635.3,
+   "max_ms": 3495.8,
+   "mean_ms": 3114.7,
+   "empty_results": 12
+  },
+  "8": {
+   "calls": 24,
+   "wall_s": 13.4,
+   "throughput_cps": 1.8,
+   "n": 24,
+   "errors": 0,
+   "error_samples": [],
+   "p50_ms": 4360.9,
+   "p95_ms": 4571.0,
+   "p99_ms": 4605.3,
+   "min_ms": 2560.0,
+   "max_ms": 4605.3,
+   "mean_ms": 4086.3,
+   "empty_results": 24
+  }
+ },
+ "agentic": {
+  "samples": [
+   {
+    "agent": "mia",
+    "ms": 2812.0,
+    "chunks": 0,
+    "error": null
+   },
+   {
+    "agent": "quinn",
+    "ms": 2809.2,
+    "chunks": 0,
+    "error": null
+   },
+   {
+    "agent": "raj",
+    "ms": 2864.7,
+    "chunks": 0,
+    "error": null
+   },
+   {
+    "agent": "dev",
+    "ms": 3598.5,
+    "chunks": 0,
+    "error": null
+   },
+   {
+    "agent": "scope",
+    "ms": 2705.4,
+    "chunks": 0,
+    "error": null
+   },
+   {
+    "agent": "rival",
+    "ms": 2891.4,
+    "chunks": 0,
+    "error": null
+   }
+  ],
+  "n": 6,
+  "errors": 0,
+  "error_samples": [],
+  "p50_ms": 2812.0,
+  "p95_ms": 3598.5,
+  "p99_ms": 3598.5,
+  "min_ms": 2705.4,
+  "max_ms": 3598.5,
+  "mean_ms": 2946.9,
+  "empty_results": 6
+ },
+ "rss_after_mb": 0.0,
+ "total_wall_s": 95.6,
+ "plan_lock_rows_added": 61
+}

@@ -93,9 +93,10 @@ if (!row.exitOwner) {
 
 // ── 2. mechanical checks ─────────────────────────────────────────────────────
 const checks = []
-function record(name, state, detail) {
-  checks.push({ name, state, detail: (detail ?? '').slice(0, 2000) })
+function record(name, state, detail, ms) {
+  checks.push({ name, state, detail: (detail ?? '').slice(0, 2000), ...(ms != null ? { ms } : {}) })
 }
+const nowMs = () => Date.now()
 
 // produces-exists — re-proves, on disk, what the gate asserted at pass→review.
 {
@@ -179,7 +180,8 @@ if (!productRoot) {
         shellWin: true,
         env: { NODE_ENV: 'production' },
       })
-      record('product-build', r.ok ? 'pass' : 'fail', r.ok ? 'npm run build exited 0' : `build failed (exit ${r.status}):\n${r.out.slice(-1500)}`)
+      const t0 = nowMs()
+      record('product-build', r.ok ? 'pass' : 'fail', r.ok ? 'npm run build exited 0' : `build failed (exit ${r.status}):\n${r.out.slice(-1500)}`, nowMs() - t0)
     }
   }
 }
@@ -188,12 +190,13 @@ if (!productRoot) {
 // product-spec — the product's own Playwright suite, if the product has one.
 const scopedSpec = path.join(ROOT, 'dashboard', 'tests', 'e2e', `${taskId}.spec.ts`)
 if (existsSync(scopedSpec)) {
+  const t0 = nowMs()
   const r = sh(WIN ? 'npx.cmd' : 'npx', ['playwright', 'test', scopedSpec, '--project=chromium'], {
     cwd: path.join(ROOT, 'dashboard'),
     timeout: 300_000,
     shellWin: true,
   })
-  record('task-spec', r.ok ? 'pass' : 'fail', r.ok ? `${taskId}.spec.ts passed` : `spec failed (exit ${r.status}):\n${r.out.slice(-1500)}`)
+  record('task-spec', r.ok ? 'pass' : 'fail', r.ok ? `${taskId}.spec.ts passed` : `spec failed (exit ${r.status}):\n${r.out.slice(-1500)}`, nowMs() - t0)
 } else {
   record('task-spec', 'skipped', `no dashboard/tests/e2e/${taskId}.spec.ts written for this task`)
 }
@@ -204,12 +207,54 @@ if (productRoot) {
   if (!hasPw) {
     record('product-spec', 'skipped', `${productRoot} has no playwright config — no product-local browser suite`)
   } else {
+    const t0 = nowMs()
     const r = sh(WIN ? 'npx.cmd' : 'npx', ['playwright', 'test', '--project=chromium'], {
       cwd: path.join(ROOT, productRoot),
       timeout: 300_000,
       shellWin: true,
     })
-    record('product-spec', r.ok ? 'pass' : 'fail', r.ok ? 'product e2e suite passed' : `suite failed (exit ${r.status}):\n${r.out.slice(-1500)}`)
+    record('product-spec', r.ok ? 'pass' : 'fail', r.ok ? 'product e2e suite passed' : `suite failed (exit ${r.status}):\n${r.out.slice(-1500)}`, nowMs() - t0)
+  }
+}
+
+// clone-proof - the original-vs-clone screenshot proof (scripts/
+// verify-clone-proof.py), for STATIC clones: runs when the task's design
+// session recorded a reference capture and the capture has a clone dir
+// (workspaces/_reference-captures/<out>-clone with index.html). Dynamic
+// products (workspaces/<venture>/ Next.js builds) are proven by product-spec
+// instead - this check skips loudly for them, it never pretends to run.
+{
+  let sessionId = ''
+  try {
+    const yaml = readFileSync(path.join(ROOT, 'store', 'tasks', `${taskId}.yaml`), 'utf8')
+    sessionId = (/design_session_id:\s*"?([a-f0-9-]{36})"?/.exec(yaml)?.[1]) ?? ''
+  } catch { /* no yaml - no session */ }
+  let captureOut = ''
+  if (sessionId) {
+    try {
+      const sess = JSON.parse(readFileSync(path.join(ROOT, 'store', 'design-sessions', `${sessionId}.json`), 'utf8'))
+      captureOut = typeof sess.capture?.out === 'string' ? sess.capture.out : ''
+    } catch { /* unreadable session - no capture */ }
+  }
+  const capDir = captureOut ? path.join(ROOT, 'workspaces', '_reference-captures', captureOut) : ''
+  const cloneDir = captureOut ? path.join(ROOT, 'workspaces', '_reference-captures', `${captureOut}-clone`) : ''
+  if (!captureOut) {
+    record('clone-proof', 'skipped', 'no reference capture recorded on this task design session')
+  } else if (!existsSync(path.join(capDir, 'reference.png'))) {
+    record('clone-proof', 'skipped', `capture ${captureOut} has no reference.png on disk`)
+  } else if (!existsSync(path.join(cloneDir, 'index.html'))) {
+    record('clone-proof', 'skipped', `capture ${captureOut} has no static clone dir (${captureOut}-clone with index.html) - a dynamic product is proven by product-spec`)
+  } else {
+    const t0 = nowMs()
+    const r = sh('python3', [
+      path.join(ROOT, 'scripts', 'verify-clone-proof.py'),
+      '--clone', cloneDir,
+      '--original', path.join(capDir, 'reference.png'),
+    ], { timeout: 240_000 })
+    const okFlag = r.ok && /"ok": true/.test(r.out)
+    record('clone-proof', okFlag ? 'pass' : 'fail', okFlag
+      ? `original-vs-clone proof composed for ${captureOut}`
+      : `proof failed (exit ${r.status}):\n${r.out.slice(-1200)}`, nowMs() - t0)
   }
 }
 
@@ -240,12 +285,13 @@ const lines = []
 lines.push(`# Run record · run-${runN}`)
 lines.push('')
 lines.push(`- task: ${taskId}`)
-lines.push(`- suite: mechanical company-loop suite (scripts/run-task-suite.mjs) · produces-exists · product-build · task-spec · product-spec`)
+lines.push(`- suite: mechanical company-loop suite (scripts/run-task-suite.mjs) · produces-exists · product-build · task-spec · product-spec · clone-proof`)
 lines.push(`- result: ${result.toUpperCase()} · ${executed.filter((c) => c.state === 'pass').length} of ${executed.length} executed checks passed${skipped.length ? ` · ${skipped.length} skipped` : ''}`)
 lines.push(`- date: ${date}`)
 lines.push(`- checks:`)
 for (const c of checks) {
-  lines.push(`  - [${c.state}] ${c.name}${c.detail ? ` — ${c.detail.replace(/\n/g, ' · ')}` : ''}`)
+  const dur = c.ms != null ? ` (${(c.ms / 1000).toFixed(1)}s)` : ''
+  lines.push(`  - [${c.state}] ${c.name}${dur}${c.detail ? ` — ${c.detail.replace(/\n/g, ' · ')}` : ''}`)
 }
 if (skipped.length) {
   lines.push('')

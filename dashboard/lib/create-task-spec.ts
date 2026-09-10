@@ -117,6 +117,9 @@ export interface CreateTaskFromPrdResult {
    * design-origin step (design.md copy + set-design-origin). Same discipline
    * as evidenceErrors — enrichment, loud, never fatal. */
   designErrors?: string[]
+  /** 2026-09-08: failures from the best-effort PRD §6 acceptance import
+   * (task.py import-acceptance). Same loud-not-fatal discipline. */
+  acceptanceErrors?: string[]
 }
 
 async function runTask(...args: string[]): Promise<{ ok: boolean; stdout: string; stderr: string }> {
@@ -233,6 +236,20 @@ export async function createTaskFromPrd(
     return { taskId, status: 'draft', error: setPrd.stderr, failedStep: 'set-prd', kanbanOk: false, kanbanError: null, evidenceErrors, designErrors }
   }
 
+  // ── Acceptance import (2026-09-08) ──────────────────────────────────────
+  // The record's acceptance block starts as TEMPLATE's single empty
+  // criterion; the PRD's §6 criteria never reached it, so the acceptance
+  // card + build-progress bar showed "0/1" with a blank row for the whole
+  // build. Import the PRD's numbered criteria into WI-1 right after set-prd.
+  // Best-effort like evidence/design: a PRD whose §6 format drifted leaves
+  // the block empty and fails LOUD here instead of silently.
+  const acceptanceErrors: string[] = []
+  const importAcc = await runTask('import-acceptance', taskId, '--prd', prdRelPath, '--actor', 'spec')
+  if (!importAcc.ok) {
+    acceptanceErrors.push(importAcc.stderr.slice(0, 300))
+    console.error(`[convert] ${taskId} acceptance import failed:`, importAcc.stderr)
+  }
+
   const fillDiscovery = await runTask(
     'fill-discovery', taskId,
     '--lead', generated.meta.lead,
@@ -242,24 +259,24 @@ export async function createTaskFromPrd(
     ...(producesArg ? ['--produces', producesArg] : []),
   )
   if (!fillDiscovery.ok) {
-    return { taskId, status: 'draft', error: fillDiscovery.stderr, failedStep: 'fill-discovery', kanbanOk: false, kanbanError: null, evidenceErrors, designErrors }
+    return { taskId, status: 'draft', error: fillDiscovery.stderr, failedStep: 'fill-discovery', kanbanOk: false, kanbanError: null, evidenceErrors, designErrors, acceptanceErrors }
   }
 
   const discover = await runTask('discover', taskId, '--actor', 'spec')
   if (!discover.ok) {
-    return { taskId, status: 'draft', error: discover.stderr, failedStep: 'discover', kanbanOk: false, kanbanError: null, evidenceErrors, designErrors }
+    return { taskId, status: 'draft', error: discover.stderr, failedStep: 'discover', kanbanOk: false, kanbanError: null, evidenceErrors, designErrors, acceptanceErrors }
   }
 
   const approve = await runTask('approve', taskId, '--by', approvedBy)
   if (!approve.ok) {
-    return { taskId, status: 'discovery', error: approve.stderr, failedStep: 'approve', kanbanOk: false, kanbanError: null, evidenceErrors, designErrors }
+    return { taskId, status: 'discovery', error: approve.stderr, failedStep: 'approve', kanbanOk: false, kanbanError: null, evidenceErrors, designErrors, acceptanceErrors }
   }
 
   const start = await runTask('start', taskId, '--actor', approvedBy)
   if (!start.ok) {
-    return { taskId, status: 'approved', error: start.stderr, failedStep: 'start', kanbanOk: false, kanbanError: null, evidenceErrors, designErrors }
+    return { taskId, status: 'approved', error: start.stderr, failedStep: 'start', kanbanOk: false, kanbanError: null, evidenceErrors, designErrors, acceptanceErrors }
   }
 
   const { kanbanOk, kanbanError } = await mirrorToKanban(taskId, title)
-  return { taskId, status: 'executing', error: null, failedStep: null, kanbanOk, kanbanError, evidenceErrors, designErrors }
+  return { taskId, status: 'executing', error: null, failedStep: null, kanbanOk, kanbanError, evidenceErrors, designErrors, acceptanceErrors }
 }

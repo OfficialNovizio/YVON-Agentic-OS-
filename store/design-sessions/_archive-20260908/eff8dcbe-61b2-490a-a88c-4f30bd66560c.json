@@ -1,0 +1,99 @@
+{
+  "id": "eff8dcbe-61b2-490a-a88c-4f30bd66560c",
+  "kind": "reference-build",
+  "status": "captured",
+  "createdAt": "2026-09-08T03:04:14.602Z",
+  "updatedAt": "2026-09-08T03:07:19.883Z",
+  "roomId": "fe8e8d20-60cd-4e9a-85d4-1eb7fe9d91f9",
+  "venture": "novizio",
+  "correlation": "ad4b6ba4-b6a2-409c-9a1c-73a8cf6fa1ba",
+  "reference": {
+    "url": "https://www.detroit.paris/:",
+    "taxonomy": "unknown",
+    "motionProfileUrl": "https://hermes.yvon.in/artifacts/novizio/ad4b6ba4-b6a2-409c-9a1c-73a8cf6fa1ba/motion-profile.md"
+  },
+  "history": [
+    {
+      "at": "2026-09-08T03:04:14.602Z",
+      "event": "session_captured",
+      "detail": "https://www.detroit.paris/:"
+    },
+    {
+      "at": "2026-09-08T03:05:26.008Z",
+      "event": "motion_profile_published",
+      "detail": "https://hermes.yvon.in/artifacts/novizio/ad4b6ba4-b6a2-409c-9a1c-73a8cf6fa1ba/motion-profile.md"
+    },
+    {
+      "at": "2026-09-08T03:05:26.125Z",
+      "event": "capture_completed",
+      "detail": "www-detroit-paris-20260908 - round trip 70.3s"
+    },
+    {
+      "at": "2026-09-08T03:05:26.151Z",
+      "event": "brand_gate_emitted",
+      "detail": "Make the grid the signature | Keep color discipline | Pair display scale with utility text | Treat pricing as editorial content | Use quiet motion | Build recurring visual anchors"
+    },
+    {
+      "at": "2026-09-08T03:07:19.883Z",
+      "event": "brand_adopted",
+      "detail": "Make the grid the signature | Keep color discipline | Pair display scale with utility text | Treat pricing as editorial content | Use quiet motion | Build recurring visual anchors"
+    }
+  ],
+  "capture": {
+    "url": "https://www.detroit.paris/",
+    "out": "www-detroit-paris-20260908",
+    "previewUrl": "https://hermes.yvon.in/artifacts/novizio/ad4b6ba4-b6a2-409c-9a1c-73a8cf6fa1ba/_reference-capture/reference.html",
+    "reportUrl": "https://hermes.yvon.in/artifacts/novizio/ad4b6ba4-b6a2-409c-9a1c-73a8cf6fa1ba/scrape-report.md",
+    "seconds": 70.3,
+    "summary": {
+      "title": "Detroit | AI Production House in Paris for Luxury Brands",
+      "pageHeight": 900,
+      "videos": 32,
+      "images": 34,
+      "stylesheets": 3,
+      "keyframes": 2,
+      "animatedRules": 3,
+      "assetsHarvested": 99,
+      "seconds": 57.4
+    },
+    "capturedAt": "2026-09-08T03:05:26.121Z"
+  },
+  "suggestions": [
+    {
+      "title": "Make the grid the signature",
+      "text": "Use an irregular product-grid hero with varied tile proportions, compact metadata, and one oversized Novizio statement.",
+      "why": "It directly replaces the reference showreel while preserving its editorial composition and gives Novizio a recognizable product-led entry point.",
+      "adopted": true
+    },
+    {
+      "title": "Keep color discipline",
+      "text": "Use black, white, grayscale, and one restrained accent only for key actions or pricing emphasis.",
+      "why": "The reference is grounded in a stark monochrome palette, while a controlled accent can help Novizio establish hierarchy without weakening the editorial look.",
+      "adopted": true
+    },
+    {
+      "title": "Pair display scale with utility text",
+      "text": "Set Novizio headlines at a large editorial scale and use monospace or compact sans-serif labels for product names, prices, categories, and navigation.",
+      "why": "The contrast reinforces the reference’s art-directed feel and makes the product system feel intentional and precise.",
+      "adopted": true
+    },
+    {
+      "title": "Treat pricing as editorial content",
+      "text": "Present plans as a structured comparison with rules, aligned values, and one highlighted recommendation instead of rounded dashboard-style cards.",
+      "why": "This preserves the reference’s graphic language while making pricing feel native to the design rather than appended as a standard SaaS section.",
+      "adopted": true
+    },
+    {
+      "title": "Use quiet motion",
+      "text": "Limit animation to short opacity and vertical-entry transitions, staggered grid reveals, and restrained hover feedback.",
+      "why": "The motion profile found no substantial runtime motion machinery, so subtle code-based entrances add polish without contradicting the reference’s static-editorial character.",
+      "adopted": true
+    },
+    {
+      "title": "Build recurring visual anchors",
+      "text": "Repeat thin dividers, small index numbers, product labels, and oversized whitespace throughout the page.",
+      "why": "These recurring details can connect the hero, product sections, pricing, and footer into one coherent Novizio editorial system.",
+      "adopted": true
+    }
+  ]
+}

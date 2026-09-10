@@ -25,6 +25,8 @@ import { CaosPanel } from './CaosPanel'
 import { TaskProposalPrompt, type PendingTaskProposal, type ProposalArtifact } from './TaskProposalPrompt'
 import { IntentGateCard, type DesignGatePayload } from './IntentGateCard'
 import { MotionBriefCard, type MotionGatePayload } from './MotionBriefCard'
+import { CaptureProgressCard, type CaptureProgressState, type CaptureDonePayload } from './CaptureProgressCard'
+import { BrandSuggestionsCard, type BrandGatePayload } from './BrandSuggestionsCard'
 import type { MotionNeed } from '@/lib/motion-brief'
 import { ArtifactStrip } from './ArtifactStrip'
 import { PrdProposalCard, type PendingPrdProposal } from './PrdProposalCard'
@@ -184,7 +186,13 @@ export default function ChatPage() {
   // Re-engineer Phase 2+3 (2026-09-05): the reference-build gate cards
   // (design.gate SSE frame → IntentGateCard for stage "intent",
   // MotionBriefCard for stage "motion").
-  const [designGate, setDesignGate] = useState<DesignGatePayload | MotionGatePayload | null>(null)
+  const [designGate, setDesignGate] = useState<
+    DesignGatePayload | MotionGatePayload | BrandGatePayload | null
+  >(null)
+  // Stealth-browser capture relay (2026-09-07): live progress while the
+  // reference capture runs, then the published bundle's facts card.
+  const [captureProgress, setCaptureProgress] = useState<CaptureProgressState | null>(null)
+  const [captureDone, setCaptureDone] = useState<CaptureDonePayload | null>(null)
   // Evidence rail fix ② (2026-09-04): artifacts this turn produced — live from
   // `artifact` SSE frames, or rehydrated from `artifact` events-table rows for
   // the last correlation (same pattern as the past-turn pipeline panel).
@@ -469,6 +477,8 @@ export default function ChatPage() {
     setTurnArtifacts([])
     setPrdProposal(null)
     setDesignGate(null)
+    setCaptureProgress(null)
+    setCaptureDone(null)
     // Don't wipe the live turn's state just because the user looked at another
     // room — the turn is still running and they may well come back to watch it
     // finish. Display is gated on streamingRoomId instead, so the other room
@@ -578,6 +588,8 @@ export default function ChatPage() {
       setTurnArtifacts([])
       setPrdProposal(null)
       setDesignGate(null)
+      setCaptureProgress(null)
+      setCaptureDone(null)
       const abort = new AbortController()
       sendAbortRef.current = abort
 
@@ -684,6 +696,16 @@ export default function ChatPage() {
                 sessionId?: string
                 reference?: DesignGatePayload['reference']
                 needs?: MotionNeed[]
+                // brand gate suggestions (Gate 3, 2026-09-07)
+                suggestions?: { title: string; text: string; why: string }[]
+                // stealth-browser capture relay (2026-09-07) — summary is
+                // read per-frame below (tool frames carry summary: string)
+                pct?: number
+                elapsedS?: number
+                out?: string
+                previewUrl?: string
+                reportUrl?: string
+                seconds?: number
                 // task.proposed follow-on linkage (re-engineer Phase 8)
                 derivedFrom?: string
               }
@@ -907,6 +929,40 @@ export default function ChatPage() {
                 )
               }
 
+              // Stealth-browser capture relay (2026-09-07): honest stage
+              // progress while the reference capture runs; the done card
+              // replaces the progress bar when the bundle lands.
+              if (event.kind === 'capture.progress') {
+                setCaptureProgress({
+                  stage: event.stage ?? '',
+                  pct: typeof event.pct === 'number' ? event.pct : 0,
+                  detail: event.detail ?? '',
+                  elapsedS: typeof event.elapsedS === 'number' ? event.elapsedS : 0,
+                })
+              }
+              if (event.kind === 'capture.done' && event.url) {
+                // This frame's summary is the capture digest (an object) —
+                // tool frames use summary as a string, so the field keeps
+                // its string type above and this shape narrows per-kind.
+                const cap = event as unknown as {
+                  url: string
+                  out?: string
+                  previewUrl?: string
+                  reportUrl?: string
+                  seconds?: number
+                  summary?: Record<string, string | number>
+                }
+                setCaptureDone({
+                  url: cap.url,
+                  out: cap.out ?? '',
+                  previewUrl: cap.previewUrl,
+                  reportUrl: cap.reportUrl,
+                  seconds: cap.seconds,
+                  summary: cap.summary,
+                })
+                setCaptureProgress(null)
+              }
+
               // Re-engineer Phase 2+3 (2026-09-05): the agent ended a reference
               // turn with a design gate (server already parsed + validated the
               // fence against the session this turn opened). Render the
@@ -923,6 +979,12 @@ export default function ChatPage() {
                     stage: 'motion',
                     sessionId: event.sessionId,
                     needs: event.needs ?? [],
+                  })
+                } else if (event.stage === 'brand' && event.suggestions?.length) {
+                  setDesignGate({
+                    stage: 'brand',
+                    sessionId: event.sessionId,
+                    suggestions: event.suggestions,
                   })
                 }
               }
@@ -1421,6 +1483,17 @@ export default function ChatPage() {
               />
               <MotionBriefCard
                 gate={designGate?.stage === 'motion' ? designGate : null}
+                roomId={activeRoom?.id ?? ''}
+                onSend={(text) => { void send(text, [], []) }}
+                onResolved={() => setDesignGate(null)}
+              />
+              {/* Stealth-browser capture relay (2026-09-07): progress bar
+                  while the capture runs, facts card when it lands. */}
+              <CaptureProgressCard progress={captureProgress} done={captureDone} />
+              {/* Gate 3 (2026-09-07): the agent's brand suggestions — the
+                  user toggles which to adopt before the design study. */}
+              <BrandSuggestionsCard
+                gate={designGate?.stage === 'brand' ? designGate : null}
                 roomId={activeRoom?.id ?? ''}
                 onSend={(text) => { void send(text, [], []) }}
                 onResolved={() => setDesignGate(null)}

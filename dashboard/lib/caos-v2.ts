@@ -14,6 +14,7 @@
 // emitted an event — see docs/CAOS-V1-DEPRECATED.md. v2 has seven steps in
 // three stages, and every one of them either has real data or says plainly
 // that it does not.
+import { calcCostUsd } from './token-cost'
 import type { PipelineStage } from './pipeline'
 
 // ── the shape the panel renders ─────────────────────────────────────────────
@@ -83,6 +84,14 @@ export interface CaosCost {
   providerTokens: number | null
   tier: string | null
   iterationCap: number | null
+  // 2026-09-07: provider-true identity + cost. costUsd is null unless the
+  // usage is provider-true AND the model has a sourced price — the panel
+  // then says "price not in table", never a guessed number.
+  model: string | null
+  usageSource: 'provider' | 'agent' | null
+  inputTokens: number | null
+  outputTokens: number | null
+  costUsd: number | null
 }
 
 export interface CaosRoom {
@@ -117,6 +126,13 @@ export interface TurnUsageLike {
   tokensReported?: boolean
   totalTokens?: number | null
   poolTurns?: number
+  // provider-true harvest (2026-09-07) — see hermes-client.ts TurnUsage
+  model?: string | null
+  usageSource?: 'provider' | 'agent'
+  inputTokens?: number | null
+  outputTokens?: number | null
+  cacheReadTokens?: number | null
+  cacheWriteTokens?: number | null
   firstCallShape?: { totalChars?: number; toolSchemaChars?: number; toolCount?: number }
 }
 
@@ -185,6 +201,9 @@ export function buildCaosView(input: BuildInput): CaosView {
   ]
 
   const poolTurns = num(usage?.poolTurns)
+  // provider-true means the provider's OWN accounting arrived on the wire —
+  // agent-side estimates never price a turn (2026-09-07 policy).
+  const providerTrue = usage?.usageSource === 'provider' && !!usage?.tokensReported
 
   return {
     mode,
@@ -201,6 +220,19 @@ export function buildCaosView(input: BuildInput): CaosView {
       providerTokens: usage?.tokensReported ? num(usage?.totalTokens) : null,
       tier,
       iterationCap,
+      model: typeof usage?.model === 'string' && usage.model ? usage.model : null,
+      usageSource: usage?.usageSource ?? null,
+      inputTokens: providerTrue ? num(usage?.inputTokens) : null,
+      outputTokens: providerTrue ? num(usage?.outputTokens) : null,
+      costUsd: providerTrue
+        ? calcCostUsd({
+            model: usage?.model ?? '',
+            inputTokens: usage?.inputTokens ?? 0,
+            outputTokens: usage?.outputTokens ?? 0,
+            cacheReadTokens: usage?.cacheReadTokens ?? 0,
+            cacheCreationTokens: usage?.cacheWriteTokens ?? 0,
+          })
+        : null,
     },
     room: {
       turns: poolTurns,

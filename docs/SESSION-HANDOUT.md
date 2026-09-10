@@ -1307,3 +1307,110 @@ main automatically; the VPS self-syncs scripts on next use.
   VPS SSH key above).
 - Nightly graph: `tail -f /var/log/yvon-venture-nightly/main.log` on the VPS — per-venture
   ✓ lines, never hangs (timeouts bound every step).
+
+---
+
+## 16. Reference-build pipeline — design.md + preview delivery (2026-09-07/08 session, where it stands)
+
+**Read with §15.** This section records the design→product re-engineer's latest state
+(Phases 1–8 all DONE, live E2E closed 2026-09-06 — see the plan in
+`.claude/plans/warm-sauteeing-badger.md`) plus the 2026-09-07/08 session's additions
+and **exactly what is left**.
+
+### 16.1 What was added this session (all verified)
+
+- **design.md is now the real design-system analysis** (the getdesign-catalog shape the
+  user pasted): `dashboard/lib/design-session.ts` `renderDesignMd` rewritten — YAML
+  frontmatter (`version/name/description/colors/typography/rounded/components`) + body
+  sections (Overview, Colors by group, Typography hierarchy table, Motion & Interaction,
+  Shapes, Components, Do's/Don'ts, Responsive Behavior, Iteration Guide, **Known Gaps**)
+  + a trailing Session Appendix that still carries the pipeline record (capture/intent/
+  motion decision/recipe/history) consumed by the PRD generator and builder. Every value
+  cites its measured source; unmeasured areas are declared, never invented (§0.5).
+- **TS-055's session backfilled** from the evidence-agent's measured facts
+  (`.git/detroit-facts.json`, 6/6 fetches HTTP 200): 468-line design.md regenerated
+  through the REAL renderer (`node --experimental-strip-types .git/backfill-design-md.ts`,
+  run from `dashboard/`), stored on session 945dff05 and copied to
+  `store/tasks/TS-055-design.md`. Honest gap recorded: the motion probe's
+  "static-editorial" label is contradicted by the hydrated DOM (Lenis/Taxi/GSAP output/
+  JS depth carousel/hover-video) — the analysis trusts the DOM.
+- **Future sessions wire the thin extraction automatically**:
+  `stream/route.ts` capture.done handler now chains `extractThinDesignSystem()`
+  (`_reference-capture/inventory.json` next to the capture preview) → `designSystem` on
+  the record → `writeDesignMd` re-render. Thin = counts + raw values + explicit
+  "deep analysis not run" Known Gap; never clobbers a deep analysis already present.
+- **Live Preview + Code tabs resolve** (`design-preview/route.ts` + `TaskFocusView.tsx`):
+  venture slug derived from the task's stamped `workItems[].produces` (regex-guarded),
+  dev server via `ensureRepoPreview`, link-out cards (dashboard CSP is `frame-src 'none'`
+  — iframes are impossible). Code tab opens `/repo/<slug>`. Both link compositions use
+  `http://` until TLS exists. Unit suite `dashboard/tests/design-session.test.ts`
+  extended for the new shape — ALL PASS. tsc clean (touched files).
+- **design.md surfaces now render the DOCUMENT, not the serialization** (2026-09-08,
+  operator complaint: the design.md tab showed raw YAML frontmatter + pipe-table
+  source): `dashboard/lib/design-md.ts` splits renderDesignMd's frontmatter off the
+  body (no YAML dep — parses exactly what our own renderer emits, degrades to null
+  never invented); new `dashboard/app/chat/DesignMdView.tsx` renders a compact
+  metadata header (name/version/description + measured color-swatch chips) over the
+  markdown body; `Markdown.tsx` (TS-020) gained pipe-table (with `:---:` alignment)
+  + `<hr>` support — the getdesign-catalog tables (Typography hierarchy, Radius
+  scale, Breakpoints) now render as real tables. Wired into BOTH design.md surfaces:
+  TaskFocusView's designMd tab and PrdProposalCard's design tab (PRD tab keeps plain
+  Markdown — PRDs have no frontmatter, and a leading `---` hr must not be eaten).
+  Fixed a latent TS-020 duplicate-React-key bug in `inline()` (two text fragments
+  from different bold splits collided on `-t${m}` — keys now include the bold
+  index). Tests: `dashboard/tests/design-md.test.ts` 18/18 PASS (`npx tsx`);
+  `npx tsc --noEmit` clean; browser-verified on /task-board?task=TS-055 — 3 tables,
+  9 swatches, 0 raw-YAML leak, 0 new console errors.
+- **VPS preview delivery chain FIXED** (novizio): killed orphaned `next dev` processes
+  holding `.next/dev/lock`, created `/etc/nginx/conf.d/preview-yvon.conf` (regex vhost
+  `~^(?<preview_slug>[a-z0-9-]+)\.preview\.yvon\.in$` + `map $preview_slug $preview_port`
+  including main.py's owned `preview-ports.map` + 503 guard when port=0), clean dev-server
+  start on port 4130, map rewritten to `novizio 4130;`, nginx reloaded. Verified
+  server-side: Host-based curl returns 200 (0.64s), ghost slug returns the 503 guard.
+
+### 16.2 WHAT IS LEFT (the next session starts here)
+
+1. **DNS — the ONLY blocker for `novizio.preview.yvon.in` in a browser.** **Status
+   2026-09-07: still not added at BigRock (verified: wildcard probe NXDOMAIN); interim
+   local fix APPLIED on the Windows laptop** — hosts entry
+   `169.58.107.148 novizio.preview.yvon.in` added elevated
+   (`tmp/add-preview-host.ps1`, idempotent, UAC-approved) + `ipconfig /flushdns`.
+   End-to-end verified from the laptop: `curl http://novizio.preview.yvon.in/` → 200
+   (0.77s), `/api/design-preview?taskId=TS-055` all three tabs available,
+   `/repo/novizio` → 200, card renders on `/task-board?task=TS-055`. The hosts fix
+   covers THIS machine only and only the `novizio` slug — every other device (and any
+   other venture slug) still needs the record. Permanent fix remains a **user action,
+   ~2 minutes in the BigRock panel** (yvon.in is on BigRock nameservers
+   dns1-4.bigrock.in; no DNS credentials exist in the repo or on the VPS):
+   - Type `A` · Host `*` (wildcard under yvon.in) · Value `169.58.107.148` · TTL lowest.
+     Do NOT also add a `preview.yvon.in` record — that node would become the closer
+     encloser and STOP the root wildcard from covering two-level hosts like
+     `<venture>.preview.yvon.in`.
+   - After adding: delete the hosts line to prove the real DNS works
+     (`tmp/add-preview-host.ps1` is idempotent — re-run it only if DNS is still
+     propagating).
+   - After DNS lives: per-venture `certbot` for HTTPS is possible; a wildcard TLS cert is
+     NOT possible via HTTP-01 (needs DNS-01 + API creds). Preview URLs stay `http://`
+     until then (both link compositions already say so).
+2. **Secret rotation (user action, flagged):** rotate `OPENAI_API_KEY` (exposed in prior
+   sessions + audit) and the MEMPALACE Postgres password (leaked via `systemctl cat`
+   output this session); move systemd unit secrets from `Environment=` lines to an
+   `EnvironmentFile=` (chmod 600). **The VPS→local sync rule stands: exclude `.git`,
+   `node_modules`, `.next` — workspace `.git/config` embeds a live GitHub PAT.**
+3. **Full detroit.paris acceptance flow re-run in a FRESH room** (the standing test):
+   reference → intent → motion brief → design.md (now the real analysis) → PRD → convert
+   → Start build → verify → suite → done, ending with the localhost URL + real-metrics
+   report (tokens in/out, model, estimated cost — CAOS numbers, nothing invented). The
+   pipeline pieces exist; the fresh-room run is what remains.
+4. **Deep design-system extraction automation** — TS-055's analysis was a manual
+   evidence-agent pass; the automatic path writes only the thin extraction. Backlog:
+   promote the deep pass (per-fact sources, palette grouping, typography roles) into an
+   automated VPS step over the capture bundle (asset-manifest.json/inventory.json are in
+   the bundle but not yet fetched by the deep pass).
+5. **Carried backlog (unchanged):** wire tier serialization (generic=1/info=4 caps);
+   raise `YVON_HERMES_MAX_ITER` on the VPS; deploy Teams skills to the VPS (`skill_view`
+   404s); wrapper `stream_options` inject + sync/async RuntimeError fixes; "(no content)"
+   cosmetic fix.
+6. **Commits:** still a large uncommitted surface (user decides when to push — see §15.2
+   for the push discipline; never `git add .` blindly, AppleDouble `._*` junk exists;
+   workspaces/ must never be committed).

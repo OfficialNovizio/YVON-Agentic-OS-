@@ -111,9 +111,37 @@ def main() -> int:
 
         r = run(scratch, "set-prd", tid, "--ref", str(prd_path), "--rice", "75.0", "--actor", "spec")
         check("set-prd succeeds with a real file + score", r.returncode == 0, r.stderr)
-        check("prd_ref written into the record", f'prd_ref: "{prd_path}"' in rec.read_text(), rec.read_text())
+        # 2026-09-08: backslash paths are normalized to forward slashes before
+        # entering the YAML (a backslash+t in a double-quoted scalar is a TAB
+        # escape — TS-055 shipped PyYAML-unparseable for exactly this).
+        check("prd_ref written into the record", f'prd_ref: "{prd_path.as_posix()}"' in rec.read_text(), rec.read_text())
         check("rice_score written into the record", 'rice_score: "75.0"' in rec.read_text())
         check("set-prd appends a prd_attached history entry", "prd_attached" in rec.read_text())
+
+        # ── 4b. import-acceptance: PRD §6 → the record's acceptance block ──
+        # (2026-09-08: the convert chain never moved the PRD's criteria into
+        # the record, so every chat-converted task showed "0/1 acceptance
+        # criteria met" with one blank row for the whole build.)
+        prd_path.write_text(
+            "# PRD — test\n\n## 6. Acceptance Criteria\n\n"
+            "1. **Alpha behavior:** the thing alpha-does is observable.\n"
+            "   **Falsifier:** nothing observable happens.\n\n"
+            "2. **Beta behavior:** the thing beta-does is observable.\n"
+            "   **Falsifier:** the beta case crashes.\n\n"
+            "## 7. Risks + Rollback Stance\n\nnone\n"
+        )
+        r = run(scratch, "import-acceptance", tid, "--prd", str(prd_path), "--actor", "spec")
+        check("import-acceptance parses §6 into the record", r.returncode == 0, r.stderr)
+        acc_text = rec.read_text()
+        check("import writes the numbered criteria", acc_text.count('- text: "') >= 2,
+              acc_text[acc_text.find("acceptance:"):][:400])
+        check("criterion text carries title + falsifier",
+              "Alpha behavior: the thing alpha-does is observable. (falsifier: nothing observable happens.)" in acc_text)
+        check("import appends acceptance_imported history", "acceptance_imported" in acc_text)
+        r = run(scratch, "import-acceptance", tid, "--prd", str(prd_path))
+        check("import refuses to clobber real criteria without --force", r.returncode != 0)
+        r = run(scratch, "import-acceptance", tid, "--prd", str(prd_path), "--force")
+        check("import --force replaces the block", r.returncode == 0, r.stderr)
 
         # ── 5. approve now succeeds ───────────────────────────────────────
         r = run(scratch, "approve", tid, "--by", "tester")

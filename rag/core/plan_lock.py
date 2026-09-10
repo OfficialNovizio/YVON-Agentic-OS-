@@ -24,6 +24,12 @@ KNOWN_DEPARTMENTS = {
     # 2026-08-15 — 6 new departments merged in from origin.
     "Client Success", "Comms & PR", "Global Expansion",
     "Growth & Partnerships", "People & Culture", "Risk & ESG",
+    # 2026-09-10 load-test fix — these departments are fully built and in the
+    # CLAUDE.md routing table (Legal & Compliance, Finance & Treasury even
+    # flagged as "fully built, runtime-addressable"), but Rail 1 still blocked
+    # their plans as "unknown department".
+    "Market Intelligence", "Finance & Treasury", "Legal & Compliance",
+    "Ops & Delivery", "Data & Analytics", "Behavioural Science",
 }
 
 

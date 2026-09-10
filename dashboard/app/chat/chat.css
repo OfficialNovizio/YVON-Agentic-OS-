@@ -285,6 +285,32 @@
   border-left: 2px solid var(--chat-lime-pop);
   color: var(--chat-text-dim);
 }
+/* Pipe tables (design.md hierarchy/radius/breakpoint tables, 2026-09-07). */
+.chat-md table {
+  margin: 0.6rem 0;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.chat-md th,
+.chat-md td {
+  border: 1px solid var(--chat-hairline-soft);
+  padding: 5px 9px;
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.45;
+}
+.chat-md th {
+  background: var(--chat-surface-strong);
+  font-weight: 600;
+  color: var(--chat-text);
+  white-space: nowrap;
+}
+.chat-md hr {
+  border: 0;
+  border-top: 1px solid var(--chat-hairline-soft);
+  margin: 0.8rem 0;
+}
 
 /* Inside a violet user bubble the markdown inverts. */
 .chat-user-bubble .chat-md,

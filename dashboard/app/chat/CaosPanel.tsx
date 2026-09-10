@@ -26,6 +26,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { gsap } from 'gsap'
+import { formatCost } from '@/lib/token-cost'
 import { buildCaosView, CAOS_V2_STAGES } from '@/lib/caos-v2'
 import type { CaosCall, CaosStep, CaosView, StageId, TurnUsageLike } from '@/lib/caos-v2'
 import type { PipelineStage } from '@/lib/pipeline'
@@ -59,13 +60,13 @@ function Chevron() {
 }
 
 /** A number we do not have must not render as a number. */
-function Metric({ k, v, sub, hot }: { k: string; v: number | null; sub?: string; hot?: boolean }) {
-  const missing = v === null
+function Metric({ k, v, s: raw, sub, hot }: { k: string; v: number | null; s?: string; sub?: string; hot?: boolean }) {
+  const missing = v === null && raw === undefined
   return (
     <div>
       <p className="k">{k}</p>
       <p className={`v${missing ? ' is-na' : hot ? ' is-hot' : ''}`}>
-        {missing ? 'not measured' : v.toLocaleString()}
+        {raw !== undefined ? raw : missing ? 'not measured' : (v as number).toLocaleString()}
       </p>
       {sub ? <p className="s">{sub}</p> : null}
     </div>
@@ -279,7 +280,21 @@ export function CaosPanel({ stages, source, agents, thinking, usage, awaiting }:
             ? `~${Math.round(view.cost.estInputTokens / view.cost.llmCalls / 100) / 10}k per call`
             : undefined} />
         <Metric k="Fixed/call" v={view.cost.fixedPerCall} hot sub="before context" />
-        <Metric k="Provider tokens" v={view.cost.providerTokens} sub="runtime exposes none" />
+        <Metric k="Provider tokens" v={view.cost.providerTokens}
+          sub={view.cost.usageSource === 'provider' ? "provider's own accounting" : 'runtime exposes none'} />
+        <Metric k="Model" v={null} s={view.cost.model ?? undefined} />
+        <Metric
+          k="Cost"
+          v={null}
+          s={
+            view.cost.costUsd != null
+              ? formatCost(view.cost.costUsd)
+              : view.cost.model && view.cost.usageSource === 'provider'
+                ? `price not in table (${view.cost.model})`
+                : undefined
+          }
+          sub={view.cost.usageSource === 'provider' ? 'sourced pricing table' : 'needs provider-true tokens'}
+        />
       </div>
 
       <p className="caos2-scope">This conversation</p>

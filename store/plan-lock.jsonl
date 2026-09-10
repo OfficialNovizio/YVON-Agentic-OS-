@@ -281,3 +281,201 @@
 {"ts": "2026-09-07T18:24:28Z", "plan_id": "f4b6b13555abfe04", "agent_id": "meta", "department": "AI & Agents", "query_hash": "9dd881d572bb16b4", "status": "locked"}
 {"ts": "2026-09-07T18:28:55Z", "plan_id": "1928b2b92a2d16d2", "agent_id": "meta", "department": "AI & Agents", "query_hash": "2836483fbd51e417", "status": "locked"}
 {"ts": "2026-09-07T19:13:41Z", "plan_id": "a5c8bccc37f6e706", "agent_id": "meta", "department": "AI & Agents", "query_hash": "4acf00f9c701ad2a", "status": "locked"}
+{"ts": "2026-09-07T20:21:30Z", "plan_id": "5bf2d44ad4e18799", "agent_id": "meta", "department": "AI & Agents", "query_hash": "fa38d9458d99ead5", "status": "locked"}
+{"ts": "2026-09-08T04:22:44Z", "plan_id": "c143f3e99a3e099d", "agent_id": "meta", "department": "AI & Agents", "query_hash": "2a3d19877fd732ff", "status": "locked"}
+{"ts": "2026-09-08T05:25:51Z", "plan_id": "faf3158a30b8162a", "agent_id": "meta", "department": "AI & Agents", "query_hash": "9530433573e5b319", "status": "locked"}
+{"ts": "2026-09-08T06:43:48Z", "plan_id": "204a7565d8b5e5f0", "agent_id": "meta", "department": "AI & Agents", "query_hash": "ea009e65760b2944", "status": "locked"}
+{"ts": "2026-09-08T06:54:36Z", "plan_id": "026f99cce0f7a789", "agent_id": "meta", "department": "AI & Agents", "query_hash": "225458e452e8d06e", "status": "locked"}
+{"ts": "2026-09-08T07:21:38Z", "plan_id": "eca09e69b853e60e", "agent_id": "meta", "department": "AI & Agents", "query_hash": "cd24b7024674105d", "status": "locked"}
+{"ts": "2026-09-10T05:03:34Z", "plan_id": "eb8f7e6227019411", "agent_id": "meta", "department": "AI & Agents", "query_hash": "1a5999172896f3c2", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "cdbdf9f05d1934f4", "agent_id": "mia", "department": "Engineering", "query_hash": "bad41b9508e115b8", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "cdbdf9f05d1934f4", "agent_id": "mia", "department": "Engineering", "query_hash": "bad41b9508e115b8", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "255335d8c0dd656e", "agent_id": "quinn", "department": "Engineering", "query_hash": "29bfac0408f0ff26", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "1231e951e226993a", "agent_id": "raj", "department": "Engineering", "query_hash": "90534f26611f8410", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "de8ea4bc8a19c727", "agent_id": "dev", "department": "Engineering", "query_hash": "2a95e9bb8711a4c6", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "c226db3a1d7a6c1d", "agent_id": "scope", "department": "Market Intelligence", "query_hash": "9a8fd3a9c92a3172", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "c21636d4f68bf7e3", "agent_id": "rival", "department": "Market Intelligence", "query_hash": "506a44453ce59f8a", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "4beb00660db20657", "agent_id": "felix", "department": "Finance & Treasury", "query_hash": "cb3ec862daefff1c", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "4079acd8f2e09437", "agent_id": "flow", "department": "Ops & Delivery", "query_hash": "01033bf14c1deb12", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "1f0ab19091e7a880", "agent_id": "retain", "department": "Client Success", "query_hash": "4e7e223e173a9cbe", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "1cc2183c16a03aee", "agent_id": "lena", "department": "Brand Studio", "query_hash": "1855a6c72d40fc88", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "f1064be2e91760a7", "agent_id": "comply", "department": "Legal & Compliance", "query_hash": "5eab5c16ec08a7c8", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "0b28979c8930be05", "agent_id": "trial", "department": "Behavioural Science", "query_hash": "3546841b348d7ef1", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "cdbdf9f05d1934f4", "agent_id": "mia", "department": "Engineering", "query_hash": "bad41b9508e115b8", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "255335d8c0dd656e", "agent_id": "quinn", "department": "Engineering", "query_hash": "29bfac0408f0ff26", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "1231e951e226993a", "agent_id": "raj", "department": "Engineering", "query_hash": "90534f26611f8410", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "c21636d4f68bf7e3", "agent_id": "rival", "department": "Market Intelligence", "query_hash": "506a44453ce59f8a", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "cdbdf9f05d1934f4", "agent_id": "mia", "department": "Engineering", "query_hash": "bad41b9508e115b8", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "255335d8c0dd656e", "agent_id": "quinn", "department": "Engineering", "query_hash": "29bfac0408f0ff26", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "1231e951e226993a", "agent_id": "raj", "department": "Engineering", "query_hash": "90534f26611f8410", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "de8ea4bc8a19c727", "agent_id": "dev", "department": "Engineering", "query_hash": "2a95e9bb8711a4c6", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "c226db3a1d7a6c1d", "agent_id": "scope", "department": "Market Intelligence", "query_hash": "9a8fd3a9c92a3172", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "c21636d4f68bf7e3", "agent_id": "rival", "department": "Market Intelligence", "query_hash": "506a44453ce59f8a", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "4beb00660db20657", "agent_id": "felix", "department": "Finance & Treasury", "query_hash": "cb3ec862daefff1c", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "1f0ab19091e7a880", "agent_id": "retain", "department": "Client Success", "query_hash": "4e7e223e173a9cbe", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "f1064be2e91760a7", "agent_id": "comply", "department": "Legal & Compliance", "query_hash": "5eab5c16ec08a7c8", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "1cc2183c16a03aee", "agent_id": "lena", "department": "Brand Studio", "query_hash": "1855a6c72d40fc88", "status": "locked"}
+ocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "255335d8c0dd656e", "agent_id": "quinn", "department": "Engineering", "query_hash": "29bfac0408f0ff26", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "cdbdf9f05d1934f4", "agent_id": "mia", "department": "Engineering", "query_hash": "bad41b9508e115b8", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "de8ea4bc8a19c727", "agent_id": "dev", "department": "Engineering", "query_hash": "2a95e9bb8711a4c6", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "c21636d4f68bf7e3", "agent_id": "rival", "department": "Market Intelligence", "query_hash": "506a44453ce59f8a", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "1231e951e226993a", "agent_id": "raj", "department": "Engineering", "query_hash": "90534f26611f8410", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "c226db3a1d7a6c1d", "agent_id": "scope", "department": "Market Intelligence", "query_hash": "9a8fd3a9c92a3172", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "4beb00660db20657", "agent_id": "felix", "department": "Finance & Treasury", "query_hash": "cb3ec862daefff1c", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "4079acd8f2e09437", "agent_id": "flow", "department": "Ops & Delivery", "query_hash": "01033bf14c1deb12", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "1cc2183c16a03aee", "agent_id": "lena", "department": "Brand Studio", "query_hash": "1855a6c72d40fc88", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "1f0ab19091e7a880", "agent_id": "retain", "department": "Client Success", "query_hash": "4e7e223e173a9cbe", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "0b28979c8930be05", "agent_id": "trial", "department": "Behavioural Science", "query_hash": "3546841b348d7ef1", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "f1064be2e91760a7", "agent_id": "comply", "department": "Legal & Compliance", "query_hash": "5eab5c16ec08a7c8", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "cdbdf9f05d1934f4", "agent_id": "mia", "department": "Engineering", "query_hash": "bad41b9508e115b8", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "255335d8c0dd656e", "agent_id": "quinn", "department": "Engineering", "query_hash": "29bfac0408f0ff26", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "1231e951e226993a", "agent_id": "raj", "department": "Engineering", "query_hash": "90534f26611f8410", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "de8ea4bc8a19c727", "agent_id": "dev", "department": "Engineering", "query_hash": "2a95e9bb8711a4c6", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "c226db3a1d7a6c1d", "agent_id": "scope", "department": "Market Intelligence", "query_hash": "9a8fd3a9c92a3172", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "4beb00660db20657", "agent_id": "felix", "department": "Finance & Treasury", "query_hash": "cb3ec862daefff1c", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "1f0ab19091e7a880", "agent_id": "retain", "department": "Client Success", "query_hash": "4e7e223e173a9cbe", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "c21636d4f68bf7e3", "agent_id": "rival", "department": "Market Intelligence", "query_hash": "506a44453ce59f8a", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "4079acd8f2e09437", "agent_id": "flow", "department": "Ops & Delivery", "query_hash": "01033bf14c1deb12", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "0b28979c8930be05", "agent_id": "trial", "department": "Behavioural Science", "query_hash": "3546841b348d7ef1", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "f1064be2e91760a7", "agent_id": "comply", "department": "Legal & Compliance", "query_hash": "5eab5c16ec08a7c8", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "1cc2183c16a03aee", "agent_id": "lena", "department": "Brand Studio", "query_hash": "1855a6c72d40fc88", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "cdbdf9f05d1934f4", "agent_id": "mia", "department": "Engineering", "query_hash": "bad41b9508e115b8", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "255335d8c0dd656e", "agent_id": "quinn", "department": "Engineering", "query_hash": "29bfac0408f0ff26", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "1231e951e226993a", "agent_id": "raj", "department": "Engineering", "query_hash": "90534f26611f8410", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "de8ea4bc8a19c727", "agent_id": "dev", "department": "Engineering", "query_hash": "2a95e9bb8711a4c6", "status": "locked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "c226db3a1d7a6c1d", "agent_id": "scope", "department": "Market Intelligence", "query_hash": "9a8fd3a9c92a3172", "status": "blocked"}
+{"ts": "2026-09-10T06:05:19Z", "plan_id": "c21636d4f68bf7e3", "agent_id": "rival", "department": "Market Intelligence", "query_hash": "506a44453ce59f8a", "status": "blocked"}
+{"ts": "2026-09-10T06:05:21Z", "plan_id": "9aadf0e84a04ab4b", "agent_id": "meta", "department": "AI & Agents", "query_hash": "0770c3e640132500", "status": "locked"}
+{"ts": "2026-09-10T06:05:51Z", "plan_id": "175f9c85e1d81284", "agent_id": "mia", "department": "Engineering", "query_hash": "bb38b77cf8816d7a", "status": "locked"}
+{"ts": "2026-09-10T06:06:51Z", "plan_id": "175f9c85e1d81284", "agent_id": "mia", "department": "Engineering", "query_hash": "bb38b77cf8816d7a", "status": "locked"}
+{"ts": "2026-09-10T06:12:27Z", "plan_id": "f058366d23c53cb0", "agent_id": "meta", "department": "AI & Agents", "query_hash": "77bccb2a1d81ab61", "status": "locked"}
+{"ts": "2026-09-10T06:15:01Z", "plan_id": "0ae223d692ad3cc3", "agent_id": "meta", "department": "AI & Agents", "query_hash": "511370b07666bac6", "status": "locked"}
+{"ts": "2026-09-10T06:31:02Z", "plan_id": "30de890e869d8b87", "agent_id": "meta", "department": "AI & Agents", "query_hash": "7e1ae4569c0d6c86", "status": "locked"}
+{"ts": "2026-09-10T06:36:32Z", "plan_id": "3789e4f83cd1b1a4", "agent_id": "meta", "department": "AI & Agents", "query_hash": "2f73b76be17b2b05", "status": "locked"}
+{"ts": "2026-09-10T07:08:38Z", "plan_id": "cdbdf9f05d1934f4", "agent_id": "mia", "department": "Engineering", "query_hash": "bad41b9508e115b8", "status": "locked"}
+{"ts": "2026-09-10T07:08:42Z", "plan_id": "cdbdf9f05d1934f4", "agent_id": "mia", "department": "Engineering", "query_hash": "bad41b9508e115b8", "status": "locked"}
+{"ts": "2026-09-10T07:08:45Z", "plan_id": "255335d8c0dd656e", "agent_id": "quinn", "department": "Engineering", "query_hash": "29bfac0408f0ff26", "status": "locked"}
+{"ts": "2026-09-10T07:08:47Z", "plan_id": "1231e951e226993a", "agent_id": "raj", "department": "Engineering", "query_hash": "90534f26611f8410", "status": "locked"}
+{"ts": "2026-09-10T07:08:50Z", "plan_id": "de8ea4bc8a19c727", "agent_id": "dev", "department": "Engineering", "query_hash": "2a95e9bb8711a4c6", "status": "locked"}
+{"ts": "2026-09-10T07:08:53Z", "plan_id": "c226db3a1d7a6c1d", "agent_id": "scope", "department": "Market Intelligence", "query_hash": "9a8fd3a9c92a3172", "status": "blocked"}
+{"ts": "2026-09-10T07:08:55Z", "plan_id": "c21636d4f68bf7e3", "agent_id": "rival", "department": "Market Intelligence", "query_hash": "506a44453ce59f8a", "status": "blocked"}
+{"ts": "2026-09-10T07:08:58Z", "plan_id": "4beb00660db20657", "agent_id": "felix", "department": "Finance & Treasury", "query_hash": "cb3ec862daefff1c", "status": "blocked"}
+{"ts": "2026-09-10T07:09:01Z", "plan_id": "4079acd8f2e09437", "agent_id": "flow", "department": "Ops & Delivery", "query_hash": "01033bf14c1deb12", "status": "blocked"}
+{"ts": "2026-09-10T07:09:03Z", "plan_id": "1f0ab19091e7a880", "agent_id": "retain", "department": "Client Success", "query_hash": "4e7e223e173a9cbe", "status": "locked"}
+{"ts": "2026-09-10T07:09:06Z", "plan_id": "1cc2183c16a03aee", "agent_id": "lena", "department": "Brand Studio", "query_hash": "1855a6c72d40fc88", "status": "locked"}
+{"ts": "2026-09-10T07:09:09Z", "plan_id": "f1064be2e91760a7", "agent_id": "comply", "department": "Legal & Compliance", "query_hash": "5eab5c16ec08a7c8", "status": "blocked"}
+{"ts": "2026-09-10T07:09:11Z", "plan_id": "0b28979c8930be05", "agent_id": "trial", "department": "Behavioural Science", "query_hash": "3546841b348d7ef1", "status": "blocked"}
+{"ts": "2026-09-10T07:09:14Z", "plan_id": "cdbdf9f05d1934f4", "agent_id": "mia", "department": "Engineering", "query_hash": "bad41b9508e115b8", "status": "locked"}
+{"ts": "2026-09-10T07:09:14Z", "plan_id": "255335d8c0dd656e", "agent_id": "quinn", "department": "Engineering", "query_hash": "29bfac0408f0ff26", "status": "locked"}
+{"ts": "2026-09-10T07:09:16Z", "plan_id": "1231e951e226993a", "agent_id": "raj", "department": "Engineering", "query_hash": "90534f26611f8410", "status": "locked"}
+{"ts": "2026-09-10T07:09:17Z", "plan_id": "de8ea4bc8a19c727", "agent_id": "dev", "department": "Engineering", "query_hash": "2a95e9bb8711a4c6", "status": "locked"}
+{"ts": "2026-09-10T07:09:19Z", "plan_id": "c226db3a1d7a6c1d", "agent_id": "scope", "department": "Market Intelligence", "query_hash": "9a8fd3a9c92a3172", "status": "blocked"}
+{"ts": "2026-09-10T07:09:20Z", "plan_id": "c21636d4f68bf7e3", "agent_id": "rival", "department": "Market Intelligence", "query_hash": "506a44453ce59f8a", "status": "blocked"}
+{"ts": "2026-09-10T07:09:22Z", "plan_id": "cdbdf9f05d1934f4", "agent_id": "mia", "department": "Engineering", "query_hash": "bad41b9508e115b8", "status": "locked"}
+{"ts": "2026-09-10T07:09:22Z", "plan_id": "255335d8c0dd656e", "agent_id": "quinn", "department": "Engineering", "query_hash": "29bfac0408f0ff26", "status": "locked"}
+{"ts": "2026-09-10T07:09:22Z", "plan_id": "1231e951e226993a", "agent_id": "raj", "department": "Engineering", "query_hash": "90534f26611f8410", "status": "locked"}
+{"ts": "2026-09-10T07:09:22Z", "plan_id": "de8ea4bc8a19c727", "agent_id": "dev", "department": "Engineering", "query_hash": "2a95e9bb8711a4c6", "status": "locked"}
+{"ts": "2026-09-10T07:09:25Z", "plan_id": "c226db3a1d7a6c1d", "agent_id": "scope", "department": "Market Intelligence", "query_hash": "9a8fd3a9c92a3172", "status": "blocked"}
+{"ts": "2026-09-10T07:09:26Z", "plan_id": "c21636d4f68bf7e3", "agent_id": "rival", "department": "Market Intelligence", "query_hash": "506a44453ce59f8a", "status": "blocked"}
+{"ts": "2026-09-10T07:09:26Z", "plan_id": "4beb00660db20657", "agent_id": "felix", "department": "Finance & Treasury", "query_hash": "cb3ec862daefff1c", "status": "blocked"}
+{"ts": "2026-09-10T07:09:26Z", "plan_id": "4079acd8f2e09437", "agent_id": "flow", "department": "Ops & Delivery", "query_hash": "01033bf14c1deb12", "status": "blocked"}
+{"ts": "2026-09-10T07:09:28Z", "plan_id": "1f0ab19091e7a880", "agent_id": "retain", "department": "Client Success", "query_hash": "4e7e223e173a9cbe", "status": "locked"}
+{"ts": "2026-09-10T07:09:28Z", "plan_id": "1cc2183c16a03aee", "agent_id": "lena", "department": "Brand Studio", "query_hash": "1855a6c72d40fc88", "status": "locked"}
+{"ts": "2026-09-10T07:09:29Z", "plan_id": "f1064be2e91760a7", "agent_id": "comply", "department": "Legal & Compliance", "query_hash": "5eab5c16ec08a7c8", "status": "blocked"}
+{"ts": "2026-09-10T07:09:29Z", "plan_id": "0b28979c8930be05", "agent_id": "trial", "department": "Behavioural Science", "query_hash": "3546841b348d7ef1", "status": "blocked"}
+{"ts": "2026-09-10T07:09:32Z", "plan_id": "cdbdf9f05d1934f4", "agent_id": "mia", "department": "Engineering", "query_hash": "bad41b9508e115b8", "status": "locked"}
+{"ts": "2026-09-10T07:09:32Z", "plan_id": "255335d8c0dd656e", "agent_id": "quinn", "department": "Engineering", "query_hash": "29bfac0408f0ff26", "status": "locked"}
+{"ts": "2026-09-10T07:09:32Z", "plan_id": "1231e951e226993a", "agent_id": "raj", "department": "Engineering", "query_hash": "90534f26611f8410", "status": "locked"}
+{"ts": "2026-09-10T07:09:32Z", "plan_id": "de8ea4bc8a19c727", "agent_id": "dev", "department": "Engineering", "query_hash": "2a95e9bb8711a4c6", "status": "locked"}
+{"ts": "2026-09-10T07:09:32Z", "plan_id": "c226db3a1d7a6c1d", "agent_id": "scope", "department": "Market Intelligence", "query_hash": "9a8fd3a9c92a3172", "status": "blocked"}
+{"ts": "2026-09-10T07:09:32Z", "plan_id": "c21636d4f68bf7e3", "agent_id": "rival", "department": "Market Intelligence", "query_hash": "506a44453ce59f8a", "status": "blocked"}
+{"ts": "2026-09-10T07:09:32Z", "plan_id": "4beb00660db20657", "agent_id": "felix", "department": "Finance & Treasury", "query_hash": "cb3ec862daefff1c", "status": "blocked"}
+{"ts": "2026-09-10T07:09:32Z", "plan_id": "4079acd8f2e09437", "agent_id": "flow", "department": "Ops & Delivery", "query_hash": "01033bf14c1deb12", "status": "blocked"}
+{"ts": "2026-09-10T07:09:35Z", "plan_id": "1f0ab19091e7a880", "agent_id": "retain", "department": "Client Success", "query_hash": "4e7e223e173a9cbe", "status": "locked"}
+{"ts": "2026-09-10T07:09:35Z", "plan_id": "1cc2183c16a03aee", "agent_id": "lena", "department": "Brand Studio", "query_hash": "1855a6c72d40fc88", "status": "locked"}
+{"ts": "2026-09-10T07:09:37Z", "plan_id": "f1064be2e91760a7", "agent_id": "comply", "department": "Legal & Compliance", "query_hash": "5eab5c16ec08a7c8", "status": "blocked"}
+{"ts": "2026-09-10T07:09:37Z", "plan_id": "0b28979c8930be05", "agent_id": "trial", "department": "Behavioural Science", "query_hash": "3546841b348d7ef1", "status": "blocked"}
+{"ts": "2026-09-10T07:09:37Z", "plan_id": "cdbdf9f05d1934f4", "agent_id": "mia", "department": "Engineering", "query_hash": "bad41b9508e115b8", "status": "locked"}
+{"ts": "2026-09-10T07:09:37Z", "plan_id": "255335d8c0dd656e", "agent_id": "quinn", "department": "Engineering", "query_hash": "29bfac0408f0ff26", "status": "locked"}
+{"ts": "2026-09-10T07:09:37Z", "plan_id": "1231e951e226993a", "agent_id": "raj", "department": "Engineering", "query_hash": "90534f26611f8410", "status": "locked"}
+{"ts": "2026-09-10T07:09:37Z", "plan_id": "de8ea4bc8a19c727", "agent_id": "dev", "department": "Engineering", "query_hash": "2a95e9bb8711a4c6", "status": "locked"}
+{"ts": "2026-09-10T07:09:39Z", "plan_id": "c226db3a1d7a6c1d", "agent_id": "scope", "department": "Market Intelligence", "query_hash": "9a8fd3a9c92a3172", "status": "blocked"}
+{"ts": "2026-09-10T07:09:39Z", "plan_id": "c21636d4f68bf7e3", "agent_id": "rival", "department": "Market Intelligence", "query_hash": "506a44453ce59f8a", "status": "blocked"}
+{"ts": "2026-09-10T07:09:40Z", "plan_id": "4beb00660db20657", "agent_id": "felix", "department": "Finance & Treasury", "query_hash": "cb3ec862daefff1c", "status": "blocked"}
+{"ts": "2026-09-10T07:09:41Z", "plan_id": "4079acd8f2e09437", "agent_id": "flow", "department": "Ops & Delivery", "query_hash": "01033bf14c1deb12", "status": "blocked"}
+{"ts": "2026-09-10T07:09:41Z", "plan_id": "1f0ab19091e7a880", "agent_id": "retain", "department": "Client Success", "query_hash": "4e7e223e173a9cbe", "status": "locked"}
+{"ts": "2026-09-10T07:09:41Z", "plan_id": "1cc2183c16a03aee", "agent_id": "lena", "department": "Brand Studio", "query_hash": "1855a6c72d40fc88", "status": "locked"}
+{"ts": "2026-09-10T07:09:41Z", "plan_id": "f1064be2e91760a7", "agent_id": "comply", "department": "Legal & Compliance", "query_hash": "5eab5c16ec08a7c8", "status": "blocked"}
+{"ts": "2026-09-10T07:09:41Z", "plan_id": "0b28979c8930be05", "agent_id": "trial", "department": "Behavioural Science", "query_hash": "3546841b348d7ef1", "status": "blocked"}
+{"ts": "2026-09-10T07:09:45Z", "plan_id": "cdbdf9f05d1934f4", "agent_id": "mia", "department": "Engineering", "query_hash": "bad41b9508e115b8", "status": "locked"}
+{"ts": "2026-09-10T07:09:48Z", "plan_id": "255335d8c0dd656e", "agent_id": "quinn", "department": "Engineering", "query_hash": "29bfac0408f0ff26", "status": "locked"}
+{"ts": "2026-09-10T07:09:51Z", "plan_id": "1231e951e226993a", "agent_id": "raj", "department": "Engineering", "query_hash": "90534f26611f8410", "status": "locked"}
+{"ts": "2026-09-10T07:09:54Z", "plan_id": "de8ea4bc8a19c727", "agent_id": "dev", "department": "Engineering", "query_hash": "2a95e9bb8711a4c6", "status": "locked"}
+{"ts": "2026-09-10T07:09:58Z", "plan_id": "c226db3a1d7a6c1d", "agent_id": "scope", "department": "Market Intelligence", "query_hash": "9a8fd3a9c92a3172", "status": "blocked"}
+{"ts": "2026-09-10T07:10:00Z", "plan_id": "c21636d4f68bf7e3", "agent_id": "rival", "department": "Market Intelligence", "query_hash": "506a44453ce59f8a", "status": "blocked"}
+{"ts": "2026-09-10T07:13:45Z", "plan_id": "ef4bc977b4068e88", "agent_id": "meta", "department": "AI & Agents", "query_hash": "2347b2f6ac185f80", "status": "locked"}
+{"ts": "2026-09-10T07:15:16Z", "plan_id": "175f9c85e1d81284", "agent_id": "mia", "department": "Engineering", "query_hash": "bb38b77cf8816d7a", "status": "locked"}
+{"ts": "2026-09-10T07:16:16Z", "plan_id": "175f9c85e1d81284", "agent_id": "mia", "department": "Engineering", "query_hash": "bb38b77cf8816d7a", "status": "locked"}
+{"ts": "2026-09-10T07:18:26Z", "plan_id": "175f9c85e1d81284", "agent_id": "mia", "department": "Engineering", "query_hash": "bb38b77cf8816d7a", "status": "locked"}
+{"ts": "2026-09-10T07:18:30Z", "plan_id": "13a90b57f7eb0e3b", "agent_id": "scope", "department": "Market Intelligence", "query_hash": "1cc475ed4c1d8a9e", "status": "blocked"}
+{"ts": "2026-09-10T07:18:32Z", "plan_id": "846b1a30a60cf869", "agent_id": "felix", "department": "Finance & Treasury", "query_hash": "ba9e2a0eff4ef519", "status": "blocked"}
+{"ts": "2026-09-10T07:20:45Z", "plan_id": "4f359f2aa7ca7a33", "agent_id": "meta", "department": "AI & Agents", "query_hash": "f69dbac423e3ea8c", "status": "locked"}
+{"ts": "2026-09-10T07:32:26Z", "plan_id": "d6ee18582a822ac4", "agent_id": "meta", "department": "AI & Agents", "query_hash": "d5abc02b07fa1156", "status": "locked"}
+{"ts": "2026-09-10T17:30:06Z", "plan_id": "68e1584f0a004eb7", "agent_id": "dev", "department": "Engineering", "query_hash": "037591fcb3b4aa54", "status": "locked"}
+{"ts": "2026-09-10T17:30:25Z", "plan_id": "62c1ee3ff3929e0a", "agent_id": "dev", "department": "Engineering", "query_hash": "61cf55f74332ab4d", "status": "locked"}
+{"ts": "2026-09-10T17:30:39Z", "plan_id": "62c1ee3ff3929e0a", "agent_id": "dev", "department": "Engineering", "query_hash": "61cf55f74332ab4d", "status": "locked"}
+{"ts": "2026-09-10T17:30:46Z", "plan_id": "62c1ee3ff3929e0a", "agent_id": "dev", "department": "Engineering", "query_hash": "61cf55f74332ab4d", "status": "locked"}
+{"ts": "2026-09-10T17:30:53Z", "plan_id": "62c1ee3ff3929e0a", "agent_id": "dev", "department": "Engineering", "query_hash": "61cf55f74332ab4d", "status": "locked"}
+{"ts": "2026-09-10T17:31:00Z", "plan_id": "62c1ee3ff3929e0a", "agent_id": "dev", "department": "Engineering", "query_hash": "61cf55f74332ab4d", "status": "locked"}
+{"ts": "2026-09-10T17:31:07Z", "plan_id": "62c1ee3ff3929e0a", "agent_id": "dev", "department": "Engineering", "query_hash": "61cf55f74332ab4d", "status": "locked"}
+{"ts": "2026-09-10T18:17:46Z", "plan_id": "62c1ee3ff3929e0a", "agent_id": "dev", "department": "Engineering", "query_hash": "61cf55f74332ab4d", "status": "locked"}
+{"ts": "2026-09-10T18:53:00Z", "plan_id": "094ef75926984189", "agent_id": "dev", "department": "Engineering", "query_hash": "78f835ec5d9184da", "status": "locked"}
+{"ts": "2026-09-10T19:24:39Z", "plan_id": "0788af5cd25f179e", "agent_id": "spark", "department": "Brand Studio", "query_hash": "9855824735300bcb", "status": "locked"}
+{"ts": "2026-09-10T19:24:45Z", "plan_id": "16a32375c257a584", "agent_id": "spark", "department": "Brand Studio", "query_hash": "351cec6b55d70acc", "status": "locked"}
+{"ts": "2026-09-10T19:24:46Z", "plan_id": "54ad1bd7f0364b9f", "agent_id": "board", "department": "Governance", "query_hash": "5a7d93920bfe2c85", "status": "locked"}
+{"ts": "2026-09-10T19:24:46Z", "plan_id": "336622b67aaa53a0", "agent_id": "marcus", "department": "Executive Office", "query_hash": "30b5ee6c2083488e", "status": "locked"}
+{"ts": "2026-09-10T19:24:46Z", "plan_id": "a121f481eef4e5df", "agent_id": "spark", "department": "Brand Studio", "query_hash": "9913fb1625eba71e", "status": "locked"}
+{"ts": "2026-09-10T19:24:47Z", "plan_id": "572fabe3c4c88aba", "agent_id": "marcus", "department": "Executive Office", "query_hash": "ecaa193ddff2faed", "status": "locked"}
+{"ts": "2026-09-10T19:24:47Z", "plan_id": "223ce206fc409604", "agent_id": "spark", "department": "Brand Studio", "query_hash": "844085d443d4cb3e", "status": "locked"}
+{"ts": "2026-09-10T19:24:47Z", "plan_id": "223ce206fc409604", "agent_id": "spark", "department": "Brand Studio", "query_hash": "844085d443d4cb3e", "status": "locked"}
+{"ts": "2026-09-10T19:24:48Z", "plan_id": "223ce206fc409604", "agent_id": "spark", "department": "Brand Studio", "query_hash": "844085d443d4cb3e", "status": "locked"}
+{"ts": "2026-09-10T19:24:53Z", "plan_id": "16a32375c257a584", "agent_id": "spark", "department": "Brand Studio", "query_hash": "351cec6b55d70acc", "status": "locked"}
+{"ts": "2026-09-10T19:24:53Z", "plan_id": "54ad1bd7f0364b9f", "agent_id": "board", "department": "Governance", "query_hash": "5a7d93920bfe2c85", "status": "locked"}
+{"ts": "2026-09-10T19:24:54Z", "plan_id": "336622b67aaa53a0", "agent_id": "marcus", "department": "Executive Office", "query_hash": "30b5ee6c2083488e", "status": "locked"}
+{"ts": "2026-09-10T19:24:54Z", "plan_id": "a121f481eef4e5df", "agent_id": "spark", "department": "Brand Studio", "query_hash": "9913fb1625eba71e", "status": "locked"}
+{"ts": "2026-09-10T19:24:54Z", "plan_id": "572fabe3c4c88aba", "agent_id": "marcus", "department": "Executive Office", "query_hash": "ecaa193ddff2faed", "status": "locked"}
+{"ts": "2026-09-10T19:24:55Z", "plan_id": "223ce206fc409604", "agent_id": "spark", "department": "Brand Studio", "query_hash": "844085d443d4cb3e", "status": "locked"}
+{"ts": "2026-09-10T19:24:55Z", "plan_id": "223ce206fc409604", "agent_id": "spark", "department": "Brand Studio", "query_hash": "844085d443d4cb3e", "status": "locked"}
+{"ts": "2026-09-10T19:24:55Z", "plan_id": "223ce206fc409604", "agent_id": "spark", "department": "Brand Studio", "query_hash": "844085d443d4cb3e", "status": "locked"}
+{"ts": "2026-09-10T19:29:44Z", "plan_id": "094ef75926984189", "agent_id": "dev", "department": "Engineering", "query_hash": "78f835ec5d9184da", "status": "locked"}
+{"ts": "2026-09-10T19:29:51Z", "plan_id": "8933c70e683a6796", "agent_id": "atlas", "department": "Brand Studio", "query_hash": "67fec603cf0650a9", "status": "locked"}
+{"ts": "2026-09-10T19:29:57Z", "plan_id": "ab5c8d10b173a386", "agent_id": "felix", "department": "Finance & Treasury", "query_hash": "7f5fc77876143d52", "status": "locked"}
+{"ts": "2026-09-10T19:30:04Z", "plan_id": "0c8f957a099ffab7", "agent_id": "cortex", "department": "Cybersecurity", "query_hash": "844c7f77034b6583", "status": "locked"}
+{"ts": "2026-09-10T19:30:11Z", "plan_id": "577c4eb9cf46ad5a", "agent_id": "scope", "department": "Market Intelligence", "query_hash": "34094986f11d2b46", "status": "locked"}
+{"ts": "2026-09-10T19:30:24Z", "plan_id": "8933c70e683a6796", "agent_id": "atlas", "department": "Brand Studio", "query_hash": "67fec603cf0650a9", "status": "locked"}
+{"ts": "2026-09-10T19:30:25Z", "plan_id": "577c4eb9cf46ad5a", "agent_id": "scope", "department": "Market Intelligence", "query_hash": "34094986f11d2b46", "status": "locked"}
+{"ts": "2026-09-10T19:30:26Z", "plan_id": "094ef75926984189", "agent_id": "dev", "department": "Engineering", "query_hash": "78f835ec5d9184da", "status": "locked"}
+{"ts": "2026-09-10T19:30:44Z", "plan_id": "8933c70e683a6796", "agent_id": "atlas", "department": "Brand Studio", "query_hash": "67fec603cf0650a9", "status": "locked"}
+{"ts": "2026-09-10T19:30:45Z", "plan_id": "094ef75926984189", "agent_id": "dev", "department": "Engineering", "query_hash": "78f835ec5d9184da", "status": "locked"}
+{"ts": "2026-09-10T19:31:19Z", "plan_id": "094ef75926984189", "agent_id": "dev", "department": "Engineering", "query_hash": "78f835ec5d9184da", "status": "locked"}
+{"ts": "2026-09-10T19:31:26Z", "plan_id": "8933c70e683a6796", "agent_id": "atlas", "department": "Brand Studio", "query_hash": "67fec603cf0650a9", "status": "locked"}
+{"ts": "2026-09-10T19:31:32Z", "plan_id": "ab5c8d10b173a386", "agent_id": "felix", "department": "Finance & Treasury", "query_hash": "7f5fc77876143d52", "status": "locked"}
+{"ts": "2026-09-10T19:31:39Z", "plan_id": "0c8f957a099ffab7", "agent_id": "cortex", "department": "Cybersecurity", "query_hash": "844c7f77034b6583", "status": "locked"}
+{"ts": "2026-09-10T19:31:46Z", "plan_id": "577c4eb9cf46ad5a", "agent_id": "scope", "department": "Market Intelligence", "query_hash": "34094986f11d2b46", "status": "locked"}
+{"ts": "2026-09-10T19:32:01Z", "plan_id": "8933c70e683a6796", "agent_id": "atlas", "department": "Brand Studio", "query_hash": "67fec603cf0650a9", "status": "locked"}
+{"ts": "2026-09-10T19:32:01Z", "plan_id": "094ef75926984189", "agent_id": "dev", "department": "Engineering", "query_hash": "78f835ec5d9184da", "status": "locked"}
+{"ts": "2026-09-10T19:32:13Z", "plan_id": "8933c70e683a6796", "agent_id": "atlas", "department": "Brand Studio", "query_hash": "67fec603cf0650a9", "status": "locked"}
+{"ts": "2026-09-10T19:32:14Z", "plan_id": "094ef75926984189", "agent_id": "dev", "department": "Engineering", "query_hash": "78f835ec5d9184da", "status": "locked"}
+{"ts": "2026-09-10T19:32:35Z", "plan_id": "8933c70e683a6796", "agent_id": "atlas", "department": "Brand Studio", "query_hash": "67fec603cf0650a9", "status": "locked"}
+{"ts": "2026-09-10T19:32:52Z", "plan_id": "094ef75926984189", "agent_id": "dev", "department": "Engineering", "query_hash": "78f835ec5d9184da", "status": "locked"}
+{"ts": "2026-09-10T19:33:00Z", "plan_id": "8933c70e683a6796", "agent_id": "atlas", "department": "Brand Studio", "query_hash": "67fec603cf0650a9", "status": "locked"}
+{"ts": "2026-09-10T19:33:07Z", "plan_id": "ab5c8d10b173a386", "agent_id": "felix", "department": "Finance & Treasury", "query_hash": "7f5fc77876143d52", "status": "locked"}
+{"ts": "2026-09-10T19:33:14Z", "plan_id": "0c8f957a099ffab7", "agent_id": "cortex", "department": "Cybersecurity", "query_hash": "844c7f77034b6583", "status": "locked"}
+{"ts": "2026-09-10T19:33:20Z", "plan_id": "577c4eb9cf46ad5a", "agent_id": "scope", "department": "Market Intelligence", "query_hash": "34094986f11d2b46", "status": "locked"}
+{"ts": "2026-09-10T19:38:44Z", "plan_id": "094ef75926984189", "agent_id": "dev", "department": "Engineering", "query_hash": "78f835ec5d9184da", "status": "locked"}
+{"ts": "2026-09-10T19:38:50Z", "plan_id": "8933c70e683a6796", "agent_id": "atlas", "department": "Brand Studio", "query_hash": "67fec603cf0650a9", "status": "locked"}
+{"ts": "2026-09-10T19:38:56Z", "plan_id": "ab5c8d10b173a386", "agent_id": "felix", "department": "Finance & Treasury", "query_hash": "7f5fc77876143d52", "status": "locked"}
+{"ts": "2026-09-10T19:39:03Z", "plan_id": "0c8f957a099ffab7", "agent_id": "cortex", "department": "Cybersecurity", "query_hash": "844c7f77034b6583", "status": "locked"}
+{"ts": "2026-09-10T19:39:09Z", "plan_id": "577c4eb9cf46ad5a", "agent_id": "scope", "department": "Market Intelligence", "query_hash": "34094986f11d2b46", "status": "locked"}
+{"ts": "2026-09-10T19:48:50Z", "plan_id": "094ef75926984189", "agent_id": "dev", "department": "Engineering", "query_hash": "78f835ec5d9184da", "status": "locked"}

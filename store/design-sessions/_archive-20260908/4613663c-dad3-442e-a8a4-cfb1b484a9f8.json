@@ -1,0 +1,57 @@
+{
+  "id": "4613663c-dad3-442e-a8a4-cfb1b484a9f8",
+  "kind": "reference-build",
+  "status": "captured",
+  "createdAt": "2026-09-08T03:07:29.179Z",
+  "updatedAt": "2026-09-08T03:08:40.299Z",
+  "roomId": "fe8e8d20-60cd-4e9a-85d4-1eb7fe9d91f9",
+  "venture": "novizio",
+  "correlation": "e5cdf032-2fb3-4885-9ba1-02bbac24f4e9",
+  "reference": {
+    "url": "https://www.detroit.paris/",
+    "taxonomy": "static-editorial",
+    "motionProfileUrl": "https://hermes.yvon.in/artifacts/novizio/e5cdf032-2fb3-4885-9ba1-02bbac24f4e9/motion-profile.md",
+    "motionSummary": "0 video element(s), 1 @keyframes rule(s), 1 animation / 5 transition declarations, no scroll libraries detected"
+  },
+  "history": [
+    {
+      "at": "2026-09-08T03:07:29.179Z",
+      "event": "session_captured",
+      "detail": "https://www.detroit.paris/:."
+    },
+    {
+      "at": "2026-09-08T03:08:40.287Z",
+      "event": "motion_profile_published",
+      "detail": "https://hermes.yvon.in/artifacts/novizio/e5cdf032-2fb3-4885-9ba1-02bbac24f4e9/motion-profile.md"
+    },
+    {
+      "at": "2026-09-08T03:08:40.296Z",
+      "event": "capture_completed",
+      "detail": "www-detroit-paris-20260908 - round trip 70.3s"
+    },
+    {
+      "at": "2026-09-08T03:08:40.299Z",
+      "event": "intent_gate_emitted",
+      "detail": "static-editorial"
+    }
+  ],
+  "capture": {
+    "url": "https://www.detroit.paris/",
+    "out": "www-detroit-paris-20260908",
+    "previewUrl": "https://hermes.yvon.in/artifacts/novizio/e5cdf032-2fb3-4885-9ba1-02bbac24f4e9/_reference-capture/reference.html",
+    "reportUrl": "https://hermes.yvon.in/artifacts/novizio/e5cdf032-2fb3-4885-9ba1-02bbac24f4e9/scrape-report.md",
+    "seconds": 70.3,
+    "summary": {
+      "title": "Detroit | AI Production House in Paris for Luxury Brands",
+      "pageHeight": 900,
+      "videos": 32,
+      "images": 34,
+      "stylesheets": 3,
+      "keyframes": 2,
+      "animatedRules": 3,
+      "assetsHarvested": 99,
+      "seconds": 58.4
+    },
+    "capturedAt": "2026-09-08T03:08:40.294Z"
+  }
+}

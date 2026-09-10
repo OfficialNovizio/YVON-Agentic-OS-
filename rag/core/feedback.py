@@ -81,7 +81,7 @@ def log_feedback(trace: Dict, outcome: str = 'pending', notes: str = '') -> str:
     }
 
     os.makedirs(os.path.dirname(FEEDBACK_LOG), exist_ok=True)
-    with open(FEEDBACK_LOG, 'a') as f:
+    with open(FEEDBACK_LOG, 'a', encoding='utf-8') as f:
         f.write(json.dumps(event) + '\n')
 
     # ── Hermes loop (TS-002): a confirmed lesson (accepted outcome + notes)
@@ -106,7 +106,7 @@ def load_feedback(limit: int = 1000) -> List[Dict]:
     events = []
     if not os.path.exists(FEEDBACK_LOG):
         return events
-    with open(FEEDBACK_LOG, 'r') as f:
+    with open(FEEDBACK_LOG, 'r', encoding='utf-8') as f:
         for line in f:
             try:
                 events.append(json.loads(line.strip()))

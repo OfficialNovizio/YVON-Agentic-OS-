@@ -1,0 +1,124 @@
+{
+  "id": "cfb3bf63-3e4a-4d80-89b7-60335f966213",
+  "status": "trigger",
+  "created_at": "2026-08-19T15:33:42Z",
+  "input": {
+    "type": "url",
+    "value": "https://airbnb.com",
+    "thin_confirmed": false
+  },
+  "capture": {
+    "attempts": 1,
+    "fail_streak": 0,
+    "screenshot_path": "stub://capture/5560985922135282667.png",
+    "stub": true,
+    "escalated": false,
+    "last_error": null
+  },
+  "reference": {
+    "resolved": true,
+    "live_reachable": false,
+    "shown": [
+      {
+        "id": "apple",
+        "name": "Apple",
+        "category": "Media & Consumer",
+        "license": "Apache-2.0",
+        "source": "nexu-io/open-design design-systems/apple (bundled catalog)",
+        "added_at": "2026-08-19",
+        "tier": "curated",
+        "stale": false,
+        "closed": false
+      },
+      {
+        "id": "airbnb",
+        "name": "Airbnb",
+        "category": "E-Commerce & Retail",
+        "license": "Apache-2.0",
+        "source": "nexu-io/open-design design-systems/airbnb (bundled catalog)",
+        "added_at": "2026-08-19",
+        "tier": "curated",
+        "stale": false,
+        "closed": false
+      },
+      {
+        "id": "bmw",
+        "name": "BMW",
+        "category": "Automotive",
+        "license": "Apache-2.0",
+        "source": "nexu-io/open-design design-systems/bmw (bundled catalog)",
+        "added_at": "2026-03-01",
+        "tier": "curated",
+        "stale": true,
+        "closed": false
+      },
+      {
+        "id": "community-proxy-theme",
+        "name": "Community proxy theme (unverified)",
+        "category": "Themed & Unique",
+        "license": null,
+        "source": "operator-submitted, license not yet confirmed",
+        "added_at": "2026-08-10",
+        "tier": "curated",
+        "stale": false,
+        "closed": true
+      }
+    ],
+    "picked": null,
+    "picked_tier": null,
+    "competing_input": "https://booking.com",
+    "lead": "site",
+    "extracted": null,
+    "note": null
+  },
+  "generation": {
+    "attempts": 0,
+    "fail_streak": 0,
+    "code": null,
+    "stack": null,
+    "stub": null,
+    "escalated": false,
+    "last_error": null
+  },
+  "review": {
+    "decision": null,
+    "regenerate_count": 0,
+    "note": null
+  },
+  "design_md": {
+    "path": null
+  },
+  "spend": {
+    "estimate_usd": null,
+    "pricing_source": null,
+    "warnings": [],
+    "decision": null
+  },
+  "history": [
+    {
+      "ts": "2026-08-19T15:33:42Z",
+      "actor": "operator",
+      "event": "created",
+      "note": "input=url"
+    },
+    {
+      "ts": "2026-08-19T15:33:42Z",
+      "actor": "operator",
+      "event": "capture_ok",
+      "note": "stub=True"
+    },
+    {
+      "ts": "2026-08-19T15:33:42Z",
+      "actor": "operator",
+      "event": "reference_shown",
+      "note": "live_reachable=False count=4"
+    },
+    {
+      "ts": "2026-08-19T15:33:42Z",
+      "actor": "operator",
+      "event": "reference_site_leads",
+      "note": "https://booking.com"
+    }
+  ],
+  "updated_at": "2026-08-19T15:33:42Z"
+}

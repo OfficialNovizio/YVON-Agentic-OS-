@@ -1,0 +1,67 @@
+{
+  "id": "dad126d0-ced3-4d48-969d-516c39680dc8",
+  "kind": "reference-build",
+  "status": "intent",
+  "createdAt": "2026-09-08T03:00:16.934Z",
+  "updatedAt": "2026-09-08T03:04:03.833Z",
+  "roomId": "fe8e8d20-60cd-4e9a-85d4-1eb7fe9d91f9",
+  "venture": "novizio",
+  "correlation": "1e843c8f-2c2b-4464-a540-4fcd1b64e913",
+  "reference": {
+    "url": "https://www.detroit.paris/",
+    "taxonomy": "static-editorial",
+    "motionProfileUrl": "https://hermes.yvon.in/artifacts/novizio/1e843c8f-2c2b-4464-a540-4fcd1b64e913/motion-profile.md",
+    "motionSummary": "The reference is primarily static, with no detected videos or motion libraries; it has one small spin animation and a few basic transitions."
+  },
+  "history": [
+    {
+      "at": "2026-09-08T03:00:16.934Z",
+      "event": "session_captured",
+      "detail": "https://www.detroit.paris/"
+    },
+    {
+      "at": "2026-09-08T03:01:33.375Z",
+      "event": "motion_profile_published",
+      "detail": "https://hermes.yvon.in/artifacts/novizio/1e843c8f-2c2b-4464-a540-4fcd1b64e913/motion-profile.md"
+    },
+    {
+      "at": "2026-09-08T03:01:33.381Z",
+      "event": "capture_completed",
+      "detail": "www-detroit-paris-20260908 - round trip 70.4s"
+    },
+    {
+      "at": "2026-09-08T03:01:33.386Z",
+      "event": "intent_gate_emitted",
+      "detail": "static-editorial"
+    },
+    {
+      "at": "2026-09-08T03:04:03.833Z",
+      "event": "intent_recorded",
+      "detail": "adapt: Keep the black-and-white editorial look, but make it for Novizio: swap the video showreel hero for a product-grid hero, add a pricing section, and add subtle scroll animations on section entrances."
+    }
+  ],
+  "capture": {
+    "url": "https://www.detroit.paris/",
+    "out": "www-detroit-paris-20260908",
+    "previewUrl": "https://hermes.yvon.in/artifacts/novizio/1e843c8f-2c2b-4464-a540-4fcd1b64e913/_reference-capture/reference.html",
+    "reportUrl": "https://hermes.yvon.in/artifacts/novizio/1e843c8f-2c2b-4464-a540-4fcd1b64e913/scrape-report.md",
+    "seconds": 70.4,
+    "summary": {
+      "title": "Detroit | AI Production House in Paris for Luxury Brands",
+      "pageHeight": 900,
+      "videos": 32,
+      "images": 34,
+      "stylesheets": 3,
+      "keyframes": 2,
+      "animatedRules": 3,
+      "assetsHarvested": 99,
+      "seconds": 56.1
+    },
+    "capturedAt": "2026-09-08T03:01:33.379Z"
+  },
+  "intent": {
+    "mode": "adapt",
+    "changes": "Keep the black-and-white editorial look, but make it for Novizio: swap the video showreel hero for a product-grid hero, add a pricing section, and add subtle scroll animations on section entrances.",
+    "decidedAt": "2026-09-08T03:04:03.832Z"
+  }
+}

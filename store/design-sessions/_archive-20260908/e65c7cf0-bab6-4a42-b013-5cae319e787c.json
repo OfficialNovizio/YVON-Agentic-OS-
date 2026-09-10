@@ -1,0 +1,51 @@
+{
+  "id": "e65c7cf0-bab6-4a42-b013-5cae319e787c",
+  "kind": "reference-build",
+  "status": "briefed",
+  "createdAt": "2026-09-06T07:45:59.153803+00:00",
+  "updatedAt": "2026-09-06T07:46:41.433Z",
+  "roomId": "smoke-room",
+  "reference": {
+    "url": "https://example.com/smoke",
+    "taxonomy": "motion-marketing"
+  },
+  "intent": {
+    "mode": "adapt",
+    "changes": "smoke",
+    "decidedAt": "2026-09-06T07:45:59.153803+00:00"
+  },
+  "motion": {
+    "decision": "reference",
+    "decidedAt": "2026-09-06T07:45:59.153803+00:00"
+  },
+  "recipe": {
+    "home": "workspaces/smoke-check2",
+    "assetsNeedSwapping": 2,
+    "assetPlan": [
+      {
+        "kind": "video",
+        "what": "hero loop — the reference's own video",
+        "origin": "reference",
+        "swapRequired": true
+      },
+      {
+        "kind": "image",
+        "what": "section imagery — reference media",
+        "origin": "reference",
+        "swapRequired": true
+      }
+    ]
+  },
+  "history": [
+    {
+      "at": "2026-09-06T07:45:59.153803+00:00",
+      "event": "session_captured",
+      "detail": "suite route smoke"
+    },
+    {
+      "at": "2026-09-06T07:46:41.433Z",
+      "event": "swap_gate",
+      "detail": "confirmed — reference assets replaced with licensed/AI/stock equivalents before the delivery suite"
+    }
+  ]
+}

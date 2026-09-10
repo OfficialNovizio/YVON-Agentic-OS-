@@ -29,13 +29,22 @@ import {
 import { TASK_STAGES, type TaskStage } from '@/lib/task-theme'
 import { StagePill, type TaskSpecItem } from './TasksPanel'
 import { Markdown } from './Markdown'
+import { DesignMdView } from './DesignMdView'
 import { VerifyCard, type VerifyVerdictRow } from './VerifyCard'
+import { calcCostUsd, formatCost } from '@/lib/token-cost'
+import type { TurnUsage } from '@/lib/hermes-client'
 
-// Mirrors /api/design-preview's response shape (dashboard/app/api/design-preview/route.ts).
+// Mirrors /api/design-preview's response shape (dashboard/app/api/design-preview for reference-build tasks).
 interface DesignPreviewTab {
   available: boolean
   reason?: string
   html?: string
+  /** reference-build: built product's live dev server URL — link-out only
+   * (dashboard CSP frame-src 'none' blocks inline iframes of it). */
+  url?: string
+  /** reference-build: /repo/<venture> file browser URL — link-out only. */
+  repoFilesUrl?: string
+  note?: string
   code?: string
   stack?: string
   stub?: boolean
@@ -74,6 +83,11 @@ interface KickoffSseEvent {
   taskId?: string
   verdicts?: unknown
   asks?: unknown
+  // done-frame usage + capture relay progress (2026-09-07)
+  usage?: TurnUsage
+  pct?: number
+  stage?: string
+  detail?: string
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -88,6 +102,20 @@ function ageFrom(iso: string, now = Date.now()): string {
   const hrs = Math.round(mins / 60)
   if (hrs < 24) return `${hrs}h`
   return `${Math.round(hrs / 24)}d ${hrs % 24}h`
+}
+
+/** Pull a markdown link like "[Live preview](https://...)" out of a done
+ *  response - the stream route appends these to a repo-changing turn's reply
+ *  (once per room). Returns the URL only when the link actually arrived. */
+function extractMdLink(text: string, label: string): string | undefined {
+  const mark = '[' + label + ']('
+  const at = text.indexOf(mark)
+  if (at === -1) return undefined
+  const start = at + mark.length
+  const end = text.indexOf(')', start)
+  if (end === -1) return undefined
+  const url = text.slice(start, end).trim()
+  return url || undefined
 }
 
 function shortDate(iso: string): string {
@@ -410,6 +438,12 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
     lines: string[]
     tail?: string
     repoChanged?: boolean
+    // measured turn facts (2026-09-07)
+    startedAt?: number
+    endedAt?: number
+    usage?: TurnUsage
+    previewUrl?: string
+    filesUrl?: string
   }
   interface VerifyState {
     phase: 'streaming' | 'ready' | 'error'
@@ -418,8 +452,22 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
   }
   const [kickoff, setKickoff] = useState<KickoffState | null>(null)
   const [verify, setVerify] = useState<VerifyState | null>(null)
+  // 2026-09-08: verdict-committing is best-effort — when a verdict can't be
+  // written into the record, the verify card still shows it, but this notice
+  // says so honestly instead of silently diverging from the record.
+  const [verifyNotice, setVerifyNotice] = useState<string | null>(null)
   const kickoffAbortRef = useRef<AbortController | null>(null)
   useEffect(() => () => kickoffAbortRef.current?.abort(), [])
+  // Measured ETA (2026-09-07): the wall time of this session's last completed
+  // build/fix turn, per mode. An estimate only ever comes from a real
+  // measurement — the first turn honestly says it has nothing to estimate from.
+  const [lastTurnS, setLastTurnS] = useState<{ build?: number; fix?: number }>({})
+  const [nowTick, setNowTick] = useState(Date.now())
+  useEffect(() => {
+    if (kickoff?.phase !== 'streaming' && kickoff?.phase !== 'starting') return
+    const t = setInterval(() => setNowTick(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [kickoff?.phase])
 
   /** Shared SSE consumption for one pipeline turn. Verify frames go to the
    * caller's handler; everything else feeds the build console (or is ignored
@@ -430,7 +478,7 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
       mode: 'build' | 'fix' | 'verify'
       onVerifyFrame: (p: { verdicts: VerifyVerdictRow[]; asks: VerifyVerdictRow[]; summary: string }) => void
     },
-  ): Promise<{ tail: string; repoChanged?: boolean }> {
+  ): Promise<{ tail: string; repoChanged?: boolean; usage?: TurnUsage; previewUrl?: string; filesUrl?: string }> {
     const abort = new AbortController()
     kickoffAbortRef.current = abort
     const pushLine = (line: string) =>
@@ -442,6 +490,7 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
     let buffer = ''
     let tail = ''
     let repoChanged: boolean | undefined
+    let usage: TurnUsage | undefined
     while (true) {
       const { value, done } = await reader.read()
       if (done) break
@@ -469,6 +518,10 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
           pushLine(`${evt.ok === false ? '✕' : '✓'} ${evt.toolName ?? 'tool'} — ${evt.summary?.slice(0, 120) ?? ''}`)
         } else if (evt.kind === 'notice') {
           pushLine(`• ${evt.message?.slice(0, 160) ?? ''}`)
+        } else if (evt.kind === 'capture.progress') {
+          // Stealth-browser relay progress mid-build (rare on task turns,
+          // but honest to show): stage + percent as they stream.
+          pushLine(`⏳ capture ${evt.stage ?? ''} ${typeof evt.pct === 'number' ? `${evt.pct}%` : ''} — ${evt.detail?.slice(0, 120) ?? ''}`)
         } else if (evt.kind === 'artifact') {
           pushLine(`📎 artifact — ${evt.label ?? evt.url ?? ''}`)
         } else if (evt.kind === 'design.verify') {
@@ -484,11 +537,23 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
           }
         } else if (evt.kind === 'done') {
           if (typeof evt.repoChanged === 'boolean') repoChanged = evt.repoChanged
+          usage = evt.usage ?? undefined
           const response = evt.response ?? tail
+          // The stream route appends the live-preview / repo-files links to a
+          // repo-changing turn's response (once per room). Surfacing them here
+          // gives the task view the product URL without re-deriving the
+          // workspace — only the links that actually arrived are shown.
+          const withLinks = response || tail
           if (opts.mode !== 'verify') {
             setKickoff((k) => (k ? { ...k, phase: 'done', tail: response.slice(-900), repoChanged } : k))
           }
-          return { tail: response || tail, repoChanged }
+          return {
+            tail: response || tail,
+            repoChanged,
+            usage,
+            previewUrl: extractMdLink(withLinks, 'Live preview'),
+            filesUrl: extractMdLink(withLinks, 'View repo files'),
+          }
         } else if (evt.kind === 'error') {
           throw new Error(evt.message ?? 'stream error')
         }
@@ -498,7 +563,7 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
     if (opts.mode !== 'verify') {
       setKickoff((k) => (k && k.phase === 'streaming' ? { ...k, phase: 'done', tail: tail.slice(-900), repoChanged } : k))
     }
-    return { tail, repoChanged }
+    return { tail, repoChanged, usage }
   }
 
   /** One governed pipeline turn, end to end: insert → stream → next step.
@@ -507,10 +572,11 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
   async function startPipelineTurn(mode: 'build' | 'fix' | 'verify', gaps?: string[]) {
     if (!task) return
     setActionError(null)
+    const startedAt = Date.now()
     if (mode === 'verify') {
       setVerify({ phase: 'streaming' })
     } else {
-      setKickoff({ phase: 'starting', lines: [], mode })
+      setKickoff({ phase: 'starting', lines: [], mode, startedAt })
     }
     try {
       const res = await fetch('/api/chat/task-kickoff', {
@@ -533,13 +599,55 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
         )
       }
       let gotFrame = false
-      const { tail } = await consumePipelineTurn(data.userMessage.id, {
+      const { tail, usage, previewUrl, filesUrl } = await consumePipelineTurn(data.userMessage.id, {
         mode,
         onVerifyFrame: (payload) => {
           gotFrame = true
           setVerify({ phase: 'ready', payload })
+          setVerifyNotice(null)
+          // 2026-09-08: commit the verdicts into the record NOW. The
+          // acceptance card + build-progress bar read the record, so verdicts
+          // must land there — previously they lived only in VerifyCard state
+          // until an all-clear "Pass → review" (gap verdicts never touched
+          // the record at all). Bookkeeping only: no gate, no review.
+          const commitable = payload.verdicts.filter((v) => v.ref && /^(.+):(\d+)$/.test(v.ref))
+          if (!commitable.length) return
+          void (async () => {
+            try {
+              const res = await fetch(`/api/task-spec/${task.id}/command`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  cmd: 'verify-commit',
+                  verdicts: commitable.map((v) => ({ ref: v.ref, status: v.status, evidence: v.evidence })),
+                }),
+              })
+              const data = (await res.json()) as { ok?: boolean; error?: string; steps?: { ok: boolean }[] }
+              if (!res.ok || !data.ok) {
+                console.error(`[verify-commit] ${task.id} failed:`, data.error ?? `HTTP ${res.status}`)
+                setVerifyNotice(`Verdicts shown but not saved to the record: ${data.error ?? `HTTP ${res.status}`}`)
+                return
+              }
+              const skipped = (data.steps ?? []).filter((s) => !s.ok).length
+              setVerifyNotice(
+                skipped
+                  ? `${skipped} verdict${skipped === 1 ? '' : 's'} could not be written to the record (ref out of range for this record?) — shown here, skipped there`
+                  : null,
+              )
+            } catch (e) {
+              console.error('[verify-commit] failed:', e)
+              setVerifyNotice('Verdicts shown but not saved to the record (network error)')
+            }
+          })()
         },
       })
+      // Merge the measured turn facts into the finished console state, and
+      // remember the wall time — the next turn's ETA comes from here.
+      if (mode !== 'verify') {
+        const wallS = Math.max(0, Math.round((Date.now() - startedAt) / 1000))
+        setLastTurnS((prev) => ({ ...prev, [mode]: wallS }))
+        setKickoff((k) => (k && k.phase === 'done' ? { ...k, endedAt: Date.now(), usage, previewUrl, filesUrl } : k))
+      }
       load()
       if (mode === 'verify') {
         if (!gotFrame) {
@@ -741,6 +849,16 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
                     </div>
                   </div>
 
+                  {/* Progress + measured ETA (2026-09-07) */}
+                  <BuildProgress
+                    task={task}
+                    phase={kickoff.phase}
+                    mode={kickoff.mode}
+                    startedAt={kickoff.startedAt}
+                    lastTurnS={lastTurnS[kickoff.mode]}
+                    nowTick={nowTick}
+                  />
+
                   {kickoff.lines.length > 0 && (
                     <pre className="mb-2 max-h-[150px] overflow-auto rounded-[10px] border border-[var(--chat-hairline)] bg-[var(--chat-surface-strong)] p-2.5 text-[10.5px] leading-[1.6] text-[var(--chat-text-dim)]">
                       {kickoff.lines.join('\n')}
@@ -767,8 +885,32 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
                     <div className="mb-2 text-[11.5px] text-[#4d7000]">✓ the working repo changed during this turn</div>
                   )}
 
+                  {kickoff.phase === 'done' && kickoff.usage && (
+                    <TurnReport usage={kickoff.usage} wallS={lastTurnS[kickoff.mode]} />
+                  )}
+
                   {(kickoff.phase === 'done' || kickoff.phase === 'error') && kickoff.roomId && (
-                    <div className="mt-1 flex gap-2">
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {kickoff.phase === 'done' && kickoff.previewUrl && (
+                        <a
+                          href={kickoff.previewUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-[8px] border border-[#587000] bg-white px-3 py-1.5 text-[12px] font-medium text-[#4d7000] transition hover:bg-[#587000]/5"
+                        >
+                          Open the built product
+                        </a>
+                      )}
+                      {kickoff.phase === 'done' && kickoff.filesUrl && (
+                        <a
+                          href={kickoff.filesUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-[8px] border border-[var(--chat-hairline)] bg-white px-3 py-1.5 text-[12px] font-medium text-[var(--chat-text)] transition hover:border-[rgba(89,46,255,0.5)]"
+                        >
+                          View repo files
+                        </a>
+                      )}
                       <button
                         onClick={() => {
                           onOpenInChat(kickoff.roomId!, '')
@@ -827,6 +969,11 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
                   )}
                 </div>
               )}
+              {verify?.phase === 'ready' && verifyNotice && (
+                <div className="chat-glass-soft mt-3 border-l-2 border-[#c8951a] p-3 text-[12px] text-[var(--chat-text-dim)]">
+                  {verifyNotice}
+                </div>
+              )}
               {verify?.phase === 'ready' && verify.payload && (
                 <VerifyCard
                   taskId={task.id}
@@ -882,7 +1029,7 @@ export function TaskFocusView({ taskId, onBack, onOpenInChat }: TaskFocusViewPro
                             </span>
                             <div className="min-w-0 flex-1">
                               <div className="text-[12.5px] leading-[1.45]" style={{ color: no ? '#b91c1c' : dfr ? '#8a6114' : 'var(--chat-body)' }}>
-                                {a.text}
+                                {a.text || <span className="italic text-[var(--chat-text-faint)]">(no criterion text recorded — run the acceptance import or fill the record)</span>}
                                 {dfr && <span className="ml-1.5 rounded-[200px] bg-[#f6ecd8] px-1.5 py-0.5 text-[9.5px] font-semibold text-[#8a6114]">deferred by decision</span>}
                               </div>
                               {a.evidence && <div className="chat-mono mt-0.5 text-[10.5px] text-[var(--chat-text-faint)]">{a.evidence}</div>}
@@ -1409,6 +1556,117 @@ function RoleCard({ label, who, note }: { label: string; who: string; note: stri
   )
 }
 
+function BuildProgress({
+  task,
+  phase,
+  mode,
+  startedAt,
+  lastTurnS,
+  nowTick,
+}: {
+  task: TaskSpecItem
+  phase: 'starting' | 'streaming' | 'done' | 'error'
+  mode: 'build' | 'fix'
+  startedAt?: number
+  lastTurnS?: number
+  nowTick: number
+}) {
+  const total = task.workItems.reduce((n, wi) => n + wi.acceptance.length, 0)
+  const passed = task.workItems.reduce(
+    (n, wi) => n + wi.acceptance.filter((a) => a.status === 'pass').length,
+    0,
+  )
+  const failed = task.workItems.reduce(
+    (n, wi) => n + wi.acceptance.filter((a) => a.status === 'fail').length,
+    0,
+  )
+  const open = Math.max(0, total - passed - failed)
+  const streaming = phase === 'starting' || phase === 'streaming'
+  const elapsedS = streaming && startedAt ? Math.max(0, Math.round((nowTick - startedAt) / 1000)) : null
+  const etaLine = streaming
+    ? lastTurnS != null && elapsedS != null
+      ? `~${Math.max(0, lastTurnS - elapsedS)}s left - measured from the last ${mode} turn (${lastTurnS}s)`
+      : elapsedS != null
+        ? `${elapsedS}s elapsed - first ${mode} turn this session, no prior measurement to estimate from`
+        : null
+    : phase === 'done' && lastTurnS != null
+      ? `turn finished in ${lastTurnS}s (wall time)`
+      : null
+  return (
+    <div className="mb-3 rounded-[10px] border border-[var(--chat-hairline)] bg-white p-3">
+      <div className="mb-1.5 flex items-baseline justify-between gap-3 text-[11px]">
+        <span className="font-medium text-[var(--chat-body)]">
+          {total > 0
+            ? `${passed}/${total} acceptance criteria met`
+            : 'No acceptance criteria recorded - criteria progress unavailable'}
+        </span>
+        <span className="chat-mono shrink-0 text-[10.5px] text-[var(--chat-text-faint)]">
+          {streaming ? 'building...' : phase}
+        </span>
+      </div>
+      {total > 0 && (
+        <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-[var(--chat-surface-strong)]">
+          {passed > 0 && <div className="h-full bg-[#587000]" style={{ width: `${(passed / total) * 100}%` }} />}
+          {failed > 0 && <div className="h-full bg-[#b91c1c]" style={{ width: `${(failed / total) * 100}%` }} />}
+          {open > 0 && <div className="h-full bg-[var(--chat-hairline)]" style={{ width: `${(open / total) * 100}%` }} />}
+        </div>
+      )}
+      {etaLine && <div className="mt-1.5 text-[11px] text-[var(--chat-text-dim)]">{etaLine}</div>}
+    </div>
+  )
+}
+
+function TurnReport({ usage, wallS }: { usage: TurnUsage; wallS?: number }) {
+  const providerTrue = usage.usageSource === 'provider' && usage.tokensReported
+  const cost = providerTrue
+    ? calcCostUsd({
+        model: usage.model ?? '',
+        inputTokens: usage.inputTokens ?? 0,
+        outputTokens: usage.outputTokens ?? 0,
+        cacheReadTokens: usage.cacheReadTokens ?? 0,
+        cacheCreationTokens: usage.cacheWriteTokens ?? 0,
+      })
+    : null
+  const costLabel =
+    cost != null ? formatCost(cost) : usage.model ? `price not in table (${usage.model})` : 'no model reported'
+  const fmt = (n: number | null | undefined) => (typeof n === 'number' ? n.toLocaleString('en-US') : '-')
+  return (
+    <div className="mb-2 rounded-[10px] border border-[var(--chat-hairline)] bg-white p-3">
+      <div className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[var(--chat-text-faint)]">
+        Turn report - measured
+      </div>
+      <div className="grid gap-x-6 gap-y-1 text-[11.5px] sm:grid-cols-2">
+        <KvRow k="model" v={usage.model ?? '-'} mono />
+        <KvRow
+          k="tokens in"
+          v={
+            fmt(usage.inputTokens) +
+            (usage.cacheReadTokens
+              ? ` (${fmt(usage.cacheReadTokens)} cached${usage.inputTokens ? `, ${Math.min(100, Math.round((usage.cacheReadTokens / usage.inputTokens) * 100))}%` : ''})`
+              : '')
+          }
+          mono
+        />
+        <KvRow k="tokens out" v={fmt(usage.outputTokens)} mono />
+        <KvRow k="cost" v={costLabel} mono />
+        <KvRow k="tool calls" v={fmt(usage.toolCalls)} mono />
+        <KvRow
+          k="llm round-trips"
+          v={usage.llmCalls != null ? `${usage.llmCalls}${usage.llmCallsExact === false ? ' (approx)' : ''}` : '-'}
+          mono
+        />
+        <KvRow k="governor wait" v={usage.governorWaitS != null ? `${usage.governorWaitS}s` : '-'} mono />
+        <KvRow k="wall time" v={wallS != null ? `${wallS}s` : '-'} mono />
+      </div>
+      {!providerTrue && (
+        <div className="mt-1.5 text-[10.5px] text-[var(--chat-text-faint)]">
+          Agent-side best-effort numbers - no cost shown without provider-true tokens.
+        </div>
+      )}
+    </div>
+  )
+}
+
 function KvRow({ k, v, mono, link }: { k: string; v: string; mono?: boolean; link?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-3 border-b border-[var(--chat-hairline-soft)] pb-1.5">
@@ -1473,7 +1731,22 @@ function DesignPreviewPanel({
 
       {loading && <div className="text-[12.5px] italic text-[var(--chat-text-faint)]">Loading…</div>}
 
-      {!loading && tab?.available && activeTab === 'preview' && tab.html && (
+      {!loading && tab?.available && activeTab === 'preview' && tab.url && (
+        <div className="flex flex-col items-start gap-2">
+          <a
+            href={tab.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="chat-mono inline-flex items-center gap-2 rounded-[12px] border border-[var(--chat-hairline)] bg-[var(--chat-surface-strong)] px-3.5 py-2.5 text-[12.5px] font-medium hover:border-[rgba(89,46,255,0.45)]"
+            style={{ color: 'var(--chat-accent)' }}
+          >
+            🔴 Open live preview — {tab.url}
+          </a>
+          {tab.note && <div className="text-[11px] leading-[1.5] text-[var(--chat-text-faint)]">{tab.note}</div>}
+        </div>
+      )}
+
+      {!loading && tab?.available && activeTab === 'preview' && !tab.url && tab.html && (
         <>
           {tab.stub && (
             <div className="mb-2 text-[11px] text-[#a15c00]">
@@ -1489,7 +1762,22 @@ function DesignPreviewPanel({
         </>
       )}
 
-      {!loading && tab?.available && activeTab === 'code' && tab.code && (
+      {!loading && tab?.available && activeTab === 'code' && tab.repoFilesUrl && (
+        <div className="flex flex-col items-start gap-2">
+          <a
+            href={tab.repoFilesUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="chat-mono inline-flex items-center gap-2 rounded-[12px] border border-[var(--chat-hairline)] bg-[var(--chat-surface-strong)] px-3.5 py-2.5 text-[12.5px] font-medium hover:border-[rgba(89,46,255,0.45)]"
+            style={{ color: 'var(--chat-accent)' }}
+          >
+            📁 Open repo files — {tab.repoFilesUrl}
+          </a>
+          {tab.note && <div className="text-[11px] leading-[1.5] text-[var(--chat-text-faint)]">{tab.note}</div>}
+        </div>
+      )}
+
+      {!loading && tab?.available && activeTab === 'code' && !tab.repoFilesUrl && tab.code && (
         <div>
           {tab.stack && <div className="mb-1.5 text-[11px] text-[var(--chat-text-faint)] chat-mono">stack: {tab.stack}</div>}
           <pre className="max-h-[420px] overflow-auto rounded-[12px] border border-[var(--chat-hairline)] bg-[var(--chat-surface-strong)] p-3 text-[11.5px] leading-[1.5]">
@@ -1500,7 +1788,7 @@ function DesignPreviewPanel({
 
       {!loading && tab?.available && activeTab === 'designMd' && tab.text && (
         <div className="chat-prose max-h-[420px] overflow-auto text-[13px] leading-[1.6] text-[var(--chat-body)]">
-          <Markdown text={tab.text} />
+          <DesignMdView text={tab.text} />
         </div>
       )}
 

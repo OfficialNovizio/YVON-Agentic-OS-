@@ -144,7 +144,13 @@ async function main() {
   ck('renders motion decision', md.includes('**mixed**'))
   ck('renders taxonomy', md.includes('motion-marketing'))
   ck('cites motion profile when present', md.includes('https://ref.example/motion-profile.md') === (patched!.reference.motionProfileUrl === 'https://ref.example/motion-profile.md'))
-  ck('history section present', md.includes('## History'))
+  ck('history section present', md.includes('### History'))
+  // getdesign-shape analysis (2026-09-08): frontmatter opens the doc, NO H1.
+  ck('getdesign frontmatter present', md.startsWith('---') && md.includes('version: alpha') && md.includes('-design-analysis'))
+  ck('no H1 in the analysis shape', !md.split('---')[2]?.includes('\n# '))
+  ck('Known Gaps section present', md.includes('## Known Gaps'))
+  ck('analysis sections absent when nothing measured', !md.includes('## Colors') && !md.includes('## Typography'))
+  ck('session appendix carries the pipeline record', md.includes('## Session Appendix'))
   const mdPath = await writeDesignMd(patched!)
   created.push(path.basename(mdPath))
   ck('design.md written beside the record', fs.existsSync(mdPath) && mdPath.endsWith(`${patched!.id}-design.md`))
@@ -159,6 +165,55 @@ async function main() {
   type StatusIsCompileEnforced = Exclude<Parameters<typeof updateDesignSession>[1]['status'], undefined> extends never ? never : 'compile-time-only'
   const _compileProof: StatusIsCompileEnforced = 'compile-time-only'
   void _compileProof
+
+  H('[7] Gate 3 suggestions + capture facts (2026-09-07)')
+  const s7 = await createDesignSession({ roomId: room, referenceUrl: 'https://reference.example/brand' })
+  created.push(s7.id + '.json')
+  const withSug = await updateDesignSession(
+    s7.id,
+    {
+      suggestions: [
+        { title: 'Type pairing', text: 'Fraunces for display, Inter for body', why: 'matches the reference editorial tone and our system' },
+        { title: 'Lime accent', text: 'Adopt the lime accent at 10% surface tint', why: 'keeps the brand consistent with our tokens' },
+      ],
+    },
+    'brand_gate_emitted',
+    'Type pairing | Lime accent',
+  )
+  ck('suggestions stored', withSug?.suggestions?.length === 2)
+  ck('history records the gate', withSug?.history.some((h) => h.event === 'brand_gate_emitted') === true)
+  const adopted = await updateDesignSession(
+    s7.id,
+    { suggestions: (withSug?.suggestions ?? []).map((sg, i) => ({ ...sg, adopted: i === 0 })) },
+    'brand_adopted',
+    'Type pairing',
+  )
+  ck('adoption marks only the chosen one', adopted?.suggestions?.[0]?.adopted === true && adopted?.suggestions?.[1]?.adopted === false)
+  const withCap = await updateDesignSession(
+    s7.id,
+    {
+      capture: {
+        url: 'https://reference.example/brand',
+        out: 'reference-example-20260907',
+        previewUrl: 'https://hermes.example/artifacts/x/_reference-capture/reference.html',
+        reportUrl: 'https://hermes.example/artifacts/x/scrape-report.md',
+        seconds: 96,
+        summary: { pageHeight: 8400, images: 34 },
+        capturedAt: new Date().toISOString(),
+      },
+    },
+    'capture_completed',
+    'round trip 96s',
+  )
+  ck('capture facts stored', withCap?.capture?.out === 'reference-example-20260907' && withCap?.capture?.seconds === 96)
+  ck('capture write kept the suggestions (per-id serialization)', withCap?.suggestions?.length === 2)
+  const md7 = renderDesignMd(withCap!)
+  ck('md renders capture section', md7.includes('### Capture (stealth-browser relay') && md7.includes('Round trip: 96s'))
+  ck('md renders the adopted marker', md7.includes('[ADOPTED] Type pairing'))
+  ck('md renders the not-adopted marker', md7.includes('[not adopted] Lime accent'))
+  ck('md renders why lines', md7.includes('Why: matches the reference editorial tone'))
+  const mdNoCap = renderDesignMd(s7)
+  ck('md states honestly when no capture arrived', mdNoCap.includes('No stealth-browser capture arrived'))
 }
 
 main()

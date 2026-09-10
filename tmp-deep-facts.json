@@ -1,0 +1,197 @@
+{
+  "measuredAt": null,
+  "colorTokens": {},
+  "typographyRoles": {
+    "h1": {
+      "fontFamily": "Geist Mono",
+      "fontSize": "inherit",
+      "fontWeight": null
+    },
+    "h2": {
+      "fontFamily": "Geist Mono",
+      "fontSize": "var(--text-m-h2)",
+      "fontWeight": null
+    },
+    "h3": {
+      "fontFamily": "Geist Mono",
+      "fontSize": "var(--text-d-h3)",
+      "fontWeight": null
+    },
+    "body": {
+      "fontFamily": "Geist Mono",
+      "fontSize": "1.375rem",
+      "fontWeight": null
+    },
+    "display": {
+      "fontFamily": "Geist Mono",
+      "fontSize": "1.375rem",
+      "fontWeight": null
+    }
+  },
+  "palette": [
+    {
+      "value": "#ffffff26",
+      "usage": "6 declaration(s); top contexts: .border-white\\/15, .outline-white\\/15, .after\\:border-white\\/15:after, .hover\\:bg-white\\/15:hover",
+      "source": "captured stylesheets",
+      "group": "text"
+    },
+    {
+      "value": "#ffffff66",
+      "usage": "6 declaration(s); top contexts: .bg-white\\/40, .text-white\\/40, .after\\:border-white\\/40:after, .hover\\:border-white\\/40:hover",
+      "source": "captured stylesheets",
+      "group": "text"
+    },
+    {
+      "value": "#ffffff1a",
+      "usage": "5 declaration(s); top contexts: :where(.divide-white\\/10>:not(:last-chil, .border-white\\/10, .bg-white\\/10, .file\\:bg-white\\/10::file-selector-butto",
+      "source": "captured stylesheets",
+      "group": "text"
+    },
+    {
+      "value": "#ffffff33",
+      "usage": "4 declaration(s); top contexts: .border-white\\/20, .bg-white\\/20, .text-white\\/20, .hover\\:bg-white\\/20:hover",
+      "source": "captured stylesheets",
+      "group": "text"
+    },
+    {
+      "value": "#ffffff40",
+      "usage": "4 declaration(s); top contexts: .bg-white\\/25, .hover\\:border-white\\/25:hover, .focus-visible\\:bg-white\\/25:focus-visib, .active\\:bg-white\\/25:active",
+      "source": "captured stylesheets",
+      "group": "text"
+    },
+    {
+      "value": "#ffffff80",
+      "usage": "4 declaration(s); top contexts: .bg-white\\/50, .text-white\\/50, .placeholder-white\\/50::placeholder, .hover\\:text-white\\/50:hover",
+      "source": "captured stylesheets",
+      "group": "text"
+    },
+    {
+      "value": "#d9d9d9",
+      "usage": "4 declaration(s); top contexts: _0\\)_100\\%\\)\\]",
+      "source": "captured stylesheets",
+      "group": "text"
+    },
+    {
+      "value": "#ffffff",
+      "usage": "3 declaration(s); top contexts: :before, :root, --tw-ring-offset-color",
+      "source": "captured stylesheets",
+      "group": "other"
+    },
+    {
+      "value": "#000000",
+      "usage": "3 declaration(s); top contexts: transparent_100\\%\\)\\], :root",
+      "source": "captured stylesheets",
+      "group": "other"
+    },
+    {
+      "value": "#00000080",
+      "usage": "3 declaration(s); top contexts: transparent_100\\%\\)\\], .bg-black\\/50",
+      "source": "captured stylesheets",
+      "group": "other"
+    },
+    {
+      "value": "#ffffffb3",
+      "usage": "3 declaration(s); top contexts: .text-white\\/70, *), .hover\\:text-white\\/70:hover",
+      "source": "captured stylesheets",
+      "group": "other"
+    },
+    {
+      "value": "#ffffffcc",
+      "usage": "3 declaration(s); top contexts: .text-white\\/80, *), .hover\\:text-white\\/80:hover",
+      "source": "captured stylesheets",
+      "group": "other"
+    },
+    {
+      "value": "#f2f2f2",
+      "usage": "2 declaration(s); top contexts: :root, .shadow-neutral-50",
+      "source": "captured stylesheets",
+      "group": "other"
+    },
+    {
+      "value": "#ff6666",
+      "usage": "2 declaration(s); top contexts: :root, .shadow-red",
+      "source": "captured stylesheets",
+      "group": "other"
+    },
+    {
+      "value": "#ffcb47",
+      "usage": "2 declaration(s); top contexts: :root, .shadow-yellow",
+      "source": "captured stylesheets",
+      "group": "other"
+    },
+    {
+      "value": "#7aebff",
+      "usage": "2 declaration(s); top contexts: :root, .shadow-green",
+      "source": "captured stylesheets",
+      "group": "other"
+    }
+  ],
+  "typography": [
+    {
+      "text": "Primary families: Geist Mono, Geist, var(--font-geist-sans)",
+      "source": "captured stylesheets"
+    }
+  ],
+  "motion": [
+    {
+      "text": "4 @keyframes animations measured: enter, exit, pulse, ripple",
+      "source": "captured stylesheets (@keyframes declarations)"
+    },
+    {
+      "text": "Transition properties measured: opacity!important (1), width (1), all (1), opacity (1)",
+      "source": "captured stylesheets (transition declarations)"
+    }
+  ],
+  "layout": [
+    "Measured container widths: 581px, 480px, 250px, 245px, 240px, 200px"
+  ],
+  "spacing": {
+    "calc(var(--spacing)*8)": 15,
+    "calc(var(--spacing)*4)": 12,
+    "calc(var(--spacing)*6)": 11,
+    "calc(var(--spacing)*12)": 11,
+    "0": 10,
+    "calc(var(--spacing)*0)": 10,
+    "calc(var(--spacing)*5)": 8,
+    "calc(var(--spacing)*2)": 7,
+    "calc(var(--spacing)*3)": 7,
+    "calc(var(--spacing)*1.5)": 6,
+    "calc(var(--spacing)*16)": 6,
+    "calc(var(--spacing)*1)": 4
+  },
+  "elevation": {
+    "var(--tw-inset-shadow),var(--tw-inset-ring-shadow),var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow)": 3,
+    "none": 1
+  },
+  "rounded": {
+    "var(--radius-lg)": 2,
+    "var(--radius-xl)": 2,
+    ".25rem": 1,
+    "var(--radius-2xl)": 1,
+    "var(--radius-3xl)": 1,
+    "3.40282e+38px": 1,
+    "var(--radius-md)": 1
+  },
+  "responsive": [
+    {
+      "name": "bp1",
+      "width": "480px",
+      "changes": "media-query boundary (declarations not analyzed per-boundary)",
+      "source": "captured stylesheets"
+    }
+  ],
+  "dos": [
+    "Use the measured radius scale \u2014 radii are measured on real containers, not assumed."
+  ],
+  "donts": [
+    "Reserve shadows for measured elevated elements only; the reference is otherwise flat."
+  ],
+  "gaps": [
+    "Computed (rendered) styles were not sampled \u2014 values come from static stylesheets; the rendered cascade may differ.",
+    "Typography role names are inferred from selector names and size ordering, not from rendered headings.",
+    "Component inventory was not derived \u2014 no named component token maps in this pass."
+  ],
+  "sources": [
+    "captured stylesheets (assets/*.css) + reference.html of the capture bundle"
+  ]
+}

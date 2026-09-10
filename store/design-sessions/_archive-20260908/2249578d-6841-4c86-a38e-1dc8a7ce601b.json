@@ -1,0 +1,27 @@
+{
+  "id": "2249578d-6841-4c86-a38e-1dc8a7ce601b",
+  "kind": "reference-build",
+  "status": "captured",
+  "createdAt": "2026-09-08T01:54:58.703Z",
+  "updatedAt": "2026-09-08T01:55:12.411Z",
+  "roomId": "8e8d06e3-ee43-4e78-9099-3f49eef7ba93",
+  "venture": "novizio",
+  "correlation": "93a94f95-6f39-44ba-92f1-55bc1271464f",
+  "reference": {
+    "url": "https://www.detroit.paris/",
+    "taxonomy": "static-editorial",
+    "motionSummary": "The reference is primarily static editorial content with no detected video, motion library, or scroll-driven animation; only a small spin keyframe and minimal transitions were detected."
+  },
+  "history": [
+    {
+      "at": "2026-09-08T01:54:58.703Z",
+      "event": "session_captured",
+      "detail": "https://www.detroit.paris/"
+    },
+    {
+      "at": "2026-09-08T01:55:12.411Z",
+      "event": "intent_gate_emitted",
+      "detail": "static-editorial"
+    }
+  ]
+}

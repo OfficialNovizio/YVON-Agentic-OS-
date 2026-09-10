@@ -397,10 +397,18 @@ def test_knowledge_sync():
            f'Got {len(shared_os_chunks)} chunks')
 
     # Verify RAG modules exist and tested
+    # FIX (2026-09-10): these were checked at rag/<m>.py, but the modules live in
+    # rag/core/ (with the harness in rag/harness/). The check had been failing
+    # permanently on all six names — 6 false failures that buried the 2 real ones
+    # and trained readers to ignore the suite.
     rag_modules = ['chunkify', 'embed', 'optimizer', 'retriever', 'feedback', 'bridge']
     for m in rag_modules:
-        path = os.path.join(RAG_DIR, f'{m}.py')
-        verify(f'RAG module {m}.py exists', os.path.exists(path))
+        path = os.path.join(RAG_DIR, 'core', f'{m}.py')
+        verify(f'RAG module core/{m}.py exists', os.path.exists(path))
+    verify('RAG harness gates.py exists',
+           os.path.exists(os.path.join(RAG_DIR, 'harness', 'gates.py')))
+    verify('RAG harness plan_lock.py exists',
+           os.path.exists(os.path.join(RAG_DIR, 'core', 'plan_lock.py')))
 
     # Verify CIE TypeScript files
     cie_files = ['classifier.ts', 'retriever.ts', 'ranker.ts', 'builder.ts',

@@ -403,7 +403,15 @@ def gate_conflicts(chunks: List[Dict]) -> Tuple[List[Dict], List[Conflict]]:
             has_opposition_i = bool(re.search(r'\b(argues?|outperforms?|disagrees?|challenges?|counters?|contradicts?|opposes?|rejects?)\b', ti.lower()))
             has_opposition_j = bool(re.search(r'\b(argues?|outperforms?|disagrees?|challenges?|counters?|contradicts?|opposes?|rejects?)\b', tj.lower()))
 
-            has_any_neg = has_neg_i or has_neg_j or has_opposition_i or has_opposition_j
+            # FIX (2026-09-10): this was `has_neg_i or has_neg_j or ...` — a bare
+            # OR over a regex containing no|not|never|cannot|unless|except|however.
+            # Those words appear in virtually every English document, so ANY two
+            # chunks sharing a couple of terms counted as a "contradiction" —
+            # measured 95-149 per turn across a 20-chunk pool. A contradiction
+            # needs both sides to carry the signal, or one side to use explicit
+            # opposition language (argues/contradicts/opposes), which is a strong
+            # signal on its own.
+            has_any_neg = (has_neg_i and has_neg_j) or has_opposition_i or has_opposition_j
 
             # ── Contradiction: shared domain terms + negation/opposition ──
             # Same-department chunks share vocabulary — require more shared terms
@@ -411,7 +419,14 @@ def gate_conflicts(chunks: List[Dict]) -> Tuple[List[Dict], List[Conflict]]:
             same_dept = ci.get('department') == cj.get('department')
             min_shared = 5 if same_dept else 2
 
-            if shared >= min_shared and has_any_neg:
+            # FIX (2026-09-10, second pass): even with the negation rule tightened,
+            # this still fired on ~90% of pairs — 258 "conflicts" for a 24-chunk
+            # pool is ~276 pairs, i.e. essentially all of them. Two chunks that do
+            # not even share a quarter of their vocabulary are not "making opposing
+            # claims" about the same subject; they are simply different documents.
+            # Contradiction now requires real textual overlap AND the polarity
+            # signal AND enough shared terms.
+            if jaccard >= 0.25 and shared >= min_shared and has_any_neg:
                 # Determine which is the exception
                 neg_chunk = ci if has_neg_i else cj
                 pos_chunk = cj if has_neg_i else ci
@@ -432,9 +447,13 @@ def gate_conflicts(chunks: List[Dict]) -> Tuple[List[Dict], List[Conflict]]:
                 continue
 
             # ── Version conflict: same source, different file ──
+            # FIX (2026-09-10): threshold was jaccard > 0.4, which is satisfied by
+            # almost ANY two sections of the same multi-section document — that is
+            # topical cohesion, not a version conflict. Raised to 0.8 so this fires
+            # only on genuinely near-duplicate sections (e.g. a v1/v2 pair).
             if (ci.get('source_file', '') == cj.get('source_file', '') and
                 ci.get('section', '') != cj.get('section', '') and
-                jaccard > 0.4):
+                jaccard > 0.8):
                 conflict = Conflict(
                     chunk_a_id=ci.get('chunk_id', ''),
                     chunk_b_id=cj.get('chunk_id', ''),
@@ -451,7 +470,12 @@ def gate_conflicts(chunks: List[Dict]) -> Tuple[List[Dict], List[Conflict]]:
                 continue
 
             # ── Domain conflict: general vs specific ──
-            if (jaccard > 0.25 and
+            # FIX (2026-09-10): this fired on jaccard > 0.25 plus a tier mismatch,
+            # with no requirement of any actual disagreement. Across 20 candidates
+            # that is up to 190 pairs, nearly all of which merely share vocabulary —
+            # producing the observed 95-144 "conflicts" per turn. Now it requires
+            # strong overlap AND a real opposition/negation signal in one side.
+            if (jaccard > 0.6 and has_any_neg and
                 ci.get('priority_tier', 2) != cj.get('priority_tier', 2) and
                 ci.get('source_file', '') != cj.get('source_file', '')):
                 general = ci if ci.get('priority_tier', 2) > cj.get('priority_tier', 2) else cj
@@ -762,7 +786,20 @@ def process(
 
     input_tokens = estimate_tokens(' '.join(c.get('toon_text', c.get('chunk_text', '')) for c in chunks))
     if budget_tokens is None:
-        budget_tokens = max(80, min(800, int(input_tokens * 0.15 * 2.0)))  # generous default
+        # FIX (2026-09-10): this was max(80, min(800, input_tokens * 0.3)) — a HARD
+        # 800-token ceiling on all retrieved context, labelled "generous default".
+        # Measured in production: a 9,687-chunk index, top_k=40, 20 reranked
+        # candidates, and only 2-5 chunks reached the prompt (gate4 used 400,
+        # remaining 141). This ceiling — not the conflict gate, which never drops
+        # anything — was what starved the agent. 800 tokens is ~600 words of
+        # context for a model with a six-figure context window.
+        # Now: 30% of the candidate pool, floor 1500, ceiling 8000. Override with
+        # YVON_RAG_BUDGET_TOKENS to tune without a code change.
+        _env_budget = os.environ.get('YVON_RAG_BUDGET_TOKENS')
+        if _env_budget:
+            budget_tokens = max(200, int(_env_budget))
+        else:
+            budget_tokens = max(1500, min(8000, int(input_tokens * 0.15 * 2.0)))
 
     active_skills = active_skills or []
     inactive_skills = inactive_skills or []

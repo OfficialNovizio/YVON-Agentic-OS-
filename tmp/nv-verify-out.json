@@ -1,0 +1,142 @@
+{
+ "root_status": 200,
+ "landed_url": "http://novizio.preview.yvon.in/novizio",
+ "title": "Novizio \u2014 Intelligence, in motion",
+ "h1": [
+  "Make the complexmove.",
+  "Clarity is nota pause.",
+  "Every threadin the room.",
+  "From first thoughtto forward motion.",
+  "Work thatremembers.",
+  "There is moreto build."
+ ],
+ "sections": [
+  {
+   "id": "top",
+   "cls": "hero media-section",
+   "h": "Make the complexmove."
+  },
+  {
+   "id": "method",
+   "cls": "text-section text-section--intro",
+   "h": "Clarity is nota pause."
+  },
+  {
+   "id": "systems",
+   "cls": "media-section media-section--short",
+   "h": "Every threadin the room."
+  },
+  {
+   "id": null,
+   "cls": "text-section text-section--statement",
+   "h": "From first thoughtto forward motion."
+  },
+  {
+   "id": null,
+   "cls": "media-section media-section--short media-section--pulse",
+   "h": "Work thatremembers."
+  },
+  {
+   "id": "contact",
+   "cls": "contact-section",
+   "h": "There is moreto build."
+  }
+ ],
+ "body_font": "\"SF Pro Display\", Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+ "body_bg": "rgb(14, 14, 14)",
+ "h1_font": "Geist, Arial, sans-serif",
+ "h1_size": "80px",
+ "h1_weight": "500",
+ "h1_color": "rgb(255, 255, 255)",
+ "pill_radius": {
+  "count": 3,
+  "sample": [
+   "Begin a signal \u2197",
+   "Explore the system \u2193",
+   "hello@novizio.ai \u2197"
+  ]
+ },
+ "accent_scan": [],
+ "usavionix_leak": false,
+ "anim_names": [
+  "field-breathe:11s",
+  "orbit-turn:22s",
+  "orbit-turn:28s",
+  "orbit-turn:35s",
+  "node-pulse:2.6s",
+  "styles-module__themeIconIn___qUWMV:0.35s",
+  "styles-module__cycleTextIn___VBNTi:0.2s"
+ ],
+ "overflow_1440": {
+  "sw": 1440,
+  "iw": 1440
+ },
+ "ov_1280": {
+  "sw": 1280,
+  "iw": 1280,
+  "h1": "80px",
+  "ok": true
+ },
+ "ov_768": {
+  "sw": 768,
+  "iw": 768,
+  "h1": "69.12px",
+  "ok": true
+ },
+ "ov_600": {
+  "sw": 600,
+  "iw": 600,
+  "h1": "54px",
+  "ok": true
+ },
+ "ov_480": {
+  "sw": 480,
+  "iw": 480,
+  "h1": "51.2px",
+  "ok": true
+ },
+ "ov_390": {
+  "sw": 390,
+  "iw": 390,
+  "h1": "43px",
+  "ok": true
+ },
+ "reduced_anim": {
+  "durations": [
+   "1e-05s"
+  ],
+  "allClamped": true
+ },
+ "reduced_visible": true,
+ "axe": {
+  "violations": [
+   {
+    "id": "button-name",
+    "impact": "critical",
+    "nodes": 8
+   },
+   {
+    "id": "label",
+    "impact": "critical",
+    "nodes": 2
+   },
+   {
+    "id": "link-name",
+    "impact": "serious",
+    "nodes": 1
+   },
+   {
+    "id": "nested-interactive",
+    "impact": "serious",
+    "nodes": 1
+   },
+   {
+    "id": "region",
+    "impact": "moderate",
+    "nodes": 1
+   }
+  ],
+  "passes": 37
+ },
+ "console_errors": []
+}

@@ -45,6 +45,13 @@ Commands (see `task.sh` wrapper):
                                   [--evidence "<run detail>"] [--actor <who>]
                                   sets one criterion's status + evidence. Object-form items
                                   preferred; flat-string items are converted on first touch.
+    import-acceptance [id] --prd "<path>" [--wi <WI-id>] [--force] [--actor <who>]
+                                  parse the PRD's §6 Acceptance Criteria numbered items into the
+                                  work item's acceptance block (status pending, evidence empty;
+                                  the falsifier rides in the text so verifiers see it). Default
+                                  work item: the first. Refuses to overwrite real criteria
+                                  without --force. The convert chain runs this automatically —
+                                  2026-09-08 root-cause fix for "0/1 acceptance criteria met".
     set-roles [id] --wi <WI-id> [--doer <who>] [--verifier <who>] [--integrator <who>]
                                   [--actor <who>] — defaults to the item's owner when absent.
     set-handoff [id] --entry "…" --contract "…" --stubbed "…" --needs-wiring "…"
@@ -472,7 +479,7 @@ def cmd_suite(args, tid):
     require((ROOT / run.strip('"')).exists(), f"run record does not exist on disk: {run}")
     text = path_for(tid).read_text(encoding="utf-8")
     require(top(text, "status") == "review", f"{tid} is not in review")
-    run_clean = run.strip('"')
+    run_clean = _posix(run.strip('"'))
     if re.search(r"^run_ref:", text, re.M):
         text = _sub_literal(r"^run_ref:.*$", f'run_ref: "{run_clean}"', text, re.M)
     else:
@@ -541,6 +548,89 @@ def cmd_supersede(args, tid):
         path_for(tid).write_text(_stamp(text), encoding="utf-8")
     _append_history(path_for(tid), "system", "superseded", f"superseded by {by}")
     print(f"✓ {tid} superseded_by {by}")
+
+
+def _posix(p: str) -> str:
+    r"""Normalize Windows backslashes to forward slashes before the path enters
+    a double-quoted YAML scalar — a backslash+t becomes a TAB escape and
+    backslash+T an invalid escape (TS-055 shipped PyYAML-unparseable for
+    exactly this; task.py's own regex parsing merely tolerated it). 2026-09-08."""
+    return p.replace("\\", "/")
+
+
+def cmd_import_acceptance(args, tid):
+    """Import the generated PRD's §6 Acceptance Criteria into a work item's
+    acceptance block (2026-09-08). Root-cause fix for "0/1 acceptance criteria
+    met" on every chat-converted task: `new` copies TEMPLATE's single empty
+    criterion, `set-prd` attaches only prd_ref/rice_score, and nothing ever
+    converted the PRD's real criteria into the record — so the acceptance
+    card + build-progress bar (which read the record, not the PRD) showed one
+    blank row forever. Parses `## 6. Acceptance Criteria` numbered items
+    (`1. **Title:** description` + `   **Falsifier:** text`) into v3 object
+    criteria (status pending, evidence empty; the falsifier rides in the text
+    so the verifier sees the falsifying case). Replaces the whole block;
+    refuses when it already holds real (non-empty) criteria unless --force."""
+    prd = _opt(args, "--prd")
+    wi = _opt(args, "--wi") or ""
+    force = "--force" in args
+    actor = _opt(args, "--actor") or "operator"
+    require(bool(prd), 'import-acceptance needs --prd "<path to store/tasks/{id}-prd.md>"')
+    prd_clean = _posix(prd.strip('"').strip("'"))
+    prd_path = ROOT / prd_clean
+    require(prd_path.exists(), f"no such PRD on disk: {prd_clean}")
+    text = path_for(tid).read_text(encoding="utf-8")
+    chunks = _wi_chunks(text)
+    require(bool(chunks), f"{tid} has no work items to receive criteria")
+    if wi:
+        target = next(((c, s, e) for c, s, e in chunks if re.match(rf"\s*-\s+id:\s*{re.escape(wi)}\b", c)), None)
+        require(target is not None, f"no work item {wi} in {tid}")
+    else:
+        target = chunks[0]
+    chunk, cstart, cend = target
+    wid_m = re.search(r"\s*-\s+id:\s*(\S+)", chunk)
+    require(wid_m is not None, "work item chunk has no id line")
+    wid = wid_m.group(1)
+    prd_md = prd_path.read_text(encoding="utf-8")
+    sec = re.search(r"^## 6\. Acceptance Criteria[ \t]*$", prd_md, re.M)
+    require(sec is not None, f"{prd_clean} has no '## 6. Acceptance Criteria' section")
+    body_start = sec.end()
+    nxt = re.search(r"^## ", prd_md[body_start:], re.M)
+    body = prd_md[body_start: body_start + (nxt.start() if nxt else len(prd_md) - body_start)]
+    items_md = re.split(r"^\s*\d+\.\s+", body, flags=re.M)[1:]
+    if not items_md:
+        # LLM-written PRDs often use bold-led bullets instead of numbers
+        # (TS-001, 2026-09-09) — accept the same '**Title:**' shape per bullet.
+        items_md = re.split(r"^\s*-\s+(?=\*\*)", body, flags=re.M)[1:]
+    require(len(items_md) >= 1, f"'## 6. Acceptance Criteria' in {prd_clean} holds no numbered criteria")
+    criteria = []
+    for raw in items_md:
+        # Split the falsifier continuation line off FIRST — it sits inside the
+        # numbered item's text, so a naive re.S description match would swallow
+        # it (and it would then be appended twice).
+        fm = re.search(r"\*\*Falsifier:\*\*\s*(.*)", raw, re.S)
+        body, fals_txt = (raw[:fm.start()], fm.group(1)) if fm else (raw, None)
+        cm = re.match(r"\*\*(.+?):\*\*\s*(.*)", body.strip(), re.S)
+        require(cm is not None, "PRD §6 criterion without a '**Title:**' heading — format drifted")
+        title = cm.group(1).strip()
+        desc = re.sub(r"\s+", " ", cm.group(2)).strip()
+        out = f"{title}: {desc}"
+        if fals_txt:
+            out += f" (falsifier: {re.sub(r'\s+', ' ', fals_txt).strip()})"
+        criteria.append({"text": out, "status": "pending", "evidence": ""})
+    ablk = block_after(chunk, "acceptance")
+    existing = _parse_acceptance(ablk) if ablk.strip() else []
+    real = [it for it in existing if it["text"].strip()]
+    require(force or not real, f"{wid} already holds {len(real)} real criteria — pass --force to replace")
+    am = re.search(r"^([ \t]*)acceptance:[ \t]*(?:#.*)?$", chunk, re.M)
+    require(am is not None, f"{wid} has no acceptance key — record is not v3-shaped")
+    ind = am.group(1)
+    new_block = _serialize_acceptance(criteria, indent=ind + "  ")
+    old_end = cstart + (am.end() + len(ablk))
+    text = text[:cstart] + chunk[:am.start()] + f"{ind}acceptance:\n" + new_block + "\n" + text[old_end:]
+    path_for(tid).write_text(_stamp(text), encoding="utf-8")
+    _append_history(path_for(tid), actor, "acceptance_imported",
+                    f"{len(criteria)} criteria from {prd_clean} §6")
+    print(f"✓ {tid} {wid} ← {len(criteria)} criteria from {prd_clean} §6")
 
 
 def cmd_setacceptance(args, tid):
@@ -679,7 +769,7 @@ def cmd_setprd(args, tid):
     text = path_for(tid).read_text(encoding="utf-8")
     st = top(text, "status")
     require(st in ("draft", "discovery"), f"{tid} is {st} — PRD is frozen once approved (amend via a new PRD version instead)")
-    ref_clean = ref.strip('"').strip("'")
+    ref_clean = _posix(ref.strip('"').strip("'"))
     require((ROOT / ref_clean).exists(), f"no such file on disk: {ref_clean}")
     if re.search(r"^prd_ref:.*$", text, re.M):
         text = _sub_literal(r"^prd_ref:.*$", f'prd_ref: "{ref_clean}"', text, re.M)
@@ -787,7 +877,7 @@ def cmd_set_design_origin(args, tid):
     if artifact:
         text = _set_flat_field(text, "design_artifact_id", artifact)
     if handoff:
-        text = _set_flat_field(text, "design_handoff_path", handoff)
+        text = _set_flat_field(text, "design_handoff_path", _posix(handoff))
     path_for(tid).write_text(_stamp(text), encoding="utf-8")
     _append_history(path_for(tid), actor, "design_origin_set", f"session={session} tool={tool}")
     print(f"✓ {tid} design_session_id={session} design_tool={tool}")
@@ -1083,7 +1173,8 @@ def main(argv):
     idarg = None
     if cmd in ("discover", "approve", "start", "gate", "review", "suite", "block", "unblock",
                "supersede", "done", "status", "note", "set-prd", "set-design-origin",
-               "fill-discovery", "set-acceptance", "set-roles", "set-handoff", "set-evidence"):
+               "fill-discovery", "set-acceptance", "import-acceptance", "set-roles",
+               "set-handoff", "set-evidence"):
         # id is the first bare positional that looks like TS-xxx
         cand = [a for a in pos if re.match(r"TS-\d+", a)]
         idarg = cand[0] if cand else None
@@ -1093,6 +1184,7 @@ def main(argv):
                 "done": cmd_done, "status": cmd_status, "note": cmd_note,
                 "set-prd": cmd_setprd, "set-design-origin": cmd_set_design_origin,
                 "fill-discovery": cmd_filldiscovery, "set-acceptance": cmd_setacceptance,
+                "import-acceptance": cmd_import_acceptance,
                 "set-roles": cmd_setroles, "set-handoff": cmd_sethandoff,
                 "set-evidence": cmd_setevidence}
     if cmd in dispatch:

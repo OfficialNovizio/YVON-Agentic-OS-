@@ -1,0 +1,51 @@
+{
+  "id": "3203c317-aee3-4f89-8b78-a00cfe005fc8",
+  "kind": "reference-build",
+  "status": "captured",
+  "createdAt": "2026-09-08T02:31:45.312Z",
+  "updatedAt": "2026-09-08T02:32:57.020Z",
+  "roomId": "dc3f8e5c-dcb8-43de-92ee-1822c98f2110",
+  "venture": "novizio",
+  "correlation": "66771822-8b2b-4d69-a9f3-68b52c1f323e",
+  "reference": {
+    "url": "https://www.detroit.paris/",
+    "taxonomy": "unknown",
+    "motionProfileUrl": "https://hermes.yvon.in/artifacts/novizio/66771822-8b2b-4d69-a9f3-68b52c1f323e/motion-profile.md"
+  },
+  "history": [
+    {
+      "at": "2026-09-08T02:31:45.312Z",
+      "event": "session_captured",
+      "detail": "https://www.detroit.paris/"
+    },
+    {
+      "at": "2026-09-08T02:32:56.977Z",
+      "event": "motion_profile_published",
+      "detail": "https://hermes.yvon.in/artifacts/novizio/66771822-8b2b-4d69-a9f3-68b52c1f323e/motion-profile.md"
+    },
+    {
+      "at": "2026-09-08T02:32:57.020Z",
+      "event": "capture_completed",
+      "detail": "www-detroit-paris-20260908 - round trip 70.5s"
+    }
+  ],
+  "capture": {
+    "url": "https://www.detroit.paris/",
+    "out": "www-detroit-paris-20260908",
+    "previewUrl": "https://hermes.yvon.in/artifacts/novizio/66771822-8b2b-4d69-a9f3-68b52c1f323e/_reference-capture/reference.html",
+    "reportUrl": "https://hermes.yvon.in/artifacts/novizio/66771822-8b2b-4d69-a9f3-68b52c1f323e/scrape-report.md",
+    "seconds": 70.5,
+    "summary": {
+      "title": "Detroit | AI Production House in Paris for Luxury Brands",
+      "pageHeight": 900,
+      "videos": 32,
+      "images": 34,
+      "stylesheets": 3,
+      "keyframes": 2,
+      "animatedRules": 3,
+      "assetsHarvested": 99,
+      "seconds": 55
+    },
+    "capturedAt": "2026-09-08T02:32:57.018Z"
+  }
+}

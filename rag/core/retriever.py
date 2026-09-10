@@ -684,6 +684,24 @@ def retrieve(query: str, agent_id: str = '', agent_dept: str = '',
     # Step 5: Compress + Format injection
     injection_text = format_injection(optimized.selected_chunks, profile, agent_id)
 
+    # Step 5b: durable retrieval telemetry.
+    # FIX (2026-09-10): retrieval_log had a schema and no writers — 0 rows on a
+    # live index. Rows are recorded for EVERY reranked candidate with an explicit
+    # injected flag, so "what did retrieval offer, and what actually reached the
+    # model?" is answerable after the fact. Telemetry must never break a turn,
+    # so failures are swallowed by design (same discipline as the repo bridge).
+    try:
+        _sel = {c.get('chunk_id') for c in optimized.selected_chunks}
+        _rows = []
+        for _r in reranked:
+            _rr = dict(_r)
+            _rr['injected'] = _rr.get('chunk_id') in _sel
+            _rr['outcome'] = 'injected' if _rr['injected'] else 'retrieved_not_selected'
+            _rows.append(_rr)
+        VectorStore().log_retrieval(query, agent_id, _rows)
+    except Exception:
+        pass
+
     # Step 6: Generate Lasswell-compliant trace
     trace = trace_injection(optimized, query, agent_id)
 

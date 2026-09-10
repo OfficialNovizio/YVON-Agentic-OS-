@@ -50,6 +50,18 @@ from pydantic import BaseModel, Field
 
 # Run lifecycle → Supabase event log. Fire-and-forget; never blocks a run.
 from events import emit
+
+# Venture knowledge-graph read path (2026-09-10). See graph_query.py's header:
+# graphify wrote 12k nodes / 22k edges that no turn ever read.
+try:
+    from graph_query import query_graph as _query_venture_graph
+    from graph_query import available as _graph_available
+except ImportError:  # module absent -> turn proceeds with no graph context
+    def _query_venture_graph(_q: str, limit: int = 6) -> str:
+        return ""
+
+    def _graph_available() -> bool:
+        return False
 # Re-engineer Phase 1 (2026-09-05): server-side motion probe for reference
 # URLs — stdlib-only sibling module so tests import it without fastapi.
 from motion_probe import detect_reference_urls, probe_url, render_markdown
@@ -376,7 +388,17 @@ _governor = _TpmGovernor()
 # hermes-agent that does not exist. `llmCallsExact` on the usage payload says
 # whether this turn had the process to itself.
 _llm_counter_lock = threading.Lock()
-_llm_counter: dict[str, float] = {"calls": 0, "est_tokens": 0, "wait_s": 0.0}
+_llm_counter: dict[str, float] = {
+    "calls": 0, "est_tokens": 0, "wait_s": 0.0,
+    # 2026-09-07: PROVIDER-TRUE accounting, harvested from the LLM response
+    # bodies passing through the governed hooks (see _harvest_llm_usage).
+    # Same process-global scope as the estimates above — hermes-agent issues
+    # its HTTP from threads the turn does not own (probe 1's lesson), so a
+    # per-turn thread-local sink here would repeat v1's zero-everywhere bug.
+    # Cross-attribution limit is identical to the estimator's and is flagged
+    # by the same `llmCallsExact` on the usage payload.
+    "true_in": 0, "true_out": 0, "cache_read": 0, "cache_write": 0, "usage_calls": 0,
+}
 # Snapshots currently open (one per turn between _meter_snapshot and
 # _meter_delta). Tracked as a list rather than a counter because exactness has
 # to be judged over the WHOLE life of a turn: a turn that started alone and was
@@ -391,6 +413,16 @@ def _llm_counter_bump(est: int, waited_s: float = 0.0) -> None:
         _llm_counter["calls"] += 1
         _llm_counter["est_tokens"] += max(0, int(est))
         _llm_counter["wait_s"] += max(0.0, float(waited_s))
+
+
+def _llm_usage_bump(usage: dict[str, int]) -> None:
+    """Add one LLM response's provider-reported token counts to the ledger."""
+    with _llm_counter_lock:
+        _llm_counter["true_in"] += max(0, int(usage.get("in", 0)))
+        _llm_counter["true_out"] += max(0, int(usage.get("out", 0)))
+        _llm_counter["cache_read"] += max(0, int(usage.get("cache_read", 0)))
+        _llm_counter["cache_write"] += max(0, int(usage.get("cache_write", 0)))
+        _llm_counter["usage_calls"] += 1
 
 
 # ── Payload composition (2026-08-22) ────────────────────────────────────────
@@ -453,6 +485,55 @@ def _first_shape_since(ts: float) -> Optional[dict[str, Any]]:
     return None
 
 
+def _persist_token_usage(
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    cache_read: int,
+    cache_write: int,
+    venture_slug: str,
+    room_id: str,
+) -> None:
+    """Fire-and-forget one `token_usage` ledger row (migration 017/019) so
+    chat turns finally appear in the same spend surface hermes-agent spawn
+    sessions do. cost_usd stays 0 here — the dashboard's pricing table owns
+    money math; this row carries the measured counts. Never raises."""
+    url = os.environ.get("SUPABASE_URL", "").rstrip("/")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+    if not url or not key:
+        return
+
+    def _post() -> None:
+        try:
+            req = urllib.request.Request(
+                f"{url}/rest/v1/token_usage",
+                data=json.dumps({
+                    "agent_id": "hermes-chat",
+                    "route": "hermes-http",
+                    "model": model or "unknown",
+                    "input_tokens": max(0, int(input_tokens)),
+                    "output_tokens": max(0, int(output_tokens)),
+                    "cache_read_tokens": max(0, int(cache_read)),
+                    "cache_creation_tokens": max(0, int(cache_write)),
+                    "cost_usd": 0,
+                    "venture_id": venture_slug or None,
+                    "session_id": room_id or None,
+                }).encode(),
+                headers={
+                    "Content-Type": "application/json",
+                    "apikey": key,
+                    "Authorization": f"Bearer {key}",
+                    "Prefer": "return=minimal",
+                },
+                method="POST",
+            )
+            urllib.request.urlopen(req, timeout=4).close()
+        except Exception as exc:  # noqa: BLE001 — telemetry must never break a turn
+            log.debug("token_usage persist failed (ignored): %s", exc)
+
+    threading.Thread(target=_post, daemon=True).start()
+
+
 def _meter_snapshot() -> dict[str, Any]:
     with _llm_counter_lock:
         snap: dict[str, Any] = {**_llm_counter, "_concurrent": False, "_t": time.monotonic()}
@@ -478,6 +559,18 @@ def _meter_delta(before: dict[str, Any]) -> dict[str, Any]:
         "governorWaitS": round(float(after["wait_s"] - before["wait_s"]), 1),
         "llmCallsExact": bool(was_alone),
     }
+    # Provider-true delta (2026-09-07) — reported only when the hooks actually
+    # harvested a usage body; otherwise the keys are absent and the done frame
+    # keeps tokensReported=false (honest absence, never a guessed zero).
+    _u_in = int(after["true_in"] - before.get("true_in", 0))
+    _u_out = int(after["true_out"] - before.get("true_out", 0))
+    if int(after["usage_calls"] - before.get("usage_calls", 0)) > 0 or _u_in or _u_out:
+        out["trueUsage"] = {
+            "in": _u_in,
+            "out": _u_out,
+            "cacheRead": int(after["cache_read"] - before.get("cache_read", 0)),
+            "cacheWrite": int(after["cache_write"] - before.get("cache_write", 0)),
+        }
     shape = _first_shape_since(float(before.get("_t", 0.0)))
     if shape:
         out["firstCallShape"] = shape
@@ -491,7 +584,9 @@ def _llm_counter_totals() -> dict[str, Any]:
     with _llm_counter_lock:
         return {"llmCalls": int(_llm_counter["calls"]),
                 "estInputTokens": int(_llm_counter["est_tokens"]),
-                "governorWaitS": round(float(_llm_counter["wait_s"]), 1)}
+                "governorWaitS": round(float(_llm_counter["wait_s"]), 1),
+                "trueInputTokens": int(_llm_counter["true_in"]),
+                "trueOutputTokens": int(_llm_counter["true_out"])}
 
 
 def _is_llm_request(request: Any) -> bool:
@@ -540,6 +635,314 @@ def _retry_after_s(response: Any, attempt: int) -> float:
     return min(wait + 0.5, 60.0)
 
 
+# ── Provider-true usage harvest (2026-09-07) ────────────────────────────────
+# The estimates above count bytes; the PROVIDER's own accounting is what cost
+# reports need. Every LLM response passes through the governed hooks, so the
+# usage object can be pulled straight out of the wire — with two mechanics:
+#
+#   non-streaming JSON responses: the body is already buffered by httpx —
+#   parse it and take "usage".
+#
+#   streaming (SSE) responses: the body belongs to the caller, so the hook
+#   tees it — iter_raw/aiter_raw are wrapped to COPY chunks into a bounded
+#   ring while yielding them unchanged, and the copy is parsed when the
+#   stream ends. For OpenAI-shaped providers the stream only carries usage
+#   when the request asked for it, so the hook also injects
+#   stream_options.include_usage on an allowlist of known-compatible hosts
+#   (with a process-lifetime fuse if a provider ever rejects it).
+#
+# Scanned shapes: OpenAI chat (usage.prompt_tokens / completion_tokens /
+# prompt_tokens_details.cached_tokens, in the final stream chunk or the JSON
+# body) and Anthropic messages (message_start usage.input_tokens + the
+# cumulative message_delta usage.output_tokens + cache fields).
+_STREAM_OPTIONS_HOSTS = {"api.openai.com", "api.deepseek.com"}
+_STREAM_OPTIONS_UNSUPPORTED = False
+
+
+class _ReplayBodyStream(httpx.SyncByteStream, httpx.AsyncByteStream):
+    """Minimal replacement for a prepared request's byte stream after the
+    body was re-serialised. Implements just enough of the stream protocol
+    (sync + async) for httpx transports to send it."""
+
+    # FIX (2026-09-08): must SUBCLASS httpx's stream bases. httpx 0.28's
+    # Client._send_single_request does `isinstance(request.stream,
+    # SyncByteStream)` — a duck-typed lookalike fails that check and every
+    # injected streaming request died as RuntimeError("Attempted to send an
+    # async request with a sync Client instance."), which openai swallows into
+    # "Connection error." Subclassing both bases satisfies both the sync and
+    # the async client checks.
+    def __init__(self, data: bytes) -> None:
+        self._data = data
+
+    def __iter__(self):  # sync transport
+        yield self._data
+
+    def close(self) -> None:  # tolerated no-ops — real streams have these
+        return None
+
+    async def __aiter__(self):  # async transport
+        yield self._data
+
+    async def aclose(self) -> None:
+        return None
+
+
+def _maybe_inject_stream_options(request: Any) -> Optional[Any]:
+    """Ask allowlisted providers to include a usage chunk in streamed chat
+    responses. Returns a restore() callable when the body was changed (so a
+    rejecting provider can be retried untouched), else None."""
+    global _STREAM_OPTIONS_UNSUPPORTED
+    if _STREAM_OPTIONS_UNSUPPORTED:
+        return None
+    try:
+        host = getattr(getattr(request, "url", None), "host", "") or ""
+        if host not in _STREAM_OPTIONS_HOSTS:
+            return None
+        # FIX (2026-09-08): inject ONLY on chat-completions requests. The
+        # Responses API (/v1/responses) rejects stream_options with a 400 —
+        # and it always reports usage in its SSE events anyway, so there is
+        # nothing to harvest there.
+        path = str(getattr(getattr(request, "url", None), "path", "") or "")
+        if not path.endswith("/chat/completions"):
+            return None
+        body = request.content or b""
+        if not body or len(body) > 8_000_000:
+            return None
+        payload = json.loads(body)
+        if not isinstance(payload, dict) or payload.get("stream") is not True:
+            return None
+        if "stream_options" in payload:
+            return None
+        payload["stream_options"] = {"include_usage": True}
+        new_body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        old_body = body
+        request._content = new_body  # type: ignore[attr-defined]
+        request.stream = _ReplayBodyStream(new_body)  # type: ignore[attr-defined]
+        try:
+            request.headers["Content-Length"] = str(len(new_body))
+        except Exception:  # noqa: BLE001 — header fixup is best-effort
+            pass
+        log.debug("usage harvest: stream_options.include_usage injected for %s", host)
+
+        def restore() -> None:
+            try:
+                request._content = old_body  # type: ignore[attr-defined]
+                request.stream = _ReplayBodyStream(old_body)  # type: ignore[attr-defined]
+                request.headers["Content-Length"] = str(len(old_body))
+            except Exception:  # noqa: BLE001
+                pass
+
+        return restore
+    except Exception:  # noqa: BLE001 — never break the request over telemetry
+        return None
+
+
+def _usage_from_obj(obj: Any) -> Optional[dict[str, int]]:
+    """Classify one parsed usage object → {in, out, cache_read, cache_write}."""
+    if not isinstance(obj, dict):
+        return None
+    # OpenAI chat shape
+    pt = obj.get("prompt_tokens")
+    ct = obj.get("completion_tokens")
+    if isinstance(pt, (int, float)) or isinstance(ct, (int, float)):
+        cache_read = 0
+        details = obj.get("prompt_tokens_details")
+        if isinstance(details, dict) and isinstance(details.get("cached_tokens"), (int, float)):
+            cache_read = int(details["cached_tokens"])
+        return {
+            "in": int(pt or 0),
+            "out": int(ct or 0),
+            "cache_read": cache_read,
+            "cache_write": 0,
+        }
+    # Anthropic messages shape (message_start has input_tokens; message_delta
+    # has output_tokens only — assembled per-stream by _usage_from_stream_text)
+    it = obj.get("input_tokens")
+    ot = obj.get("output_tokens")
+    if isinstance(it, (int, float)) or isinstance(ot, (int, float)):
+        cache_read = obj.get("cache_read_input_tokens")
+        cache_write = obj.get("cache_creation_input_tokens")
+        return {
+            "in": int(it or 0),
+            "out": int(ot or 0),
+            "cache_read": int(cache_read or 0) if isinstance(cache_read, (int, float)) else 0,
+            "cache_write": int(cache_write or 0) if isinstance(cache_write, (int, float)) else 0,
+        }
+    return None
+
+
+def _balanced_json_at(text: str, start: int) -> Optional[str]:
+    """Return the JSON object starting at text[start] == '{', or None."""
+    depth = 0
+    in_str = False
+    esc = False
+    for i in range(start, min(len(text), start + 40_000)):
+        c = text[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif c == "\\":
+                esc = True
+            elif c == '"':
+                in_str = False
+            continue
+        if c == '"':
+            in_str = True
+        elif c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start:i + 1]
+    return None
+
+
+def _usage_from_stream_text(text: str) -> Optional[dict[str, int]]:
+    """Pull provider usage out of an SSE stream transcript (or a JSON body —
+    both are just text with `"usage"` in them)."""
+    best: Optional[dict[str, int]] = None  # last OpenAI-style usage wins
+    anthropic_in: Optional[dict[str, int]] = None
+    anthropic_out = 0
+    idx = 0
+    while True:
+        idx = text.find('"usage"', idx)
+        if idx < 0:
+            break
+        brace = text.find("{", idx + len('"usage"'))
+        if brace < 0:
+            break
+        raw = _balanced_json_at(text, brace)
+        idx = brace + 1
+        if not raw:
+            continue
+        try:
+            parsed = json.loads(raw)
+        except Exception:  # noqa: BLE001 — partial chunk, skip
+            continue
+        usage = _usage_from_obj(parsed)
+        if not usage:
+            continue
+        if "prompt_tokens" in parsed or "completion_tokens" in parsed:
+            best = usage
+        else:
+            # Anthropic: message_start carries input; every message_delta's
+            # output_tokens is cumulative, so the LAST one seen is the total.
+            if usage["in"]:
+                anthropic_in = usage if anthropic_in is None else {
+                    "in": anthropic_in["in"] + usage["in"],
+                    "out": anthropic_in["out"],
+                    "cache_read": anthropic_in["cache_read"] + usage["cache_read"],
+                    "cache_write": anthropic_in["cache_write"] + usage["cache_write"],
+                }
+            if usage["out"]:
+                anthropic_out = max(anthropic_out, usage["out"])
+    if best:
+        return best
+    if anthropic_in is not None or anthropic_out:
+        return {
+            "in": (anthropic_in or {}).get("in", 0),
+            "out": anthropic_out,
+            "cache_read": (anthropic_in or {}).get("cache_read", 0),
+            "cache_write": (anthropic_in or {}).get("cache_write", 0),
+        }
+    return None
+
+
+class _StreamUsageBuffer:
+    """Bounded tee-buffer for one streamed LLM response. Keeps the head (the
+    Anthropic message_start arrives early) and the tail (OpenAI's usage chunk
+    arrives last), parses once at stream end, never blocks the caller."""
+
+    def __init__(self, head_lim: int = 98_304, tail_lim: int = 1_048_576) -> None:
+        self._head_lim = head_lim
+        self._tail_lim = tail_lim
+        self._head = bytearray()
+        self._tail = bytearray()
+        self._finished = False
+
+    def feed(self, chunk: bytes) -> None:
+        if self._finished or not chunk:
+            return
+        if len(self._head) < self._head_lim:
+            take = chunk[: self._head_lim - len(self._head)]
+            self._head.extend(take)
+            chunk = chunk[len(take):]
+        if chunk:
+            self._tail.extend(chunk)
+            if len(self._tail) > self._tail_lim:
+                del self._tail[: len(self._tail) - self._tail_lim]
+
+    def finish(self) -> None:
+        if self._finished:
+            return
+        self._finished = True
+        try:
+            text = (bytes(self._head) + b"\n" + bytes(self._tail)).decode("utf-8", "replace")
+            usage = _usage_from_stream_text(text)
+            if usage and (usage["in"] or usage["out"]):
+                _llm_usage_bump(usage)
+        except Exception:  # noqa: BLE001 — telemetry must never break a turn
+            pass
+
+
+def _tee_response_stream(response: Any) -> None:
+    """Wrap the response's raw iterators so the usage scanner sees every byte
+    while the caller receives them unchanged."""
+    buf = _StreamUsageBuffer()
+    orig_iter = getattr(response, "iter_raw", None)
+    if callable(orig_iter):
+        def iter_raw(*a: Any, **k: Any) -> Any:
+            try:
+                for chunk in orig_iter(*a, **k):
+                    buf.feed(chunk)
+                    yield chunk
+            finally:
+                buf.finish()
+        response.iter_raw = iter_raw  # type: ignore[method-assign]
+    orig_aiter = getattr(response, "aiter_raw", None)
+    if callable(orig_aiter):
+        async def aiter_raw(*a: Any, **k: Any) -> Any:
+            try:
+                async for chunk in orig_aiter(*a, **k):
+                    buf.feed(chunk)
+                    yield chunk
+            finally:
+                buf.finish()
+        response.aiter_raw = aiter_raw  # type: ignore[method-assign]
+
+
+def _resp_content_bytes(response: Any) -> bytes:
+    """Response body bytes when already buffered — []-safe for streaming
+    responses (accessing .content on an unread stream raises)."""
+    try:
+        content = response.content
+        return bytes(content) if content else b""
+    except Exception:  # noqa: BLE001 — unread stream / closed response
+        return b""
+
+
+def _harvest_llm_usage(response: Any) -> None:
+    """Called from BOTH governed hooks once a response is in hand (non-429)."""
+    try:
+        ct = ""
+        try:
+            ct = response.headers.get("content-type", "") or ""
+        except Exception:  # noqa: BLE001
+            pass
+        if "text/event-stream" in ct:
+            _tee_response_stream(response)
+            return
+        content = _resp_content_bytes(response)
+        if not content or len(content) > 4_000_000:
+            return
+        payload = json.loads(content)
+        usage = _usage_from_obj(payload.get("usage") if isinstance(payload, dict) else None)
+        if usage and (usage["in"] or usage["out"]):
+            _llm_usage_bump(usage)
+    except Exception:  # noqa: BLE001 — never break a request over telemetry
+        pass
+
+
 _orig_httpx_send = httpx.Client.send
 _orig_httpx_async_send = httpx.AsyncClient.send
 
@@ -559,9 +962,31 @@ def _governed_send(self: httpx.Client, request: Any, **kwargs: Any) -> Any:
         _governor.acquire(est)
         _llm_counter_bump(est, time.time() - _wait_t0)
         _record_payload_shape(request)
+        _injected_restore = _maybe_inject_stream_options(request)
         response = _orig_httpx_send(self, request, **kwargs)
         _governor.observe(response.headers)
         if response.status_code != 429 or attempt >= OPENAI_429_MAX_RETRIES:
+            # 400 blame check: a provider that rejects stream_options must not
+            # lose its turn — restore the original body and send once more,
+            # then fuse the injection off for the process lifetime.
+            # FIX (2026-09-08): the error body is an UNREAD stream at this
+            # point (httpx doesn't buffer it), so _resp_content_bytes returned
+            # b"" and the blame check never matched — the 400 reached the turn
+            # untouched. Drain the body first; safe only on an error response.
+            if _injected_restore is not None and response.status_code == 400:
+                try:
+                    if not getattr(response, "is_stream_consumed", False) and not getattr(response, "is_closed", True):
+                        response.read()
+                except Exception:  # noqa: BLE001
+                    pass
+                if b"stream_options" in _resp_content_bytes(response):
+                    global _STREAM_OPTIONS_UNSUPPORTED
+                    _STREAM_OPTIONS_UNSUPPORTED = True
+                    log.warning("usage harvest: provider rejected stream_options — injection disabled")
+                    _injected_restore()
+                    response.close()
+                    response = _orig_httpx_send(self, request, **kwargs)
+            _harvest_llm_usage(response)
             return response
         _governor.note_429()
         attempt += 1
@@ -589,9 +1014,26 @@ async def _governed_send_async(self: httpx.AsyncClient, request: Any, **kwargs: 
         await _governor.acquire_async(est)
         _llm_counter_bump(est, time.time() - _wait_t0)
         _record_payload_shape(request)
+        _injected_restore = _maybe_inject_stream_options(request)
         response = await _orig_httpx_async_send(self, request, **kwargs)
         _governor.observe(response.headers)
         if response.status_code != 429 or attempt >= OPENAI_429_MAX_RETRIES:
+            # Same 400 blame check as the sync hook above (with the same
+            # unread-body drain — async flavor).
+            if _injected_restore is not None and response.status_code == 400:
+                try:
+                    if not getattr(response, "is_stream_consumed", False) and not getattr(response, "is_closed", True):
+                        await response.aread()
+                except Exception:  # noqa: BLE001
+                    pass
+                if b"stream_options" in _resp_content_bytes(response):
+                    global _STREAM_OPTIONS_UNSUPPORTED
+                    _STREAM_OPTIONS_UNSUPPORTED = True
+                    log.warning("usage harvest: provider rejected stream_options — injection disabled")
+                    _injected_restore()
+                    await response.aclose()
+                    response = await _orig_httpx_async_send(self, request, **kwargs)
+            _harvest_llm_usage(response)
             return response
         _governor.note_429()
         attempt += 1
@@ -656,6 +1098,7 @@ def _load_hermes_provider_default() -> str:
 
 HERMES_PROVIDER_DEFAULT = _load_hermes_provider_default()
 log = logging.getLogger("yvon-hermes-http")
+
 if HERMES_MODEL_DEFAULT or HERMES_PROVIDER_DEFAULT:
     log.info(
         "hermes config: model.default=%s provider=%s",
@@ -821,11 +1264,22 @@ RAG_PIPELINE_SCRIPT = os.environ.get(
     "RAG_PIPELINE_SCRIPT",
     "/root/YVON-Agentic-OS-/rag/run_turn_pipeline.py",
 )
-# Deliberately short — this rides on the same turn that concern #4 already
-# flagged as taking ~20 minutes; retrieval must never become a second tax on
-# top of that. On timeout the turn just continues without retrieved context
-# (see _run_rag_pipeline_sync's degrade-gracefully contract below).
-RAG_PIPELINE_TIMEOUT_S = float(os.environ.get("YVON_RAG_PIPELINE_TIMEOUT", "8"))
+# MEASURED ON THE PRODUCTION VPS (2026-09-10), 3 runs each, rc=0, ok:true:
+#   before the ONNX index: 1.18-1.39s wall  -> 8s was ~6x headroom, not biting
+#   after  the ONNX index: 3.93-4.90s wall  -> 8s is only ~1.8x headroom
+# The pipeline now loads a real 90MB MiniLM ONNX graph and tokenizer per turn
+# (previously it fell back to TF, because rag.db had 0 rows), so the cost is
+# genuine embedding work rather than the import overhead I once suspected. On
+# this 4-core box at ~73% RAM, already running the agent, 1.8x is thin: a cold
+# page cache or a loaded box silently drops retrieval for the whole turn
+# (the degrade path below returns no context and the turn just continues).
+# 30s restores real headroom while remaining negligible against a turn the
+# caller already budgets in minutes. Env-overridable as before.
+#
+# NOTE: do not re-derive this from dev-box timing. A local Windows measurement
+# of 6.7s warm / 29.3s cold was a cold-page-cache artifact and does NOT
+# describe the VPS. Measure process EXIT on the VPS, not the JSON's timing_ms.
+RAG_PIPELINE_TIMEOUT_S = float(os.environ.get("YVON_RAG_PIPELINE_TIMEOUT", "30"))
 
 # ── Repo file browser + live dev-server preview (2026-08-21) ────────────────
 # "Give me a URL to view the repo files, and a URL for a live localhost-style
@@ -1335,6 +1789,7 @@ def _detect_start_command(workdir: str) -> Optional[list[str]]:
     """Best-effort: only the most common conventions. A project this
     doesn't recognize just gets a clear 'don't know how to start this'
     error instead of a silent no-op — never guesses wrong and hangs."""
+    SERVER_HINTS = ("next", "vite", "serve", "http-server", "node ")
     pkg_path = os.path.join(workdir, "package.json")
     if os.path.isfile(pkg_path):
         try:
@@ -1343,6 +1798,24 @@ def _detect_start_command(workdir: str) -> Optional[list[str]]:
         except Exception:
             scripts = {}
         if "dev" in scripts:
+            dev_script = str(scripts.get("dev") or "")
+            if any(h in dev_script for h in SERVER_HINTS):
+                return ["npm", "run", "dev", "--", "--port", "{port}", "--hostname", "127.0.0.1"]
+            # Monorepo root whose dev script isn't a server (the YVON engine
+            # root package.json runs `tsc --watch`) — fall through to a known
+            # app subdir's package.json instead of binding nothing
+            # (2026-09-10, novizio preview 502: dev exited code 127).
+            for sub in ("dashboard", "app", "web", "frontend", "site"):
+                sub_pkg = os.path.join(workdir, sub, "package.json")
+                if not os.path.isfile(sub_pkg):
+                    continue
+                try:
+                    with open(sub_pkg, "r", encoding="utf-8") as fh:
+                        sub_scripts = (json.load(fh) or {}).get("scripts", {}) or {}
+                except Exception:
+                    sub_scripts = {}
+                if "dev" in sub_scripts and any(h in str(sub_scripts.get("dev") or "") for h in SERVER_HINTS):
+                    return ["npm", "run", "dev", "--prefix", sub, "--", "--port", "{port}", "--hostname", "127.0.0.1"]
             return ["npm", "run", "dev", "--", "--port", "{port}", "--hostname", "127.0.0.1"]
         if "start" in scripts:
             return ["npm", "run", "start", "--", "--port", "{port}"]
@@ -1565,6 +2038,21 @@ class ChatRequest(BaseModel):
     # intent card. Absent/None on turns without a reference URL: the old
     # free-text gate in [REFERENCE RULES] rule 2 still applies.
     design_session_id: Optional[str] = Field(default=None, description="Reference-build design session id (dashboard store/design-sessions/); presence injects the [DESIGN GATE] contract")
+    # Fence-append fallback (2026-09-08): which gate the design session is
+    # actually waiting on, derived dashboard-side from the record's status
+    # ('captured' → 'intent', 'intent' → 'motion'). The model is told to end
+    # the turn with the matching fence, but it is a model — it sometimes
+    # restates the question in prose and skips the fence entirely, which
+    # silently stalls the whole flow (observed live: reply said "Choose an
+    # intent in the design card" and emitted nothing). When this is set and
+    # the reply carries no fence, the wrapper appends the canonical fence
+    # itself below — the gate question then ALWAYS renders.
+    design_gate_stage: Optional[str] = Field(default=None, description="Gate stage the design session is waiting on ('intent'|'motion') — drives the fence-append fallback")
+    # 2026-09-07: the design session's stored reference URL. The dashboard
+    # sends it on URL-less gate turns ("continue") where the message carries
+    # no URL — the intent fence-append fallback below needs a url for its
+    # payload, and _ref_urls (extracted from the message) is empty there.
+    reference_url: Optional[str] = Field(default=None, description="The design session's stored reference URL (dashboard sends it on URL-less gate turns) — used by the fence-append fallback")
     # Re-engineer Phase 6 (2026-09-05): the executing TASK-SPEC, injected on
     # every turn in an execution-unlocked room with chat_rooms.execution_task_id
     # set. Rendered as the [ACTIVE TASK] block below — the builder must load
@@ -1719,11 +2207,17 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
             })
         return found
 
+    # 2026-09-07: the reference-capture relay thread publishes artifacts too
+    # (it lands the bundle mid-turn, not only at tool boundaries), so the
+    # seen-set needs a lock — two publishers must not double-announce a file.
+    _artifacts_lock = threading.Lock()
+
     def _publish_new_artifacts() -> None:
-        for a in _scan_new_artifacts():
-            _sse({"kind": "artifact", **a})
-            _emit_all("artifact", url=a["url"], label=a["label"], artifact_kind=a["artifactKind"],
-                      bytes=a["bytes"], room_id=req.room_id)
+        with _artifacts_lock:
+            for a in _scan_new_artifacts():
+                _sse({"kind": "artifact", **a})
+                _emit_all("artifact", url=a["url"], label=a["label"], artifact_kind=a["artifactKind"],
+                          bytes=a["bytes"], room_id=req.room_id)
 
     # Gate state is read once per turn (best-effort — None disables the
     # tripwire rather than crying wolf on a Supabase blip).
@@ -2110,7 +2604,284 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     # machinery. Loud degrade on failure: the turn must never assume a
     # reference is static just because the probe couldn't read it.
     _ref_urls = detect_reference_urls(req.message or "")
+    _cap_thread: Optional[threading.Thread] = None  # set when a capture dispatches
+    # Fence-append fallback scope: the probe's measured facts survive past the
+    # prompt-assembly block so the reply-time append below can build the gate
+    # fence from them. None when the probe failed or never ran.
+    _probe_taxonomy: Optional[str] = None
+    _probe_summary: Optional[str] = None
+    _probe_signals: Optional[dict] = None
     if _ref_urls:
+        # ── Full reference capture relay (2026-09-07) ────────────────────────
+        # The probe below reads motion facts in ~1-3s; the capture RELAY brings
+        # the whole site through a real headed browser on a residential IP
+        # (scripts/capture-worker.py on the user's machine): full-page
+        # screenshot, hydrated DOM, assets, inventory. Akamai-class bot walls
+        # deny every server-side path this process has — the relay exists
+        # because of that proof matrix. Dispatch is a file drop into the queue
+        # dir (this process runs on the same box as the queue); progress
+        # streams as capture.progress frames; the bundle lands in the durable
+        # captures root AND the turn artifacts dir. Every failure mode is loud
+        # and none of them breaks the turn.
+        import shutil
+        import tarfile
+
+        _cap_url = _ref_urls[0]
+        _cap_q = os.environ.get("YVON_CAPTURE_QUEUE", "/root/capture-queue")
+        try:
+            _cap_wait_max = float(os.environ.get("YVON_CAPTURE_WAIT_MAX_S", "420"))
+        except ValueError:
+            _cap_wait_max = 420.0
+        _cap_host = urllib.parse.urlparse(_cap_url).netloc or "site"
+        _cap_out = re.sub(r"[^a-zA-Z0-9_-]+", "-", _cap_host).strip("-")[:48] or "reference"
+        _cap_out = f"{_cap_out}-{time.strftime('%Y%m%d')}"
+        _cap_id = f"cap-{uuid.uuid4().hex[:12]}"
+        _cap_t0 = time.time()
+        _cap_root = os.path.join(REPO_WORKSPACES_DIR, "_reference-captures")
+        _cap_dur = os.path.join(_cap_root, _cap_out)
+
+        def _cap_progress(stage: str, pct: int, detail: str) -> None:
+            _sse({"kind": "capture.progress", "stage": stage, "pct": pct,
+                  "detail": detail, "elapsedS": round(time.time() - _cap_t0, 1)})
+
+        def _cap_finish(res: dict, tgz_path: str = "", src_id: str = "") -> None:
+            """Bundle arrived: unpack, mirror into the turn artifacts dir,
+            write the scrape report, publish, announce. Never raises.
+            tgz_path/src_id: when reusing a recent capture (dedup below), the
+            bundle of the ORIGINAL capture and its id — the report then says
+            so honestly instead of claiming a fresh crawl."""
+            try:
+                _cap_progress("bundle", 80, "capture bundle arrived — unpacking")
+                tgz = tgz_path or os.path.join(_cap_q, "captures", f"{_cap_id}.tar.gz")
+                if os.path.exists(tgz):
+                    os.makedirs(_cap_root, exist_ok=True)
+                    with tarfile.open(tgz, "r:gz") as tf:
+                        try:  # filter="data" is 3.12+; the tar is ours, but stay strict anyway
+                            tf.extractall(_cap_root, filter="data")
+                        except TypeError:
+                            tf.extractall(_cap_root)
+                _cap_art = ""
+                if _turn_artifacts_dir and os.path.isdir(_cap_dur):
+                    _cap_art = os.path.join(_turn_artifacts_dir, "_reference-capture")
+                    try:
+                        shutil.copytree(_cap_dur, _cap_art, dirs_exist_ok=True)
+                        for keep in ("reference.png", "inventory.json"):
+                            src = os.path.join(_cap_dur, keep)
+                            if os.path.exists(src):
+                                shutil.copy2(src, os.path.join(_turn_artifacts_dir, keep))
+                    except OSError as cerr:
+                        log.warning("capture preview mirror failed: %s", cerr)
+                # Scrape report — facts the capture actually measured, nothing else.
+                rep: list[str] = [
+                    "# Reference capture report", "",
+                    f"- Reference: {_cap_url}",
+                    f"- Captured: {time.strftime('%Y-%m-%d %H:%M:%S')}"
+                    + (f" (browser work {res.get('seconds')}s; turn-side total "
+                       f"{round(time.time() - _cap_t0, 1)}s)" if res.get("seconds") is not None else ""),
+                    f"- Capture id: {src_id or _cap_id}",
+                    *(
+                        [f"- Reused: a completed capture of this reference from the "
+                         f"last {_CAP_REUSE_TTL_S // 3600}h served this turn (no re-crawl)"]
+                        if src_id
+                        else []
+                    ),
+                    f"- Durable bundle: workspaces/_reference-captures/{_cap_out}/",
+                    "", "## Page digest (measured by the capture)", "",
+                ]
+                if res.get("title"):
+                    rep.append(f"- Title: {res['title']}")
+                for key in ("pageHeight", "videos", "images", "stylesheets", "keyframes", "assetsHarvested"):
+                    if res.get(key) is not None:
+                        rep.append(f"- {key}: {res[key]}")
+                _ar = res.get("animatedRules")
+                if _ar is not None:
+                    rep.append(f"- animatedRules: {len(_ar) if isinstance(_ar, list) else _ar}")
+                _fonts = res.get("fonts")
+                if isinstance(_fonts, list) and _fonts:
+                    rep.append(f"- fonts: {', '.join(str(f) for f in _fonts)}")
+                if os.path.isdir(_cap_dur):
+                    rep += ["", "## Bundle contents", ""]
+                    try:
+                        for e in sorted(os.scandir(_cap_dur), key=lambda x: x.name):
+                            if e.is_file():
+                                rep.append(f"- {e.name} ({e.stat().st_size} bytes)")
+                            elif e.is_dir():
+                                rep.append(f"- {e.name}/ ({sum(len(fs) for _, _, fs in os.walk(e.path))} files)")
+                    except Exception:  # noqa: BLE001 — listing must never kill the report
+                        rep.append("- (bundle listing unavailable)")
+                    rep += ["", "reference.html = hydrated DOM · reference.png = full-page screenshot · "
+                            "asset-manifest.json = url → local asset map · downloads.json = media to localize"]
+                if _turn_artifacts_dir:
+                    try:
+                        with open(os.path.join(_turn_artifacts_dir, "scrape-report.md"), "w", encoding="utf-8") as rf:
+                            rf.write("\n".join(rep) + "\n")
+                    except OSError as rerr:
+                        log.warning("scrape-report.md write failed: %s", rerr)
+                    _publish_new_artifacts()
+                _cap_progress("done", 100, "reference capture published")
+                _sse({
+                    "kind": "capture.done",
+                    "url": _cap_url,
+                    "out": _cap_out,
+                    "previewUrl": (
+                        f"{PUBLIC_BASE_URL}/artifacts/{_venture_slug}/{_correlation}/"
+                        "_reference-capture/reference.html"
+                    ) if _cap_art else "",
+                    "reportUrl": (
+                        f"{PUBLIC_BASE_URL}/artifacts/{_venture_slug}/{_correlation}/scrape-report.md"
+                    ) if _turn_artifacts_dir else "",
+                    "seconds": round(time.time() - _cap_t0, 1),
+                    "summary": {
+                        k: (len(v) if isinstance(v, list) else v)
+                        for k, v in res.items()
+                        if k in {"title", "pageHeight", "videos", "images", "stylesheets",
+                                 "keyframes", "animatedRules", "assetsHarvested", "seconds"}
+                        and v is not None
+                    },
+                })
+            except Exception as cerr:  # noqa: BLE001 — the turn must never die over the relay
+                log.warning("capture finish errored: %s", cerr)
+                _cap_progress("failed", 100, f"bundle handling failed: {cerr}")
+
+        def _capture_dispatch() -> None:
+            try:
+                for d in ("pending", "running", "done", "failed", "captures"):
+                    os.makedirs(os.path.join(_cap_q, d), exist_ok=True)
+                job = {"id": _cap_id, "url": _cap_url, "out": _cap_out, "dismiss": [],
+                       "width": 1440, "height": 900, "requested_by": f"hermes-chat:{req.room_id}"}
+                _tmp = os.path.join(_cap_q, "pending", f".{_cap_id}.json.tmp")
+                with open(_tmp, "w", encoding="utf-8") as jf:
+                    json.dump(job, jf)
+                os.replace(_tmp, os.path.join(_cap_q, "pending", f"{_cap_id}.json"))
+                _cap_progress("dispatch", 5, "capture job queued for the stealth browser relay")
+            except OSError as qerr:
+                _cap_progress("error", 0, f"capture queue unavailable: {qerr}")
+                _sse({"kind": "notice", "level": "warn",
+                      "message": f"Reference capture could not be queued: {qerr}. "
+                                 "The turn continues with the probe/scrape path only."})
+                return
+            _claimed = False
+            _stall_said = False
+            deadline = time.time() + _cap_wait_max
+            while time.time() < deadline:
+                time.sleep(10)
+                if not _claimed and os.path.exists(os.path.join(_cap_q, "running", f"{_cap_id}.json")):
+                    _claimed = True
+                    _cap_progress("claimed", 35, "stealth browser claimed the job — capturing now")
+                for status in ("done", "failed"):
+                    rp = os.path.join(_cap_q, status, f"{_cap_id}.result.json")
+                    if not os.path.exists(rp):
+                        continue
+                    try:
+                        with open(rp, "r", encoding="utf-8") as rf:
+                            res = json.load(rf)
+                        if status == "done":
+                            _cap_finish(res if isinstance(res, dict) else {})
+                        else:
+                            _cap_progress("failed", 100, str(res.get("error", "capture failed"))[:200])
+                            _sse({"kind": "notice", "level": "warn",
+                                  "message": "Reference capture failed: "
+                                             + str(res.get("error", "unknown"))[:220]
+                                             + " — falling back to the in-turn scrape path."})
+                    except (OSError, ValueError) as rerr:
+                        _cap_progress("failed", 100, f"unreadable capture result: {rerr}")
+                        _sse({"kind": "notice", "level": "warn",
+                              "message": f"Reference capture result unreadable: {rerr}."})
+                    return
+                if not _claimed and not _stall_said and time.time() - _cap_t0 > 45:
+                    _stall_said = True
+                    _sse({"kind": "notice", "level": "warn",
+                          "message": "No capture worker is attached to the relay queue — the full-page "
+                                     "reference capture will not arrive this turn. Start it on the local "
+                                     "machine (scripts/capture-worker.py) if you want the bundle; the turn "
+                                     "proceeds without it."})
+                # FIX (2026-09-08): if nothing claimed the job within 90s, stop
+                # polling — the turn's done frame is held behind this thread,
+                # and a worker-less queue must not hold a conversation hostage
+                # for the full 420s deadline.
+                if not _claimed and time.time() - _cap_t0 > 90:
+                    break
+            _cap_elapsed = int(time.time() - _cap_t0)
+            _cap_progress("timeout", 100, f"no capture result within {_cap_elapsed}s")
+            _sse({"kind": "notice", "level": "warn",
+                  "message": f"Reference capture didn't complete within {_cap_elapsed}s — "
+                             "proceeding without the bundle."})
+
+        # Capture dedup (fix ⑤, 2026-09-08): every turn whose text mentions
+        # the reference URL used to dispatch a FRESH ~70s stealth capture —
+        # observed live when the gate follow-ups re-mentioned the URL and the
+        # user asked "after once capture why doing again?". The gate chain
+        # spans several URL-mentioning turns, so a completed capture of the
+        # same reference within the TTL is reused: its bundle is unpacked into
+        # THIS turn (preview/report links still work) and no re-crawl runs.
+        _CAP_REUSE_TTL_S = 12 * 3600
+
+        def _norm_capture_url(u: str) -> str:
+            return str(u or "").strip().rstrip(".,;:!?)]}'\"").rstrip("/").lower()
+
+        _cap_reused_job: Optional[dict] = None
+        try:
+            _done_dir = os.path.join(_cap_q, "done")
+            if os.path.isdir(_done_dir):
+                for _fn in sorted(os.listdir(_done_dir)):
+                    if not _fn.endswith(".json") or _fn.endswith(".result.json"):
+                        continue
+                    _jp = os.path.join(_done_dir, _fn)
+                    try:
+                        if time.time() - os.path.getmtime(_jp) > _CAP_REUSE_TTL_S:
+                            continue
+                        with open(_jp, "r", encoding="utf-8") as _jf:
+                            _prev = json.load(_jf)
+                    except (OSError, ValueError):
+                        continue
+                    if not isinstance(_prev, dict):
+                        continue
+                    if _norm_capture_url(_prev.get("url")) != _norm_capture_url(_cap_url):
+                        continue
+                    if not os.path.exists(os.path.join(_cap_q, "captures", f"{_prev.get('id')}.tar.gz")):
+                        continue
+                    _cap_reused_job = _prev
+                    break
+        except Exception as _dderr:  # noqa: BLE001 — dedup must never break a turn
+            log.warning("capture dedup scan failed: %s", _dderr)
+
+        if _cap_reused_job is not None:
+            _prev_id = str(_cap_reused_job.get("id") or "")
+            _prev_tgz = os.path.join(_cap_q, "captures", f"{_prev_id}.tar.gz")
+            _prev_res = os.path.join(_cap_q, "done", f"{_prev_id}.result.json")
+
+            def _capture_reuse() -> None:
+                try:
+                    _cap_progress("claimed", 35, f"recent capture of this reference found — reusing {_prev_id}")
+                    _res: dict = {}
+                    try:
+                        with open(_prev_res, "r", encoding="utf-8") as _rf:
+                            _loaded = json.load(_rf)
+                        if isinstance(_loaded, dict):
+                            _res = _loaded
+                    except (OSError, ValueError):
+                        pass
+                    _cap_finish(_res, _prev_tgz, _prev_id)
+                except Exception as _ruerr:  # noqa: BLE001
+                    log.warning("capture reuse errored: %s", _ruerr)
+
+            _cap_thread = threading.Thread(target=_capture_reuse, name=f"capreuse-{_cap_id}", daemon=True)
+            _cap_thread.start()
+        else:
+            _cap_thread = threading.Thread(target=_capture_dispatch, name=f"capture-{_cap_id}", daemon=True)
+            _cap_thread.start()
+        prompt_parts.append(
+            "[REFERENCE CAPTURE] A full stealth-browser capture of " + _cap_url + " is running in "
+            "the background (headed browser on a residential IP — the path bot walls allow; a "
+            "completed capture of this same reference from the last 12h is reused instead of "
+            "re-crawling). When "
+            "it lands, this turn's artifacts directory gains scrape-report.md (measured digest), "
+            "reference.png (full-page screenshot) and the full bundle under _reference-capture/ "
+            "(hydrated DOM, assets, inventory). Do NOT spend tool calls re-scraping the same site "
+            "with your own browser — wait for the capture.done notice and ground your design study "
+            "in the bundle's facts; if the capture fails or times out, fall back to your own "
+            "capture chain and say so explicitly."
+        )
         _probe_ok = False
         _probe_detail = ""
         try:
@@ -2118,6 +2889,25 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
             if _profile.get("ok"):
                 _probe_ok = True
                 _probe_detail = render_markdown(_profile)
+                # Measured facts, kept for the fence-append fallback: the
+                # summary states raw counts, never a narrative ("32 video
+                # elements, 2 @keyframes rules, …") — the earlier model-written
+                # summaries contradicted the inventory ("no videos detected"
+                # beside videos: 32); counts cannot.
+                _pgs = _profile.get("signals") or {}
+                _probe_signals = _pgs if isinstance(_pgs, dict) else None
+                _probe_taxonomy = str(_profile.get("taxonomy") or "") or None
+                _probe_summary = (
+                    f"{_pgs.get('video_count', 0)} video element(s), "
+                    f"{_pgs.get('keyframes', 0)} @keyframes rule(s), "
+                    f"{_pgs.get('animation_decls', 0)} animation / "
+                    f"{_pgs.get('transition_decls', 0)} transition declarations"
+                    + (
+                        ", scroll libraries: " + ", ".join(_pgs.get("scroll_libs") or [])
+                        if _pgs.get("scroll_libs")
+                        else ", no scroll libraries detected"
+                    )
+                )
                 if _turn_artifacts_dir:
                     try:
                         with open(os.path.join(_turn_artifacts_dir, "motion-profile.md"), "w", encoding="utf-8") as _pfh:
@@ -2294,15 +3084,31 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
             '[{"need":"<observed motion need>","reference":"<what the reference actually '
             'does>","bestPath":"video|code|either","why":"<one line>"}]}'
         )
+        _brand_json = (
+            '{"stage":"brand","sessionId":"' + req.design_session_id + '","suggestions":'
+            '[{"title":"<short label>","text":"<the concrete change>","why":"<why it fits '
+            'their product and this reference>"}]}'
+        )
         prompt_parts.append(
             "[DESIGN GATE] A reference-build design session is open for this "
             f"turn (id: {req.design_session_id}). The reference pipeline has "
-            "TWO machine-parsed gates. Never build anything until BOTH are "
-            "answered — the chat renders decision cards from these fences; "
-            "plain-text questions do NOT render cards.\n"
-            "GATE 1 — INTENT (clone vs adapt):\n"
+            "THREE machine-parsed gates. Never build anything until INTENT "
+            "and MOTION are answered — the chat renders decision cards from "
+            "these fences; plain-text questions do NOT render cards.\n"
+            + (
+                f"PENDING STAGE: the dashboard reports this session is waiting "
+                f"on the {req.design_gate_stage.upper()} gate — that gate MUST "
+                "be emitted THIS turn regardless of what the conversation "
+                "already says: the session record shows it was never actually "
+                "answered, and a paraphrase in the transcript does not count.\n"
+                if req.design_gate_stage in ("intent", "motion")
+                else ""
+            )
+            + "GATE 1 — INTENT (clone vs adapt):\n"
             "1a. If the user's message already states the intent, do NOT "
-            "emit this gate — go to Gate 2 below.\n"
+            "emit this gate — go to Gate 2 below. (Exception: the PENDING "
+            "STAGE line above, when it says INTENT, overrides this — the "
+            "session record, not the transcript, is authoritative.)\n"
             "1b. Otherwise END this turn with EXACTLY this fenced block as "
             "the last thing in your reply — valid JSON on one line, no text "
             "after it:\n"
@@ -2313,7 +3119,11 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
             "motionSummary.\n"
             "GATE 2 — MOTION (video vs code): only after intent is stated.\n"
             "2a. If the conversation already states the motion decision, do "
-            "NOT emit this gate — proceed to the design study and design.md.\n"
+            "NOT emit this gate — proceed to the design study and design.md. "
+            "(Exception: the PENDING STAGE line above, when it says MOTION, "
+            "overrides this — the session record has no motion decision on "
+            "file, so emit Gate 2 this turn: do the design study, then end "
+            "with the Gate 2 fence.)\n"
             "2b. Otherwise present your design study, then END the turn with "
             "EXACTLY this fenced block:\n"
             "```design-gate\n" + _motion_json + "\n```\n"
@@ -2323,8 +3133,25 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
             "reference). State only what this reference actually animates: "
             "do NOT state costs, licenses or tool names — the card renders "
             "the full video-vs-code comparison itself.\n"
-            "BOTH GATES ANSWERED: proceed with the full design study and "
-            "design.md; emit no further gates for this session.\n"
+            "GATE 3 — BRAND SUGGESTIONS (brand-studio voice): only when the "
+            "user chose ADAPT and stated changes or preferences.\n"
+            "3a. First note down and reflect their changes back in your own "
+            "words, then give your view/plan aligned to the reference design, "
+            "then offer up to 6 concrete suggestions a brand/design studio "
+            "would make for THEIR product — voice, palette, typography, "
+            "motion feel, layout signature — each as "
+            '{"title":"<short>","text":"<the concrete change>","why":"<why '
+            'it fits their brand and this reference>"}. Ground every '
+            "suggestion in facts the user gave or the capture shows; never "
+            "invent brand facts you were not given.\n"
+            "3b. END the turn with EXACTLY this fenced block:\n"
+            "```design-gate\n" + _brand_json + "\n```\n"
+            "SKIP Gate 3 entirely when the user asked for an identical clone "
+            "or made no changes — identical intent means no brand "
+            "suggestions.\n"
+            "GATES 1-2 ANSWERED: proceed with the full design study and "
+            "design.md; emit Gate 3 only on the adapt-with-changes turn it "
+            "belongs to, and no other gates for this session.\n"
             f"Use {req.design_session_id} exactly as the sessionId — never "
             "invent one. Never emit a gate on turns without this block."
         )
@@ -2346,6 +3173,18 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
             "matters.\n" + req.reference_context
         )
     prompt_parts.append(req.message)
+
+    # Venture graph context (2026-09-10): the read half that never existed.
+    # Emitted as its own prompt block so it is auditable, and skipped entirely
+    # when the graph is absent rather than silently injecting an empty header.
+    _graph_ctx = _query_venture_graph(req.message)
+    if _graph_ctx:
+        prompt_parts.append(
+            "[VENTURE GRAPH - code knowledge graph, 12k nodes/22k edges] "
+            "Structural facts about this codebase. Use to locate relevant "
+            "modules; verify before relying on it.\n" + _graph_ctx
+        )
+
     full_prompt = "\n".join(prompt_parts)
 
     # FIX (2026-08-22, cost teardown Cause 02/03): recycle a pooled agent that
@@ -2550,6 +3389,134 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
                 pooled.agent.notice_callback = on_notice
                 response = pooled.agent.chat(full_prompt, stream_callback=on_delta)
                 result_holder["response"] = response or ""
+                # Fence-append fallback (fix ④, 2026-09-08): the [DESIGN GATE]
+                # contract asks the model to END the turn with the stage's
+                # fence, but nothing mechanical enforced it — and the model
+                # sometimes answers the gate in prose only (observed live:
+                # "Choose an intent in the design card: CLONE — / ADAPT —" and
+                # no fence), so no card rendered and the flow silently stalled.
+                # When the dashboard says which stage the session is actually
+                # waiting on and the reply carries no fence, append the
+                # canonical one here — built from the probe's measured facts,
+                # not from the model. Honest about the one false-positive
+                # class: if the user's FIRST message already stated the intent
+                # AND the model then also skipped the motion fence, an intent
+                # card may appear after all — one redundant click that
+                # self-heals, versus a flow that stalls forever.
+                _resp_txt = result_holder["response"]
+                # URL for the intent fence payload: the message's URL when the
+                # turn mentions one, else the session's stored one forwarded by
+                # the dashboard (URL-less "continue" gate turns).
+                _gate_url = (_ref_urls[0] if _ref_urls else (req.reference_url or "").strip())
+                if (
+                    req.design_gate_stage in ("intent", "motion")
+                    and req.design_session_id
+                    and (_gate_url or req.design_gate_stage == "motion")
+                    and _resp_txt.strip()
+                    and "design-gate" not in _resp_txt
+                ):
+                    if req.design_gate_stage == "motion":
+                        # Motion-stage fallback (2026-09-07): the adopt/brand
+                        # turn stranded a live flow — the model answered in
+                        # prose, skipped the Gate 2 fence (rule 2a let it read
+                        # the transcript as "decision already stated"), and the
+                        # session never reached 'briefed'. needs[] is built
+                        # from the probe's measured counts, not from the
+                        # model's reading of its own capture.
+                        _sig = _probe_signals if isinstance(_probe_signals, dict) else None
+                        _needs: list[dict[str, str]] = []
+                        if _sig:
+                            if (_sig.get("video_count") or 0) > 0:
+                                _needs.append({
+                                    "need": "video presence in the page",
+                                    "reference": f"{_sig['video_count']} <video> element(s) measured on the reference",
+                                    "bestPath": "either",
+                                    "why": "real footage or a coded visual stand-in both cover it — compare on the card",
+                                })
+                            if (_sig.get("keyframes") or 0) > 0 or (_sig.get("animation_decls") or 0) > 0:
+                                _needs.append({
+                                    "need": "keyframe animations",
+                                    "reference": f"{_sig.get('keyframes', 0)} @keyframes rule(s) / {_sig.get('animation_decls', 0)} animation declaration(s)",
+                                    "bestPath": "code",
+                                    "why": "pure CSS/GSAP reproduces this exactly at zero cost",
+                                })
+                            if (_sig.get("transition_decls") or 0) > 0:
+                                _needs.append({
+                                    "need": "micro-interaction transitions",
+                                    "reference": f"{_sig['transition_decls']} transition declaration(s)",
+                                    "bestPath": "code",
+                                    "why": "hover/focus/entrance transitions are cheapest and most precise in code",
+                                })
+                            if _sig.get("scroll_libs"):
+                                _needs.append({
+                                    "need": "scroll-driven narrative",
+                                    "reference": "scroll library detected: " + ", ".join(_sig["scroll_libs"]),
+                                    "bestPath": "either",
+                                    "why": "scrub-video or code-driven scroll scenes both serve it — compare on the card",
+                                })
+                        if not _needs:
+                            _needs.append({
+                                "need": (
+                                    "motion requirements (unmeasured)"
+                                    if not _sig
+                                    else "measured motion baseline"
+                                ),
+                                "reference": (
+                                    "server motion probe could not read the site — motion facts unmeasured this turn"
+                                    if not _sig
+                                    else "no motion machinery measured on the reference"
+                                ),
+                                "bestPath": "either" if not _sig else "code",
+                                "why": (
+                                    "pick from the card — the video-vs-code comparison is what this gate exists for"
+                                    if not _sig
+                                    else "nothing animated was measured — code-only motion keeps it honest and free"
+                                ),
+                            })
+                        _fallback_fence = (
+                            "```design-gate\n"
+                            + json.dumps(
+                                {
+                                    "stage": "motion",
+                                    "sessionId": req.design_session_id,
+                                    "needs": _needs,
+                                },
+                                ensure_ascii=False,
+                            )
+                            + "\n```"
+                        )
+                        log.info(
+                            "design gate: model skipped the motion fence — appended the canonical one (session=%s)",
+                            req.design_session_id,
+                        )
+                    else:
+                        _fallback_ref: dict[str, str] = {"url": _gate_url}
+                        if _probe_taxonomy:
+                            _fallback_ref["taxonomy"] = _probe_taxonomy
+                        if _probe_summary:
+                            _fallback_ref["motionSummary"] = _probe_summary
+                        else:
+                            _fallback_ref["motionSummary"] = (
+                                "server motion probe could not read the site — "
+                                "motion facts unmeasured this turn"
+                            )
+                        _fallback_fence = (
+                            "```design-gate\n"
+                            + json.dumps(
+                                {
+                                    "stage": "intent",
+                                    "sessionId": req.design_session_id,
+                                    "reference": _fallback_ref,
+                                },
+                                ensure_ascii=False,
+                            )
+                            + "\n```"
+                        )
+                        log.info(
+                            "design gate: model skipped the intent fence — appended the canonical one (session=%s)",
+                            req.design_session_id,
+                        )
+                    result_holder["response"] = _resp_txt.rstrip() + "\n\n" + _fallback_fence
                 # Added 2026-08-20 (Task #18): probe for token usage while
                 # still holding the lock, right after the call that would
                 # have set it — see _extract_token_usage's own comment on
@@ -2626,27 +3593,40 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
                         # (tokensReported=False) rather than guessed when the
                         # underlying AIAgent didn't expose them for this turn.
                         _tok = result_holder.get("token_usage")
+                        _meter = result_holder.get("meter") or {}
+                        _true = _meter.get("trueUsage") or {}
+                        # 2026-09-07: the provider's own accounting, harvested
+                        # from the wire by the governed hooks. When present it
+                        # fills the provider-true fields (tokensReported=true,
+                        # usageSource='provider'); when absent they stay null
+                        # exactly as before — honest absence, never a guess.
                         _usage = {
                             "provider": pooled.provider,
                             "model": pooled.model,
                             "toolCalls": _tool_call_count[0],
                             "latencyMs": int((time.time() - _turn_start_ts) * 1000),
                             "turnId": _correlation,
-                            "tokensReported": _tok is not None,
-                            "inputTokens": (_tok or {}).get("inputTokens"),
-                            "outputTokens": (_tok or {}).get("outputTokens"),
-                            "totalTokens": (_tok or {}).get("totalTokens"),
+                            "tokensReported": bool(_tok is not None or _true),
+                            "inputTokens": (_true or {}).get("in") if _true else (_tok or {}).get("inputTokens"),
+                            "outputTokens": (_true or {}).get("out") if _true else (_tok or {}).get("outputTokens"),
+                            "totalTokens": (
+                                int((_true or {}).get("in", 0)) + int((_true or {}).get("out", 0))
+                            ) if _true else (_tok or {}).get("totalTokens"),
                             "contextWindow": _context_window_for(pooled.model),
                         }
+                        if _true:
+                            _usage["usageSource"] = "provider"
+                            if _true.get("cacheRead"):
+                                _usage["cacheReadTokens"] = _true["cacheRead"]
+                            if _true.get("cacheWrite"):
+                                _usage["cacheWriteTokens"] = _true["cacheWrite"]
                         # FIX (2026-08-22): measured per-turn figures. Kept in
                         # SEPARATE keys from the provider ones above and named
                         # est*/llm* so nothing can mistake an estimate for the
-                        # provider's accounting — `tokensReported` still means
-                        # "the provider told us", and stays false here.
+                        # provider's accounting.
                         # llmCalls is the number this system has never been
                         # able to see: how many model round-trips one chat
                         # message actually cost.
-                        _meter = result_holder.get("meter") or {}
                         _usage["llmCalls"] = _meter.get("llmCalls", 0)
                         _usage["estInputTokens"] = _meter.get("estInputTokens", 0)
                         _usage["governorWaitS"] = _meter.get("governorWaitS", 0.0)
@@ -2665,6 +3645,19 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
                         if _meter.get("firstCallShape"):
                             _usage["firstCallShape"] = _meter["firstCallShape"]
                         _usage["estimated"] = True
+                        # Ledger row (2026-09-07): every chat turn's measured
+                        # tokens land in token_usage — the spend surface no
+                        # chat turn has ever appeared in. Fire-and-forget.
+                        if _usage["tokensReported"] and (_usage["inputTokens"] or _usage["outputTokens"]):
+                            _persist_token_usage(
+                                pooled.model,
+                                int(_usage["inputTokens"] or 0),
+                                int(_usage["outputTokens"] or 0),
+                                int(_usage.get("cacheReadTokens") or 0),
+                                int(_usage.get("cacheWriteTokens") or 0),
+                                _venture_slug,
+                                req.room_id,
+                            )
                         # 2026-08-21: did this turn actually change the repo?
                         # Compares the post-turn fingerprint against the
                         # pre-turn baseline captured above — real git state,
@@ -2684,6 +3677,36 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
                         # matters: the dashboard's reader loop breaks on `done`
                         # (page.tsx), so anything enqueued after it never
                         # reaches the client. Same rule task.proposed follows.
+                        #
+                        # Reference-capture barrier (fix ③, 2026-09-08): the
+                        # capture thread streams capture.progress / capture.done
+                        # through this same queue — but the agent finishes long
+                        # before the ~90s stealth capture does, so without this
+                        # hold the done frame raced ahead of every frame past
+                        # "dispatch" and the progress card froze mid-capture.
+                        # Hold done here and keep yielding whatever the thread
+                        # emits; the thread exits on its own deadline, so this
+                        # always ends. It is async-safe: the wait parks in an
+                        # executor via the queue awaits, never the event loop.
+                        if _cap_thread is not None:
+                            while _cap_thread.is_alive():
+                                try:
+                                    cap_ev = await asyncio.wait_for(queue.get(), timeout=5)
+                                except asyncio.TimeoutError:
+                                    continue
+                                if cap_ev.get("kind") == "__internal_done__":
+                                    continue
+                                yield f"data: {json.dumps(cap_ev)}\n\n"
+                            # The thread's final frames can land after it stops
+                            # being alive (call_soon ordering) — drain the rest.
+                            while True:
+                                try:
+                                    cap_ev = queue.get_nowait()
+                                except asyncio.QueueEmpty:
+                                    break
+                                if cap_ev.get("kind") == "__internal_done__":
+                                    continue
+                                yield f"data: {json.dumps(cap_ev)}\n\n"
                         _publish_new_artifacts()
                         yield f"data: {json.dumps({'kind': 'done', 'response': result_holder['response'], 'correlation': _correlation, 'usage': _usage, 'repoChanged': _repo_changed})}\n\n"
                     break

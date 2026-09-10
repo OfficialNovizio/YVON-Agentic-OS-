@@ -37,7 +37,7 @@ async function saveUsage(params: {
   outputTokens: number
   cacheReadTokens: number
   cacheCreationTokens: number
-  costUsd: number
+  costUsd: number | null
   ventureId: string | null
 }): Promise<void> {
   // Only write to Supabase if configured — fail silently otherwise
@@ -224,7 +224,7 @@ export async function POST(request: Request): Promise<Response> {
           outputTokens,
           cacheReadTokens,
           cacheCreationTokens,
-        })
+        }) ?? null
 
         // Emit usage to the client so the UI can show it inline
         const usageData = JSON.stringify({

@@ -1,0 +1,40 @@
+{
+  "id": "1e53ec7a-1960-4fcf-b94f-06efd793a565",
+  "kind": "reference-build",
+  "status": "abandoned",
+  "createdAt": "2026-09-06T09:10:19.403Z",
+  "updatedAt": "2026-09-06T09:34:05.378Z",
+  "roomId": "31b8fd19-f880-477e-98b7-99e39c1f40d9",
+  "venture": "novizio",
+  "correlation": "173a0733-5401-466d-a0e6-094b843757ed",
+  "reference": {
+    "url": "https://shop.brunellocucinelli.com/en-gb/:",
+    "taxonomy": "unknown"
+  },
+  "history": [
+    {
+      "at": "2026-09-06T09:10:19.403Z",
+      "event": "session_captured",
+      "detail": "https://shop.brunellocucinelli.com/en-gb/:"
+    },
+    {
+      "at": "2026-09-06T09:19:34.507Z",
+      "event": "motion_gate_emitted",
+      "detail": "5 observed motion need(s)"
+    },
+    {
+      "at": "2026-09-06T09:21:08.979Z",
+      "event": "motion_recorded",
+      "detail": "code"
+    },
+    {
+      "at": "2026-09-06T09:34:05.378Z",
+      "event": "intent_gate_dismissed",
+      "detail": "user said this is not a reference build"
+    }
+  ],
+  "motion": {
+    "decision": "code",
+    "decidedAt": "2026-09-06T09:21:08.974Z"
+  }
+}

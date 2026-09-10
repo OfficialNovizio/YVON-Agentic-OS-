@@ -1,0 +1,170 @@
+{
+  "id": "3697d41f-9b9a-4ec0-a21d-88b033632565",
+  "status": "handed_off",
+  "created_at": "2026-08-19T15:33:17Z",
+  "input": {
+    "type": "url",
+    "value": "https://stripe.com/pricing",
+    "thin_confirmed": false
+  },
+  "capture": {
+    "attempts": 1,
+    "fail_streak": 0,
+    "screenshot_path": "stub://capture/5891769643065562358.png",
+    "stub": true,
+    "escalated": false,
+    "last_error": null
+  },
+  "reference": {
+    "resolved": true,
+    "live_reachable": false,
+    "shown": [
+      {
+        "id": "apple",
+        "name": "Apple",
+        "category": "Media & Consumer",
+        "license": "Apache-2.0",
+        "source": "nexu-io/open-design design-systems/apple (bundled catalog)",
+        "added_at": "2026-08-19",
+        "tier": "curated",
+        "stale": false,
+        "closed": false
+      },
+      {
+        "id": "airbnb",
+        "name": "Airbnb",
+        "category": "E-Commerce & Retail",
+        "license": "Apache-2.0",
+        "source": "nexu-io/open-design design-systems/airbnb (bundled catalog)",
+        "added_at": "2026-08-19",
+        "tier": "curated",
+        "stale": false,
+        "closed": false
+      },
+      {
+        "id": "bmw",
+        "name": "BMW",
+        "category": "Automotive",
+        "license": "Apache-2.0",
+        "source": "nexu-io/open-design design-systems/bmw (bundled catalog)",
+        "added_at": "2026-03-01",
+        "tier": "curated",
+        "stale": true,
+        "closed": false
+      },
+      {
+        "id": "community-proxy-theme",
+        "name": "Community proxy theme (unverified)",
+        "category": "Themed & Unique",
+        "license": null,
+        "source": "operator-submitted, license not yet confirmed",
+        "added_at": "2026-08-10",
+        "tier": "curated",
+        "stale": false,
+        "closed": true
+      }
+    ],
+    "picked": "apple",
+    "picked_tier": "curated",
+    "competing_input": null,
+    "lead": null,
+    "extracted": {
+      "id": "apple",
+      "name": "Apple",
+      "category": "Media & Consumer",
+      "license": "Apache-2.0",
+      "tier": "curated",
+      "source": "nexu-io/open-design design-systems/apple (bundled catalog)"
+    },
+    "note": null
+  },
+  "generation": {
+    "attempts": 1,
+    "fail_streak": 0,
+    "code": "<!-- stub: no live SCREENSHOT_TO_CODE_URL, or upstream capture was itself a stub -- would generate html_tailwind from stub://capture/5891769643065562358.png -->",
+    "stack": "html_tailwind",
+    "stub": true,
+    "escalated": false,
+    "last_error": null
+  },
+  "review": {
+    "decision": "approve",
+    "regenerate_count": 0,
+    "note": ""
+  },
+  "design_md": {
+    "path": "store/design-sessions/3697d41f-9b9a-4ec0-a21d-88b033632565-design.md"
+  },
+  "spend": {
+    "estimate_usd": 0.0,
+    "pricing_source": "default-zero-unconfigured",
+    "warnings": [
+      "no store/design-sessions/pricing.json found \u2014 every figure below is $0 by default, not a real estimate. Fill in real per-call costs before trusting this for a paid deployment.",
+      "this session used stub-mode calls (no live deployment) \u2014 those are not billed and are excluded from the estimate"
+    ],
+    "decision": "approved"
+  },
+  "history": [
+    {
+      "ts": "2026-08-19T15:33:17Z",
+      "actor": "operator",
+      "event": "created",
+      "note": "input=url"
+    },
+    {
+      "ts": "2026-08-19T15:33:18Z",
+      "actor": "operator",
+      "event": "capture_ok",
+      "note": "stub=True"
+    },
+    {
+      "ts": "2026-08-19T15:33:18Z",
+      "actor": "operator",
+      "event": "reference_shown",
+      "note": "live_reachable=False count=4"
+    },
+    {
+      "ts": "2026-08-19T15:33:27Z",
+      "actor": "operator",
+      "event": "reference_picked",
+      "note": "apple (curated)"
+    },
+    {
+      "ts": "2026-08-19T15:33:27Z",
+      "actor": "operator",
+      "event": "generate_ok",
+      "note": "stub=True"
+    },
+    {
+      "ts": "2026-08-19T15:33:27Z",
+      "actor": "operator",
+      "event": "review_approved",
+      "note": ""
+    },
+    {
+      "ts": "2026-08-19T15:33:27Z",
+      "actor": "operator",
+      "event": "drafted",
+      "note": "store/design-sessions/3697d41f-9b9a-4ec0-a21d-88b033632565-design.md"
+    },
+    {
+      "ts": "2026-08-19T15:33:35Z",
+      "actor": "system",
+      "event": "estimated",
+      "note": "$0.0000 (default-zero-unconfigured)"
+    },
+    {
+      "ts": "2026-08-19T15:33:35Z",
+      "actor": "operator",
+      "event": "spend_approved",
+      "note": "$0.0000"
+    },
+    {
+      "ts": "2026-08-19T15:33:35Z",
+      "actor": "operator",
+      "event": "handed_off",
+      "note": "store/design-sessions/3697d41f-9b9a-4ec0-a21d-88b033632565-handoff.md"
+    }
+  ],
+  "updated_at": "2026-08-19T15:33:35Z"
+}

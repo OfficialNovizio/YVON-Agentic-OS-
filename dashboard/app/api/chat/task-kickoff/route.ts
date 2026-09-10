@@ -148,7 +148,17 @@ export async function POST(request: NextRequest) {
         : `Start build on ${taskId} — begin execution now.` +
           ` Load the recipe's named skills and libraries before writing code,` +
           ` build in the repo checkout, and end with a per-criterion status report` +
-          ` against the acceptance criteria.`
+          ` against the acceptance criteria.` +
+          // Design-spec precedence (2026-09-08, TS-001 root cause): the
+          // checkout may be a repo from a previous build carrying its own
+          // stale design.md / instructions / visual system. Left ambiguous,
+          // the builder followed the repo's old spec and reproduced the
+          // superseded design instead of the approved one.
+          ` If the checkout contains a design.md, instructions or an existing` +
+          ` visual system from a previous build, they are SUPERSEDED: the design` +
+          ` spec in this turn's payload is the single source of truth — overwrite` +
+          ` the repo's stale design.md with it and replace the old visual system` +
+          ` entirely rather than iterating on it.`
 
   const { data: userMsg, error: userErr } = await supabase
     .from('chat_messages')

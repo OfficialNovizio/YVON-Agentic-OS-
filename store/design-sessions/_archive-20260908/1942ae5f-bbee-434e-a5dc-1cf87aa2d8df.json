@@ -1,0 +1,57 @@
+{
+  "id": "1942ae5f-bbee-434e-a5dc-1cf87aa2d8df",
+  "kind": "reference-build",
+  "status": "captured",
+  "createdAt": "2026-09-08T02:38:20.433Z",
+  "updatedAt": "2026-09-08T02:39:32.938Z",
+  "roomId": "5cc4ff27-aed4-4223-9337-a01aadad57a1",
+  "venture": "novizio",
+  "correlation": "1427d1e8-215a-4454-b285-68700aa02049",
+  "reference": {
+    "url": "https://www.detroit.paris/",
+    "taxonomy": "static-editorial",
+    "motionProfileUrl": "https://hermes.yvon.in/artifacts/novizio/1427d1e8-215a-4454-b285-68700aa02049/motion-profile.md",
+    "motionSummary": "The reference is primarily static: no videos or motion libraries were detected, with only one spinner keyframe and a small number of basic transitions."
+  },
+  "history": [
+    {
+      "at": "2026-09-08T02:38:20.433Z",
+      "event": "session_captured",
+      "detail": "https://www.detroit.paris/"
+    },
+    {
+      "at": "2026-09-08T02:39:32.900Z",
+      "event": "motion_profile_published",
+      "detail": "https://hermes.yvon.in/artifacts/novizio/1427d1e8-215a-4454-b285-68700aa02049/motion-profile.md"
+    },
+    {
+      "at": "2026-09-08T02:39:32.934Z",
+      "event": "capture_completed",
+      "detail": "www-detroit-paris-20260908 - round trip 71s"
+    },
+    {
+      "at": "2026-09-08T02:39:32.938Z",
+      "event": "intent_gate_emitted",
+      "detail": "static-editorial"
+    }
+  ],
+  "capture": {
+    "url": "https://www.detroit.paris/",
+    "out": "www-detroit-paris-20260908",
+    "previewUrl": "https://hermes.yvon.in/artifacts/novizio/1427d1e8-215a-4454-b285-68700aa02049/_reference-capture/reference.html",
+    "reportUrl": "https://hermes.yvon.in/artifacts/novizio/1427d1e8-215a-4454-b285-68700aa02049/scrape-report.md",
+    "seconds": 71,
+    "summary": {
+      "title": "Detroit | AI Production House in Paris for Luxury Brands",
+      "pageHeight": 900,
+      "videos": 32,
+      "images": 34,
+      "stylesheets": 3,
+      "keyframes": 2,
+      "animatedRules": 3,
+      "assetsHarvested": 99,
+      "seconds": 56.6
+    },
+    "capturedAt": "2026-09-08T02:39:32.932Z"
+  }
+}

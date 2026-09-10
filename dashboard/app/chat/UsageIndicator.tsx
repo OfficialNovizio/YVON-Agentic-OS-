@@ -26,6 +26,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Gauge, Coins, Wrench, Cpu } from 'lucide-react'
 import type { TurnUsage } from '@/lib/hermes-client'
+import { calcCostUsd, formatCost } from '@/lib/token-cost'
 
 function fmtCompact(n: number | null | undefined): string {
   if (n == null) return 'n/a'
@@ -74,6 +75,26 @@ export function UsageIndicator({ usage }: { usage: TurnUsage }) {
     setOpen((o) => !o)
   }
 
+  // 2026-09-07: real cost from the sourced pricing table — computed only
+  // from provider-true tokens (usageSource 'provider'). Unknown model or
+  // agent-side best-effort tokens → null → "price not in table", never a
+  // guessed number.
+  const providerTrue = usage.usageSource === 'provider' && usage.tokensReported
+  const costUsd = providerTrue
+    ? calcCostUsd({
+        model: usage.model ?? '',
+        inputTokens: usage.inputTokens ?? 0,
+        outputTokens: usage.outputTokens ?? 0,
+        cacheReadTokens: usage.cacheReadTokens ?? 0,
+        cacheCreationTokens: usage.cacheWriteTokens ?? 0,
+      })
+    : null
+  const costLabel =
+    costUsd != null
+      ? formatCost(costUsd)
+      : providerTrue && usage.model
+        ? `price not in table (${usage.model})`
+        : 'no provider-true tokens'
   const contextUsed = usage.tokensReported ? usage.totalTokens : null
   const contextLabel =
     contextUsed != null && usage.contextWindow
@@ -135,11 +156,13 @@ export function UsageIndicator({ usage }: { usage: TurnUsage }) {
             <Row label="Tool calls" value={String(usage.toolCalls)} />
             <Row label="Latency" value={`${(usage.latencyMs / 1000).toFixed(1)}s`} />
             <Row label="Turn ID" value={usage.turnId} mono />
-            <Row label="Cost" value="not available — no live pricing source wired up" />
+            <Row label="Cost (measured tokens)" value={costLabel} mono />
             <div className="mt-2 border-t border-[var(--chat-hairline)] pt-2 text-[10.5px] leading-snug text-[var(--chat-text-faint)]">
-              {usage.tokensReported
-                ? 'Token counts as reported by the agent runtime.'
-                : "Token counts aren't exposed by the agent runtime for this turn — shown as unavailable rather than a guess."}
+              {providerTrue
+                ? `Provider's own accounting${usage.cacheReadTokens ? ` · ${fmtCompact(usage.cacheReadTokens)} cached in` : ''} — cost from the sourced pricing table.`
+                : usage.tokensReported
+                  ? 'Token counts as reported by the agent runtime (best-effort) — no cost shown without provider-true numbers.'
+                  : "Token counts aren't exposed by the agent runtime for this turn — shown as unavailable rather than a guess."}
             </div>
           </div>,
           document.body,

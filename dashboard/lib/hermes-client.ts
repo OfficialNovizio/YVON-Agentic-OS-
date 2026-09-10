@@ -78,6 +78,18 @@ export interface HermesChatInput {
    * Undefined on turns without a reference URL (or for turns the dashboard
    * hasn't opened a session for). */
   designSessionId?: string
+  /** Fence-append fallback (2026-09-08): which gate the design session is
+   * waiting on, derived from the record's status ('captured' → 'intent',
+   * 'intent' → 'motion'). main.py appends the canonical ```design-gate fence
+   * when the model answered the gate in prose and skipped the fence — the
+   * failure that stalled the reference flow live. Undefined once both gates
+   * are answered (status 'motion' or later) or on non-reference turns. */
+  designGateStage?: 'intent' | 'motion'
+  /** The design session's stored reference URL (2026-09-07) — forwarded so the
+   * wrapper's fence-append fallback can build the intent fence's reference
+   * payload on URL-less gate turns ("continue"), where the message itself
+   * carries no URL. Undefined on non-reference turns. */
+  referenceUrl?: string
   /** Re-engineer Phase 6 (2026-09-05): the room's executing TASK-SPEC,
    * injected on every turn in an execution-unlocked room whose
    * chat_rooms.execution_task_id is set. main.py renders it as an
@@ -158,6 +170,12 @@ export interface TurnUsage {
   outputTokens: number | null
   totalTokens: number | null
   contextWindow: number | null
+  // 2026-09-07: provider-true usage, harvested from the wire by main.py's
+  // governed hooks. usageSource 'provider' = these are the provider's own
+  // accounting (never an estimate); absent = legacy best-effort only.
+  usageSource?: 'provider' | 'agent'
+  cacheReadTokens?: number
+  cacheWriteTokens?: number
   // ── measured per-turn figures (2026-08-22) ────────────────────────────────
   // Distinct from the provider fields above, and named est*/llm* so the two
   // can never be confused: `tokensReported` still means "the provider told
@@ -223,6 +241,18 @@ export type HermesEvent = (
   // browser reader loop breaks on `done`. URL is absolute
   // (https://hermes.yvon.in/artifacts/...) and CSP-clean for <img>.
   | { kind: 'artifact'; url: string; label?: string; artifactKind?: string }
+  // Stealth-browser capture relay (2026-09-07): honest stage progress while
+  // the reference capture runs, and the measured bundle facts when it lands.
+  | { kind: 'capture.progress'; stage: string; pct: number; detail: string; elapsedS: number }
+  | {
+      kind: 'capture.done'
+      url: string
+      out: string
+      previewUrl?: string
+      reportUrl?: string
+      seconds?: number
+      summary?: Record<string, string | number>
+    }
 ) & { correlation?: string }
 
 export interface HermesConfig {
@@ -316,6 +346,8 @@ export async function* streamHermesChat(
       correlation: input.correlation ?? undefined,
       reference_context: input.referenceContext ?? undefined,
       design_session_id: input.designSessionId ?? undefined,
+      design_gate_stage: input.designGateStage ?? undefined,
+      reference_url: input.referenceUrl ?? undefined,
       active_task: input.activeTask
         ? {
             task_id: input.activeTask.taskId,

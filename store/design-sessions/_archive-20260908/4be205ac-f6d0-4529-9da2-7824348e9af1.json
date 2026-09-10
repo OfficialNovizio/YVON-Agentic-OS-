@@ -1,0 +1,21 @@
+{
+  "id": "4be205ac-f6d0-4529-9da2-7824348e9af1",
+  "kind": "reference-build",
+  "status": "captured",
+  "createdAt": "2026-09-08T01:07:06.349Z",
+  "updatedAt": "2026-09-08T01:07:06.349Z",
+  "roomId": "e63ba17e-b43a-42cb-8ad0-5c2f8b849c75",
+  "venture": "novizio",
+  "correlation": "5f5c5719-07bf-418d-af24-0328ae25d844",
+  "reference": {
+    "url": "https://www.detroit.paris/",
+    "taxonomy": "unknown"
+  },
+  "history": [
+    {
+      "at": "2026-09-08T01:07:06.349Z",
+      "event": "session_captured",
+      "detail": "https://www.detroit.paris/"
+    }
+  ]
+}

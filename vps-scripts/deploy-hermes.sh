@@ -121,6 +121,11 @@ grep -q 'MAX_ITER_BY_TIER'            "$LOCAL_FILE" && ok "contains per-tier ite
 grep -q 'from motion_probe import'     "$LOCAL_FILE" && ok "motion probe wired"                 || bad "motion probe NOT wired"
 grep -q 'if req.design_session_id:'    "$LOCAL_FILE" && ok "design gate wired"                  || bad "design gate NOT wired"
 grep -q 'if req.active_task:'          "$LOCAL_FILE" && ok "active task wired"                  || bad "active task NOT wired"
+# 2026-09-07: provider-true token harvest + capture relay + brand gate.
+grep -q '_harvest_llm_usage'           "$LOCAL_FILE" && ok "provider-true usage harvest wired"  || bad "usage harvest NOT wired"
+grep -q '_persist_token_usage'         "$LOCAL_FILE" && ok "token_usage ledger wired"           || bad "token_usage ledger NOT wired"
+grep -q 'capture.progress'             "$LOCAL_FILE" && ok "capture relay wired"                || bad "capture relay NOT wired"
+grep -q 'GATE 3 — BRAND'               "$LOCAL_FILE" && ok "brand gate wired"                   || bad "brand gate NOT wired"
 
 # ── 2. connectivity ──────────────────────────────────────────────────────
 say "2 · Connectivity"

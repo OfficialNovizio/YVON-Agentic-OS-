@@ -1,0 +1,32 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dashboard",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "dashboard", "run", "dev"],
+      "autoPort": true
+    },
+    {
+      "name": "docs-static",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8797", "--directory", "docs"],
+      "port": 8797,
+      "url": "http://localhost:8797"
+    },
+    {
+      "name": "novizio-product",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "workspaces/novizio/OfficialNovizio-Novizio-Web", "run", "start", "--", "-p", "3311"],
+      "port": 3311,
+      "url": "http://localhost:3311"
+    },
+    {
+      "name": "reference-clone",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8798", "--directory", "workspaces/_reference-captures/brunellocucinelli-clone"],
+      "port": 8798,
+      "url": "http://localhost:8798"
+    }
+  ]
+}

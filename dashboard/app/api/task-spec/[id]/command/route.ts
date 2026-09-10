@@ -24,7 +24,7 @@ const TASK_PY = path.join(REPO_ROOT, 'cli', 'task.py')
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const ALLOWED_COMMANDS = new Set(['block', 'unblock', 'review', 'note', 'gate', 'verify-pass'])
+const ALLOWED_COMMANDS = new Set(['block', 'unblock', 'review', 'note', 'gate', 'verify-pass', 'verify-commit'])
 const ALLOWED_NOTE_EVENTS = new Set([
   'retry_opened',
   'redo_opened',
@@ -111,6 +111,44 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     }
     if (!(await run('review (gated → review)', ['review', id, '--runner', 'operator']))) {
       return NextResponse.json({ ok: false, error: 'verify-pass gated but could not open review', steps }, { status: 502 })
+    }
+    return NextResponse.json({ ok: true, id, cmd, steps })
+  }
+
+  // 2026-09-08: 'verify-commit' records verify verdicts into the record the
+  // moment the verify turn's design.verify frame lands — the ACCEPTANCE card
+  // and build-progress bar then reflect reality immediately, instead of
+  // verdicts living only in VerifyCard state until an all-clear "Pass →
+  // review" (before this, gap verdicts never touched the record at all).
+  // Unlike verify-pass this is bookkeeping ONLY: no gate, no review — the
+  // lifecycle transition stays the operator's explicit click. Failures are
+  // tolerated per-verdict (an out-of-range ref against an older record is
+  // logged and skipped, never a 502) — every skip is in the response.
+  if (cmd === 'verify-commit') {
+    const verdicts = (Array.isArray(body.verdicts) ? body.verdicts : []).filter(
+      (v) => v && typeof v.ref === 'string' && /^(.+):(\d+)$/.test(v.ref),
+    )
+    if (verdicts.length === 0) {
+      return NextResponse.json({ ok: false, error: 'verify-commit needs verdicts[] with WI refs' }, { status: 400 })
+    }
+    const steps: { step: string; ok: boolean; skipped?: boolean; detail?: string }[] = []
+    for (const v of verdicts) {
+      const m = /^(.+):(\d+)$/.exec(v.ref as string)!
+      const status = v.status === 'aligned' ? 'pass' : 'fail'
+      const evidence = (v.evidence ?? '').slice(0, 400) || `${status} from verify turn`
+      const idx0 = String(Number(m[2]) - 1) // 1-based display ref → 0-based --i
+      const step = `set-acceptance ${v.ref} → ${status}`
+      try {
+        await execFileAsync('python3', [TASK_PY, 'set-acceptance', id, '--wi', m[1], '--i', idx0, '--status', status, '--evidence', evidence, '--actor', 'operator'], {
+          cwd: REPO_ROOT,
+          timeout: 15_000,
+          maxBuffer: 1024 * 1024,
+        })
+        steps.push({ step, ok: true })
+      } catch (e) {
+        steps.push({ step, ok: false, skipped: true, detail: (e instanceof Error ? e.message : String(e)).slice(0, 400) })
+        console.error(`[verify-commit] ${id} skipped ${v.ref}:`, e instanceof Error ? e.message : e)
+      }
     }
     return NextResponse.json({ ok: true, id, cmd, steps })
   }

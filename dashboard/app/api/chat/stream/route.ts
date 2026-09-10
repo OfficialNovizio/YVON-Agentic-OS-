@@ -28,9 +28,12 @@ import { activeWorkspace } from '@/lib/workspaces'
 import { errMsg } from '@/lib/errors'
 import {
   createDesignSession,
+  extractThinDesignSystem,
   findLatestSessionByRoom,
   readDesignSession,
   updateDesignSession,
+  writeDesignMd,
+  type BrandSuggestion,
   type ReferenceTaxonomy,
 } from '@/lib/design-session'
 import type { MotionNeed } from '@/lib/motion-brief'
@@ -77,7 +80,15 @@ function externalReferenceUrls(content: string): string[] {
   const out: string[] = []
   for (const m of content.matchAll(/https?:\/\/[^\s<>()"']+/g)) {
     try {
-      const u = new URL(m[0])
+      // Sentence punctuation glues onto a URL in prose ("see https://x.com/. "
+      // or "for https://x.com/:"), and `new URL` keeps some of it as the
+      // path — the stored reference then never equals the same URL mentioned
+      // bare, which orphaned a session per follow-up turn (2026-09-07).
+      // Strip before parsing; mirrors the wrapper's detect_reference_urls
+      // rstrip.
+      const raw = m[0].replace(/[.,;:!?)\]}…’”]+$/, '')
+      if (!raw) continue
+      const u = new URL(raw)
       if (u.protocol !== 'https:') continue
       const h = u.hostname
       if (
@@ -101,6 +112,16 @@ function externalReferenceUrls(content: string): string[] {
     if (out.length >= 2) break
   }
   return out
+}
+
+/** Comparison form for "is this the room's live reference session" — trailing
+ * punctuation and trailing slashes stripped so a colon-glued variant of the
+ * URL ("for https://x.com/:") matches the bare one stored on the record. */
+function normRefUrl(u: string): string {
+  return u
+    .trim()
+    .replace(/[.,;:!?)\]}…’”]+$/, '')
+    .replace(/\/+$/, '')
 }
 
 /** Evidence refs parsed out of a ```task-proposal block — mirrors the
@@ -401,7 +422,7 @@ export async function GET(request: Request): Promise<Response> {
       // machinery messages (verify markers, fix-gap markers, kickoff
       // boilerplate) — the output is judged against what the user actually
       // typed, most recent 8.
-      const MACHINERY_RE = /^(\[TASK VERIFY\]|\[TASK FIX\]|Start build on TS-\d+)/
+      const MACHINERY_RE = /^(\[TASK VERIFY\]|\[TASK FIX\]|\[GATE DECISION\]|Motion decision:|Decision for reference|Brand suggestions reviewed|Start build on TS-\d+)/
       const originalAsks = ((askRows.data ?? []) as { content?: string }[])
         .map((r) => (r.content ?? '').trim())
         .filter((c) => c && !MACHINERY_RE.test(c))
@@ -443,6 +464,19 @@ export async function GET(request: Request): Promise<Response> {
       // Hoisted so the done branch (design-gate fence parse) and the artifact
       // passthrough (motion-profile.md URL capture) can reach it.
       let designSessionId: string | null = null
+      // Fence-append fallback (2026-09-08): which gate that session is
+      // waiting on, from the record's status — 'captured' → 'intent',
+      // 'intent' → 'motion', anything else (motion recorded / briefed /
+      // abandoned) → null, no gate pending. Forwarded to the wrapper so IT
+      // can append the canonical fence when the model answers the gate in
+      // prose and skips the fence (observed live; prose renders no card and
+      // the flow stalls).
+      let designGateStage: 'intent' | 'motion' | null = null
+      // The session's reference URL, for URL-less gate turns: the fence-append
+      // fallback on the wrapper needs a url for the intent fence payload, but
+      // a "continue" turn doesn't mention the URL — carry the record's stored
+      // one instead (2026-09-07).
+      let designSessionReferenceUrl: string | null = null
 
       try {
         const content = userMsg.content ?? ''
@@ -866,9 +900,16 @@ export async function GET(request: Request): Promise<Response> {
             if (
               existingSession &&
               existingSession.status !== 'abandoned' &&
-              existingSession.reference?.url === refUrls[0]
+              normRefUrl(existingSession.reference?.url ?? '') === normRefUrl(refUrls[0])
             ) {
               designSessionId = existingSession.id
+              designSessionReferenceUrl = refUrls[0]
+              designGateStage =
+                existingSession.status === 'captured'
+                  ? 'intent'
+                  : existingSession.status === 'intent'
+                    ? 'motion'
+                    : null
               await updateDesignSession(
                 existingSession.id,
                 {},
@@ -893,6 +934,9 @@ export async function GET(request: Request): Promise<Response> {
                 correlation: turnCorrelation,
               })
               designSessionId = session.id
+              designSessionReferenceUrl = refUrls[0]
+              // A fresh record starts 'captured' — the intent gate is pending.
+              designGateStage = 'intent'
               controller.enqueue(
                 encoder.encode(
                   `data: ${JSON.stringify({
@@ -929,6 +973,13 @@ export async function GET(request: Request): Promise<Response> {
             const liveSession = await findLatestSessionByRoom(userMsg.room_id)
             if (liveSession && liveSession.status !== 'abandoned' && liveSession.reference?.url) {
               designSessionId = liveSession.id
+              designSessionReferenceUrl = liveSession.reference.url
+              designGateStage =
+                liveSession.status === 'captured'
+                  ? 'intent'
+                  : liveSession.status === 'intent'
+                    ? 'motion'
+                    : null
             }
           } catch (reuseErr) {
             console.error(
@@ -997,6 +1048,13 @@ export async function GET(request: Request): Promise<Response> {
             // or "record creation failed" — both fall back to the wrapper's
             // free-text gate. Requires the matching main.py field deployed.
             designSessionId: designSessionId ?? undefined,
+            // Fence-append fallback stage (2026-09-08) — see designGateStage
+            // above. Requires the matching main.py field deployed.
+            designGateStage: designGateStage ?? undefined,
+            // The session's stored reference URL — covers URL-less gate turns
+            // ("continue"), where the wrapper's fence-append fallback needs a
+            // url for the intent fence but the message doesn't carry one.
+            referenceUrl: designSessionReferenceUrl ?? undefined,
             // Re-engineer Phase 6: the executing TASK-SPEC + design context
             // (undefined outside execution rooms — ordinary turns unaffected).
             activeTask: activeTask ?? undefined,
@@ -1044,8 +1102,10 @@ export async function GET(request: Request): Promise<Response> {
                 if (!alreadyShown) {
                   const preview = await ensureRepoPreview(workspace, cfg)
                   const filesLink = `[View repo files](/repo/${workspace})`
+                  // http:// until a wildcard TLS cert exists for *.preview.yvon.in —
+                  // the nginx preview vhost serves on port 80 (see preview-yvon.conf).
                   const previewLink = preview.ok
-                    ? `[Live preview](https://${preview.previewHost}/)`
+                    ? `[Live preview](http://${preview.previewHost}/)`
                     : `Live preview: not ready yet (${preview.error ?? 'unknown error'})`
                   replyContent = `${replyContent}\n\n---\n📁 ${filesLink} · 🔴 ${previewLink}`
                   await supabase
@@ -1191,6 +1251,11 @@ export async function GET(request: Request): Promise<Response> {
                     sessionId: string
                     needs: MotionNeed[]
                   }
+                  | {
+                      stage: 'brand'
+                      sessionId: string
+                      suggestions: BrandSuggestion[]
+                    }
                 // Re-engineer Phase 7: the alignment loop's verdict fence —
                 // keyed on taskId (verify turns happen in gated rooms, with
                 // or without a design session), not sessionId.
@@ -1218,9 +1283,20 @@ export async function GET(request: Request): Promise<Response> {
                     summary: typeof parsed.summary === 'string' ? parsed.summary.slice(0, 1000) : '',
                   }
                 } else {
-                if (typeof parsed.sessionId !== 'string' || !parsed.sessionId) {
-                  throw new Error('missing sessionId')
+                // FIX (2026-09-08): take the UUID out of the string instead of
+                // trusting it verbatim — a model-emitted fence with a stray
+                // leading/trailing (or zero-width) char compared unequal to
+                // the route's session id, the gate was silently dropped as a
+                // "mismatch", and the console printed two identical-looking
+                // ids. Matching the UUID shape recovers the id and keeps the
+                // === check meaningful.
+                const sidMatch = typeof parsed.sessionId === 'string'
+                  ? parsed.sessionId.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)
+                  : null
+                if (!sidMatch) {
+                  throw new Error('missing/invalid sessionId')
                 }
+                const gateSessionId = sidMatch[0]
                 if (parsed.stage === 'intent') {
                   const refObj = (parsed.reference ?? null) as Record<string, unknown> | null
                   if (!refObj || typeof refObj !== 'object') {
@@ -1228,7 +1304,7 @@ export async function GET(request: Request): Promise<Response> {
                   }
                   gatePayload = {
                     stage: 'intent',
-                    sessionId: parsed.sessionId,
+                    sessionId: gateSessionId,
                     reference: {
                       ...(typeof refObj.url === 'string' && refObj.url
                         ? { url: refObj.url }
@@ -1248,7 +1324,7 @@ export async function GET(request: Request): Promise<Response> {
                   const BEST_PATHS = ['video', 'code', 'either']
                   gatePayload = {
                     stage: 'motion',
-                    sessionId: parsed.sessionId,
+                    sessionId: gateSessionId,
                     needs: (parsed.needs as Record<string, unknown>[])
                       .filter((n) => n && typeof n === 'object')
                       .slice(0, 8)
@@ -1261,6 +1337,27 @@ export async function GET(request: Request): Promise<Response> {
                         ...(typeof n.why === 'string' && n.why ? { why: n.why.slice(0, 200) } : {}),
                       }))
                       .filter((n) => n.need),
+                  }
+                } else if (parsed.stage === 'brand') {
+                  if (!Array.isArray(parsed.suggestions)) {
+                    throw new Error('brand gate missing suggestions[]')
+                  }
+                  const brandSuggestions = (parsed.suggestions as Record<string, unknown>[])
+                    .filter((sg) => sg && typeof sg === 'object')
+                    .slice(0, 6)
+                    .filter((sg) => typeof sg.title === 'string' && sg.title)
+                    .map((sg) => ({
+                      title: (sg.title as string).slice(0, 80),
+                      text: typeof sg.text === 'string' ? sg.text.slice(0, 300) : '',
+                      why: typeof sg.why === 'string' ? sg.why.slice(0, 300) : '',
+                    }))
+                  if (brandSuggestions.length === 0) {
+                    throw new Error('brand gate suggestions[] empty')
+                  }
+                  gatePayload = {
+                    stage: 'brand',
+                    sessionId: gateSessionId,
+                    suggestions: brandSuggestions,
                   }
                 } else {
                   throw new Error(`unknown gate stage: ${String(parsed.stage)}`)
@@ -1354,15 +1451,21 @@ export async function GET(request: Request): Promise<Response> {
                       'intent_gate_emitted',
                       refPatch.taxonomy ?? refPatch.motionSummary ?? undefined,
                     ).catch(() => {})
-                  } else {
-                    // Motion gate: the observed needs render on the card; the
-                    // record only needs the audit line (the decision itself
-                    // arrives via /api/chat/design-gate).
+                  } else if (gatePayload.stage === 'motion') {
                     void updateDesignSession(
                       gatePayload.sessionId,
                       {},
                       'motion_gate_emitted',
                       `${gatePayload.needs.length} observed motion need(s)`,
+                    ).catch(() => {})
+                  } else {
+                    // Gate 3: suggestions land on the record immediately; the
+                    // card POST (action 'brand') records the adoptions.
+                    void updateDesignSession(
+                      gatePayload.sessionId,
+                      { suggestions: gatePayload.suggestions },
+                      'brand_gate_emitted',
+                      gatePayload.suggestions.map((sg) => sg.title).join(' | '),
                     ).catch(() => {})
                   }
                   controller.enqueue(
@@ -1373,7 +1476,9 @@ export async function GET(request: Request): Promise<Response> {
                         sessionId: gatePayload.sessionId,
                         ...(gatePayload.stage === 'intent'
                           ? { reference: gatePayload.reference }
-                          : { needs: gatePayload.needs }),
+                          : gatePayload.stage === 'motion'
+                            ? { needs: gatePayload.needs }
+                            : { suggestions: gatePayload.suggestions }),
                         correlation: turnCorrelation,
                       })}\n\n`,
                     ),
@@ -1468,6 +1573,63 @@ export async function GET(request: Request): Promise<Response> {
                 event.url,
               ).catch(() => {})
             }
+
+            // Stealth-browser capture relay landed (2026-09-07): measured
+            // facts go on the session record so design.md can cite them —
+            // fire-and-forget, the frame itself must not wait on disk.
+            if (
+              designSessionId &&
+              event.kind === 'capture.done' &&
+              typeof event.url === 'string' &&
+              event.url
+            ) {
+              // Stealth-browser capture relay landed: measured facts go on the
+              // session record (design.md cites them) - fire-and-forget, the
+              // frame itself must not wait on disk.
+              const capSum = (event.summary ?? null) as Record<string, string | number> | null
+              const capUrl: string = typeof event.url === 'string' ? event.url : ''
+              const dsid: string = designSessionId
+              void updateDesignSession(
+                designSessionId,
+                {
+                  capture: {
+                    url: capUrl,
+                    out: typeof event.out === 'string' ? event.out : '',
+                    ...(typeof event.previewUrl === 'string' && event.previewUrl
+                      ? { previewUrl: event.previewUrl }
+                      : {}),
+                    ...(typeof event.reportUrl === 'string' && event.reportUrl
+                      ? { reportUrl: event.reportUrl }
+                      : {}),
+                    ...(typeof event.seconds === 'number' ? { seconds: event.seconds } : {}),
+                    ...(capSum ? { summary: capSum } : {}),
+                    capturedAt: new Date().toISOString(),
+                  },
+                },
+                'capture_completed',
+                `${event.out ?? ''} - round trip ${event.seconds ?? '?'}s`,
+              )
+                .then(async (updated) => {
+                  // 2026-09-08: chain the thin design-system extraction —
+                  // inventory.json lives next to the capture preview, and a
+                  // fresh session's design.md should be measured-not-empty.
+                  // Skips when a deep analysis is already on the record, and
+                  // never clobbers one.
+                  const prevUrl = typeof event.previewUrl === 'string' ? event.previewUrl : ''
+                  const invUrl = prevUrl.replace(/reference\.html$/, 'inventory.json')
+                  if (!updated || updated.designSystem || !invUrl.endsWith('inventory.json')) return
+                  const thin = await extractThinDesignSystem(invUrl, capUrl)
+                  if (!thin) return
+                  const withFacts = await updateDesignSession(
+                    dsid,
+                    { designSystem: thin },
+                    'design_system_thin_extracted',
+                    invUrl,
+                  )
+                  if (withFacts) await writeDesignMd(withFacts)
+                })
+                .catch(() => {})
+            }
             controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
           }
         }
@@ -1520,6 +1682,25 @@ export async function GET(request: Request): Promise<Response> {
           // silently either (failure-matrix row 21).
           console.error('[chat/stream] observability emit failed:', emitErr instanceof Error ? emitErr.message : emitErr)
         }
+      }
+
+      // ── Empty-reply guard (2026-09-10, operator bug #4) ───────────────────
+      // An agent turn that ends WITHOUT any reply content must fail loudly:
+      // persisting a blank agent message makes the room look answered while
+      // nothing actually happened (pool recycle, terminated run, silent
+      // rate-limit stop). The blank message then advances every downstream
+      // reader — verify turns, originalAsks chains, proposal detection — as
+      // if the turn had happened. Nothing advances on an empty turn.
+      if (!replyContent.trim()) {
+        replyContent =
+          '[no reply] The agent turn ended without producing a response — most likely the agent pool was recycled mid-run or the turn hit its token/time ceiling. Nothing advanced; send the message again to retry.'
+        replyAuthorId = 'system'
+        replyAuthorName = 'system'
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ kind: 'error', message: replyContent })}\n\n`,
+          ),
+        )
       }
 
       // ── Save agent reply to DB ──────────────────────────────────────────

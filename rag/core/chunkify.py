@@ -130,8 +130,10 @@ def assign_priority(doc_type: str, heading: str) -> int:
 
 def extract_agent_context(filepath: str, teams_root: str) -> Dict:
     """Extract department and agent name from file path."""
-    rel = os.path.relpath(filepath, teams_root)
-    parts = rel.split(os.sep)
+    # Forward slashes: the paths land in chunks.json/rag.db where every
+    # consumer splits on '/' (optimizer dept filter, repo file browser).
+    rel = os.path.relpath(filepath, teams_root).replace(os.sep, '/')
+    parts = rel.split('/')
 
     dept = parts[0] if len(parts) > 0 else 'unknown'
     agent = parts[1] if len(parts) > 1 and not parts[1].startswith('.') else None
@@ -142,7 +144,11 @@ def extract_agent_context(filepath: str, teams_root: str) -> Dict:
                    'Shared OS',
                    # 2026-08-15 — 6 new departments merged in from origin.
                    'Client Success', 'Comms & PR', 'Global Expansion',
-                   'Growth & Partnerships', 'People & Culture', 'Risk & ESG']
+                   'Growth & Partnerships', 'People & Culture', 'Risk & ESG',
+                   # 2026-09-10 — fully-built departments that were falling back
+                   # to 'Shared OS' because this list lagged the routing table.
+                   'Market Intelligence', 'Finance & Treasury', 'Legal & Compliance',
+                   'Ops & Delivery', 'Data & Analytics', 'Behavioural Science']
     if dept not in valid_depts:
         dept = 'Shared OS'  # Fallback for top-level files
 
@@ -304,7 +310,7 @@ def chunk_file(filepath: str, teams_root: str) -> List[Dict]:
         sections = parse_sections(content)
 
     chunks = []
-    rel_path = os.path.relpath(filepath, teams_root)
+    rel_path = os.path.relpath(filepath, teams_root).replace(os.sep, '/')
     mtime = os.path.getmtime(filepath) if os.path.exists(filepath) else 0
     toon_path = filepath.replace('.md', '.toon')
 
@@ -390,7 +396,7 @@ def main():
         if not os.path.exists(manifest_path):
             print('\n  No chunks.json found. Run: python3 rag/chunkify.py --all\n')
             return
-        with open(manifest_path, 'r') as f:
+        with open(manifest_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         chunks = data['chunks']
         files_chunked = len(set(c['source_file'] for c in chunks))

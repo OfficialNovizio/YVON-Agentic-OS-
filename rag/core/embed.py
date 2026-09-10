@@ -15,13 +15,20 @@ The embedder imports existing Shared OS scripts where applicable:
   - planning_fallacy.py → calibration_weight() for retrieval confidence
 
 Usage:
-  python3 rag/embed.py --all          # Embed all chunks from chunks.json
-  python3 rag/embed.py --agent marcus # Embed chunks for one agent
-  python3 rag/embed.py --status      # Report embedding stats
-  python3 rag/embed.py --test        # Run self-tests
+  python3 rag/core/embed.py --all          # Embed all chunks from chunks.json
+  python3 rag/core/embed.py --agent marcus # Embed chunks for one agent
+  python3 rag/core/embed.py --status       # Report embedding stats
+  python3 rag/core/embed.py --test         # Run self-tests
+
+  (FIX 2026-09-10: these four lines previously said "rag/embed.py", which does
+  not exist — the module lives at rag/core/embed.py. Following the documented
+  command fails with "No such file or directory", which is the most likely
+  reason the vector store was never built: rag.db has sat at 0 rows since
+  Aug 11 while chunks.json holds 8,499 chunks, so every turn has been served
+  by retriever.py's stale-chunks.json fallback.)
 """
 
-import os, sys, json, math, time, sqlite3, struct
+import os, sys, json, math, time, sqlite3, struct, zlib
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from collections import Counter
@@ -45,12 +52,37 @@ try:
 except ImportError:
     HAS_SKLEARN = False
 
+MODEL_NAME = 'all-MiniLM-L6-v2'
+
 try:
     from sentence_transformers import SentenceTransformer
     HAS_SENTENCE_TRANSFORMERS = True
-    MODEL_NAME = 'all-MiniLM-L6-v2'
 except ImportError:
     HAS_SENTENCE_TRANSFORMERS = False
+
+# ── ONNX dense embedder — the path this module's header always specified ─────
+# The module docstring has always said "all-MiniLM-L6-v2 (ONNX, 80MB, CPU,
+# 384-dimensions)", but DenseEmbedder only ever implemented the
+# sentence-transformers path, which drags in torch. Two concrete reasons ONNX
+# is now preferred when the files are present (2026-09-10):
+#   1. sentence-transformers 6.0.1 + transformers 5.x is a hard ImportError
+#      ("Could not import module 'PreTrainedModel'"), and transformers cannot be
+#      pinned back on Python 3.14 at all — its tokenizers dependency has no
+#      cp314 wheel and fails to build (PyO3 0.22.5 supports <= 3.13).
+#   2. onnxruntime is ~50MB against torch's ~2GB, and has no version coupling to
+#      transformers — so the Windows build box and the Linux VPS produce
+#      IDENTICAL vectors from the same 80MB file.
+# Load order is ONNX -> sentence-transformers -> term-frequency fallback.
+MODEL_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, '..', 'models', MODEL_NAME))
+ONNX_PATH = os.path.join(MODEL_DIR, 'onnx_model.onnx')
+TOKENIZER_PATH = os.path.join(MODEL_DIR, 'tokenizer.json')
+
+try:
+    import onnxruntime as _ort                        # noqa: F401
+    from transformers import AutoTokenizer as _AutoTokenizer
+    HAS_ONNX_RUNTIME = True
+except ImportError:
+    HAS_ONNX_RUNTIME = False
 
 # sqlite-vec extension
 HAS_SQLITE_VEC = False
@@ -98,6 +130,12 @@ class SparseEmbedder:
                 ngram_range=(1, 2), sublinear_tf=True
             )
             self.vectorizer.fit(texts)
+            # FIX (2026-09-10): the sklearn branch never populated self.vocab, so
+            # every reader of it saw an empty vocabulary — embed.py reported
+            # "Vocabulary: 0 terms" and "scikit-learn TF-IDF (0 terms)" on a
+            # perfectly-fitted vectorizer. Mirror the fitted vocabulary across so
+            # both the reporting and any vocab-reading caller are correct.
+            self.vocab = {t: i for i, t in enumerate(self.vectorizer.get_feature_names_out())}
         else:
             # Pure Python fallback
             self._fit_pure(texts)
@@ -176,18 +214,76 @@ class DenseEmbedder:
     def __init__(self):
         self.model = None
         self.dim = 384
-        if HAS_SENTENCE_TRANSFORMERS:
+        self.onnx_session = None
+        self.tokenizer = None
+        self.backend = 'term-frequency'
+
+        # 1. ONNX — preferred (see the ONNX block's comment for why).
+        if HAS_ONNX_RUNTIME and os.path.isfile(ONNX_PATH) and os.path.isfile(TOKENIZER_PATH):
+            try:
+                import onnxruntime as ort
+                self.onnx_session = ort.InferenceSession(
+                    ONNX_PATH, providers=['CPUExecutionProvider']
+                )
+                self.tokenizer = _AutoTokenizer.from_pretrained(MODEL_DIR)
+                # Read the true width off the graph rather than trusting 384 —
+                # a mismatched dim would otherwise surface later as the
+                # "dimension mismatch scored 0" failure mode in retriever.py.
+                for out in self.onnx_session.get_outputs():
+                    if len(out.shape) == 3:
+                        self.dim = int(out.shape[2])
+                        break
+                self.backend = 'onnx'
+            except Exception:
+                self.onnx_session = None
+                self.tokenizer = None
+
+        # 2. sentence-transformers.
+        if self.onnx_session is None and HAS_SENTENCE_TRANSFORMERS:
             try:
                 self.model = SentenceTransformer(MODEL_NAME)
                 self.dim = self.model.get_sentence_embedding_dimension()
+                self.backend = 'sentence-transformers'
             except Exception:
                 self.model = None
+
+    def _onnx_embed(self, texts: List[str]) -> List[List[float]]:
+        """Mean-pooled, L2-normalised MiniLM embeddings — the same pooling
+        sentence-transformers uses, so vectors stay comparable across backends."""
+        import numpy as np
+        enc = self.tokenizer(
+            texts, padding=True, truncation=True, max_length=256, return_tensors='np'
+        )
+        want = {i.name for i in self.onnx_session.get_inputs()}
+        feed = {k: np.asarray(v) for k, v in enc.items() if k in want}
+        # The exported graph wants token_type_ids but the fast tokenizer does not
+        # emit them. All-zeros is correct for a single-sequence (non-pair) BERT
+        # input — segment A only — and is exactly what sentence-transformers
+        # feeds the same checkpoint.
+        if 'token_type_ids' in want and 'token_type_ids' not in feed:
+            feed['token_type_ids'] = np.zeros_like(feed['input_ids'])
+        missing = want - set(feed)
+        if missing:
+            raise ValueError(f'onnx model wants {sorted(missing)}, tokenizer produced {sorted(enc)}')
+        hidden = self.onnx_session.run(None, feed)[0]          # (batch, seq, dim)
+        mask = np.asarray(enc['attention_mask'], dtype=np.float32)[..., None]
+        summed = (hidden * mask).sum(axis=1)
+        counts = np.clip(mask.sum(axis=1), 1e-9, None)
+        pooled = summed / counts
+        norms = np.clip(np.linalg.norm(pooled, axis=1, keepdims=True), 1e-12, None)
+        return (pooled / norms).tolist()
 
     def embed(self, texts: List[str], batch_size: int = 32,
               show_progress: bool = False) -> List[List[float]]:
         """Embed a list of texts into dense vectors."""
         if not texts:
             return []
+
+        if self.onnx_session is not None:
+            out: List[List[float]] = []
+            for i in range(0, len(texts), batch_size):
+                out.extend(self._onnx_embed(texts[i:i + batch_size]))
+            return out
 
         if self.model:
             embeddings = self.model.encode(
@@ -207,10 +303,13 @@ class DenseEmbedder:
         if not tokens:
             return [0.0] * self.dim
         tf = Counter(tokens)
-        # Hash tokens to vector dimensions
+        # Hash tokens to vector dimensions. zlib.crc32, NOT the builtin hash():
+        # str.__hash__ is salted per process by PYTHONHASHSEED, so builtin-hash
+        # vectors are not reproducible between the indexing run and the query
+        # run — every stored vector would be garbage against every query vector.
         vec = [0.0] * self.dim
         for token, count in tf.most_common(self.dim):
-            idx = hash(token) % self.dim
+            idx = zlib.crc32(token.encode('utf-8')) % self.dim
             vec[idx] += math.log(1.0 + count)
         # Normalize
         norm = math.sqrt(sum(v*v for v in vec))
@@ -292,6 +391,50 @@ class VectorStore:
                 self.conn.commit()
             except Exception:
                 self.has_vec = False
+
+    def clear(self) -> int:
+        """Delete every chunk row; returns how many were removed.
+
+        A vector index is DERIVED data — it must equal chunks.json exactly after
+        a rebuild. INSERT OR REPLACE only dedupes on chunk_id, so any row whose
+        id differs (a stale path form, a renamed section, a chunk that no longer
+        exists upstream) survives across rebuilds and accumulates. Measured
+        2026-09-10: rag.db held 19,766 rows against 9,700 chunks.json entries —
+        ~2x, spanning two path-separator forms and several runs — which halved
+        result diversity and suppressed chunk_count. embed_all() calls this
+        before inserting, so a rebuild is idempotent by construction.
+        """
+        n = self.conn.execute('SELECT COUNT(*) FROM chunks').fetchone()[0]
+        self.conn.execute('DELETE FROM chunks')
+        self.conn.commit()
+        return n
+
+    def log_retrieval(self, query_text: str, agent_id: str, rows: List[Dict]) -> int:
+        """Append per-chunk retrieval telemetry; returns rows written.
+
+        FIX (2026-09-10): retrieval_log has existed since the schema was written
+        but NOTHING ever inserted into it — 0 rows measured against a live
+        9,687-chunk index serving every turn. The consequence was that "what did
+        retrieval actually return this turn, and was it injected?" had no durable
+        answer: the chat panel showed a live turn while the record stayed empty.
+        """
+        if not rows:
+            return 0
+        self.conn.executemany(
+            '''INSERT INTO retrieval_log
+               (query_text, agent_id, chunk_id, similarity_score, sparse_score,
+                combined_score, injected, outcome)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+            [(str(query_text)[:500], agent_id, r.get('chunk_id', ''),
+              float(r.get('dense_score') or r.get('similarity') or 0.0),
+              float(r.get('sparse_score') or 0.0),
+              float(r.get('combined_score') or r.get('score') or 0.0),
+              1 if r.get('injected') else 0,
+              str(r.get('outcome') or 'retrieved'))
+             for r in rows],
+        )
+        self.conn.commit()
+        return len(rows)
 
     def insert_chunk(self, chunk: Dict, embedding: Optional[List[float]] = None):
         """Insert or update a chunk with its embedding."""
@@ -400,12 +543,22 @@ class VectorStore:
                 'chunk_id': chunk_id,
                 'source_file': src,
                 'section': sec,
+                # 2026-09-10 load-test fix: the column can be NULL for chunks
+                # embedded before department assignment — the optimizer's dept
+                # filter then hard-dropped every row (0 chunks injected on
+                # every retrieval). Derive from the source path's first
+                # segment ('Engineering/...', 'Brand Studio/...', ...) instead.
+                'department': dept or (src.split('/')[0].strip() if src and '/' in src else ''),
+                # Same load-test fix: text was hard-truncated to 200 chars at
+                # the search layer, capping every injected chunk no matter
+                # what the optimizer's char budget allowed. Budgeting is the
+                # optimizer's job — return the full text.
                 'similarity': round(sim, 4),
                 'priority_tier': pri,
                 'quality_score': quality,
                 'freshness_weight': freshness,
-                'chunk_text': text[:200] + '…' if len(text) > 200 else text,
-                'toon_text': toon[:200] + '…' if toon and len(toon) > 200 else toon,
+                'chunk_text': text or '',
+                'toon_text': toon or '',
             })
 
         results.sort(key=lambda r: r['similarity'], reverse=True)
@@ -439,9 +592,29 @@ def load_chunks() -> List[Dict]:
         print(f'  ❌ chunks.json not found at {CHUNKS_PATH}')
         print(f'  Run: python3 rag/chunkify.py --all')
         return []
-    with open(CHUNKS_PATH, 'r') as f:
+    with open(CHUNKS_PATH, 'r', encoding='utf-8') as f:
         data = json.load(f)
-    return data.get('chunks', [])
+
+    # Canonicalise identity so a rebuild from the same source always yields the
+    # same chunk_id, and a path arriving with Windows separators cannot create a
+    # second row for a file that already exists. chunkify.py builds ids as
+    # rel_path.replace('/', '--') + '--' + heading, so a backslash-bearing path
+    # escapes that replacement and produces a DIFFERENT id for the same file —
+    # which is precisely how two rows per chunk become possible.
+    raw = data.get('chunks', [])
+    seen, out = set(), []
+    for c in raw:
+        sf = str(c.get('source_file') or '').replace('\\', '/')
+        c['source_file'] = sf
+        c['chunk_id'] = str(c.get('chunk_id') or '').replace('\\', '--')
+        key = (sf, str(c.get('section') or ''))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(c)
+    if len(out) != len(raw):
+        print(f'  🧹 Dropped {len(raw) - len(out):,} duplicate chunk(s) from chunks.json')
+    return out
 
 
 def embed_all(use_dense: bool = True, use_sparse: bool = True):
@@ -457,6 +630,12 @@ def embed_all(use_dense: bool = True, use_sparse: bool = True):
     sparse = SparseEmbedder() if use_sparse else None
 
     store = VectorStore()
+
+    # Full rebuild: clear stale rows first so the DB always equals chunks.json.
+    # Without this, every run stacks another copy (see VectorStore.clear).
+    _removed = store.clear()
+    if _removed:
+        print(f'  🧹 Cleared {_removed:,} stale row(s) — full rebuild from chunks.json')
 
     # Fit sparse embedder on all chunk texts
     if sparse:
@@ -486,7 +665,17 @@ def embed_all(use_dense: bool = True, use_sparse: bool = True):
             print(f'  ⏳ {embedded:,}/{total:,} ({pct:.0f}%)')
 
     stats = store.stats()
-    model_name = MODEL_NAME if HAS_SENTENCE_TRANSFORMERS else 'TF-IDF fallback (pip install sentence-transformers for all-MiniLM-L6-v2)'
+    # Report the backend that ACTUALLY ran, off dense.backend — not off
+    # HAS_SENTENCE_TRANSFORMERS. The old label keyed on the sentence-transformers
+    # import flag, so a build that embedded perfectly well through ONNX still
+    # printed "TF-IDF fallback" (2026-09-10). That false negative is how a
+    # healthy 84MB index could look like a broken one.
+    _backend = getattr(dense, 'backend', 'none') if dense else 'none'
+    model_name = {
+        'onnx': f'{MODEL_NAME} (ONNX, 384-dim)',
+        'sentence-transformers': f'{MODEL_NAME} (sentence-transformers)',
+        'term-frequency': 'TERM-FREQUENCY FALLBACK — NOT semantic; build the ONNX path',
+    }.get(_backend, f'unknown ({_backend})')
     sparse_status = f'scikit-learn TF-IDF ({vocab_size} terms)' if HAS_SKLEARN else 'pure Python BM25'
 
     print(f'\n  📊 Embedding Complete')
@@ -510,7 +699,10 @@ def main():
         print(f'\n  📊 YVON Embedding Status\n')
         print(f'  Total chunks in DB: {stats["total_chunks"]:,}')
         print(f'  Chunks embedded: {stats["embedded_chunks"]:,} ({stats["embedding_pct"]}%)')
-        print(f'  Model: {MODEL_NAME if HAS_SENTENCE_TRANSFORMERS else "TF-IDF fallback"}')
+        _b = DenseEmbedder().backend
+        print(f'  Model: ' + {'onnx': f'{MODEL_NAME} (ONNX, 384-dim)',
+                               'sentence-transformers': f'{MODEL_NAME} (sentence-transformers)'}
+              .get(_b, 'term-frequency fallback — NOT semantic'))
         print(f'  sqlite-vec: {"✅ Available" if HAS_SQLITE_VEC else "⚠️  Brute-force (pip install sqlite-vec for acceleration)"}')
         print(f'\n  By department:')
         for dept, count in sorted(stats['by_department'].items(), key=lambda x: -x[1]):

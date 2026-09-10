@@ -1,0 +1,388 @@
+{
+  "id": "b6e19cad-4ef1-48ab-b892-d795cfcecf12",
+  "kind": "reference-build",
+  "status": "briefed",
+  "createdAt": "2026-09-08T07:54:06.911Z",
+  "updatedAt": "2026-09-09T03:56:30.244Z",
+  "roomId": "383eb774-b644-49b2-b07b-23648728e740",
+  "venture": "novizio",
+  "correlation": "2b043eb5-0108-4775-a88c-f7feadfa6dff",
+  "reference": {
+    "url": "https://www.detroit.paris/",
+    "taxonomy": "static-editorial",
+    "motionSummary": "The reference is primarily static editorial: no videos or motion libraries, one spin keyframe, and limited CSS transitions.",
+    "motionProfileUrl": "https://hermes.yvon.in/artifacts/novizio/873172e8-74ba-4e71-9950-1338cb538abc/motion-profile.md"
+  },
+  "history": [
+    {
+      "at": "2026-09-08T07:54:06.911Z",
+      "event": "session_captured",
+      "detail": "https://www.detroit.paris/"
+    },
+    {
+      "at": "2026-09-08T07:54:26.873Z",
+      "event": "intent_gate_emitted",
+      "detail": "static-editorial"
+    },
+    {
+      "at": "2026-09-08T07:56:14.053Z",
+      "event": "intent_recorded",
+      "detail": "identical"
+    },
+    {
+      "at": "2026-09-08T07:56:20.871Z",
+      "event": "session_reused",
+      "detail": "a follow-up turn re-mentioned https://www.detroit.paris/ — continued the live gate chain instead of opening a second session"
+    },
+    {
+      "at": "2026-09-08T07:56:23.992Z",
+      "event": "motion_profile_published",
+      "detail": "https://hermes.yvon.in/artifacts/novizio/873172e8-74ba-4e71-9950-1338cb538abc/motion-profile.md"
+    },
+    {
+      "at": "2026-09-08T07:56:23.994Z",
+      "event": "capture_completed",
+      "detail": "www-detroit-paris-20260908 - round trip 0.6s"
+    },
+    {
+      "at": "2026-09-08T07:56:24.737Z",
+      "event": "design_system_thin_extracted",
+      "detail": "https://hermes.yvon.in/artifacts/novizio/873172e8-74ba-4e71-9950-1338cb538abc/_reference-capture/inventory.json"
+    },
+    {
+      "at": "2026-09-08T07:56:40.687Z",
+      "event": "motion_gate_emitted",
+      "detail": "3 observed motion need(s)"
+    },
+    {
+      "at": "2026-09-08T07:57:40.696Z",
+      "event": "motion_recorded",
+      "detail": "code"
+    },
+    {
+      "at": "2026-09-08T07:57:40.697Z",
+      "event": "recipe_routed",
+      "detail": "$0 — every cited library is MIT/OSS and already installed · 2 skill(s) · 0 asset(s) to swap"
+    },
+    {
+      "at": "2026-09-08T07:57:40.700Z",
+      "event": "design_md_written",
+      "detail": "C:\\Users\\Novy\\Desktop\\YVON-Agentic-OS-\\store\\design-sessions\\b6e19cad-4ef1-48ab-b892-d795cfcecf12-design.md"
+    },
+    {
+      "at": "2026-09-09T03:52:23.402Z",
+      "event": "design_system_deep_extracted",
+      "detail": "deep extractor: 16 palette values, 7 typography roles, 6 radii, 4 breakpoints"
+    },
+    {
+      "at": "2026-09-09T03:53:30.794Z",
+      "event": "design_system_deep_extracted",
+      "detail": "deep extractor: 16 palette values, 7 typography roles, 6 radii, 4 breakpoints"
+    },
+    {
+      "at": "2026-09-09T03:56:30.244Z",
+      "event": "design_system_deep_extracted",
+      "detail": "deep extractor: 16 palette values, 7 typography roles, 6 radii, 4 breakpoints"
+    }
+  ],
+  "intent": {
+    "mode": "identical",
+    "decidedAt": "2026-09-08T07:56:14.052Z"
+  },
+  "capture": {
+    "url": "https://www.detroit.paris/",
+    "out": "www-detroit-paris-20260908",
+    "previewUrl": "https://hermes.yvon.in/artifacts/novizio/873172e8-74ba-4e71-9950-1338cb538abc/_reference-capture/reference.html",
+    "reportUrl": "https://hermes.yvon.in/artifacts/novizio/873172e8-74ba-4e71-9950-1338cb538abc/scrape-report.md",
+    "seconds": 0.6,
+    "summary": {
+      "title": "Detroit | AI Production House in Paris for Luxury Brands",
+      "pageHeight": 900,
+      "videos": 32,
+      "images": 34,
+      "stylesheets": 3,
+      "keyframes": 2,
+      "animatedRules": 3,
+      "assetsHarvested": 99,
+      "seconds": 56.6
+    },
+    "capturedAt": "2026-09-08T07:56:23.991Z"
+  },
+  "designSystem": {
+    "measuredAt": "2026-09-09T03:56:30.239Z",
+    "colorTokens": {},
+    "typographyRoles": {
+      "h1": {
+        "fontFamily": "Mangogrotesque,Arial,sans-serif",
+        "fontSize": "6.75rem",
+        "fontWeight": 700
+      },
+      "h2": {
+        "fontFamily": "Mangogrotesque,Arial,sans-serif",
+        "fontSize": "4.5rem",
+        "fontWeight": 700
+      },
+      "h3": {
+        "fontFamily": "Mangogrotesque,Arial,sans-serif",
+        "fontSize": "3rem",
+        "fontWeight": 500
+      },
+      "h4": {
+        "fontFamily": "Mangogrotesque,Arial,sans-serif",
+        "fontSize": "2.5rem",
+        "fontWeight": 700
+      },
+      "h5": {
+        "fontFamily": "Mangogrotesque,Arial,sans-serif",
+        "fontSize": "14px",
+        "fontWeight": null
+      },
+      "body": {
+        "fontFamily": "Mangogrotesque",
+        "fontSize": "1.5rem",
+        "fontWeight": null
+      },
+      "display": {
+        "fontFamily": "Mangogrotesque,Arial,sans-serif",
+        "fontSize": "14.375rem",
+        "fontWeight": 700
+      }
+    },
+    "palette": [
+      {
+        "value": "#ffffff",
+        "usage": "15 declaration(s); top contexts: body, .w-button, .w-webflow-badge, .w-select",
+        "source": "captured stylesheets",
+        "group": "brand"
+      },
+      {
+        "value": "#dddddd",
+        "usage": "6 declaration(s); top contexts: .w-form-done, .w-slider, .w-dropdown-list, .w-nav",
+        "source": "captured stylesheets",
+        "group": "text"
+      },
+      {
+        "value": "#222222",
+        "usage": "6 declaration(s); top contexts: .w-dropdown-link, .w-slider-nav-invert>div.w-active, .w-lightbox-thumbnail, .w-nav-link",
+        "source": "captured stylesheets",
+        "group": "text"
+      },
+      {
+        "value": "#333333",
+        "usage": "4 declaration(s); top contexts: body, .w-select, .w-file-upload-success, .w-nav-brand",
+        "source": "captured stylesheets",
+        "group": "text"
+      },
+      {
+        "value": "#cccccc",
+        "usage": "4 declaration(s); top contexts: .w-select, .w-file-upload-uploading-btn, .w-file-upload-file, .w-file-upload-label",
+        "source": "captured stylesheets",
+        "group": "text"
+      },
+      {
+        "value": "#000000",
+        "usage": "3 declaration(s); top contexts: .nav-boiler, .transition-overlay, mark",
+        "source": "captured stylesheets",
+        "group": "other"
+      },
+      {
+        "value": "#00000066",
+        "usage": "3 declaration(s); top contexts: .livre-blanc:hover, .w-lightbox-caption, .w-lightbox-spinner",
+        "source": "captured stylesheets",
+        "group": "other"
+      },
+      {
+        "value": "#fafafa",
+        "usage": "3 declaration(s); top contexts: .w-file-upload-uploading-btn, .w-file-upload-file, .w-file-upload-label",
+        "source": "captured stylesheets",
+        "group": "other"
+      },
+      {
+        "value": "#c8c8c8",
+        "usage": "3 declaration(s); top contexts: [data-nav-menu-open], .w-nav-button.w--open, .w-tab-link.w--current",
+        "source": "captured stylesheets",
+        "group": "other"
+      },
+      {
+        "value": "#e2e2e2",
+        "usage": "2 declaration(s); top contexts: blockquote",
+        "source": "captured stylesheets",
+        "group": "other"
+      },
+      {
+        "value": "#3898ec",
+        "usage": "2 declaration(s); top contexts: .w-button, .w-select:focus",
+        "source": "captured stylesheets",
+        "group": "other"
+      },
+      {
+        "value": "#0000001a",
+        "usage": "2 declaration(s); top contexts: .w-webflow-badge",
+        "source": "captured stylesheets",
+        "group": "other"
+      },
+      {
+        "value": "#999999",
+        "usage": "2 declaration(s); top contexts: .w-select::placeholder, .w-widget-twitter-count-inner",
+        "source": "captured stylesheets",
+        "group": "other"
+      },
+      {
+        "value": "#5d6c7b",
+        "usage": "2 declaration(s); top contexts: .w-widget-twitter-count-shim:not(.w--ver, .w-widget-twitter-count-shim.w--vertical",
+        "source": "captured stylesheets",
+        "group": "other"
+      },
+      {
+        "value": "#0082f3",
+        "usage": "2 declaration(s); top contexts: .w-dropdown-link.w--current, .w-nav-link.w--current",
+        "source": "captured stylesheets",
+        "group": "other"
+      },
+      {
+        "value": "#e3e1de",
+        "usage": "1 declaration(s); top contexts: :root",
+        "source": "captured stylesheets",
+        "group": "other"
+      }
+    ],
+    "typography": [
+      {
+        "text": "Primary families: Mangogrotesque, Barlow, sans-serif",
+        "source": "captured stylesheets"
+      }
+    ],
+    "motion": [
+      {
+        "text": "1 @keyframes animations measured: spin",
+        "source": "captured stylesheets (@keyframes declarations)"
+      },
+      {
+        "text": "Transition properties measured: unset (1), background-color .1s,color .1s (1), all .3s (1)",
+        "source": "captured stylesheets (transition declarations)"
+      }
+    ],
+    "layout": [
+      "Measured container widths: 991px, 940px, 768px, 767px, 728px, 479px"
+    ],
+    "spacing": {
+      "0": 44,
+      "10px": 23,
+      ".5rem": 17,
+      "1.5rem": 14,
+      "3vw": 8,
+      "20px": 7,
+      "1rem": 6,
+      "15vw": 6,
+      "4.5rem": 4,
+      "2rem": 4,
+      "5px": 4,
+      "40px": 3
+    },
+    "elevation": {
+      "unset": 1,
+      "0 0 0 1px #0000001a,0 1px 3px #0000001a": 1,
+      "0 0 3px #3336": 1,
+      "0 0 0 2px #fff": 1,
+      "none": 1
+    },
+    "rounded": {
+      "50%": 3,
+      ".2rem": 1,
+      "unset": 1,
+      "3px!important": 1,
+      "3px": 1,
+      "100%": 1
+    },
+    "responsive": [
+      {
+        "name": "bp1",
+        "width": "991px",
+        "changes": "media-query boundary (declarations not analyzed per-boundary)",
+        "source": "captured stylesheets"
+      },
+      {
+        "name": "bp2",
+        "width": "768px",
+        "changes": "media-query boundary (declarations not analyzed per-boundary)",
+        "source": "captured stylesheets"
+      },
+      {
+        "name": "bp3",
+        "width": "767px",
+        "changes": "media-query boundary (declarations not analyzed per-boundary)",
+        "source": "captured stylesheets"
+      },
+      {
+        "name": "bp4",
+        "width": "479px",
+        "changes": "media-query boundary (declarations not analyzed per-boundary)",
+        "source": "captured stylesheets"
+      }
+    ],
+    "dos": [
+      "Use the measured radius scale — radii are measured on real containers, not assumed."
+    ],
+    "donts": [
+      "Reserve shadows for measured elevated elements only; the reference is otherwise flat."
+    ],
+    "gaps": [
+      "Computed (rendered) styles were not sampled — values come from static stylesheets; the rendered cascade may differ.",
+      "Typography role names are inferred from selector names and size ordering, not from rendered headings.",
+      "Component inventory was not derived — no named component token maps in this pass."
+    ],
+    "sources": [
+      "captured stylesheets (assets/*.css) + reference.html of the capture bundle"
+    ]
+  },
+  "motion": {
+    "decision": "code",
+    "decidedAt": "2026-09-08T07:57:40.695Z"
+  },
+  "recipe": {
+    "home": "workspaces/novizio/",
+    "stack": [
+      "Next.js App Router + Tailwind (fleet standard)"
+    ],
+    "motionLibs": [
+      "CSS @keyframes / transitions",
+      "gsap + ScrollTrigger (installed, MIT)",
+      "@gsap/react (installed, MIT)",
+      "motion (installed, MIT)"
+    ],
+    "skills": [
+      {
+        "path": "Teams/Shared OS/skills/impeccable/SKILL.md",
+        "role": "frontend design skill — the build runs under it"
+      },
+      {
+        "path": "Teams/Shared OS/skills/impeccable/reference/animate.md",
+        "role": "motion design rules (reveals, scroll choreography, micro-interactions)"
+      }
+    ],
+    "assetPlan": [
+      {
+        "kind": "copy",
+        "what": "all copy — written fresh for our venture",
+        "origin": "owned",
+        "swapRequired": false
+      },
+      {
+        "kind": "image",
+        "what": "imagery — licensed/stock/AI-generated, no reference media",
+        "origin": "generated",
+        "swapRequired": false,
+        "note": "nothing borrowed, nothing to swap"
+      }
+    ],
+    "assetsNeedSwapping": 0,
+    "verifyStep": "quinn real-browser gate: load the build and confirm the @keyframes/ScrollTrigger motion actually renders; console clean; prefers-reduced-motion respected; then the design-flow e2e. Runs under Teams/Shared OS/skills/verification-before-completion/.",
+    "cost": "$0 — every cited library is MIT/OSS and already installed",
+    "costConfidence": "verified",
+    "obligations": [],
+    "intentNote": "IDENTICAL CLONE — replicate the reference's structure, layout, sections and motion exactly; all text and imagery replaced with our venture's own content and brand."
+  },
+  "designMd": {
+    "path": "C:\\Users\\Novy\\Desktop\\YVON-Agentic-OS-\\store\\design-sessions\\b6e19cad-4ef1-48ab-b892-d795cfcecf12-design.md"
+  }
+}

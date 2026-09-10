@@ -73,25 +73,29 @@ class RetrievalProfile:
 
 
 PROFILES = {
+    # FIX (2026-09-10): char_budget values were 1200-4000 chars, i.e. ~300-1000
+    # tokens of retrieved context — for a model with a six-figure context window.
+    # Those ceilings, not relevance, decided how much knowledge reached the agent.
+    # Raised ~4x across the board; still conservative.
     'quick_check': RetrievalProfile(
-        name='quick_check', char_budget=1200, max_chunks=5,
+        name='quick_check', char_budget=4000, max_chunks=8,
         tier_1_pct=0.80, tier_2_pct=0.15, tier_3_pct=0.05,
         adversary=False, max_per_source_pct=0.60, max_per_heading=1,
         freshness_days=180, dept_scope='home', min_reliability=0.4,
     ),
     'standard_review': RetrievalProfile(
-        name='standard_review', char_budget=2500, max_chunks=10,
+        name='standard_review', char_budget=12000, max_chunks=24,
         tier_1_pct=0.60, tier_2_pct=0.25, tier_3_pct=0.15,
         adversary=False, freshness_days=365, dept_scope='home',
     ),
     'deep_analysis': RetrievalProfile(
-        name='deep_analysis', char_budget=4000, max_chunks=15,
+        name='deep_analysis', char_budget=24000, max_chunks=40,
         tier_1_pct=0.50, tier_2_pct=0.30, tier_3_pct=0.20,
         adversary=True, max_per_source_pct=0.50, freshness_days=730,
         dept_scope='related', min_reliability=0.2,
     ),
     'governance_gate': RetrievalProfile(
-        name='governance_gate', char_budget=2500, max_chunks=8,
+        name='governance_gate', char_budget=10000, max_chunks=20,
         tier_1_pct=1.0, tier_2_pct=0.0, tier_3_pct=0.0,
         adversary=True, max_per_source_pct=0.30, freshness_days=365,
         dept_scope='related', min_reliability=0.5,
@@ -537,16 +541,42 @@ def optimize_context(
         trace.append(f"Dept filter (all): {len(candidates)}")
 
     # Step 2: Freshness filter
+    # FIX (2026-09-10): three defects here, and together they silently emptied
+    # the entire retrieval for whole departments.
+    #   1. c.get('last_modified', '2026-01-01') — the default only applies when the
+    #      KEY IS ABSENT. These chunks carry the key with value None, so the
+    #      expression evaluated None[:10] and raised.
+    #   2. A bare `except:` then appended, which masked defect 1 but ALSO masked
+    #      genuine parse failures — and, worse, made an all-stale pool behave
+    #      identically to an unparsable one.
+    #   3. Nothing guaranteed the filter could not empty the pool. Measured:
+    #      "Dept filter: 20 → 20", then "Freshness (180d): 20 → 0", then
+    #      Reliability 0 → 0, Tier allocation 0, Diversity 0 → selected_chunks=0
+    #      → injection_text='' → the turn ran with NO retrieved context while the
+    #      panel still reported a healthy retrieve.
+    # Unknown age is now treated as "not stale" (absence of evidence is not
+    # evidence of staleness), and the filter degrades to the freshest available
+    # rather than returning nothing.
     cutoff_days = profile.freshness_days
     fresh = []
     for c in filtered:
-        try:
-            mtime = time.mktime(time.strptime(c.get('last_modified', '2026-01-01')[:10], '%Y-%m-%d'))
-            age_days = (time.time() - mtime) / 86400
-            if age_days <= cutoff_days:
-                fresh.append(c)
-        except:
+        lm = c.get('last_modified')
+        if not lm:
             fresh.append(c)
+            continue
+        try:
+            mtime = time.mktime(time.strptime(str(lm)[:10], '%Y-%m-%d'))
+            if (time.time() - mtime) / 86400 <= cutoff_days:
+                fresh.append(c)
+        except Exception:
+            fresh.append(c)
+    if not fresh and filtered:
+        fresh = sorted(filtered, key=lambda c: str(c.get('last_modified') or ''), reverse=True)
+        fresh = fresh[:max(1, profile.max_chunks)]
+        trace.append(
+            f"Freshness: all {len(filtered)} candidates outside {cutoff_days}d — "
+            f"kept {len(fresh)} freshest rather than returning nothing"
+        )
     trace.append(f"Freshness ({cutoff_days}d): {len(filtered)} → {len(fresh)}")
 
     # Step 3: Reliability filter
@@ -575,10 +605,29 @@ def optimize_context(
     total_chars = 0
     for c in with_adversary:
         chunk_chars = len(c.get('toon_text', c.get('chunk_text', '')))
+        # FIX (2026-09-10): this was `break`. One oversized top-ranked chunk
+        # therefore emptied the ENTIRE context — selected_chunks=0,
+        # injection_text='', and the turn ran with no retrieved context at all.
+        # Measured on two queries with identical 20-candidate pools: 5 chunks
+        # selected for one, 0 for the other, decided purely by the size of the
+        # first chunk. `continue` skips the oversized chunk and keeps filling
+        # from the remainder, which is what a budget is supposed to mean.
         if total_chars + chunk_chars > profile.char_budget:
-            break
+            continue
         selected.append(c)
         total_chars += chunk_chars
+
+    # Never starve the turn. If every candidate exceeds the whole budget, take
+    # the best one truncated to fit rather than emitting empty context — empty
+    # context is indistinguishable from "nothing was relevant", which is
+    # precisely the disguise that kept this bug hidden.
+    if not selected and with_adversary:
+        head = dict(with_adversary[0])
+        _body = head.get('toon_text') or head.get('chunk_text') or ''
+        head['toon_text'] = _body[:profile.char_budget]
+        head['_truncated_for_budget'] = True
+        selected = [head]
+        total_chars = len(head['toon_text'])
 
     # Tier breakdown
     tiers = {}
