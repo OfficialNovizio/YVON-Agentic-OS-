@@ -3192,7 +3192,7 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     # auditable, and paired with a real skill.disclosure event so the panel can
     # show WHICH skills were active rather than the previous 'no disclosure'.
     _focus_agent = _actors[0] if _actors else ""
-    _focus = _agent_focus_block(_focus_agent)
+    _focus = _agent_focus_block(_focus_agent, req.message)
     if _focus:
         prompt_parts.append(_focus)
     _focus_skills = _agent_skills_for(_focus_agent)

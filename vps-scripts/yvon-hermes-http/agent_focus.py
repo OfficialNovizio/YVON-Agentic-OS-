@@ -93,7 +93,28 @@ def focus_block(agent_id: str, max_identity: int = 2600, max_routing: int = 2200
                 "improvising an approach it already covers.\n%s"
                 % (info["agent"], routing)
             )
-    return "\n\n".join(parts)
+
+    # Tool surface (2026-09-10). Tools remain SHARED - this only points the agent
+    # at the ones its job needs, and states WHY, so the choice is auditable.
+    tools = tools_for(info["agent"], message)
+    reasons = tool_reasons(info["agent"], message)
+    if tools:
+        lines = [
+            "[YOUR TOOLS THIS TURN - every tool remains available to you; these are",
+            " the ones this job needs. Reach for one before improvising its effect by",
+            " hand.]",
+            "  " + ", ".join(tools),
+        ]
+        for why, ts in reasons:
+            lines.append("  - " + why + ": " + ", ".join(ts))
+        if any(t in tools for t in ("Write", "Edit")):
+            lines.append(
+                "  Code style: COMPACT. No filler comments, no restating the",
+                " obvious, no scaffolding you were not asked for - the smallest",
+                " diff that does the job."
+            )
+        parts.append(chr(10).join(lines))
+    return (chr(10) + chr(10)).join(parts)
 
 
 def skills_for(agent_id: str) -> list:
@@ -111,3 +132,101 @@ def skills_for(agent_id: str) -> list:
         except OSError:
             continue
     return sorted(set(found))
+
+# ── Tool affinity (2026-09-10) ────────────────────────────────────────────────
+# Tools stay SHARED — every agent can call every tool. The gap was that nothing
+# ever pointed the assigned agent at the tools its job actually needs, so an
+# agent with a reference URL had no nudge toward the scraping path while an
+# agent writing files had no nudge toward Write/Edit. This is a SURFACING layer,
+# never a restriction: an agent that needs something unlisted can still use it.
+#
+# Two inputs, deliberately: who you are (base affinity) and what this turn is
+# (context rules). The mia case is exactly a context rule — ANY agent handed a
+# reference URL needs the scraping tools, not just mia.
+_BASE_TOOLS: dict[str, list] = {
+    "mia":     ["Read", "Glob", "Grep", "Write", "Edit", "Bash", "WebFetch"],
+    "raj":     ["Read", "Glob", "Grep", "Write", "Edit", "Bash"],
+    "nova":    ["Read", "Glob", "Grep", "Write", "Edit", "Bash"],
+    "dev":     ["Read", "Glob", "Grep", "Edit", "Github", "GraphQuery"],
+    "quinn":   ["Read", "Glob", "Grep", "Bash", "WebFetch"],
+    "ops":     ["Bash", "Read", "Glob", "Grep", "Write"],
+    "dana":    ["Read", "Grep", "Bash", "GraphQuery"],
+    "query":   ["Read", "Grep", "Bash", "GraphQuery"],
+    "viz":     ["Read", "Glob", "Grep", "Write"],
+    "aegis":   ["Read", "Grep", "Glob", "Bash", "WebSearch"],
+    "warden":  ["Read", "Grep", "Glob", "WebSearch"],
+    "cypher":  ["Read", "Grep", "Glob", "Bash"],
+    "atlas":   ["Read", "Glob", "Grep", "Write"],
+    "pixel":   ["Read", "Glob", "Write", "Edit", "WebFetch"],
+    "lena":    ["Read", "Glob", "Grep", "Write"],
+    "spark":   ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
+    "scope":   ["WebSearch", "WebFetch", "Read", "Grep"],
+    "rival":   ["WebSearch", "WebFetch", "Read"],
+    "trend":   ["WebSearch", "Read", "Grep"],
+    "research":["WebSearch", "WebFetch", "Read", "Write"],
+    "felix":   ["Read", "Grep", "Bash", "Write"],
+    "ledger":  ["Read", "Grep", "Bash"],
+    "tax":     ["WebSearch", "Read", "Grep"],
+    "comply":  ["WebSearch", "Read", "Grep", "Glob"],
+    "scribe":  ["Read", "Grep", "Glob", "Write"],
+    "guard":   ["WebSearch", "Read", "Grep"],
+    "hire":    ["Read", "Grep", "Glob", "WebSearch"],
+    "closer":  ["Read", "Grep", "WebSearch", "Write"],
+    "lure":    ["WebSearch", "Read", "Write"],
+    "retain":  ["Read", "Grep", "GraphQuery", "WebSearch"],
+    "keel":    ["Read", "Grep", "WebSearch"],
+    "ally":    ["Read", "Grep", "GraphQuery"],
+    "marcus":  ["Read", "Grep", "Glob"],
+    "board":   ["Read", "Grep"],
+    "meta":    ["Read", "Grep", "Glob", "GraphQuery"],
+}
+
+# Context rules: (regex, tools to surface, why). Applied for ANY agent, because
+# the need follows the TASK, not the persona. Order matters only for the reason
+# text; the tool sets are unioned.
+_CONTEXT_TOOLS: list = [
+    (r"https?://|\burl\b|reference (site|website|design)|like this\b",
+     ["WebFetch", "read_file", "terminal"],
+     "a reference URL is present - capture the real page rather than guessing"),
+    (r"\b(scrape|crawl|harvest|extract (the )?(content|assets|fonts|images))\b",
+     ["WebFetch", "terminal", "Write"],
+     "explicit scraping/extraction request"),
+    (r"\b(build|implement|write|create|scaffold|refactor|fix|debug)\b",
+     ["Write", "Edit", "Bash"],
+     "code will be produced - write it, do not describe it"),
+    (r"\b(review|audit|assess|check)\b",
+     ["Read", "Grep", "Glob"],
+     "review work - read the real files before judging"),
+    (r"\b(search|find|research|look up|market|competitor)\b",
+     ["WebSearch", "WebFetch"],
+     "external research required"),
+    (r"\b(graph|dependency|callers|impact|who calls)\b",
+     ["GraphQuery"],
+     "structural question - query the knowledge graph"),
+    (r"\b(plan|roadmap|break (it )?down|multi-?step)\b",
+     ["TodoWrite"],
+     "multi-step work - track it explicitly"),
+]
+
+
+def tools_for(agent_id: str, message: str = "") -> list:
+    """Ordered tool names worth surfacing for this agent AND this turn."""
+    import re as _re
+    a = str(agent_id or "").strip().lower()
+    out: list = list(_BASE_TOOLS.get(a, []))
+    for pat, tools, _why in _CONTEXT_TOOLS:
+        if _re.search(pat, message or "", _re.I):
+            for t in tools:
+                if t not in out:
+                    out.append(t)
+    return out
+
+
+def tool_reasons(agent_id: str, message: str = "") -> list:
+    """(reason, tools) pairs for the context rules that actually fired."""
+    import re as _re
+    fired = []
+    for pat, tools, why in _CONTEXT_TOOLS:
+        if _re.search(pat, message or "", _re.I):
+            fired.append((why, tools))
+    return fired

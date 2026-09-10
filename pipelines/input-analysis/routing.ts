@@ -294,19 +294,33 @@ export function routeAgents(message: string): AgentRoute {
     }
   }
 
-  // ── Team patterns (multi-agent — the full fleet for build work) ──────────
+  // ── Team composition (multi-agent) ───────────────────────────────────────
+  // FIX (2026-09-10): the team was assembled from a HARDCODED mia/raj/quinn
+  // template gated on a narrow isBuild regex, and it ignored matchedByBucket
+  // entirely. A task that genuinely scored for retain AND felix AND mia still
+  // produced [felix, mia, raj, quinn] — silently dropping retain. Measured:
+  // only 2 of 9 cross-department tasks composed a real team. The scorer already
+  // knows which departments are co-relevant; the team is now built from that
+  // EVIDENCE rather than a fixed pattern.
   const team = new Set<string>([primary])
-  const isBuild = /(build|create|add|make|fix|implement|feature|change)/.test(t)
-  if (isBuild) {
-    if (primary !== 'mia') team.add('mia')       // frontend builder
-    if (primary !== 'raj') team.add('raj')       // backend builder
-    team.add('quinn')                            // tester + verifier (gate)
-    if (t.includes('security') || t.includes('attack') || t.includes('vulnerability')) team.add('cypher') // attacker
-  } else if (/info|what|who|how/.test(t)) {
-    // info — keep just the primary (fast)
-  } else {
-    team.add('quinn') // verify anything non-trivial
+
+  // (a) Every other bucket that scored a real hit is co-relevant by definition.
+  //     Threshold 2 keeps a single stray token from dragging in a department.
+  for (const m of matchedByBucket) {
+    if (m.agent !== primary && m.score >= 2) team.add(m.agent)
   }
+
+  // (b) Builders only for software-shaped work — an NDA or a runway model does
+  //     not need a frontend and a backend engineer.
+  const isSoftware = /(build|implement|code|app|website|site|page|feature|api|component|dashboard|frontend|backend|refactor|deploy|fix|bug)/.test(t)
+  if (isSoftware) {
+    if (!team.has('mia')) team.add('mia')   // frontend builder
+    if (!team.has('raj')) team.add('raj')   // backend builder
+  }
+
+  // (c) Verification gate for anything that actually matched, or spans teams.
+  if (team.size > 1 || bestScore > 0) team.add('quinn')
+  if (/security|attack|vulnerabilit/.test(t)) team.add('cypher')  // attacker
 
   // highest first, then alphabetically so equal scores render deterministically
   const scores = matchedByBucket
