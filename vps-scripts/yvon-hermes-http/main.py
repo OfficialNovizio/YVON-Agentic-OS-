@@ -62,6 +62,19 @@ except ImportError:  # module absent -> turn proceeds with no graph context
 
     def _graph_available() -> bool:
         return False
+
+# Agent focus (2026-09-10). See agent_focus.py's header: _actors was consumed
+# ONLY by _emit_all as an event label, so every assigned agent received the
+# same generic prompt and the same generic toolset. This is the missing half.
+try:
+    from agent_focus import focus_block as _agent_focus_block
+    from agent_focus import skills_for as _agent_skills_for
+except ImportError:  # module absent -> unchanged behaviour, fail open
+    def _agent_focus_block(_a: str) -> str:
+        return ""
+
+    def _agent_skills_for(_a: str) -> list:
+        return []
 # Re-engineer Phase 1 (2026-09-05): server-side motion probe for reference
 # URLs — stdlib-only sibling module so tests import it without fastapi.
 from motion_probe import detect_reference_urls, probe_url, render_markdown
@@ -3173,6 +3186,19 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
             "matters.\n" + req.reference_context
         )
     prompt_parts.append(req.message)
+
+    # Agent focus (2026-09-10): ground this turn in the ASSIGNED agent - its
+    # own definition plus its skill routing. Emitted as its own block so it is
+    # auditable, and paired with a real skill.disclosure event so the panel can
+    # show WHICH skills were active rather than the previous 'no disclosure'.
+    _focus_agent = _actors[0] if _actors else ""
+    _focus = _agent_focus_block(_focus_agent)
+    if _focus:
+        prompt_parts.append(_focus)
+    _focus_skills = _agent_skills_for(_focus_agent)
+    if _focus_skills:
+        _emit_all("skill.disclosure", agent=_focus_agent, active=_focus_skills[:25],
+                  total=len(_focus_skills))
 
     # Venture graph context (2026-09-10): the read half that never existed.
     # Emitted as its own prompt block so it is auditable, and skipped entirely

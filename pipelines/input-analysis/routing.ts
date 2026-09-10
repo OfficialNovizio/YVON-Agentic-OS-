@@ -132,6 +132,134 @@ const BUCKETS: AgentBucket[] = [
     reason: 'verification/QA',
     keywords: [kw('test', 1), kw('verify', 1), kw('qa', 2), kw('gate', 2)],
   },
+  // ── Added 2026-09-10 ──────────────────────────────────────────────────────
+  // Measured on 18 realistic tasks that named no agent and no department: 8
+  // scored ZERO and fell through to `meta`, and 3 more misrouted on a single
+  // incidental word ('data' -> dana instead of compliance, 'backend' -> raj
+  // instead of hiring, 'design' -> spark instead of mia). Half the fleet was
+  // unreachable by routing. Multi-word concept phrases carry higher weight so an
+  // explicit intent outranks an incidental token in the same sentence.
+  {
+    agent: 'felix',
+    reason: 'finance/runway/budget',
+    keywords: [
+      kw('runway', 3), kw('burn rate', 3), kw('cash flow', 3), kw('financial model', 3),
+      kw('unit economics', 3), kw('budget', 2), kw('forecast', 2), kw('fundraise', 2),
+      kw('valuation', 2), kw('margin', 2), kw('p&l', 2), kw('cash', 1),
+    ],
+  },
+  {
+    agent: 'price',
+    reason: 'pricing/packaging',
+    keywords: [
+      kw('pricing', 3), kw('willingness to pay', 3), kw('monetisation', 3),
+      kw('monetization', 3), kw('price', 2), kw('packaging', 2), kw('discount', 2),
+      kw('free trial', 2),
+    ],
+  },
+  {
+    agent: 'scope',
+    reason: 'market sizing/entry',
+    keywords: [
+      kw('market size', 3), kw('addressable market', 3), kw('market opportunity', 3),
+      kw('market entry', 3), kw('tam', 3), kw('sam', 2), kw('som', 2),
+      kw('competitor landscape', 2),
+    ],
+  },
+  {
+    agent: 'comply',
+    reason: 'regulatory/compliance',
+    keywords: [
+      kw('compliance', 3), kw('compliant', 3), kw('gdpr', 3), kw('data protection', 3),
+      kw('regulation', 3), kw('regulatory', 3), kw('privacy', 2), kw('audit trail', 2),
+    ],
+  },
+  {
+    agent: 'scribe',
+    reason: 'contracts/legal',
+    keywords: [
+      kw('contract', 3), kw('nda', 3), kw('msa', 3), kw('dpa', 3),
+      kw('legal review', 3), kw('clause', 2), kw('agreement', 2),
+    ],
+  },
+  {
+    agent: 'hire',
+    reason: 'hiring/recruiting',
+    keywords: [
+      kw('hire', 3), kw('hiring', 3), kw('recruit', 3), kw('job description', 3),
+      kw('headcount', 3), kw('interview loop', 3), kw('offer letter', 3),
+      kw('candidate', 2), kw('applicant', 2),
+    ],
+  },
+  {
+    agent: 'closer',
+    reason: 'sales/outbound',
+    keywords: [
+      kw('cold email', 3), kw('outbound', 3), kw('prospect', 3), kw('lead gen', 3),
+      kw('discovery call', 3), kw('sales', 2), kw('quota', 2), kw('objection', 2),
+    ],
+  },
+  {
+    agent: 'retain',
+    reason: 'churn/retention',
+    keywords: [
+      kw('churn', 3), kw('retention', 3), kw('renewal', 3), kw('expansion revenue', 3),
+      kw('customer health', 3), kw('upsell', 2), kw('nps', 2),
+    ],
+  },
+  {
+    agent: 'lena',
+    reason: 'brand copy/messaging',
+    keywords: [
+      kw('tagline', 3), kw('hero section', 3), kw('newsletter', 3),
+      kw('conversion copy', 3), kw('copy', 2), kw('headline', 2), kw('messaging', 2),
+      kw('blog', 2), kw('tagline', 3),
+    ],
+  },
+  {
+    agent: 'marcus',
+    reason: 'strategy/board/exec',
+    keywords: [
+      kw('board memo', 3), kw('board deck', 3), kw('investor', 3),
+      kw('quarterly review', 3), kw('company strategy', 3), kw('okr', 2),
+    ],
+  },
+  {
+    agent: 'tax',
+    reason: 'tax filings/credits',
+    keywords: [
+      kw('tax', 3), kw('vat', 3), kw('r&d credit', 3), kw('tax filing', 3),
+      kw('hmrc', 3), kw('irs', 3), kw('deduction', 2),
+    ],
+  },
+  {
+    agent: 'dev',
+    reason: 'code review/engineering standards',
+    keywords: [
+      kw('pull request', 3), kw('code review', 3), kw('review checklist', 3),
+      kw('merge', 2), kw('refactor', 2), kw('auth flaws', 2), kw('architecture', 2),
+      kw('engineering standard', 3), kw('technical debt', 3),
+    ],
+  },
+  {
+    agent: 'lure',
+    reason: 'launch/demand-gen',
+    keywords: [
+      kw('launch', 3), kw('go-to-market', 3), kw('gtm', 3), kw('product launch', 3),
+      kw('announcement', 2), kw('waitlist', 2), kw('beta launch', 3),
+      kw('demand generation', 3), kw('campaign', 2),
+    ],
+  },
+  {
+    agent: 'warden',
+    reason: 'security governance/GRC',
+    keywords: [
+      kw('iso 27001', 3), kw('soc 2', 3), kw('grc', 3), kw('infrastructure security', 3),
+      kw('penetration test', 3), kw('threat model', 3), kw('cloud security', 3),
+      kw('vulnerability', 3), kw('access control', 2), kw('iam', 3),
+      kw('privilege escalation', 3), kw('iam polic', 3), kw('least privilege', 3),
+    ],
+  },
 ]
 
 export function routeAgents(message: string): AgentRoute {

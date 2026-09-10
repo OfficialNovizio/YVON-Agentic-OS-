@@ -6,7 +6,13 @@ import type { InputTier, MessageRelation } from './types'
 // work to be done, not just talked about. Shared by detectRelation (below)
 // and classifyTier's tier fallback, so the two stay in sync instead of
 // drifting into two separate opinions of what counts as "actionable".
-const ACTION_VERBS = /\b(fix|debug|build|implement|deploy|refactor|change|update|edit|create|add|remove|test|review)\b/i
+// FIX (2026-09-10): this list was 13 verbs and missed most of how work is
+// actually requested — "find the driver", "set up a backup", "audit our IAM",
+// "model the runway", "plan the launch", "draft the memo" all scored as
+// non-actionable. Measured consequence: 17 of 20 realistic tasks were classified
+// 'info', which means the client answers directly and CAOS NEVER RUNS. The
+// pipeline was not broken — it was never invoked.
+const ACTION_VERBS = /\b(fix|debug|build|implement|deploy|refactor|change|update|edit|create|add|remove|test|review|set up|setup|configure|audit|analyse|analyze|assess|evaluate|plan|draft|write|design|model|figure out|investigate|find|migrate|optimise|optimize|launch|prepare|wire|integrate|automate|generate|produce|score|forecast|budget|rewrite|make sure|get us ready|check whether|compare|recommend|prioritise|prioritize|onboard|hire|recruit|negotiate|reduce|increase|improve|clean up|document|turn .{0,30} into|broken|failing|doubled|dropped|spiking|leaking)\b/i
 
 // Keywords suggesting the message relates to the active venture / project.
 // Bug found 2026-08-11: "the project"/"the repo"/etc. only matched a literal
@@ -43,6 +49,15 @@ export function classifyTier(message: string): InputTier {
     'whats up', 'what\'s up', 'how are you', 'how r u', 'gm', 'gn',
   ]
   if (generic.includes(t) || (t.length <= 6 && !t.includes(' '))) return 'generic'
+
+  // FIX (2026-09-10): ORDERING BUG. The question-shape markers below were tested
+  // BEFORE any action check, and one of them is a bare /\?$/ — so *every* question
+  // was 'info' regardless of content. "Is our pricing right? Should we raise it?"
+  // asks for analysis and a recommendation; "Churn doubled, find the driver" asks
+  // for investigation. Both were answered as lookups and never entered CAOS.
+  // An action verb now wins over question shape: a question CONTAINING an action
+  // request is work, not a lookup. Pure questions (no action verb) stay 'info'.
+  if (ACTION_VERBS.test(t)) return 'build'
 
   const infoMarkers = [
     /^(what|who|where|when|which|how|why|is|are|can|could|do|does|did|will|would|should|tell me|explain|define|list|name|give me|show me)\b/,
