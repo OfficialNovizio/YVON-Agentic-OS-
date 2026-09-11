@@ -3191,14 +3191,18 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     # own definition plus its skill routing. Emitted as its own block so it is
     # auditable, and paired with a real skill.disclosure event so the panel can
     # show WHICH skills were active rather than the previous 'no disclosure'.
-    _focus_agent = _actors[0] if _actors else ""
+    # NOTE: must NOT read _actors here — it is assigned further down (after the
+    # prompt is assembled), so referencing it raised UnboundLocalError and 500ed
+    # every turn. Derive the actor from req.mentions directly; it is the same
+    # value and has no ordering dependency.
+    _focus_agent = (req.mentions[0] if req.mentions else "meta")
     _focus = _agent_focus_block(_focus_agent, req.message)
     if _focus:
         prompt_parts.append(_focus)
+    # NOTE: emitted LATER, next to phase.resolve — _emit_all is not defined yet
+    # at this point in the function, and calling it here raised UnboundLocalError
+    # and 500ed every turn (twice now — same trap as _actors above).
     _focus_skills = _agent_skills_for(_focus_agent)
-    if _focus_skills:
-        _emit_all("skill.disclosure", agent=_focus_agent, active=_focus_skills[:25],
-                  total=len(_focus_skills))
 
     # Venture graph context (2026-09-10): the read half that never existed.
     # Emitted as its own prompt block so it is auditable, and skipped entirely
@@ -3280,6 +3284,12 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     # observe.
     _emit_all("phase.classify", intent=req.message[:400], workspace=req.workspace)
     _emit_all("phase.resolve", targets=_actors, workspace=req.workspace)
+    # Skill disclosure (2026-09-10): the panel previously showed "no disclosure
+    # event" because nothing ever emitted one. Now it carries the REAL skills the
+    # focused agent owns, so silence and "zero skills" stop looking identical.
+    if _focus_skills:
+        _emit_all("skill.disclosure", agent=_focus_agent,
+                  active=_focus_skills[:25], total=len(_focus_skills))
 
     # FIX (2026-08-21, concern #1): CAOS phase 04 (HYBRID RETRIEVAL) + phase
     # 07 (HARNESS GATES) — real rag/core/retriever.py + rag/harness/gates.py,

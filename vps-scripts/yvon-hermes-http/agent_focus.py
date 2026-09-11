@@ -71,7 +71,11 @@ def resolve(agent_id: str) -> Optional[dict]:
             "skill_routing_path": routing if os.path.isfile(routing) else None}
 
 
-def focus_block(agent_id: str, max_identity: int = 2600, max_routing: int = 2200) -> str:
+def focus_block(agent_id: str, message: str = "", max_identity: int = 2600,
+                max_routing: int = 2200) -> str:
+    # NOTE: `message` drives the context tool rules below. It was missing from
+    # this signature once, so the caller's message string landed in
+    # max_identity and fh.read()[:<str>] raised TypeError - 500ing every turn.
     """Prompt block grounding the turn in the assigned agent, or ""."""
     info = resolve(agent_id)
     if not info:
@@ -109,9 +113,9 @@ def focus_block(agent_id: str, max_identity: int = 2600, max_routing: int = 2200
             lines.append("  - " + why + ": " + ", ".join(ts))
         if any(t in tools for t in ("Write", "Edit")):
             lines.append(
-                "  Code style: COMPACT. No filler comments, no restating the",
-                " obvious, no scaffolding you were not asked for - the smallest",
-                " diff that does the job."
+                "  Code style: COMPACT. No filler comments, no restating the "
+                "obvious, no scaffolding you were not asked for - the smallest "
+                "diff that does the job."
             )
         parts.append(chr(10).join(lines))
     return (chr(10) + chr(10)).join(parts)

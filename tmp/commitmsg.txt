@@ -1,0 +1,21 @@
+Fix three ordering bugs that 500ed every chat turn + routing for website requests
+
+Introduced by my own earlier edits, caught by running the live end-to-end test
+rather than trusting unit tests that only exercised the functions in isolation:
+
+- main.py: the agent-focus block read _actors and called _emit_all BEFORE either
+  was defined (both are assigned further down), so chat_stream raised
+  UnboundLocalError and returned HTTP 500 on EVERY turn. The focus agent now
+  derives from req.mentions directly, and skill.disclosure is emitted beside
+  phase.resolve where _emit_all exists.
+- agent_focus.py: focus_block's signature never gained the message parameter (the
+  edit was lost when an earlier program failed to parse), so callers passed the
+  message into max_identity and fh.read() with a string slice raised TypeError.
+- agent_focus.py: lines.append() received three arguments because commas broke
+  implicit string concatenation.
+
+Routing fixes for the failing test message:
+- classify.ts: ACTION_VERBS lacked bare make/want/need/replicate.
+- routing.ts: mia's bucket had no website/site/landing, and the URL cannot carry
+  the signal because scoreableText() strips URLs by design. The message scored
+  ZERO and fell to meta. Now tier=build, primary=mia, team=[mia,raj,quinn].

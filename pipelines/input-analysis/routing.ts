@@ -58,7 +58,12 @@ const BUCKETS: AgentBucket[] = [
     agent: 'mia',
     reason: 'frontend/UI work',
     keywords: [
-      kw('frontend', 2), kw('ui', 1), kw('button', 2), kw('page', 1),
+      // 'website'/'site'/'landing' were absent, so "I want a website ... make
+      // exactly like this" scored ZERO for mia and fell through to meta. The
+      // URL itself cannot carry the signal either - scoreableText() strips
+      // URLs by design (2026-09-04), so the noun has to match on its own.
+      kw('website', 3), kw('web site', 3), kw('site', 2), kw('landing', 2),
+      kw('webpage', 3), kw('web page', 3), kw('frontend', 2), kw('ui', 1), kw('button', 2), kw('page', 1),
       kw('component', 2), kw('css', 2), kw('design system', 3), kw('react', 2),
       kw('layout', 2), kw('styling', 2), kw('ux', 1),
     ],

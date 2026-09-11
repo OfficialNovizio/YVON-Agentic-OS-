@@ -12,7 +12,7 @@ import type { InputTier, MessageRelation } from './types'
 // non-actionable. Measured consequence: 17 of 20 realistic tasks were classified
 // 'info', which means the client answers directly and CAOS NEVER RUNS. The
 // pipeline was not broken — it was never invoked.
-const ACTION_VERBS = /\b(fix|debug|build|implement|deploy|refactor|change|update|edit|create|add|remove|test|review|set up|setup|configure|audit|analyse|analyze|assess|evaluate|plan|draft|write|design|model|figure out|investigate|find|migrate|optimise|optimize|launch|prepare|wire|integrate|automate|generate|produce|score|forecast|budget|rewrite|make sure|get us ready|check whether|compare|recommend|prioritise|prioritize|onboard|hire|recruit|negotiate|reduce|increase|improve|clean up|document|turn .{0,30} into|broken|failing|doubled|dropped|spiking|leaking)\b/i
+const ACTION_VERBS = /\b(fix|debug|build|implement|deploy|refactor|change|update|edit|create|add|remove|test|review|set up|setup|configure|audit|analyse|analyze|assess|evaluate|plan|draft|write|design|model|figure out|investigate|find|migrate|optimise|optimize|launch|prepare|wire|integrate|automate|generate|produce|score|forecast|budget|rewrite|make sure|get us ready|check whether|compare|recommend|prioritise|prioritize|onboard|hire|recruit|negotiate|reduce|increase|improve|clean up|document|turn .{0,30} into|broken|failing|doubled|dropped|spiking|leaking|make|want|need|give me|replicate|copy this|match this)\b/i
 
 // Keywords suggesting the message relates to the active venture / project.
 // Bug found 2026-08-11: "the project"/"the repo"/etc. only matched a literal
