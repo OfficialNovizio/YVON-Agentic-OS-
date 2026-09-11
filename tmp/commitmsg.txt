@@ -1,23 +1,11 @@
-Fix reliability penalty + finish event dedup; correct the cache diagnosis
+Clear chat + task state ahead of a fresh reference-clone run
 
-1. gates.py - reliability is MULTIPLICATIVE (freshness * authority * quality)
-   and quality defaulted to 0.5. That is not a neutral factor: it silently
-   halves every chunk's score. Nothing populates quality_score (every row in the
-   live DB is exactly 0.5), so the factor carried zero information while
-   systematically dragging chunks under the threshold - measured 15 chunks
-   'below reliability threshold' per turn. A never-measured metric is now
-   neutral (1.0); only a real value discounts a chunk. Result: 15 -> 5-8.
-   Same principle as the earlier freshness fix - absence of evidence is not
-   evidence of poor quality.
+Archived rather than deleted, matching the operator's earlier cleanup pattern:
+- 7 task YAMLs/MDs -> store/tasks/_archive-<date>/ (TEMPLATE.yaml kept)
+- 4 design sessions -> store/design-sessions/_archive-<date>/
+- store/tasks/.active marker cleared
+- 21 Supabase chat_rooms soft-deleted via archived_at (not hard-deleted, so the
+  history stays queryable); one fresh kind='thread' room created.
 
-2. main.py - extend the once-only event list to error/notice/artifact/capture.
-   The first pass only covered run./phase./gate./skill., so those kinds were
-   still written once per target actor.
-
-3. CORRECTION: there is no cache bug. cacheRead:0 was observed on a single
-   COLD-START turn (the first after a Hermes restart, empty cache) and I
-   over-generalised from it. Recent turns report:
-     llmCalls=32 in=1836754 cacheRead=1790080  -> 97.5% hit rate
-     llmCalls=11 in= 546711 cacheRead= 500736  -> 91.6%
-   DeepSeek streaming does return cache usage and the existing tee+classifier
-   capture it correctly. No change needed.
+Stack verified ready: dashboard localhost:3000 -> 200, hermes healthz ok,
+capture-worker polling, dev server up.

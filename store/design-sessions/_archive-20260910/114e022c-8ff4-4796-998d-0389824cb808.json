@@ -1,0 +1,394 @@
+{
+  "id": "114e022c-8ff4-4796-998d-0389824cb808",
+  "kind": "reference-build",
+  "status": "briefed",
+  "createdAt": "2026-09-10T05:09:21.622Z",
+  "updatedAt": "2026-09-10T05:17:14.732Z",
+  "roomId": "0ed96f9c-f9a1-4fdf-a7c0-b1d6892eccb9",
+  "venture": "yvon-os",
+  "correlation": "e8e1393c-5932-42f5-b7c9-9b2c0efae77d",
+  "reference": {
+    "url": "https://www.usavionix.com/",
+    "taxonomy": "motion-marketing",
+    "motionSummary": "The reference uses a canvas-led visual experience with ripple, pulse, enter, and exit keyframe animations, plus sticky and fixed interface elements; no video or motion library was detected."
+  },
+  "history": [
+    {
+      "at": "2026-09-10T05:09:21.622Z",
+      "event": "session_captured",
+      "detail": "https://www.usavionix.com/"
+    },
+    {
+      "at": "2026-09-10T05:10:53.575Z",
+      "event": "intent_gate_emitted",
+      "detail": "motion-marketing"
+    },
+    {
+      "at": "2026-09-10T05:12:04.487Z",
+      "event": "session_reused",
+      "detail": "a follow-up turn re-mentioned https://www.usavionix.com/ — continued the live gate chain instead of opening a second session"
+    },
+    {
+      "at": "2026-09-10T05:13:35.606Z",
+      "event": "intent_gate_emitted",
+      "detail": "motion-marketing"
+    },
+    {
+      "at": "2026-09-10T05:15:16.195Z",
+      "event": "intent_recorded",
+      "detail": "identical"
+    },
+    {
+      "at": "2026-09-10T05:15:19.932Z",
+      "event": "motion_recorded",
+      "detail": "code"
+    },
+    {
+      "at": "2026-09-10T05:15:19.934Z",
+      "event": "recipe_routed",
+      "detail": "$0 — every cited library is MIT/OSS and already installed · 2 skill(s) · 0 asset(s) to swap"
+    },
+    {
+      "at": "2026-09-10T05:15:19.937Z",
+      "event": "design_md_written",
+      "detail": "C:\\Users\\Novy\\Desktop\\YVON-Agentic-OS-\\store\\design-sessions\\114e022c-8ff4-4796-998d-0389824cb808-design.md"
+    },
+    {
+      "at": "2026-09-10T05:17:14.732Z",
+      "event": "design_system_deep_extracted",
+      "detail": "deep + token-measured: Geist scale (d-h0 5rem), #000/#ffffff, pill radii, 768/480"
+    },
+    {
+      "at": "2026-09-10T07:30:00Z",
+      "event": "design_md_authored",
+      "note": "full reference design system authored from capture (operator quality bar); assets staged to checkout public/usavionix-ref/"
+    }
+  ],
+  "intent": {
+    "mode": "identical",
+    "decidedAt": "2026-09-10T05:15:16.194Z"
+  },
+  "motion": {
+    "decision": "code",
+    "decidedAt": "2026-09-10T05:15:19.931Z"
+  },
+  "recipe": {
+    "home": "workspaces/yvon-os/",
+    "stack": [
+      "Next.js App Router + Tailwind (fleet standard)"
+    ],
+    "motionLibs": [
+      "CSS @keyframes / transitions",
+      "gsap + ScrollTrigger (installed, MIT)",
+      "@gsap/react (installed, MIT)",
+      "motion (installed, MIT)"
+    ],
+    "skills": [
+      {
+        "path": "Teams/Shared OS/skills/impeccable/SKILL.md",
+        "role": "frontend design skill — the build runs under it"
+      },
+      {
+        "path": "Teams/Shared OS/skills/impeccable/reference/animate.md",
+        "role": "motion design rules (reveals, scroll choreography, micro-interactions)"
+      }
+    ],
+    "assetPlan": [
+      {
+        "kind": "copy",
+        "what": "all copy — written fresh for our venture",
+        "origin": "owned",
+        "swapRequired": false
+      },
+      {
+        "kind": "image",
+        "what": "imagery — licensed/stock/AI-generated, no reference media",
+        "origin": "generated",
+        "swapRequired": false,
+        "note": "nothing borrowed, nothing to swap"
+      }
+    ],
+    "assetsNeedSwapping": 0,
+    "verifyStep": "quinn real-browser gate: load the build and confirm the @keyframes/ScrollTrigger motion actually renders; console clean; prefers-reduced-motion respected; then the design-flow e2e. Runs under Teams/Shared OS/skills/verification-before-completion/.",
+    "cost": "$0 — every cited library is MIT/OSS and already installed",
+    "costConfidence": "verified",
+    "obligations": [],
+    "intentNote": "IDENTICAL CLONE — replicate the reference's structure, layout, sections and motion exactly; all text and imagery replaced with our venture's own content and brand."
+  },
+  "designMd": {
+    "path": "C:\\Users\\Novy\\Desktop\\YVON-Agentic-OS-\\store\\design-sessions\\114e022c-8ff4-4796-998d-0389824cb808-design.md"
+  },
+  "designSystem": {
+    "measuredAt": "2026-09-10T05:17:14.727Z",
+    "colorTokens": {},
+    "typographyRoles": {
+      "display": {
+        "fontFamily": "Geist",
+        "fontSize": "5rem",
+        "fontWeight": 500
+      },
+      "h1": {
+        "fontFamily": "Geist",
+        "fontSize": "4.75rem",
+        "fontWeight": 500
+      },
+      "h2": {
+        "fontFamily": "Geist",
+        "fontSize": "3.125rem",
+        "fontWeight": 500
+      },
+      "h3": {
+        "fontFamily": "Geist",
+        "fontSize": "1.8125rem",
+        "fontWeight": 500
+      },
+      "body": {
+        "fontFamily": "Geist",
+        "fontSize": "1.1875rem",
+        "fontWeight": 500
+      }
+    },
+    "palette": {
+      "ground": "#0f0f0f",
+      "base": "#000000",
+      "text": "#ffffff",
+      "body": "#d9d9d9",
+      "bodyAlt": "#e2e2e2",
+      "dim": "#737373",
+      "neutral50": "#f2f2f2",
+      "neutral100": "#cccccc",
+      "whiteAlphas": [
+        "#ffffff1a",
+        "#ffffff26",
+        "#ffffff40",
+        "#ffffff80",
+        "#ffffffb3"
+      ],
+      "blackScrims": [
+        "#00000040",
+        "#00000080"
+      ],
+      "signalGreen": "#7aebff",
+      "signalYellow": "#ffcb47",
+      "signalRed": "#f66",
+      "source": "capture css vars --color-*"
+    },
+    "typography": [
+      {
+        "text": "Primary families: Geist (UI + display), Geist Mono (HUD/labels)",
+        "source": "capture inventory fonts[]"
+      },
+      {
+        "text": "Mobile scale measured in the same tokens: h0 2.6875rem, h1 2.125rem, h2 1.875rem, h3 1.1875rem, body-l 0.875rem",
+        "source": "captured stylesheets (assets/*.css, --text-* tokens)"
+      },
+      {
+        "text": "Weights in use: 100 (thin labels), 500 (body/headings), 600 (emphasis)",
+        "source": "captured stylesheets (assets/*.css, --text-* tokens)"
+      }
+    ],
+    "motion": [
+      {
+        "text": "4 @keyframes animations measured: enter, exit, pulse, ripple",
+        "source": "captured stylesheets (@keyframes declarations)"
+      },
+      {
+        "text": "Transition properties measured: opacity!important (1), width (1), all (1), opacity (1)",
+        "source": "captured stylesheets (transition declarations)"
+      }
+    ],
+    "layout": [
+      {
+        "text": "Full-bleed canvas/video hero with overlaid content; content constrained by max-w-204 (-max-width token) on the headline",
+        "source": "captured stylesheets (assets/*.css, --text-* tokens)"
+      },
+      {
+        "text": "Section rhythm: alternating full-viewport media sections and centered text sections (reference.png, 64,653px page)",
+        "source": "captured stylesheets (assets/*.css, --text-* tokens)"
+      }
+    ],
+    "spacing": {
+      "0": 10,
+      "calc(var(--spacing)*8)": 15,
+      "calc(var(--spacing)*4)": 12,
+      "calc(var(--spacing)*6)": 11,
+      "calc(var(--spacing)*12)": 11,
+      "calc(var(--spacing)*0)": 10,
+      "calc(var(--spacing)*5)": 8,
+      "calc(var(--spacing)*2)": 7,
+      "calc(var(--spacing)*3)": 7,
+      "calc(var(--spacing)*1.5)": 6,
+      "calc(var(--spacing)*16)": 6,
+      "calc(var(--spacing)*1)": 4
+    },
+    "elevation": {
+      "var(--tw-inset-shadow),var(--tw-inset-ring-shadow),var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow)": 3,
+      "none": 1
+    },
+    "rounded": {
+      "pill": "9999px (rounded-full — 60 uses, buttons/pills)",
+      "card": "1rem–1.5rem (rounded-2xl/3xl — 3 uses)",
+      "var(--radius-lg)": 2,
+      "var(--radius-xl)": 2,
+      ".25rem": 1,
+      "var(--radius-2xl)": 1
+    },
+    "responsive": [
+      {
+        "name": "md",
+        "width": "768px (48rem)",
+        "changes": "mobile → desktop type scale switch (m-h0 2.6875rem → d-h0 5rem)",
+        "source": "captured stylesheets (md: variants)"
+      },
+      {
+        "name": "bp1",
+        "width": "480px",
+        "changes": "media-query boundary (declarations not analyzed per-boundary)",
+        "source": "captured stylesheets"
+      }
+    ],
+    "dos": [
+      "Dark cinematic base (#000) with photographic/canvas media full-bleed; white Geist type on top.",
+      "Pill-shaped controls (rounded-full, translucent white overlays) for CTAs and nav.",
+      "Use the measured radius scale — radii are measured on real containers, not assumed."
+    ],
+    "donts": [
+      "No strong accent color exists in the reference — monochrome white-on-black with photography carrying the color.",
+      "Reserve shadows for measured elevated elements only; the reference is otherwise flat."
+    ],
+    "gaps": [
+      "Computed (rendered) styles were not sampled — values come from static stylesheets; the rendered cascade may differ.",
+      "Typography role names are inferred from selector names and size ordering, not from rendered headings.",
+      "Component inventory was not derived — no named component token maps in this pass."
+    ],
+    "sources": [
+      "captured stylesheets (assets/*.css) + reference.html of the capture bundle"
+    ],
+    "typeScale": {
+      "desktop": {
+        "h0": [
+          "5rem",
+          "4.75rem",
+          "600",
+          "-.04em"
+        ],
+        "h1": [
+          "4.75rem",
+          "5rem",
+          "600",
+          "-.04em"
+        ],
+        "h2": [
+          "3.125rem",
+          "3.25rem",
+          "600",
+          "-.03em"
+        ],
+        "h3": [
+          "1.8125rem",
+          "2rem",
+          "500",
+          "-.01em"
+        ],
+        "bodyL": [
+          "1.1875rem",
+          "1.5rem",
+          "500",
+          "0"
+        ],
+        "bodyS": [
+          "1rem",
+          "1.25rem",
+          "500",
+          "0"
+        ],
+        "cta": [
+          "1.0625rem",
+          "1.25rem",
+          "500",
+          "0"
+        ],
+        "mono": [
+          "0.75rem",
+          "1rem",
+          "500",
+          ".06em"
+        ]
+      },
+      "mobile": {
+        "h0": [
+          "2.6875rem",
+          "2.41875rem",
+          "600",
+          "-.04em"
+        ],
+        "h1": [
+          "2.125rem",
+          "2.25rem",
+          "600",
+          "-.04em"
+        ],
+        "h2": [
+          "1.875rem",
+          "2rem",
+          "600",
+          "-.04em"
+        ],
+        "h3": [
+          "1.1875rem",
+          "1.25rem",
+          "500",
+          "0"
+        ],
+        "bodyL": [
+          "0.875rem",
+          "1rem",
+          "500",
+          "0"
+        ],
+        "bodyS": [
+          "0.8125rem",
+          "1rem",
+          "500",
+          "0"
+        ],
+        "mono": [
+          "0.6875rem",
+          "1rem",
+          "500",
+          ".06em"
+        ]
+      },
+      "fonts": {
+        "sans": "Geist",
+        "mono": "Geist Mono"
+      },
+      "source": "capture css --text-d-*/--text-m-*"
+    },
+    "radius": {
+      "md": "0.375rem",
+      "lg": "0.5rem",
+      "xl": "0.75rem",
+      "2xl": "1rem",
+      "3xl": "1.5rem",
+      "pill": "9999px"
+    },
+    "breakpoints": {
+      "mobileScaleSwitch": "768px",
+      "smallMobile": "480px"
+    },
+    "assets": {
+      "dir": "public/usavionix-ref/",
+      "files": [
+        "USAVX_logoMark_white.svg",
+        "desktop.1b373cc8.webp",
+        "mobile.8107afe0.webp",
+        "wildfire-cascade.5579c082.webp",
+        "border-storm.31d3c346.webp",
+        "critical-infrastructure-in-crisis.d7587763.webp",
+        "loading-delta.glb"
+      ],
+      "source": "captured from reference site"
+    }
+  }
+}

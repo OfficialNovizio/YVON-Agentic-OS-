@@ -1,0 +1,32 @@
+{
+  "id": "47c7f713-b990-4fe7-8ce9-809e1fefa22f",
+  "kind": "reference-build",
+  "status": "abandoned",
+  "createdAt": "2026-09-10T07:27:48.114Z",
+  "updatedAt": "2026-09-10T07:34:09.061Z",
+  "roomId": "ec3e1bf0-c4a8-4440-9d53-776bf95942e3",
+  "venture": "yvon-os",
+  "correlation": "6591acb3-b49e-41ca-b798-0fb703a9b485",
+  "reference": {
+    "url": "https://www.usavionix.com/",
+    "taxonomy": "motion-marketing",
+    "motionSummary": "The reference uses a canvas-led landing experience with four CSS keyframe systems, including ripple, pulse, enter, and exit effects; no video element or motion library was detected in the static probe."
+  },
+  "history": [
+    {
+      "at": "2026-09-10T07:27:48.115Z",
+      "event": "session_captured",
+      "detail": "https://www.usavionix.com/"
+    },
+    {
+      "at": "2026-09-10T07:28:04.338Z",
+      "event": "intent_gate_emitted",
+      "detail": "motion-marketing"
+    },
+    {
+      "at": "2026-09-10T07:34:09.061Z",
+      "event": "intent_gate_dismissed",
+      "detail": "user said this is not a reference build"
+    }
+  ]
+}
