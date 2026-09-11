@@ -25,8 +25,13 @@ function persistWorkspace(key: WorkspaceKey) {
 function syncVentureCookie(key: WorkspaceKey) {
   if (typeof document === 'undefined') return
   const ws = WORKSPACE_MAP[key]
-  if (ws?.ventureSlug) {
-    document.cookie = `yvon_active_venture=${ws.ventureSlug};path=/;max-age=${60 * 60 * 24 * 365};SameSite=Lax`
+  // FIX (2026-09-11): this only ever set the cookie for STATIC workspaces. A DB
+  // venture's key IS its slug, and WORKSPACE_MAP holds only 'yvon-os', so
+  // selecting novizio never synced yvon_active_venture at all — API routes were
+  // never scoped to the active venture. Fall through to `key` for DB ventures.
+  const slug = ws?.ventureSlug ?? (ws ? null : key)
+  if (slug) {
+    document.cookie = `yvon_active_venture=${slug};path=/;max-age=${60 * 60 * 24 * 365};SameSite=Lax`
   }
 }
 
@@ -103,7 +108,24 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   // "A component crashed". Note the !mounted branch below already guarded this
   // with WORKSPACE_MAP[DEFAULT]; the mounted branch did not. Fall back the same
   // way rather than handing consumers an undefined workspace.
-  const workspace = WORKSPACE_MAP[key] ?? WORKSPACE_MAP[DEFAULT]
+  // FIX (2026-09-11, second pass): falling back to WORKSPACE_MAP[DEFAULT] stopped
+  // the crash but was WRONG — it silently switched every DB-venture user onto the
+  // yvon-os workspace, hiding their own chats and tasks. 'novizio' is a real
+  // venture (16 rooms) that simply is not in the static map, so the correct
+  // resolution is to build a Workspace from the live venture list instead.
+  const workspace: Workspace = WORKSPACE_MAP[key] ?? (() => {
+    const v = ventures.find((x) => x.slug === key)
+    if (!v) return WORKSPACE_MAP[DEFAULT]
+    return {
+      key: v.slug,
+      name: v.name || v.slug,
+      business: '',
+      theme: 'Midnight',
+      accent: '#6366F1',
+      isVenture: true,
+      ventureSlug: v.slug,
+    }
+  })()
 
   const handleSetWorkspace = (k: WorkspaceKey) => {
     setKey(k)

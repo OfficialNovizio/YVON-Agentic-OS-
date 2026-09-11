@@ -1,23 +1,24 @@
-Fix site-wide crash: undefined workspace reached every page
+Fix DB-venture workspaces: novizio had no chats/tasks visible
 
-Symptom: every page rendered the root ErrorBoundary with
-  'Cannot read properties of undefined (reading key)'
+Follow-on from the previous crash fix, which stopped the crash but was WRONG:
+falling back to WORKSPACE_MAP[DEFAULT] silently switched every DB-venture user
+onto the yvon-os workspace, hiding their own content.
 
-Root cause: WORKSPACE_MAP contains ONLY 'yvon-os' (real ventures come from the
-DB via /api/ventures), but WorkspaceContext restores `key` from localStorage,
-which can hold any venture slug the user previously selected. WORKSPACE_MAP[key]
-was therefore undefined, the provider handed { workspace: undefined } to every
-consumer, and Sidebar read `workspace.key` off it.
+Established facts: ventures = novizio / yvon-os / hourbour, and chat_rooms holds
+16 rooms with venture_slug='novizio' (all active, none archived). So the data was
+always there - it was never being shown.
 
-The unmounted branch of the same provider already guarded this with
-WORKSPACE_MAP[DEFAULT]; the mounted branch did not - which is why the page
-loaded and then crashed once `mounted` flipped true.
+Two causes:
 
-Fixed at both ends:
-- WorkspaceContext: `WORKSPACE_MAP[key] ?? WORKSPACE_MAP[DEFAULT]`, so consumers
-  never receive an undefined workspace. This also protects the four other
-  workspace.key dereferences (Sidebar:272, WorkspaceSwitcher:26/43/91).
-- Sidebar: optional-chain the key too; the ws?.name half already was.
+1. WORKSPACE_MAP (lib/workspaces.ts) contains ONLY 'yvon-os'; real ventures come
+   from the DB via /api/ventures. WorkspaceContext now BUILDS a Workspace from the
+   live venture list when the key is a DB slug, instead of collapsing to the
+   default. This is what actually makes novizio's rooms and tasks visible again.
 
-Not caused by the recent room/task cleanup - this fires whenever a stored
-workspace key is absent from WORKSPACE_MAP, independent of that work.
+2. syncVentureCookie only wrote yvon_active_venture when the static map entry had
+   a ventureSlug - and yvon-os has none, so the cookie was never set for ANY DB
+   venture. resolveVentureSlug() therefore never scoped the rooms/tasks APIs to
+   the active venture; they kept answering for the wrong one. A DB venture's key
+   IS its slug, so the cookie now falls through to `key`.
+
+Typecheck clean.
