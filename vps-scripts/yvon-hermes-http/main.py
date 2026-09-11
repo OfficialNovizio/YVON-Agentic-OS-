@@ -3264,6 +3264,17 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     _actors = req.mentions or ["meta"]
 
     def _emit_all(kind: str, **payload: Any) -> None:
+        # FIX (2026-09-10): this looped over EVERY actor, so a turn with three
+        # targets emitted every lifecycle event three times - measured 204 events
+        # for one turn where ~68 were real. That triples Supabase writes, makes
+        # "how many turns failed" unqueryable without dedup, and inflated the
+        # panel counts. Turn-scoped events (run.*, phase.*, gate.*, skill.*) are
+        # facts about the TURN, not about each agent, so they are emitted once
+        # and attributed to the primary actor. Per-agent events keep the loop.
+        if kind.startswith(("run.", "phase.", "gate.", "skill.")):
+            emit(kind, _actors[0] if _actors else "meta",
+                 context_id=req.workspace, correlation=_correlation, **payload)
+            return
         for _a in _actors:
             emit(kind, _a, context_id=req.workspace, correlation=_correlation, **payload)
 
