@@ -94,7 +94,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setVentures((prev) => (prev.some((x) => x.slug === v.slug) ? prev : [...prev, v]))
   }, [])
 
-  const workspace = WORKSPACE_MAP[key]
+  // FIX (2026-09-11): WORKSPACE_MAP contains ONLY 'yvon-os' (real ventures live
+  // in the DB via /api/ventures), but `key` is restored from localStorage and can
+  // therefore hold any venture slug the user once selected. WORKSPACE_MAP[key] was
+  // then undefined, the provider handed `workspace: undefined` to every consumer,
+  // and Sidebar's `workspace.key` threw "Cannot read properties of undefined
+  // (reading 'key')" — caught by the root ErrorBoundary, so EVERY page showed
+  // "A component crashed". Note the !mounted branch below already guarded this
+  // with WORKSPACE_MAP[DEFAULT]; the mounted branch did not. Fall back the same
+  // way rather than handing consumers an undefined workspace.
+  const workspace = WORKSPACE_MAP[key] ?? WORKSPACE_MAP[DEFAULT]
 
   const handleSetWorkspace = (k: WorkspaceKey) => {
     setKey(k)

@@ -222,8 +222,13 @@ export function Sidebar({ mode, onToggle, mobileClose }: SidebarProps) {
   }
 
   // Current workspace
-  const ws = WORKSPACES.find((w: { key: WorkspaceKey }) => w.key === workspace.key)
-  const wsLabel = ws?.name ?? workspace.key
+  // FIX (2026-09-11): `workspace` comes from context and was undefined whenever
+  // the stored workspace key was not in WORKSPACE_MAP — reading .key off it threw
+  // and took down every page via the root ErrorBoundary. The `ws?.name` half was
+  // already optional-chained; this half was not.
+  const wsKey = workspace?.key ?? 'yvon-os'
+  const ws = WORKSPACES.find((w: { key: WorkspaceKey }) => w.key === wsKey)
+  const wsLabel = ws?.name ?? wsKey
 
   return (
     <div className="flex flex-col h-full text-[13px] overflow-y-auto no-scrollbar">

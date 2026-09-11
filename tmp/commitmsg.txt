@@ -1,11 +1,23 @@
-Clear chat + task state ahead of a fresh reference-clone run
+Fix site-wide crash: undefined workspace reached every page
 
-Archived rather than deleted, matching the operator's earlier cleanup pattern:
-- 7 task YAMLs/MDs -> store/tasks/_archive-<date>/ (TEMPLATE.yaml kept)
-- 4 design sessions -> store/design-sessions/_archive-<date>/
-- store/tasks/.active marker cleared
-- 21 Supabase chat_rooms soft-deleted via archived_at (not hard-deleted, so the
-  history stays queryable); one fresh kind='thread' room created.
+Symptom: every page rendered the root ErrorBoundary with
+  'Cannot read properties of undefined (reading key)'
 
-Stack verified ready: dashboard localhost:3000 -> 200, hermes healthz ok,
-capture-worker polling, dev server up.
+Root cause: WORKSPACE_MAP contains ONLY 'yvon-os' (real ventures come from the
+DB via /api/ventures), but WorkspaceContext restores `key` from localStorage,
+which can hold any venture slug the user previously selected. WORKSPACE_MAP[key]
+was therefore undefined, the provider handed { workspace: undefined } to every
+consumer, and Sidebar read `workspace.key` off it.
+
+The unmounted branch of the same provider already guarded this with
+WORKSPACE_MAP[DEFAULT]; the mounted branch did not - which is why the page
+loaded and then crashed once `mounted` flipped true.
+
+Fixed at both ends:
+- WorkspaceContext: `WORKSPACE_MAP[key] ?? WORKSPACE_MAP[DEFAULT]`, so consumers
+  never receive an undefined workspace. This also protects the four other
+  workspace.key dereferences (Sidebar:272, WorkspaceSwitcher:26/43/91).
+- Sidebar: optional-chain the key too; the ws?.name half already was.
+
+Not caused by the recent room/task cleanup - this fires whenever a stored
+workspace key is absent from WORKSPACE_MAP, independent of that work.
