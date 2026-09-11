@@ -1,15 +1,26 @@
-Fix duplicated lifecycle events (204 emitted for one turn)
+Fix reference capture reporting failed on captures that succeeded
 
-_emit_all looped over EVERY target actor, so a turn with three targets emitted
-run.*, phase.*, gate.* and skill.* three times each - measured 204 ledger rows
-for a single turn where ~68 were real. That triples Supabase writes, makes
-'how many turns failed' unqueryable without dedup, and inflated the counts the
-pipeline panel renders. Turn-scoped events are facts about the TURN, not about
-each agent, so they are now emitted once and attributed to the primary actor.
-Per-agent events keep the loop.
+Root cause: _actors and _emit_all were defined ~1000 lines into chat_stream,
+AFTER the capture thread is started at ~2881. The capture closure therefore
+referenced an unbound free variable, raised 'cannot access free variable
+_emit_all where it is not associated with a value in enclosing scope', and the
+handler reported it as capture failed at 100% - while the capture itself had
+actually SUCCEEDED (result file: ok=true, 57 images, 70 assets, real fonts).
+Both are now hoisted to just after _correlation, above every closure that uses
+them.
 
-Also confirmed by live test (not by unit test): DeepSeek prompt caching works -
-2nd call with an identical prefix returned cached_tokens 2688/2836 (95% hit) -
-so the cacheRead:0 reported across a 24-call turn is a metering gap on the
-streaming path, not a provider limitation. 1.8M input tokens at full price.
-Not yet fixed.
+Live verification, same message as the failing test:
+  before: capture.progress [claimed:35%, bundle:80%, failed:100%], no capture.done
+  after : capture.progress [claimed:35%, bundle:80%, done:100%],  capture.done x1
+  6 artifacts: reference.png, inventory.json, motion-profile.md, scrape-report.md,
+               reference.md, design.md
+  36 tool calls including browser_navigate, browser_get_images, browser_console
+
+Cache metering is NOT fixed. Proven while investigating: DeepSeek streaming DOES
+return cache usage - final chunk carries prompt_tokens_details.cached_tokens 2688
+and prompt_cache_hit_tokens 2688. api.deepseek.com is already in
+_STREAM_OPTIONS_HOSTS and _usage_from_obj already reads that field. So the loss
+is in capturing the FINAL chunk, which arrives after finish_reason: stop.
+
+Also observed: 19 'per-minute token limit' notices during the turn, which is why
+it took 679.8s against 169.5s previously.

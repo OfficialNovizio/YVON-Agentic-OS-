@@ -2171,6 +2171,25 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     # input.analysis/chat.conversation events under one id per turn.
     _correlation = req.correlation or str(uuid.uuid4())
 
+    # ── actors + event emitter, defined EARLY ON PURPOSE ─────────────────────
+    # FIX (2026-09-10): these lived ~1000 lines further down, AFTER the capture
+    # thread is started. The capture closure therefore referenced an unbound
+    # free variable and every reference capture reported "failed:100%" on a
+    # capture that had actually SUCCEEDED (result file: ok=true, 57 images, 70
+    # assets). Anything defined here must stay above every closure that uses it.
+    _actors = req.mentions or ["meta"]
+
+    def _emit_all(kind: str, **payload: Any) -> None:
+        # Turn-scoped kinds are facts about the TURN, not about each agent, so
+        # emit once. The original looped over every actor, emitting each event
+        # N times (measured 204 rows for one turn where ~68 were real).
+        if kind.startswith(("run.", "phase.", "gate.", "skill.")):
+            emit(kind, _actors[0] if _actors else "meta",
+                 context_id=req.workspace, correlation=_correlation, **payload)
+            return
+        for _a in _actors:
+            emit(kind, _a, context_id=req.workspace, correlation=_correlation, **payload)
+
     # ── Evidence artifacts (fix ②) + execution gate (fix ⑤) ─────────────────
     # Per-turn evidence dir under workspaces/_artifacts/<venture>/<correlation>/
     # (see ARTIFACTS_ROOT above — outside every checkout, so nothing here can
@@ -3261,22 +3280,11 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     # TS-023 (#3): unaddressed turns are attributed to the orchestrator agent
     # 'meta' (real fleet agent) instead of the anonymous 'system' — so events,
     # the pipeline panel and the graph show WHO handled the turn honestly.
-    _actors = req.mentions or ["meta"]
-
-    def _emit_all(kind: str, **payload: Any) -> None:
-        # FIX (2026-09-10): this looped over EVERY actor, so a turn with three
-        # targets emitted every lifecycle event three times - measured 204 events
-        # for one turn where ~68 were real. That triples Supabase writes, makes
-        # "how many turns failed" unqueryable without dedup, and inflated the
-        # panel counts. Turn-scoped events (run.*, phase.*, gate.*, skill.*) are
-        # facts about the TURN, not about each agent, so they are emitted once
-        # and attributed to the primary actor. Per-agent events keep the loop.
-        if kind.startswith(("run.", "phase.", "gate.", "skill.")):
-            emit(kind, _actors[0] if _actors else "meta",
-                 context_id=req.workspace, correlation=_correlation, **payload)
-            return
-        for _a in _actors:
-            emit(kind, _a, context_id=req.workspace, correlation=_correlation, **payload)
+    # NOTE: _actors and _emit_all are defined EARLY (just after _correlation).
+    # They were previously defined here, 385 lines after the capture thread starts
+    # at ~2881 — so the capture closure referenced an unbound free variable and
+    # every reference capture died with "cannot access free variable _emit_all",
+    # reported to the user as "failed:100%" on a capture that actually succeeded.
 
     # Added 2026-08-20 (Task #18): wall-clock start of the actual agent
     # turn (not the HTTP request — repo-clone/pull above can itself take a
