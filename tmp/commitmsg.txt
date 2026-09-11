@@ -1,26 +1,23 @@
-Fix reference capture reporting failed on captures that succeeded
+Fix reliability penalty + finish event dedup; correct the cache diagnosis
 
-Root cause: _actors and _emit_all were defined ~1000 lines into chat_stream,
-AFTER the capture thread is started at ~2881. The capture closure therefore
-referenced an unbound free variable, raised 'cannot access free variable
-_emit_all where it is not associated with a value in enclosing scope', and the
-handler reported it as capture failed at 100% - while the capture itself had
-actually SUCCEEDED (result file: ok=true, 57 images, 70 assets, real fonts).
-Both are now hoisted to just after _correlation, above every closure that uses
-them.
+1. gates.py - reliability is MULTIPLICATIVE (freshness * authority * quality)
+   and quality defaulted to 0.5. That is not a neutral factor: it silently
+   halves every chunk's score. Nothing populates quality_score (every row in the
+   live DB is exactly 0.5), so the factor carried zero information while
+   systematically dragging chunks under the threshold - measured 15 chunks
+   'below reliability threshold' per turn. A never-measured metric is now
+   neutral (1.0); only a real value discounts a chunk. Result: 15 -> 5-8.
+   Same principle as the earlier freshness fix - absence of evidence is not
+   evidence of poor quality.
 
-Live verification, same message as the failing test:
-  before: capture.progress [claimed:35%, bundle:80%, failed:100%], no capture.done
-  after : capture.progress [claimed:35%, bundle:80%, done:100%],  capture.done x1
-  6 artifacts: reference.png, inventory.json, motion-profile.md, scrape-report.md,
-               reference.md, design.md
-  36 tool calls including browser_navigate, browser_get_images, browser_console
+2. main.py - extend the once-only event list to error/notice/artifact/capture.
+   The first pass only covered run./phase./gate./skill., so those kinds were
+   still written once per target actor.
 
-Cache metering is NOT fixed. Proven while investigating: DeepSeek streaming DOES
-return cache usage - final chunk carries prompt_tokens_details.cached_tokens 2688
-and prompt_cache_hit_tokens 2688. api.deepseek.com is already in
-_STREAM_OPTIONS_HOSTS and _usage_from_obj already reads that field. So the loss
-is in capturing the FINAL chunk, which arrives after finish_reason: stop.
-
-Also observed: 19 'per-minute token limit' notices during the turn, which is why
-it took 679.8s against 169.5s previously.
+3. CORRECTION: there is no cache bug. cacheRead:0 was observed on a single
+   COLD-START turn (the first after a Hermes restart, empty cache) and I
+   over-generalised from it. Recent turns report:
+     llmCalls=32 in=1836754 cacheRead=1790080  -> 97.5% hit rate
+     llmCalls=11 in= 546711 cacheRead= 500736  -> 91.6%
+   DeepSeek streaming does return cache usage and the existing tee+classifier
+   capture it correctly. No change needed.

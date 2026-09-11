@@ -2183,7 +2183,10 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
         # Turn-scoped kinds are facts about the TURN, not about each agent, so
         # emit once. The original looped over every actor, emitting each event
         # N times (measured 204 rows for one turn where ~68 were real).
-        if kind.startswith(("run.", "phase.", "gate.", "skill.")):
+        # "error", "notice" and "capture." added 2026-09-10: they were missed
+        # by the first pass, so a 3-target turn still wrote them 3x.
+        if kind.startswith(("run.", "phase.", "gate.", "skill.", "capture.")) \
+                or kind in ("error", "notice", "artifact"):
             emit(kind, _actors[0] if _actors else "meta",
                  context_id=req.workspace, correlation=_correlation, **payload)
             return

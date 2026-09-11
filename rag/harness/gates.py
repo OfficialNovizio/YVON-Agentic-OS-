@@ -254,8 +254,19 @@ def gate_reliability(chunks: List[Dict]) -> Tuple[List[Dict], List[ReliabilitySc
         source = chunk.get('source_file', '')
         authority = resolve_source_authority(source)
 
-        # Quality from feedback loop
-        quality = chunk.get('quality_score', 0.5)
+        # Quality from feedback loop.
+        # FIX (2026-09-10): this defaulted to 0.5, which is NOT neutral inside a
+        # MULTIPLICATIVE reliability — it silently halves every chunk's score.
+        # Nothing populates quality_score (every row in the live DB is exactly
+        # 0.5), so the factor carried zero information while systematically
+        # dragging chunks under the threshold: measured 15 chunks reported
+        # "below reliability threshold" per turn. A metric that has never been
+        # measured must be neutral (1.0); only a real measured value should
+        # discount a chunk. Same principle as the freshness fix above — absence
+        # of evidence is not evidence of poor quality.
+        quality = chunk.get('quality_score')
+        if quality is None or quality == 0.5:
+            quality = 1.0
 
         # MULTIPLICATIVE RELIABILITY
         reliability = round(freshness * authority * quality, 4)

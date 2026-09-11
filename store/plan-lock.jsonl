@@ -479,3 +479,10 @@ ocked"}
 {"ts": "2026-09-10T19:39:03Z", "plan_id": "0c8f957a099ffab7", "agent_id": "cortex", "department": "Cybersecurity", "query_hash": "844c7f77034b6583", "status": "locked"}
 {"ts": "2026-09-10T19:39:09Z", "plan_id": "577c4eb9cf46ad5a", "agent_id": "scope", "department": "Market Intelligence", "query_hash": "34094986f11d2b46", "status": "locked"}
 {"ts": "2026-09-10T19:48:50Z", "plan_id": "094ef75926984189", "agent_id": "dev", "department": "Engineering", "query_hash": "78f835ec5d9184da", "status": "locked"}
+{"ts": "2026-09-11T06:18:07Z", "plan_id": "094ef75926984189", "agent_id": "dev", "department": "Engineering", "query_hash": "78f835ec5d9184da", "status": "locked"}
+{"ts": "2026-09-11T06:18:18Z", "plan_id": "8933c70e683a6796", "agent_id": "atlas", "department": "Brand Studio", "query_hash": "67fec603cf0650a9", "status": "locked"}
+{"ts": "2026-09-11T06:18:25Z", "plan_id": "ab5c8d10b173a386", "agent_id": "felix", "department": "Finance & Treasury", "query_hash": "7f5fc77876143d52", "status": "locked"}
+{"ts": "2026-09-11T06:18:32Z", "plan_id": "0c8f957a099ffab7", "agent_id": "cortex", "department": "Cybersecurity", "query_hash": "844c7f77034b6583", "status": "locked"}
+{"ts": "2026-09-11T06:18:39Z", "plan_id": "577c4eb9cf46ad5a", "agent_id": "scope", "department": "Market Intelligence", "query_hash": "34094986f11d2b46", "status": "locked"}
+{"ts": "2026-09-11T06:19:17Z", "plan_id": "094ef75926984189", "agent_id": "dev", "department": "Engineering", "query_hash": "78f835ec5d9184da", "status": "locked"}
+{"ts": "2026-09-11T06:19:25Z", "plan_id": "ab5c8d10b173a386", "agent_id": "felix", "department": "Finance & Treasury", "query_hash": "7f5fc77876143d52", "status": "locked"}
