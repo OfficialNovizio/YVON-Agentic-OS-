@@ -1,27 +1,27 @@
-Fix cost reporting for DeepSeek + stop task-conversion hijacking the thread
+Give agents durable memory of what has already been gathered
 
-Reported from a live dashboard run of the offforum.com clone.
+Operator's question: once an agent scrapes/searches/gathers from the internet or
+a graph, why can the next agent not access it - why redo it again and again?
 
-1. COST WAS BLANK ('price not in table (deepseek-flash)')
-   token-cost.ts had zero DeepSeek entries, so the CAOS panel correctly refused
-   to invent a number. Added real rates from DeepSeek's own docs
-   (https://api-docs.deepseek.com/quick_start/pricing/, retrieved 2026-09-11).
-   IMPORTANT: DeepSeek bills PEAK/OFF-PEAK (off-peak is exactly half; peak is
-   01:00-04:00 and 06:00-10:00 UTC Mon-Fri). A flat table cannot express that, so
-   the PEAK (upper-bound) rates are stored deliberately - a shown cost is never an
-   understatement, and at off-peak the true bill is about half. Averaging the two
-   would be a guess, which this file forbids. Legacy ids deepseek-v4-flash and
-   deepseek-v4-flash-vision-exp are mapped too (retired upstream but still
-   accepted, billed at Flash rates) so a stale id cannot blank cost reporting again.
+There was no such memory. Audited state:
+  - capture reuse in main.py is URL-keyed with a 12h TTL and covers ONLY the
+    capture step, not terminal/read_file/web research an agent does itself;
+  - turn artifacts land under <venture>/<correlation>/, and a NEW turn has a NEW
+    correlation, so it cannot discover the previous turn's evidence;
+  - the RAG index holds Teams/ documentation only - conversation artifacts never
+    enter it;
+  - MemPalace is write-only (drawers written, never queried).
 
-2. 'CONVERT TO TASK' HANDED THE THREAD TO BRAND STUDIO
-   Live sequence: mia cloned offforum.com and reported -> user said 'convert to
-   task' -> a keyword bucket scored >=2, resolveRoute rule 6 released the frame,
-   and lena (Brand Studio) took over, re-ran the capture and re-presented the task
-   gate. The user saw the site scraped twice against the wrong target.
-   ContinuationContext had no `message` field, so the hold logic could not see
-   what was said. Added it, plus CONTINUATION_ONLY_RE: affirmations and
-   task-conversion instructions now hold UNCONDITIONALLY, before any score is
-   consulted. The agent that owns the work owns its conversion.
-   Verified: 'convert to task', 'yes', 'do it', 'make this a task', 'ok proceed'
-   all HOLD; 'build me a pricing page', 'scrape this site' still route normally.
+New research_ledger.py - the missing READ path: append-only JSONL keyed by ROOM
+(so a thread keeps its own context and other threads are not polluted), with a
+400-record cap per room. Captures are recorded with their artifact paths and
+measured digest, and prompt_block() injects a briefing into every subsequent
+turn in that room telling the agent the evidence already exists, where it is, and
+to gather again only for something materially NEW.
+
+Contract: never raises; a missing or corrupt ledger returns empty and the turn
+proceeds exactly as before.
+
+Verified on the VPS: empty room -> '' (no block, unchanged behaviour); after two
+records -> 617-char block naming the URL, the three artifact paths and the
+measured digest.

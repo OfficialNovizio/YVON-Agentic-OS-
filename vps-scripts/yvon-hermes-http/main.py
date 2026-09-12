@@ -75,6 +75,19 @@ except ImportError:  # module absent -> unchanged behaviour, fail open
 
     def _agent_skills_for(_a: str) -> list:
         return []
+
+# Durable per-room record of what has already been gathered (2026-09-11).
+# This is the read path the operator asked for: without it every subsequent
+# agent re-scraped a reference that was already on disk.
+try:
+    from research_ledger import record as _research_record
+    from research_ledger import prompt_block as _research_block
+except ImportError:
+    def _research_record(*_a, **_k) -> None:
+        return None
+
+    def _research_block(_room: str, limit: int = 8) -> str:
+        return ""
 # Re-engineer Phase 1 (2026-09-05): server-side motion probe for reference
 # URLs — stdlib-only sibling module so tests import it without fastapi.
 from motion_probe import detect_reference_urls, probe_url, render_markdown
@@ -2754,6 +2767,23 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
                         log.warning("scrape-report.md write failed: %s", rerr)
                     _publish_new_artifacts()
                 _cap_progress("done", 100, "reference capture published")
+
+                # Durable record so a LATER turn in this room knows this reference
+                # is already captured and where the evidence lives. Without this the
+                # next agent re-scraped the same site (observed live 2026-09-11).
+                _research_record(
+                    req.room_id, "capture", str(res.get("url") or _cap_url),
+                    paths=[p for p in (
+                        os.path.join(_cap_art, "reference.html") if _cap_art else "",
+                        os.path.join(_cap_art, "reference.png") if _cap_art else "",
+                        os.path.join(_turn_artifacts_dir, "design.md") if _turn_artifacts_dir else "",
+                        os.path.join(_turn_artifacts_dir, "motion-profile.md") if _turn_artifacts_dir else "",
+                    ) if p],
+                    digest={k: (len(v) if isinstance(v, list) else v) for k, v in res.items()
+                            if k in {"title", "pageHeight", "images", "stylesheets",
+                                     "assetsHarvested", "fonts"} and v is not None},
+                    note="reuse this capture; do not re-scrape unless the user asks for something new",
+                )
                 _sse({
                     "kind": "capture.done",
                     "url": _cap_url,
@@ -3225,6 +3255,12 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     # at this point in the function, and calling it here raised UnboundLocalError
     # and 500ed every turn (twice now — same trap as _actors above).
     _focus_skills = _agent_skills_for(_focus_agent)
+
+    # Prior-research briefing (2026-09-11): tells the agent what THIS thread has
+    # already gathered and where the files are, so it reads instead of re-fetching.
+    _prior = _research_block(req.room_id)
+    if _prior:
+        prompt_parts.append(_prior)
 
     # Venture graph context (2026-09-10): the read half that never existed.
     # Emitted as its own prompt block so it is auditable, and skipped entirely
