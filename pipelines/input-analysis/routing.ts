@@ -355,7 +355,28 @@ export interface ContinuationContext {
   previousAgent?: string | null
   /** created_at (ms) of the previous agent reply in this room */
   previousAt?: string | null
+  /** The message being routed. Needed by the continuation-only rule below:
+   *  without the text, "convert to task" is indistinguishable from a new
+   *  request and the scorer is free to hand the thread to another department. */
+  message?: string
 }
+
+/**
+ * Messages that are CONTINUATIONS OF WORK IN FLIGHT, never a new request.
+ *
+ * FIX (2026-09-11): measured live — after mia had captured
+ * https://www.offforum.com/ and reported findings, the user said "convert to
+ * task". A keyword bucket scored >= 2, rule 6 released the frame, and LENA
+ * (Brand Studio) took over, re-ran the capture, and re-presented the task gate.
+ * The user saw the reference scraped twice and the site fetched against the
+ * wrong target.
+ *
+ * Affirmations and task-conversion instructions carry no topical intent, so no
+ * keyword score should be allowed to hijack them. The agent that owns the work
+ * owns its conversion.
+ */
+const CONTINUATION_ONLY_RE =
+  /^(yes|yep|yeah|ok|okay|sure|go ahead|do it|proceed|continue|convert( this| it)? to (a )?task|make (this|it) a task|create (a )?task|turn (this|it) into (a )?task|add (this|it) to (the )?tasks?|move (this|it) to (a )?task|start (the )?task|approve|confirmed?)\b/i
 
 export interface ResolvedRoute extends AgentRoute {
   /** true when the previous agent held the frame (scorer overruled) */
@@ -385,6 +406,16 @@ export function resolveRoute(
   const prev = cont.previousAgent ?? null
   if (!prev) {
     return { ...route, sticky: false, resolution: 'new frame — no agent holds this conversation yet' }
+  }
+  // Continuation-only messages hold UNCONDITIONALLY, before any score is
+  // consulted — see CONTINUATION_ONLY_RE for the live failure this fixes.
+  if (prev && CONTINUATION_ONLY_RE.test(scoreableText(cont.message ?? ''))) {
+    return {
+      ...route,
+      primary: prev,
+      sticky: true,
+      resolution: `continuation of ${prev}'s work — held (task/affirmation, not a new request)`,
+    }
   }
   const prevMs = cont.previousAt ? Date.parse(cont.previousAt) : NaN
   const fresh = Number.isFinite(prevMs) && now - prevMs <= AGENT_STICKY_WINDOW_MS

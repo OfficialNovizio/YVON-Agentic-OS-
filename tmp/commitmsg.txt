@@ -1,24 +1,27 @@
-Fix DB-venture workspaces: novizio had no chats/tasks visible
+Fix cost reporting for DeepSeek + stop task-conversion hijacking the thread
 
-Follow-on from the previous crash fix, which stopped the crash but was WRONG:
-falling back to WORKSPACE_MAP[DEFAULT] silently switched every DB-venture user
-onto the yvon-os workspace, hiding their own content.
+Reported from a live dashboard run of the offforum.com clone.
 
-Established facts: ventures = novizio / yvon-os / hourbour, and chat_rooms holds
-16 rooms with venture_slug='novizio' (all active, none archived). So the data was
-always there - it was never being shown.
+1. COST WAS BLANK ('price not in table (deepseek-flash)')
+   token-cost.ts had zero DeepSeek entries, so the CAOS panel correctly refused
+   to invent a number. Added real rates from DeepSeek's own docs
+   (https://api-docs.deepseek.com/quick_start/pricing/, retrieved 2026-09-11).
+   IMPORTANT: DeepSeek bills PEAK/OFF-PEAK (off-peak is exactly half; peak is
+   01:00-04:00 and 06:00-10:00 UTC Mon-Fri). A flat table cannot express that, so
+   the PEAK (upper-bound) rates are stored deliberately - a shown cost is never an
+   understatement, and at off-peak the true bill is about half. Averaging the two
+   would be a guess, which this file forbids. Legacy ids deepseek-v4-flash and
+   deepseek-v4-flash-vision-exp are mapped too (retired upstream but still
+   accepted, billed at Flash rates) so a stale id cannot blank cost reporting again.
 
-Two causes:
-
-1. WORKSPACE_MAP (lib/workspaces.ts) contains ONLY 'yvon-os'; real ventures come
-   from the DB via /api/ventures. WorkspaceContext now BUILDS a Workspace from the
-   live venture list when the key is a DB slug, instead of collapsing to the
-   default. This is what actually makes novizio's rooms and tasks visible again.
-
-2. syncVentureCookie only wrote yvon_active_venture when the static map entry had
-   a ventureSlug - and yvon-os has none, so the cookie was never set for ANY DB
-   venture. resolveVentureSlug() therefore never scoped the rooms/tasks APIs to
-   the active venture; they kept answering for the wrong one. A DB venture's key
-   IS its slug, so the cookie now falls through to `key`.
-
-Typecheck clean.
+2. 'CONVERT TO TASK' HANDED THE THREAD TO BRAND STUDIO
+   Live sequence: mia cloned offforum.com and reported -> user said 'convert to
+   task' -> a keyword bucket scored >=2, resolveRoute rule 6 released the frame,
+   and lena (Brand Studio) took over, re-ran the capture and re-presented the task
+   gate. The user saw the site scraped twice against the wrong target.
+   ContinuationContext had no `message` field, so the hold logic could not see
+   what was said. Added it, plus CONTINUATION_ONLY_RE: affirmations and
+   task-conversion instructions now hold UNCONDITIONALLY, before any score is
+   consulted. The agent that owns the work owns its conversion.
+   Verified: 'convert to task', 'yes', 'do it', 'make this a task', 'ok proceed'
+   all HOLD; 'build me a pricing page', 'scrape this site' still route normally.

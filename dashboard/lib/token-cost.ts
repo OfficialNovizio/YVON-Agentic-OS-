@@ -61,6 +61,39 @@ const PRICING: Record<string, ModelPricing> = {
     cacheWritePerM:   1.00,
     cacheReadPerM:    0.08,
   },
+
+  // ── deepseek-flash (DeepSeek-V4.1-Flash) ────────────────────────────────
+  // Source: https://api-docs.deepseek.com/quick_start/pricing/ (retrieved
+  // 2026-09-11). Added because the CAOS panel was rendering "price not in
+  // table (deepseek-flash)" on every turn once the provider moved to DeepSeek.
+  //
+  // DeepSeek bills on a PEAK / OFF-PEAK tier that this flat table cannot
+  // express: off-peak is exactly HALF of peak. Peak = 01:00-04:00 and
+  // 06:00-10:00 UTC, Mon-Fri; everything else is off-peak.
+  //
+  // These are the PEAK (upper-bound) rates deliberately, so a displayed cost is
+  // never an UNDERstatement — at off-peak the true bill is ~half. Averaging the
+  // two would be a guess, and this file's rule is no guessed pricing. If the
+  // numbers matter for decisions, resolve the tier from the UTC hour (that is
+  // the honest next step, not a flat rate).
+  'deepseek-flash': {
+    inputPerM:       0.30,    // cache MISS, peak
+    outputPerM:      1.20,    // peak
+    cacheWritePerM:  0.00,    // DeepSeek charges no cache-write premium
+    cacheReadPerM:   0.006,   // cache HIT, peak
+    inputIncludesCache: true, // OpenAI shape: prompt_tokens already includes cached
+  },
+  // Same page: these legacy ids are RETIRED but still accepted, served by
+  // V4.1-Flash and billed at the Flash rates above. Mapped rather than left
+  // unknown so a stale id cannot silently disable cost reporting again.
+  'deepseek-v4-flash': {
+    inputPerM: 0.30, outputPerM: 1.20, cacheWritePerM: 0.00,
+    cacheReadPerM: 0.006, inputIncludesCache: true,
+  },
+  'deepseek-v4-flash-vision-exp': {
+    inputPerM: 0.30, outputPerM: 1.20, cacheWritePerM: 0.00,
+    cacheReadPerM: 0.006, inputIncludesCache: true,
+  },
 }
 
 // 2026-09-07: NO silent fallback pricing. Pricing an unknown model with a

@@ -527,6 +527,10 @@ export async function GET(request: Request): Promise<Response> {
           {
             previousAgent: previousAgentId,
             previousAt: previousAgentAt,
+            // FIX (2026-09-11): pass the text so the continuation-only rule can
+            // fire. Without it "convert to task" looked like a fresh request and
+            // the scorer handed an in-flight web-clone from mia to lena.
+            message: content,
           },
         )
         analysis.targetAgents = {

@@ -1,0 +1,56 @@
+{
+ "corr": "1868527a-9cc5-4be2-b765-8902240688de",
+ "route": {
+  "tier": "build",
+  "primary": "mia",
+  "team": [
+   "mia",
+   "ops",
+   "raj",
+   "quinn"
+  ]
+ },
+ "capture": [
+  "claimed:35%",
+  "bundle:80%",
+  "done:100%"
+ ],
+ "arts": [
+  "reference.png",
+  "inventory.json",
+  "scrape-report.md",
+  "motion-profile.md",
+  "reference.md",
+  "design.md"
+ ],
+ "tools": [
+  "terminal",
+  "terminal",
+  "read_file",
+  "read_file",
+  "terminal",
+  "execute_code",
+  "terminal",
+  "execute_code",
+  "execute_code",
+  "execute_code",
+  "terminal",
+  "execute_code",
+  "execute_code",
+  "execute_code",
+  "execute_code",
+  "tool_search",
+  "execute_code",
+  "execute_code",
+  "execute_code",
+  "execute_code",
+  "execute_code",
+  "execute_code",
+  "tool_describe",
+  "save_artifact",
+  "save_artifact",
+  "terminal"
+ ],
+ "resp": "Reference study complete. Evidence is on disk; no repo involved, no source touched.\n\nWHAT THE REFERENCE ACTUALLY IS\nOFFF Montréal — a design/art/digital-culture festival homepage (OFFF Sept 2–3 + FORUM Sept 4, 2026).\nNuxt 3 + Tailwind, DatoCMS content, Mux video, one stylesheet pair. The homepage is a SINGLE 100dvh\nscreen (measured 1440x1397), not a scrolling multi-section page:\n\n  main.min-h-screen\n   +- div.page > .page-inner\n       +- header#header   absolute, z-50, h-header-height = 96px, inverted white-on-black\n       +- .page-content\n       |   +- HERO  bg-black text-white, min-h-dvh lg:h-dvh\n       |   |   +- div.px-gutter.grid.h-full  4x4 mobile / 6 cols md / lg:grid-cols-[repeat(var(--num-cols),auto)]\n       |   +- div.container-main.mt-auto.justify-end  -> h1 + \"Discover the lineup\" -> /lineup/\n       +- footer.container-main  -> newsletter (h3 + OFFF/FORUM radios) + links + socials + \"Website by REF®\"\n\nReal values read out of shipped code, not guessed:\n- Palette: red #ee3338, black #000, white #fff, grey #c5c5c5. Red is the only chromatic value.\n- Type: Baikal 600 (sans) + Forvm 400 (serif) — and every heading ships as a PAIR,\n  --text-hN-{desktop|mobile}-{offf|forum}. The OFFF/FORUM duality is a typographic dual-mode in the\n  token layer, not a colour theme (h1 offf 8rem/600/-.04em vs forum 7.6rem/400/-.02em).\n- Rhythm: --spacing-gutter .4rem base; radii --radius 20px, --box-radius 100px (pill), --check-radius 50%.\n- 19 speaker tiles, each with its own --cover-ratio (0.5625 … 1) so the mosaic is intentionally ragged,\n  each revealing its caption on hover (top-[calc(50%+var(--cover-ratio)*50%)], opacity-0 -> visible).\n\nTWO CORRECTIONS TO THE AUTOMATED PROBES (important, they change the build)\n1. The motion profile reads \"0 videos, 0 @keyframes, none in static HTML, taxonomy: dashboard\".\n   That is a JS-injected undercount plus a mis-taxonomy. The static probe fetched 0 stylesheets and\n   counted 28 transitions; the real CSS has 65. And this is not a dashboard — the \"6 form controls\"\n   are the cookie-consent manager (4 checkboxes) plus 2 newsletter radios.\n2. The reference ANIMATES, and heavily. Grounded in the real bundles:\n   - <html class=\"lenis\"> -> Lenis smooth scroll\n   - main[style=\"--scroll:0px\"] -> JS writes scroll into a custom property consumed by\n     .page-leave-active .page-inner{transform:translateY(calc(var(--scroll)*-1))}\n   - page transition: .page-leave-to{opacity:.5;transform:scale(.9) translateY(5vw)} with an overlay at\n     .6s cubic-bezier(.25,1,.5,1) scaling 1.1 -> 1\n   - a 4-curve easing system: expo cubic-bezier(.87,0,.13,1), quart cubic-bezier(.76,0,.24,1),\n     power2Out cubic-bezier(.32,.94,.6,1), default cubic-bezier(.4,0,.2,1)/.15s\n   - 51 distinct .mp4 promo loops (Mux) + 12 GIFs in the CMS payload feeding the tiles; 0 @keyframes,\n     so all motion is transitions + scroll vars + video, never keyframes.\n   A static rebuild of this reference would be a failed build.\n\nEVIDENCE (in the turn's artifacts dir, published automatically)\n- reference.md — full text/asset/motion inventory, tile-by-tile caption/slug/ratio/asset table\n- design.md — the distilled spec: structure, nav model, type scale, palette, spacing, radii,\n  component inventory, imagery direction, motion\n- reference.png — full-page 1440x1397 (harness-measured; I re-scraped nothing and let the background\n  capture serve the turn, and I have no vision tool this session, so I did not visually interpret it —\n  every layout fact above comes from the hydrated DOM, the real CSS and the CMS payload)\n- _reference-capture/ — reference.html hydrated DOM, inventory.json, asset-manifest.json, downloads.json, 70 assets\n\nSUGGESTIONS FOR THE BUILD\n- Build the hero as one 100dvh justified mosaic with runtime column count and per-tile aspect ratios —\n  that ragged justified grid is the identity of the page; a uniform 3-col card grid would miss it.\n- Keep the dual-mode typography concept (a heavy tight sans voice + a lighter serif voice) but NOT the\n  faces: Baikal and Forvm are licensed commercial fonts and are not redistributable.\n- Ship the four motion mechanisms from day one (Lenis, scroll-linked page transition, tile video/GIF,\n  the easing system) — retrofitting them later means rewriting the layout.\n- Replace all 70 media assets and all copy; none of OFFF's artwork, photography or voice is ours to reuse.\n- Tokens come from atlas's brand kit, not from offforum.com's hex values — I'd bridge #ee3338 et al. into\n  semantic tokens so nothing ships as a hardcoded brand value.\n\nBLOCKER: this venture has no repo linked (Settings -> Venture -> Technical -> Repo URL is empty), and\n/opt/yvon-hermes-http is not a git repository. So there is nothing to check out and I can't scaffold the\nfrontend yet — I also did not guess a path or touch GitHub, per your rules. Link the repo (and point me at\natlas's brand kit) and I can execute immediately.\n\nONE QUESTION BEFORE I BUILD\nCLONE — same structure, our content? or ADAPT — reinterpreted for our brand?\n\nWorth saying plainly: you asked for an exact clone, and an exact clone is not something I can ship — it\nwould reproduce OFFF's copy, their licensed typefaces and their 70 third-party media assets. In your\nprotocol, CLONE means replicating the structure, layout and sections exactly while replacing all text and\nimages with novizio's own content and brand. If you pick CLONE that is what you get; say the word if you\nactually wanted something else and I'll scope it.\n\n```task-proposal\n{\"title\": \"Build novizio homepage as a CLONE of the offforum.com single-viewport hero\", \"summary\": \"Once the venture repo is linked, scaffold the novizio frontend as a CLONE of the offforum.com homepage: one 100dvh justified tile mosaic with runtime column count and per-tile aspect ratios, absolute dark-inverted header with slide-down mobile menu, dual-mode typography tokens bridged from atlas's brand kit, newsletter footer with preference radios, and the full motion layer (Lenis smooth scroll, scroll-linked page transition, tile video/GIF playback, 4-curve easing system). All copy, imagery and typefaces replaced with novizio's own — no OFFF text, media or licensed fonts reused.\", \"artifacts\": [{\"label\": \"reference.md\", \"url\": \"https://hermes.yvon.in/artifacts/novizio/1868527a-9cc5-4be2-b765-8902240688de/reference.md\", \"kind\": \"text\"}, {\"label\": \"design.md\", \"url\": \"https://hermes.yvon.in/artifacts/novizio/1868527a-9cc5-4be2-b765-8902240688de/design.md\", \"kind\": \"text\"}, {\"label\": \"reference.png\", \"url\": \"https://hermes.yvon.in/artifacts/novizio/1868527a-9cc5-4be2-b765-8902240688de/reference.png\", \"kind\": \"image\"}]}\n```",
+ "room": "novizio-clone-1789109310357"
+}
