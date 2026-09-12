@@ -1,31 +1,23 @@
-Stop [GATE DECISION] hijacking the frame + fix the chat being unscrollable
+Never re-ask an answered clone-vs-adapt gate
 
-Both reported from the live offforum clone run. Verified against chat_messages
-for room c0bd93e4 rather than guessed:
+Third fix in the offforum hijack chain. Sequence of what was actually wrong:
+  1. 'convert to task' released the frame to lena          -> fixed (continuation hold)
+  2. [GATE DECISION] released the frame to lena            -> fixed (system marker hold)
+  3. the intent gate was RE-PRESENTED after being answered -> this commit
 
-  [user]  I want to clone this website exactly - https://www.offforum.com/
-  [mia]   Reference captured and studied                      <- correct
-  [user]  convert to task
-  [mia]   Read the existing capture instead of re-scraping...  <- HELD, correct
-  [user]  [GATE DECISION] Reference (...): IDENTICAL CLONE - replicate the
-          reference's structure, layout, sections and motion exactly...
-  [lena]  Design study finished                                <- HIJACKED
+The design session already stores `intent` (mode + decidedAt), so the decision
+was durable all along - the route just did not consult it. The model re-emits the
+intent fence on later turns, and the fence parser turned every one of those into a
+fresh gate card, so the user was asked IDENTICAL CLONE / ADAPT again after already
+choosing. The intent branch of the fence parser now requires !session.intent;
+when intent is recorded the branch is skipped, gatePayload stays null and the card
+is suppressed.
 
-So the previous continuation fix DID work (mia held 'convert to task', and the new
-research ledger clearly worked - mia read the existing capture instead of
-re-scraping). The remaining hijack is the GATE DECISION message: it is injected by
-the dashboard as a user message and is dense with design vocabulary (structure,
-layout, sections, motion), so it scored >= 2 and rule 6 released mia's frame to
-lena, which then re-ran the capture and re-presented the gate.
+Also confirmed while tracing: captureProgress WAS being set correctly from the
+capture.progress SSE frames (page.tsx:935). The progress bar was rendering
+OFF-SCREEN, hidden by the unbounded card stack fixed in ca57122 - so the scroll
+fix should also restore the visible scraping progress bar. No separate change made.
 
-Added SYSTEM_MARKER_RE: bracketed system/task markers ([GATE DECISION], [TASK ...],
-[VERIFY ...], [PRD ...], [DESIGN ...]) and 'Motion decision:' / 'Both gates are
-answered' now hold the frame UNCONDITIONALLY, before any score is consulted.
-Verified: all of those HOLD; 'build me a pricing page' still routes normally.
-
-Also fixed the unscrollable chat (reported three times). MessageStream is
-flex-1/min-h-0 and the eleven cards below it were UNBOUNDED siblings in the same
-flex-col, so the Evidence strip plus the 'Reference captured' card consumed the
-column and squeezed the conversation to nothing. The card stack is now
-shrink-0 + max-h-[45vh] + overflow-y-auto, so it scrolls independently and the
-conversation always keeps the majority of the height.
+Still open and NOT claimed as done: 'convert to task' should act instead of
+writing a long message; the reference-capture card is not collapsible; turn
+duration under governor throttling.

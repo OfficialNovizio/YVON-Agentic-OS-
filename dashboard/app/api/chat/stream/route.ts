@@ -1301,7 +1301,15 @@ export async function GET(request: Request): Promise<Response> {
                   throw new Error('missing/invalid sessionId')
                 }
                 const gateSessionId = sidMatch[0]
-                if (parsed.stage === 'intent') {
+                // FIX (2026-09-11): NEVER re-ask an answered clone-vs-adapt gate.
+                // The model re-emits the intent fence on later turns, so the user
+                // was shown the same IDENTICAL CLONE / ADAPT question again after
+                // already answering it (observed live on the offforum run). The
+                // decision is durable on the design session, so honour it: when
+                // intent is already recorded this branch is skipped and
+                // gatePayload stays null, which suppresses the card.
+                const _priorSession = await readDesignSession(gateSessionId)
+                if (parsed.stage === 'intent' && !_priorSession?.intent) {
                   const refObj = (parsed.reference ?? null) as Record<string, unknown> | null
                   if (!refObj || typeof refObj !== 'object') {
                     throw new Error('intent gate missing reference')
