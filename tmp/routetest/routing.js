@@ -1,0 +1,381 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AGENT_STICKY_WINDOW_MS = void 0;
+exports.routeAgents = routeAgents;
+exports.scoreableText = scoreableText;
+exports.wordMatches = wordMatches;
+exports.resolveRoute = resolveRoute;
+const kw = (phrase, weight = 1) => ({ phrase, weight });
+const BUCKETS = [
+    {
+        agent: 'mia',
+        reason: 'frontend/UI work',
+        keywords: [
+            // 'website'/'site'/'landing' were absent, so "I want a website ... make
+            // exactly like this" scored ZERO for mia and fell through to meta. The
+            // URL itself cannot carry the signal either - scoreableText() strips
+            // URLs by design (2026-09-04), so the noun has to match on its own.
+            kw('website', 3), kw('web site', 3), kw('site', 2), kw('landing', 2),
+            kw('webpage', 3), kw('web page', 3), kw('frontend', 2), kw('ui', 1), kw('button', 2), kw('page', 1),
+            kw('component', 2), kw('css', 2), kw('design system', 3), kw('react', 2),
+            kw('layout', 2), kw('styling', 2), kw('ux', 1),
+        ],
+    },
+    {
+        agent: 'ops',
+        reason: 'devops/infra/preview',
+        keywords: [
+            kw('deploy', 2), kw('infra', 2), kw('devops', 3), kw('server ops', 3),
+            // Added 2026-08-21 — previously missing entirely, which is why a
+            // "give me the url to view my local repo" request had nothing here
+            // to match against.
+            kw('url', 1), kw('localhost', 3), kw('local repo', 3), kw('dev server', 3),
+            kw('preview', 2), kw('repo', 1), kw('repository', 1), kw('clone', 2),
+            kw('git', 1), kw('github', 2), kw('port ', 2), kw('environment variable', 2),
+            kw('ci/cd', 3), kw('pipeline', 1),
+        ],
+    },
+    {
+        agent: 'raj',
+        reason: 'backend/API work',
+        keywords: [
+            kw('api', 2), kw('backend', 2), kw('endpoint', 2), kw('route', 1),
+            kw('server', 1),
+        ],
+    },
+    {
+        agent: 'dana',
+        reason: 'data/DB work',
+        keywords: [
+            kw('data', 1), kw('schema', 2), kw('database', 2), kw('migration', 2),
+            kw('query', 1),
+        ],
+    },
+    {
+        agent: 'aegis',
+        reason: 'security work',
+        keywords: [
+            kw('security', 2), kw('vulnerability', 3), kw('exploit', 3), kw('attack', 2),
+        ],
+    },
+    {
+        agent: 'lena',
+        reason: 'brand/copy work',
+        keywords: [
+            kw('brand', 2), kw('copy', 1), kw('story', 1), kw('voice', 1), kw('content', 1),
+        ],
+    },
+    {
+        agent: 'spark',
+        reason: 'creative direction',
+        keywords: [
+            // Deliberately low weight (2026-08-21 fix) — these are the words that
+            // used to hijack routing for any message that happened to mention
+            // "design" in passing (e.g. wanting to VIEW a design, not create one).
+            kw('design', 1), kw('creative', 1), kw('visual', 1),
+        ],
+    },
+    {
+        agent: 'echo',
+        reason: 'investor relations',
+        keywords: [kw('investor', 2), kw('pitch', 2), kw('fundraise', 2)],
+    },
+    {
+        agent: 'vista',
+        reason: 'roadmap/strategy',
+        keywords: [kw('roadmap', 2), kw('strategy', 2)],
+    },
+    {
+        agent: 'quinn',
+        reason: 'verification/QA',
+        keywords: [kw('test', 1), kw('verify', 1), kw('qa', 2), kw('gate', 2)],
+    },
+    // ── Added 2026-09-10 ──────────────────────────────────────────────────────
+    // Measured on 18 realistic tasks that named no agent and no department: 8
+    // scored ZERO and fell through to `meta`, and 3 more misrouted on a single
+    // incidental word ('data' -> dana instead of compliance, 'backend' -> raj
+    // instead of hiring, 'design' -> spark instead of mia). Half the fleet was
+    // unreachable by routing. Multi-word concept phrases carry higher weight so an
+    // explicit intent outranks an incidental token in the same sentence.
+    {
+        agent: 'felix',
+        reason: 'finance/runway/budget',
+        keywords: [
+            kw('runway', 3), kw('burn rate', 3), kw('cash flow', 3), kw('financial model', 3),
+            kw('unit economics', 3), kw('budget', 2), kw('forecast', 2), kw('fundraise', 2),
+            kw('valuation', 2), kw('margin', 2), kw('p&l', 2), kw('cash', 1),
+        ],
+    },
+    {
+        agent: 'price',
+        reason: 'pricing/packaging',
+        keywords: [
+            kw('pricing', 3), kw('willingness to pay', 3), kw('monetisation', 3),
+            kw('monetization', 3), kw('price', 2), kw('packaging', 2), kw('discount', 2),
+            kw('free trial', 2),
+        ],
+    },
+    {
+        agent: 'scope',
+        reason: 'market sizing/entry',
+        keywords: [
+            kw('market size', 3), kw('addressable market', 3), kw('market opportunity', 3),
+            kw('market entry', 3), kw('tam', 3), kw('sam', 2), kw('som', 2),
+            kw('competitor landscape', 2),
+        ],
+    },
+    {
+        agent: 'comply',
+        reason: 'regulatory/compliance',
+        keywords: [
+            kw('compliance', 3), kw('compliant', 3), kw('gdpr', 3), kw('data protection', 3),
+            kw('regulation', 3), kw('regulatory', 3), kw('privacy', 2), kw('audit trail', 2),
+        ],
+    },
+    {
+        agent: 'scribe',
+        reason: 'contracts/legal',
+        keywords: [
+            kw('contract', 3), kw('nda', 3), kw('msa', 3), kw('dpa', 3),
+            kw('legal review', 3), kw('clause', 2), kw('agreement', 2),
+        ],
+    },
+    {
+        agent: 'hire',
+        reason: 'hiring/recruiting',
+        keywords: [
+            kw('hire', 3), kw('hiring', 3), kw('recruit', 3), kw('job description', 3),
+            kw('headcount', 3), kw('interview loop', 3), kw('offer letter', 3),
+            kw('candidate', 2), kw('applicant', 2),
+        ],
+    },
+    {
+        agent: 'closer',
+        reason: 'sales/outbound',
+        keywords: [
+            kw('cold email', 3), kw('outbound', 3), kw('prospect', 3), kw('lead gen', 3),
+            kw('discovery call', 3), kw('sales', 2), kw('quota', 2), kw('objection', 2),
+        ],
+    },
+    {
+        agent: 'retain',
+        reason: 'churn/retention',
+        keywords: [
+            kw('churn', 3), kw('retention', 3), kw('renewal', 3), kw('expansion revenue', 3),
+            kw('customer health', 3), kw('upsell', 2), kw('nps', 2),
+        ],
+    },
+    {
+        agent: 'lena',
+        reason: 'brand copy/messaging',
+        keywords: [
+            kw('tagline', 3), kw('hero section', 3), kw('newsletter', 3),
+            kw('conversion copy', 3), kw('copy', 2), kw('headline', 2), kw('messaging', 2),
+            kw('blog', 2), kw('tagline', 3),
+        ],
+    },
+    {
+        agent: 'marcus',
+        reason: 'strategy/board/exec',
+        keywords: [
+            kw('board memo', 3), kw('board deck', 3), kw('investor', 3),
+            kw('quarterly review', 3), kw('company strategy', 3), kw('okr', 2),
+        ],
+    },
+    {
+        agent: 'tax',
+        reason: 'tax filings/credits',
+        keywords: [
+            kw('tax', 3), kw('vat', 3), kw('r&d credit', 3), kw('tax filing', 3),
+            kw('hmrc', 3), kw('irs', 3), kw('deduction', 2),
+        ],
+    },
+    {
+        agent: 'dev',
+        reason: 'code review/engineering standards',
+        keywords: [
+            kw('pull request', 3), kw('code review', 3), kw('review checklist', 3),
+            kw('merge', 2), kw('refactor', 2), kw('auth flaws', 2), kw('architecture', 2),
+            kw('engineering standard', 3), kw('technical debt', 3),
+        ],
+    },
+    {
+        agent: 'lure',
+        reason: 'launch/demand-gen',
+        keywords: [
+            kw('launch', 3), kw('go-to-market', 3), kw('gtm', 3), kw('product launch', 3),
+            kw('announcement', 2), kw('waitlist', 2), kw('beta launch', 3),
+            kw('demand generation', 3), kw('campaign', 2),
+        ],
+    },
+    {
+        agent: 'warden',
+        reason: 'security governance/GRC',
+        keywords: [
+            kw('iso 27001', 3), kw('soc 2', 3), kw('grc', 3), kw('infrastructure security', 3),
+            kw('penetration test', 3), kw('threat model', 3), kw('cloud security', 3),
+            kw('vulnerability', 3), kw('access control', 2), kw('iam', 3),
+            kw('privilege escalation', 3), kw('iam polic', 3), kw('least privilege', 3),
+        ],
+    },
+];
+function routeAgents(message) {
+    // 2026-09-04 routing hygiene (concern #1, revisit): the scorer ran on the
+    // RAW message, so URL text scored as content — "this is the url -
+    // https://shop.brunellocucinelli.com/en-gb/" routed to ops because the
+    // literal word "url" is an ops keyword, and any message with a link was
+    // at the mercy of whatever words the domain happened to contain. Strip
+    // URLs first. Word-boundary matching replaces raw substring matching:
+    // t.includes('ui') matched "build" and "luxury", t.includes('git')
+    // matched "digit", t.includes('port') matched "important".
+    const t = scoreableText(message);
+    // ── Primary agent: score every bucket, highest total weight wins ─────────
+    // (replaces the old first-match-wins if/else-if chain — see header comment)
+    let primary = 'meta';
+    let reason = 'no specific agent skill matched, so meta handles it as the general fallback';
+    let bestScore = 0;
+    const matchedByBucket = [];
+    for (const bucket of BUCKETS) {
+        const hits = bucket.keywords.filter((k) => wordMatches(t, k.phrase));
+        if (hits.length === 0)
+            continue;
+        const score = hits.reduce((sum, k) => sum + k.weight, 0);
+        matchedByBucket.push({ agent: bucket.agent, score, hits: hits.map((h) => h.phrase) });
+        if (score > bestScore) {
+            bestScore = score;
+            primary = bucket.agent;
+            reason = hits.length > 1
+                ? `${bucket.reason} (matched: ${hits.map((h) => h.phrase).join(', ')})`
+                : bucket.reason;
+        }
+    }
+    // ── Team composition (multi-agent) ───────────────────────────────────────
+    // FIX (2026-09-10): the team was assembled from a HARDCODED mia/raj/quinn
+    // template gated on a narrow isBuild regex, and it ignored matchedByBucket
+    // entirely. A task that genuinely scored for retain AND felix AND mia still
+    // produced [felix, mia, raj, quinn] — silently dropping retain. Measured:
+    // only 2 of 9 cross-department tasks composed a real team. The scorer already
+    // knows which departments are co-relevant; the team is now built from that
+    // EVIDENCE rather than a fixed pattern.
+    const team = new Set([primary]);
+    // (a) Every other bucket that scored a real hit is co-relevant by definition.
+    //     Threshold 2 keeps a single stray token from dragging in a department.
+    for (const m of matchedByBucket) {
+        if (m.agent !== primary && m.score >= 2)
+            team.add(m.agent);
+    }
+    // (b) Builders only for software-shaped work — an NDA or a runway model does
+    //     not need a frontend and a backend engineer.
+    const isSoftware = /(build|implement|code|app|website|site|page|feature|api|component|dashboard|frontend|backend|refactor|deploy|fix|bug)/.test(t);
+    if (isSoftware) {
+        if (!team.has('mia'))
+            team.add('mia'); // frontend builder
+        if (!team.has('raj'))
+            team.add('raj'); // backend builder
+    }
+    // (c) Verification gate for anything that actually matched, or spans teams.
+    if (team.size > 1 || bestScore > 0)
+        team.add('quinn');
+    if (/security|attack|vulnerabilit/.test(t))
+        team.add('cypher'); // attacker
+    // highest first, then alphabetically so equal scores render deterministically
+    const scores = matchedByBucket
+        .slice()
+        .sort((a, b) => (b.score - a.score) || a.agent.localeCompare(b.agent));
+    return { primary, team: Array.from(team), reason, scores };
+}
+/** 2026-09-04 — continuation-aware routing (the stickiness fix). The scorer
+ *  above is per-message and memoryless; this layer owns the conversation
+ *  frame. Rules, most-specific first:
+ *   1. no previous agent            → new frame, scorer decides (meta on zero match)
+ *   2. hold lapsed (> 30 min idle)  → new frame, scorer decides
+ *   3. explicit mention             → handled BEFORE this (mention always wins)
+ *   4. zero keyword signal          → hold with previous agent (kills the
+ *                                     meta-fallback-on-a-bare-URL bug)
+ *   5. top match IS the previous    → hold (signal agrees)
+ *   6. strong match (score ≥ 2)     → release to the stronger agent (genuine
+ *                                     topic change, e.g. "now deploy it")
+ *   7. weak match (score 1)         → hold — one generic word ('design',
+ *                                     'url', 'page') must not hijack a frame
+ */
+exports.AGENT_STICKY_WINDOW_MS = 30 * 60 * 1000;
+/**
+ * Messages that are CONTINUATIONS OF WORK IN FLIGHT, never a new request.
+ *
+ * FIX (2026-09-11): measured live — after mia had captured
+ * https://www.offforum.com/ and reported findings, the user said "convert to
+ * task". A keyword bucket scored >= 2, rule 6 released the frame, and LENA
+ * (Brand Studio) took over, re-ran the capture, and re-presented the task gate.
+ * The user saw the reference scraped twice and the site fetched against the
+ * wrong target.
+ *
+ * Affirmations and task-conversion instructions carry no topical intent, so no
+ * keyword score should be allowed to hijack them. The agent that owns the work
+ * owns its conversion.
+ */
+const CONTINUATION_ONLY_RE = /^(yes|yep|yeah|ok|okay|sure|go ahead|do it|proceed|continue|convert( this| it)? to (a )?task|make (this|it) a task|create (a )?task|turn (this|it) into (a )?task|add (this|it) to (the )?tasks?|move (this|it) to (a )?task|start (the )?task|approve|confirmed?)\b/i;
+/**
+ * SYSTEM/TASK-LAYER MARKERS — messages the dashboard injects on the user's
+ * behalf. They are ALWAYS continuations of work already in flight.
+ *
+ * FIX (2026-09-11, second pass): the first pass only covered affirmations, and
+ * the live run still hijacked. Verified in chat_messages for room c0bd93e4:
+ *
+ *   [user]  convert to task
+ *   [mia]   "Read the existing capture instead of re-scraping…"   <- HELD, correct
+ *   [user]  [GATE DECISION] Reference (…): IDENTICAL CLONE — replicate the
+ *           reference's structure, layout, sections and motion exactly…
+ *   [lena]  Design study finished                                  <- HIJACKED
+ *
+ * The gate text is dense with design vocabulary ("structure", "layout",
+ * "sections", "motion"), so it scored >= 2 and rule 6 released the frame from
+ * mia to lena — which then re-ran the capture and re-presented the gate. A
+ * bracketed marker is machine-generated, so no keyword score may override it.
+ */
+const SYSTEM_MARKER_RE = /^\s*\[(gate decision|task[^\]]*|verify[^\]]*|prd[^\]]*|design[^\]]*)\]|^\s*motion decision\b|^\s*both gates are answered\b/i;
+/** Lowercase, URLs stripped — the only text the keyword scorer may see. */
+function scoreableText(message) {
+    return message.replace(/\bhttps?:\/\/\S+/gi, ' ').toLowerCase();
+}
+/** Word-boundary keyword match (escaped phrase, trimmed). */
+function wordMatches(text, phrase) {
+    const p = phrase.trim();
+    if (!p)
+        return false;
+    return new RegExp(`\\b${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(text);
+}
+/** The continuation layer. `now` is injectable so tests can freeze time. */
+function resolveRoute(route, cont, now = Date.now()) {
+    const prev = cont.previousAgent ?? null;
+    if (!prev) {
+        return { ...route, sticky: false, resolution: 'new frame — no agent holds this conversation yet' };
+    }
+    // Continuation-only messages hold UNCONDITIONALLY, before any score is
+    // consulted — see CONTINUATION_ONLY_RE for the live failure this fixes.
+    const _msg = cont.message ?? '';
+    const _isContinuation = CONTINUATION_ONLY_RE.test(scoreableText(_msg)) || SYSTEM_MARKER_RE.test(_msg);
+    if (prev && _isContinuation) {
+        return {
+            ...route,
+            primary: prev,
+            sticky: true,
+            resolution: `continuation of ${prev}'s work — held (task/affirmation, not a new request)`,
+        };
+    }
+    const prevMs = cont.previousAt ? Date.parse(cont.previousAt) : NaN;
+    const fresh = Number.isFinite(prevMs) && now - prevMs <= exports.AGENT_STICKY_WINDOW_MS;
+    if (!fresh) {
+        return { ...route, sticky: false, resolution: `new frame — ${prev}'s hold lapsed (idle > 30 min)` };
+    }
+    const top = route.scores[0];
+    if (!top) {
+        return { ...route, primary: prev, sticky: true, resolution: `no keyword signal — held with ${prev} (was the meta fallback)` };
+    }
+    if (top.agent === prev) {
+        return { ...route, sticky: true, resolution: `signal agrees with ${prev}` };
+    }
+    if (top.score >= 2) {
+        return { ...route, sticky: false, resolution: `strong ${top.agent} signal (${top.score}) — released from ${prev}` };
+    }
+    return { ...route, primary: prev, sticky: true, resolution: `weak match (${top.agent} ${top.score}) — held with ${prev}` };
+}

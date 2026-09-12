@@ -2571,6 +2571,25 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
         "acceptance is what unlocks execution. Never fabricate a title or "
         "summary that misrepresents what was actually discussed."
     )
+    # FIX (2026-09-11): an EXPLICIT conversion request is an INSTRUCTION, not a
+    # question. Measured live: the user typed "convert to task" and got a long
+    # prose reply that re-explained the work, then re-offered the clone-vs-adapt
+    # choice they had already made — so the whole conversion stalled on talk
+    # instead of producing the task, PRD and design.md. Deciding and acting are
+    # different acts: once the user has decided, only acting remains.
+    prompt_parts.append(
+        "[TASK CONVERSION — explicit request, act don't narrate] If the user has "
+        "explicitly asked to convert / turn this into a task, or to create the "
+        "task (e.g. 'convert to task', 'make this a task', 'create the task', "
+        "'start the task'), then DO NOT explain, summarise, restate the plan, or "
+        "re-ask ANY question. In particular never re-offer a choice the user has "
+        "already made in this thread (clone vs adapt, motion path, brand options) "
+        "— it is already recorded on the design session. Emit the task-proposal "
+        "block immediately with at most ONE short sentence of lead-in. PRD, "
+        "design.md and the build brief are produced from the approved task; they "
+        "do not require further discussion first. Length is the failure mode "
+        "here: a long reply is a wrong reply."
+    )
     # ── Evidence rail fixes ③④ (2026-09-04): reference-first contract ────────
     # (1) the agent must look at the user's reference before building anything,
     # (2) clone-vs-adapt is the user's call, stated BEFORE any build, (3)

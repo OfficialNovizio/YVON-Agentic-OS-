@@ -8,7 +8,7 @@
 // Owner: mia/dev · reference-capture relay, 2026-09-07
 'use client'
 
-import { ExternalLink, FileText, Loader2, Radar, TriangleAlert } from 'lucide-react'
+import { ChevronDown, ExternalLink, FileText, Loader2, Radar, TriangleAlert } from 'lucide-react'
 
 export interface CaptureProgressState {
   stage: string
@@ -77,8 +77,17 @@ export function CaptureProgressCard({
   const entries = d.summary ? Object.entries(d.summary).slice(0, 8) : []
   return (
     <div className="relative z-10 px-4 pb-2 sm:px-8">
-      <div className="mx-auto w-full max-w-[780px] overflow-hidden rounded-[18px] border border-[var(--chat-hairline)] bg-white">
-        <div className="flex items-center gap-2 border-b border-[var(--chat-hairline)] px-4 py-3">
+      {/* FIX (2026-09-11): made collapsible. The card's digest table made it tall
+          enough to push the conversation out of view, and there was no way to fold
+          it away. Native <details>/<summary> rather than useState on purpose —
+          this component returns early for its progress and null states, so a hook
+          here would break the rules-of-hooks ordering. open by default so nothing
+          is hidden that used to be visible. */}
+      <details
+        open
+        className="group mx-auto w-full max-w-[780px] overflow-hidden rounded-[18px] border border-[var(--chat-hairline)] bg-white"
+      >
+        <summary className="flex cursor-pointer select-none list-none items-center gap-2 border-b border-[var(--chat-hairline)] px-4 py-3 [&::-webkit-details-marker]:hidden">
           <Radar size={14} className="text-[var(--chat-accent)]" />
           <span className="text-[12.5px] font-medium text-[var(--chat-body)]">
             Reference captured
@@ -86,7 +95,11 @@ export function CaptureProgressCard({
           <span className="chat-mono ml-auto text-[11px] text-[var(--chat-text-faint)]">
             {d.seconds !== undefined ? `${d.seconds}s round trip` : 'relay'}
           </span>
-        </div>
+          <ChevronDown
+            size={14}
+            className="ml-1 shrink-0 text-[var(--chat-text-faint)] transition-transform group-open:rotate-180"
+          />
+        </summary>
         <div className="px-4 py-3">
           <div className="chat-mono truncate text-[11.5px] text-[var(--chat-text-dim)]" title={d.url}>
             {d.url}
@@ -124,7 +137,7 @@ export function CaptureProgressCard({
             </div>
           )}
         </div>
-      </div>
+      </details>
     </div>
   )
 }

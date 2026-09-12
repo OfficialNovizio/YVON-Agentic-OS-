@@ -1,23 +1,27 @@
-Never re-ask an answered clone-vs-adapt gate
+Make task conversion act, and make the capture card collapsible
 
-Third fix in the offforum hijack chain. Sequence of what was actually wrong:
-  1. 'convert to task' released the frame to lena          -> fixed (continuation hold)
-  2. [GATE DECISION] released the frame to lena            -> fixed (system marker hold)
-  3. the intent gate was RE-PRESENTED after being answered -> this commit
+The two remaining items from the offforum run.
 
-The design session already stores `intent` (mode + decidedAt), so the decision
-was durable all along - the route just did not consult it. The model re-emits the
-intent fence on later turns, and the fence parser turned every one of those into a
-fresh gate card, so the user was asked IDENTICAL CLONE / ADAPT again after already
-choosing. The intent branch of the fence parser now requires !session.intent;
-when intent is recorded the branch is skipped, gatePayload stays null and the card
-is suppressed.
+1. 'CONVERT TO TASK' WROTE PROSE INSTEAD OF ACTING
+   The prompt only said WHEN to emit a task-proposal block; nothing told the
+   model to stop talking once the user had already decided. Live symptom: the
+   user typed 'convert to task' and got a long reply re-explaining the work and
+   re-offering the clone-vs-adapt choice they had already made.
+   Added a TASK CONVERSION directive (main.py:2581): on an explicit conversion
+   request the model must not explain, summarise, restate the plan or re-ask ANY
+   question — especially not one already answered on the design session — and
+   must emit the proposal immediately with at most one short lead-in. States
+   plainly that length is the failure mode here.
 
-Also confirmed while tracing: captureProgress WAS being set correctly from the
-capture.progress SSE frames (page.tsx:935). The progress bar was rendering
-OFF-SCREEN, hidden by the unbounded card stack fixed in ca57122 - so the scroll
-fix should also restore the visible scraping progress bar. No separate change made.
+2. REFERENCE CAPTURE CARD COULD NOT BE COLLAPSED
+   Its digest table made it tall enough to push the conversation out of view
+   with no way to fold it. Converted to native <details>/<summary> (open by
+   default, chevron rotates) rather than useState ON PURPOSE — the component
+   returns early for its progress and null states, so adding a hook would have
+   violated rules-of-hooks ordering. Verified balanced in the compiled file:
+   <details> 86, <summary> 90, ChevronDown 98, </summary> 102, </details> 140.
 
-Still open and NOT claimed as done: 'convert to task' should act instead of
-writing a long message; the reference-capture card is not collapsible; turn
-duration under governor throttling.
+Verification (recompiled from current source, not from memory):
+  - routing flow test re-run: PASS, frame held on all 7 steps of the real
+    offforum sequence including the [GATE DECISION] hijack input
+  - typecheck clean; remote compile OK; hermes restarted; healthz 200
