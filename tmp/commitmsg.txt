@@ -1,27 +1,31 @@
-Give agents durable memory of what has already been gathered
+Stop [GATE DECISION] hijacking the frame + fix the chat being unscrollable
 
-Operator's question: once an agent scrapes/searches/gathers from the internet or
-a graph, why can the next agent not access it - why redo it again and again?
+Both reported from the live offforum clone run. Verified against chat_messages
+for room c0bd93e4 rather than guessed:
 
-There was no such memory. Audited state:
-  - capture reuse in main.py is URL-keyed with a 12h TTL and covers ONLY the
-    capture step, not terminal/read_file/web research an agent does itself;
-  - turn artifacts land under <venture>/<correlation>/, and a NEW turn has a NEW
-    correlation, so it cannot discover the previous turn's evidence;
-  - the RAG index holds Teams/ documentation only - conversation artifacts never
-    enter it;
-  - MemPalace is write-only (drawers written, never queried).
+  [user]  I want to clone this website exactly - https://www.offforum.com/
+  [mia]   Reference captured and studied                      <- correct
+  [user]  convert to task
+  [mia]   Read the existing capture instead of re-scraping...  <- HELD, correct
+  [user]  [GATE DECISION] Reference (...): IDENTICAL CLONE - replicate the
+          reference's structure, layout, sections and motion exactly...
+  [lena]  Design study finished                                <- HIJACKED
 
-New research_ledger.py - the missing READ path: append-only JSONL keyed by ROOM
-(so a thread keeps its own context and other threads are not polluted), with a
-400-record cap per room. Captures are recorded with their artifact paths and
-measured digest, and prompt_block() injects a briefing into every subsequent
-turn in that room telling the agent the evidence already exists, where it is, and
-to gather again only for something materially NEW.
+So the previous continuation fix DID work (mia held 'convert to task', and the new
+research ledger clearly worked - mia read the existing capture instead of
+re-scraping). The remaining hijack is the GATE DECISION message: it is injected by
+the dashboard as a user message and is dense with design vocabulary (structure,
+layout, sections, motion), so it scored >= 2 and rule 6 released mia's frame to
+lena, which then re-ran the capture and re-presented the gate.
 
-Contract: never raises; a missing or corrupt ledger returns empty and the turn
-proceeds exactly as before.
+Added SYSTEM_MARKER_RE: bracketed system/task markers ([GATE DECISION], [TASK ...],
+[VERIFY ...], [PRD ...], [DESIGN ...]) and 'Motion decision:' / 'Both gates are
+answered' now hold the frame UNCONDITIONALLY, before any score is consulted.
+Verified: all of those HOLD; 'build me a pricing page' still routes normally.
 
-Verified on the VPS: empty room -> '' (no block, unchanged behaviour); after two
-records -> 617-char block naming the URL, the three artifact paths and the
-measured digest.
+Also fixed the unscrollable chat (reported three times). MessageStream is
+flex-1/min-h-0 and the eleven cards below it were UNBOUNDED siblings in the same
+flex-col, so the Evidence strip plus the 'Reference captured' card consumed the
+column and squeezed the conversation to nothing. The card stack is now
+shrink-0 + max-h-[45vh] + overflow-y-auto, so it scrolls independently and the
+conversation always keeps the majority of the height.

@@ -1459,6 +1459,17 @@ export default function ChatPage() {
                   agent saved this turn — live via `artifact` SSE frames,
                   rehydrated from events rows for past turns. Sits directly
                   above the proposal card it evidences. */}
+              {/* FIX (2026-09-11): every card below used to be an UNBOUNDED
+                  sibling of MessageStream inside this flex-col. MessageStream is
+                  flex-1/min-h-0, so when the Evidence strip plus the "Reference
+                  captured" card grew they consumed the column and squeezed the
+                  conversation to nothing — the operator reported "I can't scroll
+                  it / it hides the chat completely" three times.
+                  The card stack is now capped at 45% of the column and scrolls on
+                  its own, so the conversation always keeps the majority of the
+                  height. shrink-0 stops the stack being crushed to zero, which
+                  would make the cards themselves unreachable. */}
+              <div className="shrink-0 max-h-[45vh] overflow-y-auto">
               <ArtifactStrip artifacts={turnArtifacts.map((a) => ({ url: a.url, label: a.label, kind: a.artifactKind }))} />
               <TaskProposalPrompt
                 proposal={taskProposal}
@@ -1498,6 +1509,7 @@ export default function ChatPage() {
                 onSend={(text) => { void send(text, [], []) }}
                 onResolved={() => setDesignGate(null)}
               />
+              </div>
               <Composer
                 sending={sending}
                 awaitingReply={showingLiveTurn && awaitingReply}

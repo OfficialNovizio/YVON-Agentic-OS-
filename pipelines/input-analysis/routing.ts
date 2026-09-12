@@ -378,6 +378,27 @@ export interface ContinuationContext {
 const CONTINUATION_ONLY_RE =
   /^(yes|yep|yeah|ok|okay|sure|go ahead|do it|proceed|continue|convert( this| it)? to (a )?task|make (this|it) a task|create (a )?task|turn (this|it) into (a )?task|add (this|it) to (the )?tasks?|move (this|it) to (a )?task|start (the )?task|approve|confirmed?)\b/i
 
+/**
+ * SYSTEM/TASK-LAYER MARKERS — messages the dashboard injects on the user's
+ * behalf. They are ALWAYS continuations of work already in flight.
+ *
+ * FIX (2026-09-11, second pass): the first pass only covered affirmations, and
+ * the live run still hijacked. Verified in chat_messages for room c0bd93e4:
+ *
+ *   [user]  convert to task
+ *   [mia]   "Read the existing capture instead of re-scraping…"   <- HELD, correct
+ *   [user]  [GATE DECISION] Reference (…): IDENTICAL CLONE — replicate the
+ *           reference's structure, layout, sections and motion exactly…
+ *   [lena]  Design study finished                                  <- HIJACKED
+ *
+ * The gate text is dense with design vocabulary ("structure", "layout",
+ * "sections", "motion"), so it scored >= 2 and rule 6 released the frame from
+ * mia to lena — which then re-ran the capture and re-presented the gate. A
+ * bracketed marker is machine-generated, so no keyword score may override it.
+ */
+const SYSTEM_MARKER_RE =
+  /^\s*\[(gate decision|task[^\]]*|verify[^\]]*|prd[^\]]*|design[^\]]*)\]|^\s*motion decision\b|^\s*both gates are answered\b/i
+
 export interface ResolvedRoute extends AgentRoute {
   /** true when the previous agent held the frame (scorer overruled) */
   sticky: boolean
@@ -409,7 +430,10 @@ export function resolveRoute(
   }
   // Continuation-only messages hold UNCONDITIONALLY, before any score is
   // consulted — see CONTINUATION_ONLY_RE for the live failure this fixes.
-  if (prev && CONTINUATION_ONLY_RE.test(scoreableText(cont.message ?? ''))) {
+  const _msg = cont.message ?? ''
+  const _isContinuation =
+    CONTINUATION_ONLY_RE.test(scoreableText(_msg)) || SYSTEM_MARKER_RE.test(_msg)
+  if (prev && _isContinuation) {
     return {
       ...route,
       primary: prev,
