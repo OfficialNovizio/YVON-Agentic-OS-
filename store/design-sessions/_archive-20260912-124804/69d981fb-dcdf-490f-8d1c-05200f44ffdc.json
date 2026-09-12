@@ -1,0 +1,100 @@
+{
+  "id": "69d981fb-dcdf-490f-8d1c-05200f44ffdc",
+  "kind": "reference-build",
+  "status": "captured",
+  "createdAt": "2026-09-12T06:20:54.938Z",
+  "updatedAt": "2026-09-12T06:27:31.048Z",
+  "roomId": "c447f0a5-e0b0-481a-9c1f-3135085fcfb6",
+  "venture": "yvon-os",
+  "correlation": "9e8c8040-901b-4375-b1b0-bbb01173fc8c",
+  "reference": {
+    "url": "https://www.offforum.com/",
+    "taxonomy": "static-editorial",
+    "motionProfileUrl": "https://hermes.yvon.in/artifacts/yvon-os/9e8c8040-901b-4375-b1b0-bbb01173fc8c/motion-profile.md",
+    "motionSummary": "Classified from our own capture (no motion-profile block in context): largely a static editorial festival page — loud typographic tickers/marquee headings, cursor + hover treatments, light entrance reveals; no scroll narrative, video hero or 3D scene."
+  },
+  "history": [
+    {
+      "at": "2026-09-12T06:20:54.938Z",
+      "event": "session_captured",
+      "detail": "https://www.offforum.com/"
+    },
+    {
+      "at": "2026-09-12T06:21:22.324Z",
+      "event": "capture_completed",
+      "detail": "www-offforum-com-20260912 - round trip 2.2s"
+    },
+    {
+      "at": "2026-09-12T06:21:23.128Z",
+      "event": "design_system_thin_extracted",
+      "detail": "https://hermes.yvon.in/artifacts/yvon-os/9e8c8040-901b-4375-b1b0-bbb01173fc8c/_reference-capture/inventory.json"
+    },
+    {
+      "at": "2026-09-12T06:21:29.317Z",
+      "event": "motion_profile_published",
+      "detail": "https://hermes.yvon.in/artifacts/yvon-os/9e8c8040-901b-4375-b1b0-bbb01173fc8c/motion-profile.md"
+    },
+    {
+      "at": "2026-09-12T06:22:45.832Z",
+      "event": "intent_gate_emitted",
+      "detail": "dashboard"
+    },
+    {
+      "at": "2026-09-12T06:27:31.048Z",
+      "event": "intent_gate_emitted",
+      "detail": "static-editorial"
+    }
+  ],
+  "capture": {
+    "url": "https://www.offforum.com/",
+    "out": "www-offforum-com-20260912",
+    "previewUrl": "https://hermes.yvon.in/artifacts/yvon-os/9e8c8040-901b-4375-b1b0-bbb01173fc8c/_reference-capture/reference.html",
+    "reportUrl": "https://hermes.yvon.in/artifacts/yvon-os/9e8c8040-901b-4375-b1b0-bbb01173fc8c/scrape-report.md",
+    "seconds": 2.2,
+    "summary": {
+      "title": "A WEEK OF DESIGN, ART & DIGITAL CULTURE · OFFF SEPT 2–3 · FORUM · SEPT 4, 2026 · SAT, MONTRÉAL",
+      "pageHeight": 1397,
+      "videos": 0,
+      "images": 57,
+      "stylesheets": 2,
+      "keyframes": 0,
+      "animatedRules": 0,
+      "assetsHarvested": 70,
+      "seconds": 144.4
+    },
+    "capturedAt": "2026-09-12T06:21:22.322Z"
+  },
+  "designSystem": {
+    "measuredAt": "2026-09-12T06:21:23.127Z (page: A WEEK OF DESIGN, ART & DIGITAL CULTURE · OFFF SEPT 2–3 · FORUM · SEPT 4, 2026 · SAT, MONTRÉAL)",
+    "sources": [
+      "capture inventory (https://hermes.yvon.in/artifacts/yvon-os/9e8c8040-901b-4375-b1b0-bbb01173fc8c/_reference-capture/inventory.json)"
+    ],
+    "palette": [
+      {
+        "value": "var(--fg-color)",
+        "usage": "color value present in the capture (role not attributed at thin-extraction depth)",
+        "source": "capture inventory (https://hermes.yvon.in/artifacts/yvon-os/9e8c8040-901b-4375-b1b0-bbb01173fc8c/_reference-capture/inventory.json)"
+      },
+      {
+        "value": "var(--bg-color)",
+        "usage": "color value present in the capture (role not attributed at thin-extraction depth)",
+        "source": "capture inventory (https://hermes.yvon.in/artifacts/yvon-os/9e8c8040-901b-4375-b1b0-bbb01173fc8c/_reference-capture/inventory.json)"
+      }
+    ],
+    "typography": [
+      {
+        "text": "Font-family values present in the capture (thin extraction — role not attributed): Baikal, Forvm",
+        "source": "capture inventory (https://hermes.yvon.in/artifacts/yvon-os/9e8c8040-901b-4375-b1b0-bbb01173fc8c/_reference-capture/inventory.json)"
+      }
+    ],
+    "motion": [
+      {
+        "text": "Media/animation counts measured by the capture relay — videos: , images: [object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object], backgrounds: 0, stylesheets: https://www.offforum.com/_nuxt/entry.CI2s3_W4.css,https://www.offforum.com/_nuxt/section.DVtVxodp.css, inlineStyleTags: 2, animatedRules: 0, pageHeight: 1397",
+        "source": "capture inventory (https://hermes.yvon.in/artifacts/yvon-os/9e8c8040-901b-4375-b1b0-bbb01173fc8c/_reference-capture/inventory.json)"
+      }
+    ],
+    "gaps": [
+      "Thin extraction only: this design.md was generated from the capture inventory (regex-grade counts + value lists). Roles, usages, and per-fact sources were NOT analyzed — run the deep extraction to replace this."
+    ]
+  }
+}

@@ -486,3 +486,7 @@ ocked"}
 {"ts": "2026-09-11T06:18:39Z", "plan_id": "577c4eb9cf46ad5a", "agent_id": "scope", "department": "Market Intelligence", "query_hash": "34094986f11d2b46", "status": "locked"}
 {"ts": "2026-09-11T06:19:17Z", "plan_id": "094ef75926984189", "agent_id": "dev", "department": "Engineering", "query_hash": "78f835ec5d9184da", "status": "locked"}
 {"ts": "2026-09-11T06:19:25Z", "plan_id": "ab5c8d10b173a386", "agent_id": "felix", "department": "Finance & Treasury", "query_hash": "7f5fc77876143d52", "status": "locked"}
+{"ts": "2026-09-12T06:01:26Z", "plan_id": "4e9a138807de0dea", "agent_id": "meta", "department": "AI & Agents", "query_hash": "105bb702d91b74c9", "status": "locked"}
+{"ts": "2026-09-12T06:05:13Z", "plan_id": "25d1d8b0ceea896d", "agent_id": "meta", "department": "AI & Agents", "query_hash": "9eff32fe9f289ff8", "status": "locked"}
+{"ts": "2026-09-12T06:15:09Z", "plan_id": "f2f98e8ea519d7df", "agent_id": "meta", "department": "AI & Agents", "query_hash": "9d4c85f5458f748b", "status": "locked"}
+{"ts": "2026-09-12T06:18:39Z", "plan_id": "819342187cf33a71", "agent_id": "meta", "department": "AI & Agents", "query_hash": "a59d8c6831f22e5c", "status": "locked"}

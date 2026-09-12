@@ -124,6 +124,31 @@ function normRefUrl(u: string): string {
     .replace(/\/+$/, '')
 }
 
+/** Task-conversion phrases — the same patterns the continuation router treats
+ * as "never a new request" (pipelines/input-analysis/routing.ts). Used here to
+ * tell the HELD agent to stop talking and emit the proposal fence instead. */
+const TASK_CONVERSION_RE =
+  /\b(convert(?: this| it)? to (?:a )?task|make (?:this|it) a task|create (?:a )?task|turn (?:this|it) into (?:a )?task|move (?:this|it) to (?:a )?task|start (?:the )?task|add (?:this|it) to (?:the )?tasks?)\b/i
+
+/** 2026-09-11 — "convert to task" is a command, not a topical message. When it
+ * arrives mid-flow (a prior agent already owns the conversation), the held
+ * agent must NOT re-scrape the reference, re-ask an answered gate, or write a
+ * long message — it should emit exactly one ```task-proposal fence (title +
+ * summary + gathered artifacts) and stop. Without this the agent answers the
+ * phrase in prose, which is the "why does it respond with a long message
+ * instead of just starting the task" the operator reported. */
+function taskConversionDirective(content: string, hasPreviousAgent: boolean): string | null {
+  if (!hasPreviousAgent || !TASK_CONVERSION_RE.test(content)) return null
+  return (
+    '[TASK CONVERSION] The user is converting this conversation into a task — ' +
+    'treat it as a command, not a new request. Do NOT re-scrape the reference site, ' +
+    'do NOT re-ask any question already answered, and do NOT write a long message. ' +
+    'Immediately emit exactly one ```task-proposal fence containing JSON with a ' +
+    'concise `title` and `summary`; include the artifacts already gathered as an ' +
+    '`artifacts` array of {url,label} entries when any exist. Then stop.'
+  )
+}
+
 /** Evidence refs parsed out of a ```task-proposal block — mirrors the
  * artifacts[] field the [TASK PROPOSAL] prompt block now asks the agent for. */
 interface ProposalArtifactRef {
@@ -751,6 +776,13 @@ export async function GET(request: Request): Promise<Response> {
               '\nContinue from this context; answer the latest message.]\n'
             agentContext = agentContext ? `${agentContext}\n\n${handover}` : handover
           }
+          // TASK CONVERSION (2026-09-11): "convert to task" is a command, not
+          // a topical request — inject the terse directive so the held agent
+          // emits the proposal fence instead of answering in prose.
+          const conversionDirective = taskConversionDirective(content, !!previousAgentId)
+          if (conversionDirective) {
+            agentContext = agentContext ? `${agentContext}\n\n${conversionDirective}` : conversionDirective
+          }
           if (disclosure) {
             controller.enqueue(
               encoder.encode(
@@ -991,6 +1023,24 @@ export async function GET(request: Request): Promise<Response> {
               reuseErr instanceof Error ? reuseErr.message : reuseErr,
             )
           }
+        }
+
+        // TASK CONVERSION (2026-09-11): "convert to task" is a command, not a
+        // gate turn. The design session is still 'captured' (intent unanswered),
+        // so the URL-less branch above set designGateStage = 'intent' and the
+        // wrapper's fence-append fallback re-presents the clone-vs-adapt gate —
+        // hijacking the task conversion the user just asked for and answering
+        // with the gate card instead of the terse task-proposal. Suppress the
+        // [DESIGN GATE] contract + fence stage entirely when a task-conversion
+        // directive is active, so the task-proposal directive (injected above)
+        // wins and the agent emits the proposal fence instead of the gate card.
+        // The artifacts it needs are already in the held agent's conversation
+        // state (same room + agent), so dropping the session id for this one
+        // turn loses nothing — the PRD route re-resolves the session by roomId.
+        if (taskConversionDirective(content, !!previousAgentId)) {
+          designSessionId = null
+          designGateStage = null
+          designSessionReferenceUrl = null
         }
 
         // Safety net: normally userMsg.correlation is already set (send/route.ts

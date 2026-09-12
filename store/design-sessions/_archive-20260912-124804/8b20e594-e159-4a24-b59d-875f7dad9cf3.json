@@ -1,0 +1,124 @@
+{
+  "id": "8b20e594-e159-4a24-b59d-875f7dad9cf3",
+  "kind": "reference-build",
+  "status": "intent",
+  "createdAt": "2026-09-12T05:35:16.913Z",
+  "updatedAt": "2026-09-12T05:44:57.548Z",
+  "roomId": "c0bd93e4-6150-4373-8824-bf3decc710fd",
+  "venture": "novizio",
+  "correlation": "27a2f9f2-d89f-4155-bb19-03376cf1c6c1",
+  "reference": {
+    "url": "https://www.offforum.com/",
+    "taxonomy": "dashboard",
+    "motionProfileUrl": "https://hermes.yvon.in/artifacts/novizio/cd01ea29-d692-46df-b4bb-9fceb2f491c5/motion-profile.md",
+    "motionSummary": "No video, no keyframes, no motion library; movement is CSS micro-interaction — hover wipe-in underlines (8x after:transition-transform, 5x hover:after:scale-x-100), media scale inside cards (2x group-hover:scale-50), opacity/colour transitions and one clip-path+translate, plus a JS-driven fixed ticker and header over a compact ~1397px single page."
+  },
+  "history": [
+    {
+      "at": "2026-09-12T05:35:16.913Z",
+      "event": "session_captured",
+      "detail": "https://www.offforum.com/"
+    },
+    {
+      "at": "2026-09-12T05:35:29.560Z",
+      "event": "motion_profile_published",
+      "detail": "https://hermes.yvon.in/artifacts/novizio/27a2f9f2-d89f-4155-bb19-03376cf1c6c1/motion-profile.md"
+    },
+    {
+      "at": "2026-09-12T05:35:29.562Z",
+      "event": "capture_completed",
+      "detail": "www-offforum-com-20260912 - round trip 3.4s"
+    },
+    {
+      "at": "2026-09-12T05:35:30.308Z",
+      "event": "design_system_thin_extracted",
+      "detail": "https://hermes.yvon.in/artifacts/novizio/27a2f9f2-d89f-4155-bb19-03376cf1c6c1/_reference-capture/inventory.json"
+    },
+    {
+      "at": "2026-09-12T05:38:20.710Z",
+      "event": "intent_gate_emitted",
+      "detail": "dashboard"
+    },
+    {
+      "at": "2026-09-12T05:40:28.437Z",
+      "event": "intent_recorded",
+      "detail": "identical"
+    },
+    {
+      "at": "2026-09-12T05:40:38.175Z",
+      "event": "session_reused",
+      "detail": "a follow-up turn re-mentioned https://www.offforum.com/ — continued the live gate chain instead of opening a second session"
+    },
+    {
+      "at": "2026-09-12T05:40:42.264Z",
+      "event": "motion_profile_published",
+      "detail": "https://hermes.yvon.in/artifacts/novizio/cd01ea29-d692-46df-b4bb-9fceb2f491c5/motion-profile.md"
+    },
+    {
+      "at": "2026-09-12T05:40:42.271Z",
+      "event": "capture_completed",
+      "detail": "www-offforum-com-20260912 - round trip 3s"
+    },
+    {
+      "at": "2026-09-12T05:44:57.548Z",
+      "event": "motion_gate_emitted",
+      "detail": "6 observed motion need(s)"
+    }
+  ],
+  "capture": {
+    "url": "https://www.offforum.com/",
+    "out": "www-offforum-com-20260912",
+    "previewUrl": "https://hermes.yvon.in/artifacts/novizio/cd01ea29-d692-46df-b4bb-9fceb2f491c5/_reference-capture/reference.html",
+    "reportUrl": "https://hermes.yvon.in/artifacts/novizio/cd01ea29-d692-46df-b4bb-9fceb2f491c5/scrape-report.md",
+    "seconds": 3,
+    "summary": {
+      "title": "A WEEK OF DESIGN, ART & DIGITAL CULTURE · OFFF SEPT 2–3 · FORUM · SEPT 4, 2026 · SAT, MONTRÉAL",
+      "pageHeight": 1397,
+      "videos": 0,
+      "images": 57,
+      "stylesheets": 2,
+      "keyframes": 0,
+      "animatedRules": 0,
+      "assetsHarvested": 70,
+      "seconds": 144.4
+    },
+    "capturedAt": "2026-09-12T05:40:42.269Z"
+  },
+  "designSystem": {
+    "measuredAt": "2026-09-12T05:35:30.307Z (page: A WEEK OF DESIGN, ART & DIGITAL CULTURE · OFFF SEPT 2–3 · FORUM · SEPT 4, 2026 · SAT, MONTRÉAL)",
+    "sources": [
+      "capture inventory (https://hermes.yvon.in/artifacts/novizio/27a2f9f2-d89f-4155-bb19-03376cf1c6c1/_reference-capture/inventory.json)"
+    ],
+    "palette": [
+      {
+        "value": "var(--fg-color)",
+        "usage": "color value present in the capture (role not attributed at thin-extraction depth)",
+        "source": "capture inventory (https://hermes.yvon.in/artifacts/novizio/27a2f9f2-d89f-4155-bb19-03376cf1c6c1/_reference-capture/inventory.json)"
+      },
+      {
+        "value": "var(--bg-color)",
+        "usage": "color value present in the capture (role not attributed at thin-extraction depth)",
+        "source": "capture inventory (https://hermes.yvon.in/artifacts/novizio/27a2f9f2-d89f-4155-bb19-03376cf1c6c1/_reference-capture/inventory.json)"
+      }
+    ],
+    "typography": [
+      {
+        "text": "Font-family values present in the capture (thin extraction — role not attributed): Baikal, Forvm",
+        "source": "capture inventory (https://hermes.yvon.in/artifacts/novizio/27a2f9f2-d89f-4155-bb19-03376cf1c6c1/_reference-capture/inventory.json)"
+      }
+    ],
+    "motion": [
+      {
+        "text": "Media/animation counts measured by the capture relay — videos: , images: [object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object], backgrounds: 0, stylesheets: https://www.offforum.com/_nuxt/entry.CI2s3_W4.css,https://www.offforum.com/_nuxt/section.DVtVxodp.css, inlineStyleTags: 2, animatedRules: 0, pageHeight: 1397",
+        "source": "capture inventory (https://hermes.yvon.in/artifacts/novizio/27a2f9f2-d89f-4155-bb19-03376cf1c6c1/_reference-capture/inventory.json)"
+      }
+    ],
+    "gaps": [
+      "Thin extraction only: this design.md was generated from the capture inventory (regex-grade counts + value lists). Roles, usages, and per-fact sources were NOT analyzed — run the deep extraction to replace this."
+    ]
+  },
+  "intent": {
+    "mode": "identical",
+    "decidedAt": "2026-09-12T05:40:28.429Z"
+  }
+}

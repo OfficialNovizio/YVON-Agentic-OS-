@@ -1,27 +1,16 @@
-Make task conversion act, and make the capture card collapsible
+Clear all chats, tasks and design sessions
 
-The two remaining items from the offforum run.
+Operator requested a full reset ahead of a new approach.
 
-1. 'CONVERT TO TASK' WROTE PROSE INSTEAD OF ACTING
-   The prompt only said WHEN to emit a task-proposal block; nothing told the
-   model to stop talking once the user had already decided. Live symptom: the
-   user typed 'convert to task' and got a long reply re-explaining the work and
-   re-offering the clone-vs-adapt choice they had already made.
-   Added a TASK CONVERSION directive (main.py:2581): on an explicit conversion
-   request the model must not explain, summarise, restate the plan or re-ask ANY
-   question — especially not one already answered on the design session — and
-   must emit the proposal immediately with at most one short lead-in. States
-   plainly that length is the failure mode here.
+  - chat_rooms: 37 active archived via archived_at (0 active remain of 58 total)
+  - design sessions: 6 files (3 sessions x .json + -design.md) moved to
+    store/design-sessions/_archive-<timestamp>/
+  - tasks: already down to TEMPLATE.yaml
 
-2. REFERENCE CAPTURE CARD COULD NOT BE COLLAPSED
-   Its digest table made it tall enough to push the conversation out of view
-   with no way to fold it. Converted to native <details>/<summary> (open by
-   default, chevron rotates) rather than useState ON PURPOSE — the component
-   returns early for its progress and null states, so adding a hook would have
-   violated rules-of-hooks ordering. Verified balanced in the compiled file:
-   <details> 86, <summary> 90, ChevronDown 98, </summary> 102, </details> 140.
+Archived rather than hard-deleted so nothing is unrecoverable. Supabase rows and
+the events ledger still exist and are queryable.
 
-Verification (recompiled from current source, not from memory):
-  - routing flow test re-run: PASS, frame held on all 7 steps of the real
-    offforum sequence including the [GATE DECISION] hijack input
-  - typecheck clean; remote compile OK; hermes restarted; healthz 200
+NOT touched: the captured reference bundles and generated artifacts under
+/opt/yvon-hermes-http/workspaces/_artifacts/ - those are expensive to reproduce
+(a capture is ~10 minutes plus tokens), so they are left in place pending an
+explicit instruction.

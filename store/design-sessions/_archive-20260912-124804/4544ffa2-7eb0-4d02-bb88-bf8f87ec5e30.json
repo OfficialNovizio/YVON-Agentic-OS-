@@ -1,0 +1,119 @@
+{
+  "id": "4544ffa2-7eb0-4d02-bb88-bf8f87ec5e30",
+  "kind": "reference-build",
+  "status": "intent",
+  "createdAt": "2026-09-12T05:09:41.268Z",
+  "updatedAt": "2026-09-12T05:22:04.200Z",
+  "roomId": "ac1e9042-0421-41f0-a22e-c794fa53ff72",
+  "venture": "novizio",
+  "correlation": "c91139b3-c9bd-4e1b-ba22-8b6f71082e64",
+  "reference": {
+    "url": "https://www.cos.com/en-us/women",
+    "taxonomy": "static-editorial",
+    "motionProfileUrl": "https://hermes.yvon.in/artifacts/novizio/c91139b3-c9bd-4e1b-ba22-8b6f71082e64/motion-profile.md",
+    "motionSummary": "Probe failed/absent for this session, so classified from our own capture: the COS women's homepage is an image-led editorial grid (campaign hero, seasonal story, category tiles) with no documented motion evidence in the full-page capture — any animation must be confirmed by a live motion profile before Gate 2."
+  },
+  "history": [
+    {
+      "at": "2026-09-12T05:09:41.268Z",
+      "event": "session_captured",
+      "detail": "https://www.offforum.com/"
+    },
+    {
+      "at": "2026-09-12T05:12:54.506Z",
+      "event": "motion_profile_published",
+      "detail": "https://hermes.yvon.in/artifacts/novizio/c91139b3-c9bd-4e1b-ba22-8b6f71082e64/motion-profile.md"
+    },
+    {
+      "at": "2026-09-12T05:12:54.523Z",
+      "event": "capture_completed",
+      "detail": "www-offforum-com-20260912 - round trip 191.4s"
+    },
+    {
+      "at": "2026-09-12T05:12:54.718Z",
+      "event": "design_system_thin_extracted",
+      "detail": "https://hermes.yvon.in/artifacts/novizio/c91139b3-c9bd-4e1b-ba22-8b6f71082e64/_reference-capture/inventory.json"
+    },
+    {
+      "at": "2026-09-12T05:14:26.564Z",
+      "event": "intent_gate_emitted",
+      "detail": "static-editorial"
+    },
+    {
+      "at": "2026-09-12T05:14:33.123Z",
+      "event": "intent_recorded",
+      "detail": "identical"
+    },
+    {
+      "at": "2026-09-12T05:14:40.888Z",
+      "event": "session_reused",
+      "detail": "a follow-up turn re-mentioned https://www.cos.com/en-us/women — continued the live gate chain instead of opening a second session"
+    },
+    {
+      "at": "2026-09-12T05:17:13.064Z",
+      "event": "capture_completed",
+      "detail": "www-cos-com-20260912 - round trip 151.2s"
+    },
+    {
+      "at": "2026-09-12T05:22:04.200Z",
+      "event": "motion_gate_emitted",
+      "detail": "6 observed motion need(s)"
+    }
+  ],
+  "capture": {
+    "url": "https://www.cos.com/en-us/women",
+    "out": "www-cos-com-20260912",
+    "previewUrl": "https://hermes.yvon.in/artifacts/novizio/a3b42078-1594-4f18-a3b4-ba3c8f3a94af/_reference-capture/reference.html",
+    "reportUrl": "https://hermes.yvon.in/artifacts/novizio/a3b42078-1594-4f18-a3b4-ba3c8f3a94af/scrape-report.md",
+    "seconds": 151.2,
+    "summary": {
+      "title": "Womenswear Collection | COS US",
+      "pageHeight": 4777,
+      "videos": 1,
+      "images": 45,
+      "stylesheets": 1,
+      "keyframes": 18,
+      "animatedRules": 12,
+      "assetsHarvested": 182,
+      "seconds": 123
+    },
+    "capturedAt": "2026-09-12T05:17:13.063Z"
+  },
+  "designSystem": {
+    "measuredAt": "2026-09-12T05:12:54.716Z (page: A WEEK OF DESIGN, ART & DIGITAL CULTURE · OFFF SEPT 2–3 · FORUM · SEPT 4, 2026 · SAT, MONTRÉAL)",
+    "sources": [
+      "capture inventory (https://hermes.yvon.in/artifacts/novizio/c91139b3-c9bd-4e1b-ba22-8b6f71082e64/_reference-capture/inventory.json)"
+    ],
+    "palette": [
+      {
+        "value": "var(--fg-color)",
+        "usage": "color value present in the capture (role not attributed at thin-extraction depth)",
+        "source": "capture inventory (https://hermes.yvon.in/artifacts/novizio/c91139b3-c9bd-4e1b-ba22-8b6f71082e64/_reference-capture/inventory.json)"
+      },
+      {
+        "value": "var(--bg-color)",
+        "usage": "color value present in the capture (role not attributed at thin-extraction depth)",
+        "source": "capture inventory (https://hermes.yvon.in/artifacts/novizio/c91139b3-c9bd-4e1b-ba22-8b6f71082e64/_reference-capture/inventory.json)"
+      }
+    ],
+    "typography": [
+      {
+        "text": "Font-family values present in the capture (thin extraction — role not attributed): Baikal, Forvm",
+        "source": "capture inventory (https://hermes.yvon.in/artifacts/novizio/c91139b3-c9bd-4e1b-ba22-8b6f71082e64/_reference-capture/inventory.json)"
+      }
+    ],
+    "motion": [
+      {
+        "text": "Media/animation counts measured by the capture relay — videos: , images: [object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object], backgrounds: 0, stylesheets: https://www.offforum.com/_nuxt/entry.CI2s3_W4.css,https://www.offforum.com/_nuxt/section.DVtVxodp.css, inlineStyleTags: 2, animatedRules: 0, pageHeight: 1397",
+        "source": "capture inventory (https://hermes.yvon.in/artifacts/novizio/c91139b3-c9bd-4e1b-ba22-8b6f71082e64/_reference-capture/inventory.json)"
+      }
+    ],
+    "gaps": [
+      "Thin extraction only: this design.md was generated from the capture inventory (regex-grade counts + value lists). Roles, usages, and per-fact sources were NOT analyzed — run the deep extraction to replace this."
+    ]
+  },
+  "intent": {
+    "mode": "identical",
+    "decidedAt": "2026-09-12T05:14:33.112Z"
+  }
+}
